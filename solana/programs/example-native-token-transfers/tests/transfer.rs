@@ -1,4 +1,4 @@
-// #![cfg(feature = "test-sbf")]
+#![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
 use anchor_lang::prelude::{Clock, ErrorCode, Pubkey};
@@ -386,7 +386,7 @@ async fn test_bad_mint() {
     let outbox_item = Keypair::new();
 
     let (mut accs, args) = init_accs_args(
-        &GoodNTT {},
+        &good_ntt,
         &mut ctx,
         &test_data,
         outbox_item.pubkey(),
@@ -398,17 +398,17 @@ async fn test_bad_mint() {
     accs.mint = test_data.bad_mint;
 
     approve_token_authority(
-        &GoodNTT {},
+        &good_ntt,
         &test_data.bad_user_token_account,
         &test_data.user.pubkey(),
-        args.amount,
+        &args,
     )
     .submit_with_signers(&[&test_data.user], &mut ctx)
     .await
     .unwrap();
 
-    let err = transfer(&GoodNTT {}, accs, args, Mode::Locking)
-        .submit_with_signers(&[&test_data.user, &outbox_item], &mut ctx)
+    let err = transfer(&good_ntt, accs, args, Mode::Locking)
+        .submit_with_signers(&[&outbox_item], &mut ctx)
         .await
         .unwrap_err();
 
@@ -430,7 +430,7 @@ async fn test_invalid_peer() {
     impl NTTAccounts for BadNTT {
         fn peer(&self, _chain_id: u16) -> Pubkey {
             // return 'ANOTHER_CHAIN' peer account
-            GoodNTT {}.peer(ANOTHER_CHAIN)
+            good_ntt.peer(ANOTHER_CHAIN)
         }
     }
 
@@ -448,17 +448,17 @@ async fn test_invalid_peer() {
     );
 
     approve_token_authority(
-        &GoodNTT {},
+        &good_ntt,
         &test_data.bad_user_token_account,
         &test_data.user.pubkey(),
-        args.amount,
+        &args,
     )
     .submit_with_signers(&[&test_data.user], &mut ctx)
     .await
     .unwrap();
 
     let err = transfer(&BadNTT {}, accs, args, Mode::Locking)
-        .submit_with_signers(&[&test_data.user, &outbox_item], &mut ctx)
+        .submit_with_signers(&[&outbox_item], &mut ctx)
         .await
         .unwrap_err();
 
