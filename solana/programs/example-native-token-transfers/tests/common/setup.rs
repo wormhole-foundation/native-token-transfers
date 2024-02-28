@@ -242,7 +242,7 @@ pub async fn setup_ntt_with_token_program_id(
     .unwrap();
 
     set_peer(
-        &GoodNTT {},
+        &good_ntt,
         SetPeer {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -295,8 +295,11 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     .await
     .unwrap();
 
-    let bad_user_token_account =
-        get_associated_token_address_with_program_id(&user.pubkey(), &bad_mint.pubkey(), &Token::id());
+    let bad_user_token_account = get_associated_token_address_with_program_id(
+        &user.pubkey(),
+        &bad_mint.pubkey(),
+        &Token::id(),
+    );
 
     spl_associated_token_account::instruction::create_associated_token_account(
         &payer,
@@ -307,7 +310,6 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     .submit(ctx)
     .await
     .unwrap();
-
 
     spl_token::instruction::mint_to(
         &Token::id(),
@@ -357,6 +359,8 @@ pub async fn setup_accounts_with_transfer_fee(
     let mint = Keypair::new();
     let mint_authority = Keypair::new();
 
+    let bad_mint = Keypair::new();
+
     let user = Keypair::new();
     let payer = ctx.payer.pubkey();
 
@@ -383,10 +387,39 @@ pub async fn setup_accounts_with_transfer_fee(
     .await
     .unwrap();
 
+    let bad_user_token_account = get_associated_token_address_with_program_id(
+        &user.pubkey(),
+        &bad_mint.pubkey(),
+        &spl_token_2022::id(),
+    );
+
+    spl_associated_token_account::instruction::create_associated_token_account(
+        &payer,
+        &user.pubkey(),
+        &bad_mint.pubkey(),
+        &spl_token_2022::id(),
+    )
+    .submit(ctx)
+    .await
+    .unwrap();
+
     spl_token_2022::instruction::mint_to(
         &spl_token_2022::id(),
         &mint.pubkey(),
         &user_token_account,
+        &mint_authority.pubkey(),
+        &[],
+        MINT_AMOUNT,
+    )
+    .unwrap()
+    .submit_with_signers(&[&mint_authority], ctx)
+    .await
+    .unwrap();
+
+    spl_token_2022::instruction::mint_to(
+        &spl_token_2022::id(),
+        &bad_mint.pubkey(),
+        &bad_user_token_account,
         &mint_authority.pubkey(),
         &[],
         MINT_AMOUNT,
@@ -403,8 +436,10 @@ pub async fn setup_accounts_with_transfer_fee(
         program_owner,
         mint_authority,
         mint: mint.pubkey(),
+        bad_mint: bad_mint.pubkey(),
         user,
         user_token_account,
+        bad_user_token_account,
     }
 }
 
