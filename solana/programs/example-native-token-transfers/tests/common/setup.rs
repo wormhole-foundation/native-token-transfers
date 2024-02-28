@@ -38,18 +38,23 @@ pub const OUTBOUND_LIMIT: u64 = 10000;
 pub const INBOUND_LIMIT: u64 = 50000;
 
 pub const OTHER_TRANSCEIVER: [u8; 32] = [7u8; 32];
+pub const ANOTHER_TRANSCEIVER: [u8; 32] = [8u8; 32];
 pub const OTHER_MANAGER: [u8; 32] = [9u8; 32];
+pub const ANOTHER_MANAGER: [u8; 32] = [5u8; 32];
 
 pub const THIS_CHAIN: u16 = 1;
 pub const OTHER_CHAIN: u16 = 2;
+pub const ANOTHER_CHAIN: u16 = 3;
 
 pub struct TestData {
     pub governance: Governance,
     pub program_owner: Keypair,
     pub mint_authority: Keypair,
     pub mint: Pubkey,
+    pub bad_mint: Pubkey,
     pub user: Keypair,
     pub user_token_account: Pubkey,
+    pub bad_user_token_account: Pubkey,
 }
 
 pub async fn setup_with_extra_accounts(
@@ -224,11 +229,27 @@ pub async fn setup_ntt_with_token_program_id(
         SetPeer {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
-            mint: test_data.mint,
         },
         SetPeerArgs {
             chain_id: ChainId { id: OTHER_CHAIN },
             address: OTHER_MANAGER,
+            limit: INBOUND_LIMIT,
+            token_decimals: 7,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], ctx)
+    .await
+    .unwrap();
+
+    set_peer(
+        &GoodNTT {},
+        SetPeer {
+            payer: ctx.payer.pubkey(),
+            owner: test_data.program_owner.pubkey(),
+        },
+        SetPeerArgs {
+            chain_id: ChainId { id: ANOTHER_CHAIN },
+            address: ANOTHER_MANAGER,
             limit: INBOUND_LIMIT,
             token_decimals: 7,
         },
@@ -243,10 +264,18 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     let mint = Keypair::new();
     let mint_authority = Keypair::new();
 
+    let bad_mint = Keypair::new();
+
     let user = Keypair::new();
     let payer = ctx.payer.pubkey();
 
     create_mint(ctx, &mint, &mint_authority.pubkey(), 9)
+        .await
+        .submit(ctx)
+        .await
+        .unwrap();
+
+    create_mint(ctx, &bad_mint, &mint_authority.pubkey(), 9)
         .await
         .submit(ctx)
         .await
@@ -266,10 +295,37 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     .await
     .unwrap();
 
+    let bad_user_token_account =
+        get_associated_token_address_with_program_id(&user.pubkey(), &bad_mint.pubkey(), &Token::id());
+
+    spl_associated_token_account::instruction::create_associated_token_account(
+        &payer,
+        &user.pubkey(),
+        &bad_mint.pubkey(),
+        &Token::id(),
+    )
+    .submit(ctx)
+    .await
+    .unwrap();
+
+
     spl_token::instruction::mint_to(
         &Token::id(),
         &mint.pubkey(),
         &user_token_account,
+        &mint_authority.pubkey(),
+        &[],
+        MINT_AMOUNT,
+    )
+    .unwrap()
+    .submit_with_signers(&[&mint_authority], ctx)
+    .await
+    .unwrap();
+
+    spl_token::instruction::mint_to(
+        &Token::id(),
+        &bad_mint.pubkey(),
+        &bad_user_token_account,
         &mint_authority.pubkey(),
         &[],
         MINT_AMOUNT,
@@ -286,8 +342,10 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
         program_owner,
         mint_authority,
         mint: mint.pubkey(),
+        bad_mint: bad_mint.pubkey(),
         user,
         user_token_account,
+        bad_user_token_account,
     }
 }
 
