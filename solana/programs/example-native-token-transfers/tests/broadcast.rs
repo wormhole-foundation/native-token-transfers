@@ -13,6 +13,7 @@ use wormhole_anchor_sdk::wormhole::PostedVaa;
 
 use crate::common::query::GetAccountDataAnchor;
 use crate::common::setup::{setup, OTHER_TRANSCEIVER};
+use crate::sdk::accounts::{good_ntt, NTTAccounts};
 use crate::sdk::transceivers::wormhole::instructions::broadcast_id::{broadcast_id, BroadcastId};
 use crate::{
     common::submit::Submittable,
@@ -24,12 +25,12 @@ pub mod sdk;
 
 #[tokio::test]
 async fn test_broadcast_peer() {
-    let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let (mut ctx, _test_data) = setup(Mode::Locking).await;
 
     let wh_message = Keypair::new();
 
     broadcast_peer(
-        &test_data.ntt,
+        &good_ntt,
         BroadcastPeer {
             payer: ctx.payer.pubkey(),
             wormhole_message: wh_message.pubkey(),
@@ -60,7 +61,7 @@ async fn test_broadcast_id() {
     let wh_message = Keypair::new();
 
     broadcast_id(
-        &test_data.ntt,
+        &good_ntt,
         BroadcastId {
             payer: ctx.payer.pubkey(),
             wormhole_message: wh_message.pubkey(),
@@ -78,7 +79,7 @@ async fn test_broadcast_id() {
     assert_eq!(
         *msg.data(),
         WormholeTransceiverInfo {
-            manager_address: test_data.ntt.program.to_bytes(),
+            manager_address: good_ntt.program().to_bytes(),
             manager_mode: Mode::Locking,
             token_address: test_data.mint.to_bytes(),
             token_decimals: 9,
