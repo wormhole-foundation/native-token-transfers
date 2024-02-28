@@ -1,7 +1,7 @@
-#![cfg(feature = "test-sbf")]
+// #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
-use anchor_lang::prelude::{Clock, Pubkey};
+use anchor_lang::prelude::{Clock, ErrorCode, Pubkey};
 use anchor_spl::token::{Mint, TokenAccount};
 use common::setup::{TestData, OTHER_CHAIN};
 use example_native_token_transfers::{
@@ -26,7 +26,10 @@ use solana_sdk::{
 use wormhole_anchor_sdk::wormhole::PostedVaa;
 
 use crate::{
-    common::{query::GetAccountDataAnchor, setup::OUTBOUND_LIMIT},
+    common::{
+        query::GetAccountDataAnchor,
+        setup::{ANOTHER_CHAIN, OUTBOUND_LIMIT},
+    },
     sdk::{
         accounts::{good_ntt, NTTAccounts},
         instructions::transfer::Transfer,
@@ -374,6 +377,98 @@ async fn locking_mode_locks_tokens() {
     );
 
     assert_eq!(mint_before.supply, mint_after.supply);
+}
+
+#[tokio::test]
+async fn test_bad_mint() {
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    let outbox_item = Keypair::new();
+
+    let (mut accs, args) = init_accs_args(
+        &GoodNTT {},
+        &mut ctx,
+        &test_data,
+        outbox_item.pubkey(),
+        1050,
+        false,
+    );
+
+    // use the wrong mint here
+    accs.mint = test_data.bad_mint;
+
+    approve_token_authority(
+        &GoodNTT {},
+        &test_data.bad_user_token_account,
+        &test_data.user.pubkey(),
+        args.amount,
+    )
+    .submit_with_signers(&[&test_data.user], &mut ctx)
+    .await
+    .unwrap();
+
+    let err = transfer(&GoodNTT {}, accs, args, Mode::Locking)
+        .submit_with_signers(&[&test_data.user, &outbox_item], &mut ctx)
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(ErrorCode::ConstraintAddress.into())
+        )
+    );
+}
+
+#[tokio::test]
+async fn test_invalid_peer() {
+    // in this test we send to 'OTHER_CHAIN' but use the peer account for
+    // 'ANOTHER_CHAIN'.
+    struct BadNTT {}
+
+    impl NTTAccounts for BadNTT {
+        fn peer(&self, _chain_id: u16) -> Pubkey {
+            // return 'ANOTHER_CHAIN' peer account
+            GoodNTT {}.peer(ANOTHER_CHAIN)
+        }
+    }
+
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    let outbox_item = Keypair::new();
+
+    let (accs, args) = init_accs_args(
+        &BadNTT {},
+        &mut ctx,
+        &test_data,
+        outbox_item.pubkey(),
+        1050,
+        false,
+    );
+
+    approve_token_authority(
+        &GoodNTT {},
+        &test_data.bad_user_token_account,
+        &test_data.user.pubkey(),
+        args.amount,
+    )
+    .submit_with_signers(&[&test_data.user], &mut ctx)
+    .await
+    .unwrap();
+
+    let err = transfer(&BadNTT {}, accs, args, Mode::Locking)
+        .submit_with_signers(&[&test_data.user, &outbox_item], &mut ctx)
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(ErrorCode::ConstraintSeeds.into())
+        )
+    );
 }
 
 #[tokio::test]

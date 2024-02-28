@@ -7,7 +7,6 @@ use crate::sdk::accounts::NTT;
 pub struct SetPeer {
     pub payer: Pubkey,
     pub owner: Pubkey,
-    pub mint: Pubkey,
 }
 
 pub fn set_peer(ntt: &NTT, accounts: SetPeer, args: SetPeerArgs) -> Instruction {
