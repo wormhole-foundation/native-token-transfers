@@ -18,7 +18,7 @@ use spl_associated_token_account::get_associated_token_address_with_program_id;
 use wormhole_anchor_sdk::wormhole::{BridgeData, FeeCollector};
 
 use crate::sdk::{
-    accounts::{Governance, Wormhole, NTT},
+    accounts::{good_ntt, Governance, NTTAccounts},
     instructions::{
         admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
         initialize::{initialize_with_token_program_id, Initialize},
@@ -44,7 +44,6 @@ pub const THIS_CHAIN: u16 = 1;
 pub const OTHER_CHAIN: u16 = 2;
 
 pub struct TestData {
-    pub ntt: NTT,
     pub governance: Governance,
     pub program_owner: Keypair,
     pub mint_authority: Keypair,
@@ -162,7 +161,7 @@ pub async fn setup_ntt_with_token_program_id(
         spl_token_2022::instruction::set_authority(
             token_program_id,
             &test_data.mint,
-            Some(&test_data.ntt.token_authority()),
+            Some(&good_ntt.token_authority()),
             spl_token_2022::instruction::AuthorityType::MintTokens,
             &test_data.mint_authority.pubkey(),
             &[],
@@ -174,7 +173,7 @@ pub async fn setup_ntt_with_token_program_id(
     }
 
     initialize_with_token_program_id(
-        &test_data.ntt,
+        &good_ntt,
         Initialize {
             payer: ctx.payer.pubkey(),
             deployer: test_data.program_owner.pubkey(),
@@ -194,7 +193,7 @@ pub async fn setup_ntt_with_token_program_id(
     .unwrap();
 
     register_transceiver(
-        &test_data.ntt,
+        &good_ntt,
         RegisterTransceiver {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -206,7 +205,7 @@ pub async fn setup_ntt_with_token_program_id(
     .unwrap();
 
     set_transceiver_peer(
-        &test_data.ntt,
+        &good_ntt,
         SetTransceiverPeer {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -221,7 +220,7 @@ pub async fn setup_ntt_with_token_program_id(
     .unwrap();
 
     set_peer(
-        &test_data.ntt,
+        &good_ntt,
         SetPeer {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -281,12 +280,6 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     .unwrap();
 
     TestData {
-        ntt: NTT {
-            program: example_native_token_transfers::ID,
-            wormhole: Wormhole {
-                program: wormhole_anchor_sdk::wormhole::program::ID,
-            },
-        },
         governance: Governance {
             program: wormhole_governance::ID,
         },
@@ -346,12 +339,6 @@ pub async fn setup_accounts_with_transfer_fee(
     .unwrap();
 
     TestData {
-        ntt: NTT {
-            program: example_native_token_transfers::ID,
-            wormhole: Wormhole {
-                program: wormhole_anchor_sdk::wormhole::program::ID,
-            },
-        },
         governance: Governance {
             program: wormhole_governance::ID,
         },
