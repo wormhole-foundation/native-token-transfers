@@ -9,7 +9,7 @@
 //! instruction is able to invoke the program's admin instructions.
 //!
 //! The instruction needs to be encoded in the VAA payload, with all the
-//! accounts. These accounts may be in any order, with two placeholder accounts:
+//! accounts. These accounts may be in any order and may include two additional placeholder accounts:
 //! - [`OWNER`]: the program will replace this account with the governance PDA
 //! - [`PAYER`]: the program will replace this account with the payer account
 use std::io;
@@ -452,6 +452,13 @@ impl From<AccountMeta> for Acc {
     }
 }
 
+/// Processes a VAA [wormhole_anchor_sdk::wormhole::PostedVaa] sent to this program via a Guardian set.
+/// The VAA's payload contains an instruction and relevant Accounts that it requires. This program
+/// performs verification of the VAA's contents and then performs a Cross Program Invocation if all
+/// verification succeeds.
+/// NOTE: The VAA instruction may contain placeholder accounts with Pubkeys set to hard-coded values [OWNER] and [PAYER].
+/// These keys are overwritten. Because they are placeholders, we do not need to enforce e.g.
+///  ownership checks.
 pub fn governance<'info>(ctx: Context<'_, '_, '_, 'info, Governance<'info>>) -> Result<()> {
     let vaa_data = ctx.accounts.vaa.data();
 
@@ -461,6 +468,12 @@ pub fn governance<'info>(ctx: Context<'_, '_, '_, 'info, Governance<'info>>) -> 
         bump: ctx.bumps.replay,
     });
 
+    // Iterate over a copy of all accounts provided in the VAA payload.
+    // If the Pubkey for an account is equal to the hard-coded OWNER constant, overwrite with the
+    // governance program's Pubkey.
+    // If the Pubkey for an account is equal to the hard-coded PAYER constant, overwrite with the
+    // payer program account's pubkey. (This must also be the Signer for the creator of the
+    // Governance account.)
     instruction.accounts.iter_mut().for_each(|acc| {
         if acc.pubkey == OWNER {
             acc.pubkey = ctx.accounts.governance.key();

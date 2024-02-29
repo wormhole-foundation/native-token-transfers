@@ -32,7 +32,7 @@ pub struct ReleaseInbound<'info> {
         seeds = [crate::TOKEN_AUTHORITY_SEED],
         bump,
     )]
-    /// CHECK The seeds constraint ensures that this is the correct address
+    /// CHECK: The seeds constraint ensures that this is the correct address
     pub token_authority: UncheckedAccount<'info>,
 
     #[account(
@@ -81,6 +81,8 @@ pub struct ReleaseInboundMint<'info> {
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`] in a transaction, so that the minting
 /// is attempted optimistically.
+/// SECURITY: Signer checks are disabled here because anyone is permitted to send a release
+/// transaction.
 pub fn release_inbound_mint<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundMint<'info>>,
     args: ReleaseInboundArgs,
@@ -215,6 +217,8 @@ pub struct ReleaseInboundUnlock<'info> {
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`], so that the unlocking
 /// is attempted optimistically.
+/// SECURITY: Signer checks are disabled here because anyone is permitted to send a release
+/// transaction.
 pub fn release_inbound_unlock<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundUnlock<'info>>,
     args: ReleaseInboundArgs,

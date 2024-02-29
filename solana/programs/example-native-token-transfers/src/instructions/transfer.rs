@@ -152,6 +152,8 @@ pub struct TransferBurn<'info> {
     pub token_authority: UncheckedAccount<'info>,
 }
 
+/// Burns tokens and issues a corresponding notification to the outbox of the
+/// connected [`NttManagerPeer`].
 pub fn transfer_burn<'info>(
     ctx: Context<'_, '_, '_, 'info, TransferBurn<'info>>,
     args: TransferArgs,
@@ -250,9 +252,7 @@ pub fn transfer_burn<'info>(
         recipient_ntt_manager,
         recipient_address,
         should_queue,
-    )?;
-
-    Ok(())
+    )
 }
 
 // Lock/unlock
@@ -293,6 +293,9 @@ pub struct TransferLock<'info> {
     pub session_authority: UncheckedAccount<'info>,
 }
 
+/// Locks tokens and issues a corresponding notification to the outbox of the
+/// connected [`NttManagerPeer`].
+#[allow(unknown_lints)]
 pub fn transfer_lock<'info>(
     ctx: Context<'_, '_, '_, 'info, TransferLock<'info>>,
     args: TransferArgs,

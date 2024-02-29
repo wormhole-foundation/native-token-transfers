@@ -39,6 +39,9 @@ pub struct BroadcastPeerArgs {
     pub chain_id: u16,
 }
 
+/// SECURITY: Owner checks are disabled. [`BroadcastPeer::emitter`] is enforced to be a PDA.
+#[allow(unknown_lints)]
+#[allow(missing_owner_check)]
 pub fn broadcast_peer(ctx: Context<BroadcastPeer>, args: BroadcastPeerArgs) -> Result<()> {
     let accs = ctx.accounts;
 

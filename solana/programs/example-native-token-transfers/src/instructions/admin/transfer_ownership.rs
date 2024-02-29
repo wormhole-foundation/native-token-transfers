@@ -32,6 +32,9 @@ pub struct TransferOwnership<'info> {
     pub owner: Signer<'info>,
 
     /// CHECK: This account will be the signer in the [claim_ownership] instruction.
+    // new_owner is not expected to interact with this instruction. Instead, they call [`claim_ownership`].
+    // The intention of new_owner is that it could be an arbitrary account so no constraints are
+    // required here.
     new_owner: UncheckedAccount<'info>,
 
     #[account(
