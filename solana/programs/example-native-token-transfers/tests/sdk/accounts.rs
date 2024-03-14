@@ -108,17 +108,13 @@ pub trait NTTAccounts {
         } = args;
         let mut hasher = Keccak256::new();
 
-        hasher.update(&amount.to_be_bytes());
-        hasher.update(&recipient_chain.id.to_be_bytes());
-        hasher.update(&recipient_address);
-        hasher.update(&[*should_queue as u8]);
+        hasher.update(amount.to_be_bytes());
+        hasher.update(recipient_chain.id.to_be_bytes());
+        hasher.update(recipient_address);
+        hasher.update([*should_queue as u8]);
 
         let (session_authority, _) = Pubkey::find_program_address(
-            &[
-                SESSION_AUTHORITY_SEED.as_ref(),
-                sender.as_ref(),
-                &hasher.finalize(),
-            ],
+            &[SESSION_AUTHORITY_SEED, sender.as_ref(), &hasher.finalize()],
             &self.program(),
         );
         session_authority
@@ -142,7 +138,7 @@ pub trait NTTAccounts {
 
     fn token_authority(&self) -> Pubkey {
         let (token_authority, _) =
-            Pubkey::find_program_address(&[TOKEN_AUTHORITY_SEED.as_ref()], &self.program());
+            Pubkey::find_program_address(&[TOKEN_AUTHORITY_SEED], &self.program());
         token_authority
     }
 
