@@ -75,8 +75,8 @@ pub struct ReleaseInboundMint<'info> {
 }
 
 /// Release an inbound transfer and mint the tokens to the recipient.
-/// When `revert_on_error` is true, the transaction will revert if the
-/// release timestamp has not been reached. When `revert_on_error` is false, the
+/// When `revert_on_delay` is true, the transaction will revert if the
+/// release timestamp has not been reached. When `revert_on_delay` is false, the
 /// transaction succeeds, but the minting is not performed.
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`] in a transaction, so that the minting
@@ -206,8 +206,8 @@ pub struct ReleaseInboundUnlock<'info> {
 }
 
 /// Release an inbound transfer and unlock the tokens to the recipient.
-/// When `revert_on_error` is true, the transaction will revert if the
-/// release timestamp has not been reached. When `revert_on_error` is false, the
+/// When `revert_on_delay` is true, the transaction will revert if the
+/// release timestamp has not been reached. When `revert_on_delay` is false, the
 /// transaction succeeds, but the unlocking is not performed.
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`], so that the unlocking
