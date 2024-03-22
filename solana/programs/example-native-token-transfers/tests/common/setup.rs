@@ -623,6 +623,8 @@ pub fn add_program_upgradeable(
     };
 
     let program_file = find_file(&format!("{program_name}.so"));
+
+    #[allow(clippy::panic)]
     match (prefer_bpf(), program_file) {
         // If SBF is preferred (i.e., `test-sbf` is invoked) and a BPF shared object exists,
         // use that as the program data.
