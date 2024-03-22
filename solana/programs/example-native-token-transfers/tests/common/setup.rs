@@ -51,6 +51,7 @@ pub struct TestData {
     pub program_owner: Keypair,
     pub mint_authority: Keypair,
     pub mint: Pubkey,
+    pub bad_mint_authority: Keypair,
     pub bad_mint: Pubkey,
     pub user: Keypair,
     pub user_token_account: Pubkey,
@@ -265,6 +266,7 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     let mint_authority = Keypair::new();
 
     let bad_mint = Keypair::new();
+    let bad_mint_authority = Keypair::new();
 
     let user = Keypair::new();
     let payer = ctx.payer.pubkey();
@@ -275,7 +277,7 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
         .await
         .unwrap();
 
-    create_mint(ctx, &bad_mint, &mint_authority.pubkey(), 9)
+    create_mint(ctx, &bad_mint, &bad_mint_authority.pubkey(), 9)
         .await
         .submit(ctx)
         .await
@@ -328,12 +330,12 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
         &Token::id(),
         &bad_mint.pubkey(),
         &bad_user_token_account,
-        &mint_authority.pubkey(),
+        &bad_mint_authority.pubkey(),
         &[],
         MINT_AMOUNT,
     )
     .unwrap()
-    .submit_with_signers(&[&mint_authority], ctx)
+    .submit_with_signers(&[&bad_mint_authority], ctx)
     .await
     .unwrap();
 
@@ -344,6 +346,7 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
         program_owner,
         mint_authority,
         mint: mint.pubkey(),
+        bad_mint_authority,
         bad_mint: bad_mint.pubkey(),
         user,
         user_token_account,
