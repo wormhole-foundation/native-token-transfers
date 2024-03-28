@@ -54,7 +54,7 @@ pub struct ReleaseInbound<'info> {
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ReleaseInboundArgs {
-    pub revert_on_delay: bool,
+    pub revert_when_not_ready: bool,
 }
 
 // Burn/mint
@@ -75,8 +75,8 @@ pub struct ReleaseInboundMint<'info> {
 }
 
 /// Release an inbound transfer and mint the tokens to the recipient.
-/// When `revert_on_delay` is true, the transaction will revert if the
-/// release timestamp has not been reached. When `revert_on_delay` is false, the
+/// When `revert_when_not_ready` is true, the transaction will revert if the
+/// release timestamp has not been reached. When `revert_when_not_ready` is false, the
 /// transaction succeeds, but the minting is not performed.
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`] in a transaction, so that the minting
@@ -85,7 +85,10 @@ pub fn release_inbound_mint<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundMint<'info>>,
     args: ReleaseInboundArgs,
 ) -> Result<()> {
-    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+    let inbox_item = release_inbox_item(
+        &mut ctx.accounts.common.inbox_item,
+        args.revert_when_not_ready,
+    )?;
     if inbox_item.is_none() {
         return Ok(());
     }
@@ -206,8 +209,8 @@ pub struct ReleaseInboundUnlock<'info> {
 }
 
 /// Release an inbound transfer and unlock the tokens to the recipient.
-/// When `revert_on_delay` is true, the transaction will revert if the
-/// release timestamp has not been reached. When `revert_on_delay` is false, the
+/// When `revert_when_not_ready` is true, the transaction will revert if the
+/// release timestamp has not been reached. When `revert_when_not_ready` is false, the
 /// transaction succeeds, but the unlocking is not performed.
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`], so that the unlocking
@@ -216,7 +219,10 @@ pub fn release_inbound_unlock<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundUnlock<'info>>,
     args: ReleaseInboundArgs,
 ) -> Result<()> {
-    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+    let inbox_item = release_inbox_item(
+        &mut ctx.accounts.common.inbox_item,
+        args.revert_when_not_ready,
+    )?;
     if inbox_item.is_none() {
         return Ok(());
     }
@@ -242,12 +248,18 @@ pub fn release_inbound_unlock<'info>(
 
 fn release_inbox_item(
     inbox_item: &mut InboxItem,
-    revert_on_delay: bool,
+    revert_when_not_ready: bool,
 ) -> Result<Option<&mut InboxItem>> {
     if inbox_item.try_release()? {
         Ok(Some(inbox_item))
-    } else if revert_on_delay {
-        Err(NTTError::CantReleaseYet.into())
+    } else if revert_when_not_ready {
+        match inbox_item.release_status {
+            ReleaseStatus::NotApproved => Err(NTTError::TransferNotApproved.into()),
+            ReleaseStatus::ReleaseAfter(_) => Err(NTTError::CantReleaseYet.into()),
+            // Unreachable: if released, [`InboxItem::try_release`] will return an Error immediately
+            // rather than Ok(bool).
+            ReleaseStatus::Released => Err(NTTError::TransferAlreadyRedeemed.into()),
+        }
     } else {
         Ok(None)
     }

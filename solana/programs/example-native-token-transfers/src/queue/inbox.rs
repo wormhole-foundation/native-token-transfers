@@ -51,7 +51,7 @@ impl InboxItem {
         let now = current_timestamp();
 
         match self.release_status {
-            ReleaseStatus::NotApproved => Err(NTTError::TransferNotApproved.into()),
+            ReleaseStatus::NotApproved => Ok(false),
             ReleaseStatus::ReleaseAfter(release_timestamp) => {
                 if release_timestamp > now {
                     return Ok(false);
