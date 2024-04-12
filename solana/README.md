@@ -144,6 +144,21 @@ Run the following command to install necessary dependencies and to build the pro
 make build
 ```
 
+For building the mainnet binaries, the only requirements are `docker` and `make`:
+
+```sh
+make artifacts-mainnet
+```
+
+which will produce the object files into the `artifacts-mainnet` directory. This is the recommended way of building the binaries as it results in deterministic builds.
+
+For Solana devnet builds, or local testing builds, use the following commands:
+
+```sh
+make artifacts-solana-devnet
+make artifacts-tilt-devnet
+```
+
 ### Test
 
 Run the following command to generate the IDL and run the full Solana test-suite:
