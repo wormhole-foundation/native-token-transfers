@@ -1,5 +1,5 @@
 .DEFAULT_GOAL = build
-.PHONY: build cargo-build anchor-build prod-build test cargo-test anchor-test idl sdk clean node_modules lint cargo-lint anchor-lint fix-lint
+.PHONY: build cargo-build anchor-build prod-build artifacts-mainnet artifacts-solana-devnet artifacts-tilt-devnet _artifacts test cargo-test anchor-test idl sdk clean node_modules lint cargo-lint anchor-lint fix-lint
 
 # Find and convert version line:
 #  Turn `const VERSION: &str = "major.minor.patch";` into `major_minor_patch`
@@ -29,6 +29,24 @@ anchor-build:
 
 prod-build:
 	anchor build --verifiable
+
+artifacts-mainnet: NETWORK=mainnet
+artifacts-mainnet: _artifacts
+	mv _artifacts $@
+
+artifacts-solana-devnet: NETWORK=solana-devnet
+artifacts-solana-devnet: _artifacts
+	mv _artifacts $@
+
+artifacts-tilt-devnet: NETWORK=tilt-devnet
+artifacts-tilt-devnet: _artifacts
+	mv _artifacts $@
+
+_artifacts:
+	rm -rf $@
+	DOCKER_BUILDKIT=1 cd .. && docker build -f solana/Dockerfile --build-arg="SOLANA_NETWORK=$(NETWORK)" -t export -o solana/$@ .
+	@cd $@ && ls | xargs sha256sum > checksums.txt
+	@cat $@/checksums.txt
 
 idl: anchor-build
 	@echo "IDL Version: $(VERSION)"

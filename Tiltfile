@@ -12,7 +12,7 @@ docker_build(
     context = "./",
     only = ["./sdk", "./solana"],
     ignore=["./sdk/__tests__", "./sdk/Dockerfile", "./sdk/ci.yaml", "./sdk/**/dist", "./sdk/node_modules", "./sdk/**/node_modules"],
-    target = "builder",
+    target = "dev-builder",
     dockerfile = "./solana/Dockerfile",
 )
 docker_build(
@@ -44,7 +44,7 @@ docker_build(
     only=["./sdk", "./package.json", "./package-lock.json", "jest.config.ts", "tsconfig.json", "tsconfig.esm.json", "tsconfig.cjs.json", "tsconfig.test.json"],
     dockerfile = "./sdk/Dockerfile",
 )
-k8s_yaml_with_ns("./sdk/ci.yaml") 
+k8s_yaml_with_ns("./sdk/ci.yaml")
 k8s_resource(
     "ntt-ci-tests",
     labels = ["ntt"],
