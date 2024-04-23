@@ -52,3 +52,20 @@ COPY --from=builder /usr/src/solana/tsconfig.esm.json /usr/src/solana/tsconfig.e
 COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.cjs.json
 COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl 
 COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types
+
+FROM node:lts-alpine3.19@sha256:ec0c413b1d84f3f7f67ec986ba885930c57b5318d2eb3abc6960ee05d4f2eb28 as governance
+
+WORKDIR /app
+
+# RUN apk add python3
+RUN apk add make python3 gcc g++
+
+COPY tsconfig.json tsconfig.json
+COPY package.json package.json
+COPY package-lock.json package-lock.json
+RUN npm ci
+
+COPY idl idl
+COPY ts ts
+
+ENTRYPOINT [ "npx", "ts-node", "-T" ]
