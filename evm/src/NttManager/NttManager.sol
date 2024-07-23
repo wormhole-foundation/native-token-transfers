@@ -198,28 +198,12 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         );
     }
 
-    /// @inheritdoc INttManager
-    function attestationReceived(
-        uint16 sourceChainId,
-        bytes32 sourceNttManagerAddress,
-        TransceiverStructs.NttManagerMessage memory payload
-    ) external onlyTransceiver whenNotPaused {
-        _verifyPeer(sourceChainId, sourceNttManagerAddress);
-
-        // Compute manager message digest and record transceiver attestation.
-        bytes32 nttManagerMessageHash = _recordTransceiverAttestation(sourceChainId, payload);
-
-        if (isMessageApproved(nttManagerMessageHash)) {
-            executeMsg(sourceChainId, sourceNttManagerAddress, payload);
-        }
-    }
-
-    /// @inheritdoc INttManager
+    /// @inheritdoc IManagerBase
     function executeMsg(
         uint16 sourceChainId,
         bytes32 sourceNttManagerAddress,
         TransceiverStructs.NttManagerMessage memory message
-    ) public whenNotPaused {
+    ) public override whenNotPaused {
         (bytes32 digest, bool alreadyExecuted) =
             _isMessageExecuted(sourceChainId, sourceNttManagerAddress, message);
 
@@ -671,7 +655,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     // ==================== Internal Helpers ===============================================
 
     /// @dev Verify that the peer address saved for `sourceChainId` matches the `peerAddress`.
-    function _verifyPeer(uint16 sourceChainId, bytes32 peerAddress) internal view {
+    function _verifyPeer(uint16 sourceChainId, bytes32 peerAddress) internal view override {
         if (_getPeersStorage()[sourceChainId].peerAddress != peerAddress) {
             revert InvalidPeer(sourceChainId, peerAddress);
         }

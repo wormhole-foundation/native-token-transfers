@@ -89,6 +89,21 @@ abstract contract ManagerBase is
 
     // =============== External Logic =============================================================
 
+    function attestationReceived(
+        uint16 sourceChainId,
+        bytes32 sourceNttManagerAddress,
+        TransceiverStructs.NttManagerMessage memory payload
+    ) external onlyTransceiver whenNotPaused {
+        _verifyPeer(sourceChainId, sourceNttManagerAddress);
+
+        // Compute manager message digest and record transceiver attestation.
+        bytes32 nttManagerMessageHash = _recordTransceiverAttestation(sourceChainId, payload);
+
+        if (isMessageApproved(nttManagerMessageHash)) {
+            this.executeMsg(sourceChainId, sourceNttManagerAddress, payload);
+        }
+    }
+
     /// @inheritdoc IManagerBase
     function quoteDeliveryPrice(
         uint16 recipientChain,
@@ -403,6 +418,8 @@ abstract contract ManagerBase is
     }
 
     // =============== Internal ==============================================================
+
+    function _verifyPeer(uint16 sourceChainId, bytes32 peerAddress) internal virtual;
 
     function _setTransceiverAttestedToMessage(bytes32 digest, uint8 index) internal {
         _getMessageAttestationsStorage()[digest].attestedTransceivers |= uint64(1 << index);
