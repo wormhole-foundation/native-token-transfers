@@ -63,7 +63,7 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
         vm.chainId(chainId1);
         DummyToken t1 = new DummyToken();
         NttManager implementation = new MockNttManagerContract(
-            address(t1), IManagerBase.Mode.LOCKING, chainId1, 1 days, false
+            address(t1), INttManager.Mode.LOCKING, chainId1, 1 days, false
         );
 
         nttManagerChain1 =
@@ -95,7 +95,7 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
         vm.chainId(chainId2);
         DummyToken t2 = new DummyTokenMintAndBurn();
         NttManager implementationChain2 = new MockNttManagerContract(
-            address(t2), IManagerBase.Mode.BURNING, chainId2, 1 days, false
+            address(t2), INttManager.Mode.BURNING, chainId2, 1 days, false
         );
 
         nttManagerChain2 =

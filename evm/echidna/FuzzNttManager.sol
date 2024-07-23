@@ -20,7 +20,7 @@ contract FuzzNttManager is FuzzingHelpers {
     uint64[] queuedOutboundTransfersArray;
     mapping(uint64 => bool) queuedOutboundTransfers;
     mapping(uint256 => bool) executedQueuedOutboundTransfers;
-    
+
     // Keep track of transceiver state
     uint256 numRegisteredTransceivers;
     uint256 numEnabledTransceivers;
@@ -41,7 +41,7 @@ contract FuzzNttManager is FuzzingHelpers {
     constructor() {
         _initialManagerSetup();
         _generateMultipleTransceiverInstructions(numTransceiverInstructions);
-        
+
         dummyToken.mintDummy(address(this), type(uint256).max);
         IERC20(dummyToken).approve(address(nttManager), type(uint256).max);
     }
@@ -50,7 +50,7 @@ contract FuzzNttManager is FuzzingHelpers {
         INttManager.NttManagerPeer memory peer = nttManager.getPeer(recipientChainId);
 
         randomAddress = clampBetween(randomAddress, 1, type(uint256).max);
-        bytes32 validAddress = bytes32(randomAddress);     
+        bytes32 validAddress = bytes32(randomAddress);
 
         uint8 decimals = ERC20(dummyToken).decimals();
         uint8 minDecimals =  minUint8(8, minUint8(decimals, peer.tokenDecimals));
@@ -58,7 +58,7 @@ contract FuzzNttManager is FuzzingHelpers {
         amount = clampBetween(amount, 10 ** (decimals - minDecimals), type(uint64).max * 10 ** (decimals - minUint8(8, decimals)));
         amount = TrimmedAmountLib.scale(amount, decimals, minDecimals);
         amount = TrimmedAmountLib.scale(amount, minDecimals, decimals);
-        
+
 
         uint256 nttManagerBalanceBefore = IERC20(dummyToken).balanceOf(address(nttManager));
         uint256 thisAddressBalanceBefore = IERC20(dummyToken).balanceOf(address(this));
@@ -103,7 +103,7 @@ contract FuzzNttManager is FuzzingHelpers {
                     errorSelector == selectorToUint(IManagerBase.PeerNotRegistered.selector),
                     "NttManager: transfer expected to fail if sending to an unset peer"
                 );
-            } 
+            }
             else {
                 assertWithMsg(
                     false,
@@ -199,7 +199,7 @@ contract FuzzNttManager is FuzzingHelpers {
 
     function transferShouldQueueProperly(uint256 amount, uint16 recipientChainId, bytes32 recipient, bool shouldQueue) public {
         INttManager.NttManagerPeer memory peer = nttManager.getPeer(recipientChainId);
-        
+
         uint8 decimals = ERC20(dummyToken).decimals();
         uint8 minDecimals =  minUint8(8, minUint8(decimals, peer.tokenDecimals));
 
@@ -334,7 +334,7 @@ contract FuzzNttManager is FuzzingHelpers {
 
         uint256 currentOutboundCapacity = nttManager.getCurrentOutboundCapacity();
         uint64 nextMessageSequence = nttManager.nextMessageSequence();
-        
+
         try nttManager.transfer(amount, recipientChainId, recipient, recipient, shouldQueue, encodedInstructions) {
             // If we queued, we should have an item in the queue
             if ((shouldQueue && amount > currentOutboundCapacity)) {
@@ -383,7 +383,7 @@ contract FuzzNttManager is FuzzingHelpers {
                 );
             }
             else if (errorSelector == selectorToUint(TransceiverStructs.InvalidInstructionIndex.selector)) {
-                TransceiverStructs.TransceiverInstruction[] memory instructions = 
+                TransceiverStructs.TransceiverInstruction[] memory instructions =
                     TransceiverStructs.parseTransceiverInstructions(encodedInstructions, numRegisteredTransceivers);
                 for (uint256 i = 0; i < instructions.length; ++i) {
                     if (instructions[i].index < numRegisteredTransceivers) {
@@ -409,7 +409,7 @@ contract FuzzNttManager is FuzzingHelpers {
         }
 
         IRateLimiter.OutboundQueuedTransfer memory queuedTransfer = nttManager.getOutboundQueuedTransfer(messageSequence);
-        
+
         warpTime = clampBetween(warpTime, 0, 365 days);
         uint64 newTimestamp = uint64(block.timestamp + warpTime); // We can safely cast here as the warp is clamped
         hevm.warp(newTimestamp);
@@ -452,7 +452,7 @@ contract FuzzNttManager is FuzzingHelpers {
                 );
             }
             else if (errorSelector == selectorToUint(TransceiverStructs.InvalidInstructionIndex.selector)) {
-                TransceiverStructs.TransceiverInstruction[] memory instructions = 
+                TransceiverStructs.TransceiverInstruction[] memory instructions =
                     TransceiverStructs.parseTransceiverInstructions(queuedTransfer.transceiverInstructions, numRegisteredTransceivers);
                 for (uint256 i = 0; i < instructions.length; ++i) {
                     if (instructions[i].index < numRegisteredTransceivers) {
@@ -544,7 +544,7 @@ contract FuzzNttManager is FuzzingHelpers {
         }
         catch (bytes memory revertData) {
             uint256 errorSelector = extractErrorSelector(revertData);
-            
+
             if (peerChainId == 0) {
                 assertWithMsg(
                     errorSelector == selectorToUint(INttManager.InvalidPeerChainIdZero.selector),
@@ -589,7 +589,7 @@ contract FuzzNttManager is FuzzingHelpers {
     function setOutboundLimit(uint256 limit, bool clampLimit) public {
         uint8 localDecimals = ERC20(dummyToken).decimals();
         if (clampLimit) limit = clampBetween(limit, 0, type(uint64).max * 10 ** (localDecimals - minUint8(8, localDecimals)));
-        
+
         try nttManager.setOutboundLimit(limit) {
 
         }
@@ -613,7 +613,7 @@ contract FuzzNttManager is FuzzingHelpers {
     function setInboundLimit(uint256 limit, uint16 chainId, bool clampLimit) public {
         uint8 localDecimals = ERC20(dummyToken).decimals();
         if (clampLimit) limit = clampBetween(limit, 0, type(uint64).max * 10 ** (localDecimals - minUint8(8, localDecimals)));
-        
+
         try nttManager.setInboundLimit(limit, chainId) {
 
         }
@@ -636,7 +636,7 @@ contract FuzzNttManager is FuzzingHelpers {
 
     function setTransceiver(bool newTransceiver, uint256 transceiverIndex) public {
         address transceiver;
-        
+
         if (newTransceiver) {
             DummyTransceiver newDummyTransceiver = new DummyTransceiver(address(nttManager));
             transceiver = address(newDummyTransceiver);
@@ -645,7 +645,7 @@ contract FuzzNttManager is FuzzingHelpers {
             transceiverIndex = clampBetween(transceiverIndex, 0, registeredTransceivers.length - 1);
             transceiver = registeredTransceivers[transceiverIndex];
         }
-        
+
         try nttManager.setTransceiver(transceiver) {
             // We only set these if the transceiver wasn't registered before
             if (!isTransceiverRegistered[transceiver]) {
@@ -689,7 +689,7 @@ contract FuzzNttManager is FuzzingHelpers {
 
     function removeTransceiver(bool registeredTransceiver, uint256 transceiverIndex) public {
         address transceiver;
-        
+
         if (registeredTransceiver) {
             transceiverIndex = clampBetween(transceiverIndex, 0, registeredTransceivers.length - 1);
             transceiver = registeredTransceivers[transceiverIndex];
@@ -772,7 +772,7 @@ contract FuzzNttManager is FuzzingHelpers {
         // Deploy an NTT token
         dummyToken = new DummyToken();
         // Deploy an implementation of the manager
-        NttManager implementation = new NttManager(address(dummyToken), IManagerBase.Mode.LOCKING, 1, 1 days, false);
+        NttManager implementation = new NttManager(address(dummyToken), INttManager.Mode.LOCKING, 1, 1 days, false);
         // Place the manager behind a proxy
         nttManager = NttManager(address(new ERC1967Proxy(address(implementation), "")));
         // Initialize the proxy
@@ -793,7 +793,7 @@ contract FuzzNttManager is FuzzingHelpers {
     function _generateTransceiverInstructions(bool isOrdered, uint256 seed) internal {
         bytes memory encodedInstructions;
         uint256 numInstructions = clampBetween(_psuedoRandomNumber(seed), 0, type(uint8).max);
-        
+
         TransceiverStructs.TransceiverInstruction[] memory instructions = new TransceiverStructs.TransceiverInstruction[](numInstructions);
 
         uint256 previousIndex = 0;

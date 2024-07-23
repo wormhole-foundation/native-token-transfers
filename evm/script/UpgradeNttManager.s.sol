@@ -47,9 +47,9 @@ contract UpgradeNttManager is ParseNttConfig {
         // Mode.
         uint8 mode = uint8(vm.envUint("RELEASE_MODE"));
         if (mode == 0) {
-            params.mode = IManagerBase.Mode.LOCKING;
+            params.mode = INttManager.Mode.LOCKING;
         } else if (mode == 1) {
-            params.mode = IManagerBase.Mode.BURNING;
+            params.mode = INttManager.Mode.BURNING;
         } else {
             revert("Invalid mode");
         }

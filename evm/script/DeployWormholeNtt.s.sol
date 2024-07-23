@@ -14,7 +14,7 @@ interface IWormhole {
 }
 
 contract DeployWormholeNtt is Script, DeployWormholeNttBase {
-    function run(address wormhole, address token, uint8 decimals, IManagerBase.Mode mode) public {
+    function run(address wormhole, address token, uint8 decimals, INttManager.Mode mode) public {
         vm.startBroadcast();
 
         console.log("Deploying Wormhole Ntt...");

@@ -55,13 +55,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
         guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
 
         DummyToken t = new DummyToken();
-        NttManager implementation = new MockNttManagerContract(
-            address(t), IManagerBase.Mode.LOCKING, chainId, 1 days, false
-        );
+        NttManager implementation =
+            new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, chainId, 1 days, false);
 
-        NttManager otherImplementation = new MockNttManagerContract(
-            address(t), IManagerBase.Mode.LOCKING, chainId, 1 days, false
-        );
+        NttManager otherImplementation =
+            new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, chainId, 1 days, false);
 
         nttManager = MockNttManagerContract(address(new ERC1967Proxy(address(implementation), "")));
         nttManager.initialize();
@@ -101,7 +99,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
     function test_disabledRateLimiter() public {
         DummyToken t = new DummyToken();
         NttManager implementation =
-            new MockNttManagerContract(address(t), IManagerBase.Mode.LOCKING, chainId, 0, true);
+            new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, chainId, 0, true);
 
         nttManagerZeroRateLimiter =
             MockNttManagerContract(address(new ERC1967Proxy(address(implementation), "")));
@@ -263,9 +261,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
     // === deployment with invalid token
     function test_brokenToken() public {
         DummyToken t = new DummyTokenBroken();
-        NttManager implementation = new MockNttManagerContract(
-            address(t), IManagerBase.Mode.LOCKING, chainId, 1 days, false
-        );
+        NttManager implementation =
+            new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, chainId, 1 days, false);
 
         NttManager newNttManager =
             MockNttManagerContract(address(new ERC1967Proxy(address(implementation), "")));
@@ -345,9 +342,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         // only transceivers whose nttManager is us can be registered? (this would be
         // a convenience check, not a security one)
         DummyToken t = new DummyToken();
-        NttManager altNttManager = new MockNttManagerContract(
-            address(t), IManagerBase.Mode.LOCKING, chainId, 1 days, false
-        );
+        NttManager altNttManager =
+            new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, chainId, 1 days, false);
         DummyTransceiver e = new DummyTransceiver(address(altNttManager));
         nttManager.setTransceiver(address(e));
     }
@@ -355,7 +351,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
     function test_noEnabledTransceivers() public {
         DummyToken token = new DummyToken();
         NttManager implementation = new MockNttManagerContract(
-            address(token), IManagerBase.Mode.LOCKING, chainId, 1 days, false
+            address(token), INttManager.Mode.LOCKING, chainId, 1 days, false
         );
 
         MockNttManagerContract newNttManager =
@@ -973,7 +969,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
     function test_noAutomaticSlot() public {
         DummyToken t = new DummyToken();
         MockNttManagerContract c =
-            new MockNttManagerContract(address(t), IManagerBase.Mode.LOCKING, 1, 1 days, false);
+            new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, 1, 1 days, false);
         assertEq(c.lastSlot(), 0x0);
     }
 
@@ -982,7 +978,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         vm.startStateDiffRecording();
 
-        new MockNttManagerContract(address(t), IManagerBase.Mode.LOCKING, 1, 1 days, false);
+        new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, 1, 1 days, false);
 
         Utils.assertSafeUpgradeableConstructor(vm.stopAndReturnStateDiff());
     }
@@ -1091,7 +1087,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         // Step 2 (upgrade to a new nttManager)
         MockNttManagerContract newNttManager = new MockNttManagerContract(
-            nttManager.token(), IManagerBase.Mode.LOCKING, chainId, 1 days, false
+            nttManager.token(), INttManager.Mode.LOCKING, chainId, 1 days, false
         );
         nttManagerOther.upgrade(address(newNttManager));
 
@@ -1116,9 +1112,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         DummyTokenMintAndBurn t =
             DummyTokenMintAndBurn(address(new ERC1967Proxy(address(dummy1), "")));
 
-        NttManager implementation = new MockNttManagerContract(
-            address(t), IManagerBase.Mode.LOCKING, chainId, 1 days, false
-        );
+        NttManager implementation =
+            new MockNttManagerContract(address(t), INttManager.Mode.LOCKING, chainId, 1 days, false);
 
         MockNttManagerContract newNttManager =
             MockNttManagerContract(address(new ERC1967Proxy(address(implementation), "")));

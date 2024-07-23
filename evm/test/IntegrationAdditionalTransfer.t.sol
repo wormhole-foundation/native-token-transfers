@@ -64,7 +64,7 @@ contract TestAdditionalPayload is Test {
         vm.chainId(chainId1);
         DummyToken t1 = new DummyToken();
         NttManagerNoRateLimiting implementation = new MockNttManagerAdditionalPayloadContract(
-            address(t1), IManagerBase.Mode.LOCKING, chainId1
+            address(t1), INttManager.Mode.LOCKING, chainId1
         );
 
         nttManagerChain1 = MockNttManagerAdditionalPayloadContract(
@@ -97,7 +97,7 @@ contract TestAdditionalPayload is Test {
         vm.chainId(chainId2);
         DummyToken t2 = new DummyTokenMintAndBurn();
         NttManagerNoRateLimiting implementationChain2 = new MockNttManagerAdditionalPayloadContract(
-            address(t2), IManagerBase.Mode.BURNING, chainId2
+            address(t2), INttManager.Mode.BURNING, chainId2
         );
 
         nttManagerChain2 = MockNttManagerAdditionalPayloadContract(

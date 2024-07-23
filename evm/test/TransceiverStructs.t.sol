@@ -19,7 +19,7 @@ contract TestTransceiverStructs is Test {
         TransceiverStructs.TransceiverInit memory ti = TransceiverStructs.TransceiverInit({
             transceiverIdentifier: wh_prefix,
             nttManagerAddress: hex"BABABABABABA",
-            nttManagerMode: uint8(IManagerBase.Mode.LOCKING),
+            nttManagerMode: uint8(INttManager.Mode.LOCKING),
             tokenAddress: hex"DEDEDEDEDEDEDE",
             tokenDecimals: 16
         });

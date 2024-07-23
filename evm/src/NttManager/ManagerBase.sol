@@ -25,14 +25,8 @@ abstract contract ManagerBase is
 {
     // =============== Immutables ============================================================
 
-    /// @dev Address of the token that this NTT Manager is tied to
-    address public immutable token;
     /// @dev Contract deployer address
     address immutable deployer;
-    /// @dev Mode of the NTT Manager -- this is either LOCKING (Mode = 0) or BURNING (Mode = 1)
-    /// In LOCKING mode, tokens are locked/unlocked by the NTT Manager contract when sending/redeeming cross-chain transfers.
-    /// In BURNING mode, tokens are burned/minted by the NTT Manager contract when sending/redeeming cross-chain transfers.
-    Mode public immutable mode;
     /// @dev Wormhole chain ID that the NTT Manager is deployed on.
     /// This chain ID is formatted Wormhole Chain IDs -- https://docs.wormhole.com/wormhole/reference/constants
     uint16 public immutable chainId;
@@ -42,9 +36,9 @@ abstract contract ManagerBase is
 
     // =============== Setup =================================================================
 
-    constructor(address _token, Mode _mode, uint16 _chainId) {
-        token = _token;
-        mode = _mode;
+    constructor(
+        uint16 _chainId
+    ) {
         chainId = _chainId;
         evmChainId = block.chainid;
         // save the deployer (check this on initialization)
@@ -275,11 +269,6 @@ abstract contract ManagerBase is
     // =============== Public Getters ========================================================
 
     /// @inheritdoc IManagerBase
-    function getMode() public view returns (uint8) {
-        return uint8(mode);
-    }
-
-    /// @inheritdoc IManagerBase
     function getThreshold() public view returns (uint8) {
         return _getThresholdStorage().num;
     }
@@ -468,8 +457,6 @@ abstract contract ManagerBase is
 
     /// @dev When we add new immutables, this function should be updated
     function _checkImmutables() internal view virtual override {
-        assert(this.token() == token);
-        assert(this.mode() == mode);
         assert(this.chainId() == chainId);
     }
 

@@ -7,6 +7,15 @@ import "../libraries/TransceiverStructs.sol";
 import "./IManagerBase.sol";
 
 interface INttManager is IManagerBase {
+    /// @notice The mode is either LOCKING or BURNING. In LOCKING mode, the NttManager locks the
+    ///         tokens of the sender and mints an equivalent amount on the target chain. In BURNING
+    ///         mode, the NttManager burns the tokens of the sender and mints an equivalent amount
+    ///         on the target chain.LOCKING mode preserves the total supply of the tokens.
+    enum Mode {
+        LOCKING,
+        BURNING
+    }
+
     /// @dev The peer on another chain.
     struct NttManagerPeer {
         bytes32 peerAddress;
@@ -236,6 +245,13 @@ interface INttManager is IManagerBase {
     function getPeer(
         uint16 chainId_
     ) external view returns (NttManagerPeer memory);
+
+    /// @notice Returns the mode (locking or burning) of the NttManager.
+    /// @return mode A uint8 corresponding to the mode
+    function getMode() external view returns (uint8);
+
+    /// @notice Returns of the address of the token managed by this contract.
+    function token() external view returns (address);
 
     /// @notice Sets the corresponding peer.
     /// @dev The nttManager that executes the message sets the source nttManager as the peer.

@@ -4,15 +4,6 @@ pragma solidity >=0.8.8 <0.9.0;
 import "../libraries/TransceiverStructs.sol";
 
 interface IManagerBase {
-    /// @notice The mode is either LOCKING or BURNING. In LOCKING mode, the NttManager locks the
-    ///         tokens of the sender and mints an equivalent amount on the target chain. In BURNING
-    ///         mode, the NttManager burns the tokens of the sender and mints an equivalent amount
-    ///         on the target chain.LOCKING mode preserves the total supply of the tokens.
-    enum Mode {
-        LOCKING,
-        BURNING
-    }
-
     /// @notice Information about attestations for a given message.
     /// @dev The fields are as follows:
     ///      - executed: whether the message has been executed.
@@ -169,10 +160,6 @@ interface IManagerBase {
     /// @notice Pauses the manager.
     function pause() external;
 
-    /// @notice Returns the mode (locking or burning) of the NttManager.
-    /// @return mode A uint8 corresponding to the mode
-    function getMode() external view returns (uint8);
-
     /// @notice Returns the number of Transceivers that must attest to a msgId for
     /// it to be considered valid and acted upon.
     function getThreshold() external view returns (uint8);
@@ -192,9 +179,6 @@ interface IManagerBase {
     function messageAttestations(
         bytes32 digest
     ) external view returns (uint8 count);
-
-    /// @notice Returns of the address of the token managed by this contract.
-    function token() external view returns (address);
 
     /// @notice Returns the chain ID.
     function chainId() external view returns (uint16);
