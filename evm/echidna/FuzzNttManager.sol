@@ -88,7 +88,7 @@ contract FuzzNttManager is FuzzingHelpers {
             }
             else if (peer.tokenDecimals == 0) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(INttManager.InvalidPeerDecimals.selector),
+                    errorSelector == selectorToUint(IManagerBase.InvalidPeerDecimals.selector),
                     "NttManager: transfer expected to fail if sending to a peer with 0 decimals"
                 );
             }
@@ -166,7 +166,7 @@ contract FuzzNttManager is FuzzingHelpers {
             }
             else if (peer.tokenDecimals == 0) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(INttManager.InvalidPeerDecimals.selector),
+                    errorSelector == selectorToUint(IManagerBase.InvalidPeerDecimals.selector),
                     "NttManager: transfer expected to fail if sending to a peer with 0 decimals"
                 );
             }
@@ -281,7 +281,7 @@ contract FuzzNttManager is FuzzingHelpers {
             }
             else if (peer.tokenDecimals == 0) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(INttManager.InvalidPeerDecimals.selector),
+                    errorSelector == selectorToUint(IManagerBase.InvalidPeerDecimals.selector),
                     "NttManager: transfer expected to fail if sending to a peer with 0 decimals"
                 );
             }
@@ -360,7 +360,7 @@ contract FuzzNttManager is FuzzingHelpers {
             }
             else if (peer.tokenDecimals == 0) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(INttManager.InvalidPeerDecimals.selector),
+                    errorSelector == selectorToUint(IManagerBase.InvalidPeerDecimals.selector),
                     "NttManager: transfer expected to fail if sending to a peer with 0 decimals"
                 );
             }
@@ -547,13 +547,13 @@ contract FuzzNttManager is FuzzingHelpers {
 
             if (peerChainId == 0) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(INttManager.InvalidPeerChainIdZero.selector),
+                    errorSelector == selectorToUint(IManagerBase.InvalidPeerChainIdZero.selector),
                     "NttManager: setPeer expected to fail if setting zero peer chain id"
                 );
             }
             else if (peerContract == bytes32(0)) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(INttManager.InvalidPeerZeroAddress.selector),
+                    errorSelector == selectorToUint(IManagerBase.InvalidPeerZeroAddress.selector),
                     "NttManager: setPeer expected to fail if setting zero peer contract address"
                 );
             }
@@ -566,7 +566,7 @@ contract FuzzNttManager is FuzzingHelpers {
             // We set the chain id to 1 when we set up the manager
             else if (peerChainId == 1) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(INttManager.InvalidPeerSameChainId.selector),
+                    errorSelector == selectorToUint(IManagerBase.InvalidPeerSameChainId.selector),
                     "NttManager: setPeer expected to fail if setting for the same chain id"
                 );
             }

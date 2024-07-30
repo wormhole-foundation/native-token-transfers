@@ -95,6 +95,25 @@ interface IManagerBase {
     /// @dev Selector 0x69cf632a
     error NoEnabledTransceivers();
 
+    /// @notice Error when the recipient is invalid.
+    /// @dev Selector 0xe2fe2726.
+    error InvalidRefundAddress();
+
+    /// @notice Peer chain ID cannot be zero.
+    error InvalidPeerChainIdZero();
+
+    /// @notice Peer cannot be the zero address.
+    error InvalidPeerZeroAddress();
+
+    /// @notice Peer cannot be on the same chain
+    /// @dev Selector 0x20371f2a.
+    error InvalidPeerSameChainId();
+
+    /// @notice Peer for the chain does not match the configuration.
+    /// @param chainId ChainId of the source chain.
+    /// @param peerAddress Address of the peer nttManager contract.
+    error InvalidPeer(uint16 chainId, bytes32 peerAddress);
+
     /// @notice Error when the manager doesn't have a peer registered for the destination chain
     /// @dev Selector 0x3af256bc.
     /// @param chainId The target Wormhole chain id

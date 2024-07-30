@@ -16,7 +16,7 @@ library TransceiverHelpersLib {
     uint16 constant SENDING_CHAIN_ID = 1;
 
     function setup_transceivers(
-        NttManager nttManager
+        ManagerBase nttManager
     ) internal returns (DummyTransceiver, DummyTransceiver) {
         DummyTransceiver e1 = new DummyTransceiver(address(nttManager));
         DummyTransceiver e2 = new DummyTransceiver(address(nttManager));

@@ -467,7 +467,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                INttManager.InvalidPeer.selector, TransceiverHelpersLib.SENDING_CHAIN_ID, peer
+                IManagerBase.InvalidPeer.selector, TransceiverHelpersLib.SENDING_CHAIN_ID, peer
             )
         );
         e1.receiveMessage(transceiverMessage);

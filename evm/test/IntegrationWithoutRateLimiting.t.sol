@@ -284,12 +284,12 @@ contract TestEndToEndNoRateLimiting is Test {
         );
 
         // Everything else should.
-        vm.expectRevert(abi.encodeWithSelector(INttManager.InvalidPeerChainIdZero.selector));
+        vm.expectRevert(abi.encodeWithSelector(IManagerBase.InvalidPeerChainIdZero.selector));
         nttManagerChain1.setPeer(
             0, bytes32(uint256(uint160(address(nttManagerChain2)))), 9, type(uint64).max
         );
 
-        vm.expectRevert(abi.encodeWithSelector(INttManager.InvalidPeerZeroAddress.selector));
+        vm.expectRevert(abi.encodeWithSelector(IManagerBase.InvalidPeerZeroAddress.selector));
         nttManagerChain1.setPeer(chainId2, bytes32(0), 9, type(uint64).max);
 
         vm.expectRevert(abi.encodeWithSelector(INttManager.InvalidPeerDecimals.selector));
@@ -297,7 +297,7 @@ contract TestEndToEndNoRateLimiting is Test {
             chainId2, bytes32(uint256(uint160(address(nttManagerChain2)))), 0, type(uint64).max
         );
 
-        vm.expectRevert(abi.encodeWithSelector(INttManager.InvalidPeerSameChainId.selector));
+        vm.expectRevert(abi.encodeWithSelector(IManagerBase.InvalidPeerSameChainId.selector));
         nttManagerChain1.setPeer(
             chainId1, bytes32(uint256(uint160(address(nttManagerChain2)))), 9, type(uint64).max
         );
