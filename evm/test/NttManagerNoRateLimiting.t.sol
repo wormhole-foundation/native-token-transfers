@@ -422,7 +422,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
         bytes32 peer = toWormholeFormat(address(nttManager));
         nttManager.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, 0);
 
-        IRateLimiter.RateLimitParams memory params =
+        RateLimitLib.RateLimitParams memory params =
             nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
         assertEq(params.limit.getAmount(), 0);
         assertEq(params.limit.getDecimals(), 0);

@@ -58,7 +58,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 limit = 1 * 10 ** 6;
         nttManager.setOutboundLimit(limit);
 
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
 
         assertEq(outboundLimitParams.limit.getAmount(), limit.trim(decimals, decimals).getAmount());
@@ -98,7 +98,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         vm.stopPrank();
 
         // assert outbound rate limit was updated
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
         assertEq(
             outboundLimitParams.currentCapacity.getAmount(),
@@ -108,7 +108,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         // assert inbound rate limit for destination chain is still at the max.
         // the backflow should not override the limit.
-        IRateLimiter.RateLimitParams memory inboundLimitParams =
+        RateLimitLib.RateLimitParams memory inboundLimitParams =
             nttManager.getInboundLimitParams(chainId2);
         assertEq(
             inboundLimitParams.currentCapacity.getAmount(), inboundLimitParams.limit.getAmount()
@@ -150,7 +150,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 higherLimit = 5 * 10 ** decimals;
         nttManager.setOutboundLimit(higherLimit);
 
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
 
         assertEq(
@@ -197,7 +197,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 lowerLimit = 2 * 10 ** decimals;
         nttManager.setOutboundLimit(lowerLimit);
 
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
 
         assertEq(outboundLimitParams.limit.untrim(decimals), lowerLimit);
@@ -243,7 +243,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 higherLimit = 5 * 10 ** decimals;
         nttManager.setOutboundLimit(higherLimit);
 
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
 
         assertEq(
@@ -299,7 +299,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 lowerLimit = 3 * 10 ** decimals;
         nttManager.setOutboundLimit(lowerLimit);
 
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
 
         assertEq(
@@ -349,7 +349,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 lowerLimit = 4 * 10 ** decimals;
         nttManager.setOutboundLimit(lowerLimit);
 
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
 
         assertEq(
@@ -543,7 +543,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         assertEq(token.balanceOf(address(user_B)), transferAmount.untrim(token.decimals()));
 
         // assert that the inbound limits updated
-        IRateLimiter.RateLimitParams memory inboundLimitParams =
+        RateLimitLib.RateLimitParams memory inboundLimitParams =
             nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
         assertEq(
             inboundLimitParams.currentCapacity.getAmount(),
@@ -553,7 +553,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         // assert that the outbound limit is still at the max
         // backflow should not go over the max limit
-        IRateLimiter.RateLimitParams memory outboundLimitParams =
+        RateLimitLib.RateLimitParams memory outboundLimitParams =
             nttManager.getOutboundLimitParams();
         assertEq(
             outboundLimitParams.currentCapacity.getAmount(), outboundLimitParams.limit.getAmount()
@@ -702,7 +702,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         {
             // consumed capacity on the outbound side
             // assert outbound capacity decreased
-            IRateLimiter.RateLimitParams memory outboundLimitParams =
+            RateLimitLib.RateLimitParams memory outboundLimitParams =
                 nttManager.getOutboundLimitParams();
             assertEq(
                 outboundLimitParams.currentCapacity.getAmount(),
@@ -733,7 +733,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         {
             // consume capacity on the inbound side
             // assert that the inbound capacity decreased
-            IRateLimiter.RateLimitParams memory inboundLimitParams =
+            RateLimitLib.RateLimitParams memory inboundLimitParams =
                 nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(),
@@ -744,7 +744,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert that outbound limit is at max again (because of backflow)
-            IRateLimiter.RateLimitParams memory outboundLimitParams =
+            RateLimitLib.RateLimitParams memory outboundLimitParams =
                 nttManager.getOutboundLimitParams();
             assertEq(
                 outboundLimitParams.currentCapacity.getAmount(),
@@ -776,7 +776,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert outbound rate limit decreased
-            IRateLimiter.RateLimitParams memory outboundLimitParams =
+            RateLimitLib.RateLimitParams memory outboundLimitParams =
                 nttManager.getOutboundLimitParams();
             assertEq(
                 outboundLimitParams.currentCapacity.getAmount(),
@@ -787,7 +787,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert that the inbound limit is at max again (because of backflow)
-            IRateLimiter.RateLimitParams memory inboundLimitParams =
+            RateLimitLib.RateLimitParams memory inboundLimitParams =
                 nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(), inboundLimitParams.limit.getAmount()
@@ -904,7 +904,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         {
             // consumed capacity on the outbound side
             // assert outbound capacity decreased
-            IRateLimiter.RateLimitParams memory outboundLimitParams =
+            RateLimitLib.RateLimitParams memory outboundLimitParams =
                 nttManager.getOutboundLimitParams();
             assertEq(
                 outboundLimitParams.currentCapacity.getAmount(),
@@ -929,7 +929,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         {
             // consume capacity on the inbound side
             // assert that the inbound capacity decreased
-            IRateLimiter.RateLimitParams memory inboundLimitParams =
+            RateLimitLib.RateLimitParams memory inboundLimitParams =
                 nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(),
@@ -940,7 +940,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert that outbound limit is at max again (because of backflow)
-            IRateLimiter.RateLimitParams memory outboundLimitParams =
+            RateLimitLib.RateLimitParams memory outboundLimitParams =
                 nttManager.getOutboundLimitParams();
             assertEq(
                 outboundLimitParams.currentCapacity.getAmount(),
@@ -969,7 +969,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert outbound rate limit decreased
-            IRateLimiter.RateLimitParams memory outboundLimitParams =
+            RateLimitLib.RateLimitParams memory outboundLimitParams =
                 nttManager.getOutboundLimitParams();
             assertEq(
                 outboundLimitParams.currentCapacity.getAmount(),
@@ -980,7 +980,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert that the inbound limit is at max again (because of backflow)
-            IRateLimiter.RateLimitParams memory inboundLimitParams =
+            RateLimitLib.RateLimitParams memory inboundLimitParams =
                 nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(), inboundLimitParams.limit.getAmount()

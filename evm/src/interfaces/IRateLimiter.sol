@@ -33,27 +33,9 @@ interface IRateLimiter {
     /// @param transferTimestamp The timestamp of the transfer.
     error InboundQueuedTransferStillQueued(bytes32 digest, uint256 transferTimestamp);
 
-    /// @notice The new capacity cannot exceed the limit.
-    /// @dev Selector 0x0f85ba52.
-    /// @param newCurrentCapacity The new current capacity.
-    /// @param newLimit The new limit.
-    error CapacityCannotExceedLimit(TrimmedAmount newCurrentCapacity, TrimmedAmount newLimit);
-
     /// @notice If the rate limiting behaviour isn't explicitly defined in the constructor.
     /// @dev Selector 0xe543ef05.
     error UndefinedRateLimiting();
-
-    /// @notice Parameters used in determining rate limits and queuing.
-    /// @dev
-    ///    - limit: current rate limit value.
-    ///    - currentCapacity: the current capacity left.
-    ///    - lastTxTimestamp: the timestamp of when the
-    ///                       capacity was previously consumption.
-    struct RateLimitParams {
-        TrimmedAmount limit;
-        TrimmedAmount currentCapacity;
-        uint64 lastTxTimestamp;
-    }
 
     /// @notice Parameters for an outbound queued transfer.
     /// @dev

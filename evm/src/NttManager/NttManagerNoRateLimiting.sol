@@ -20,7 +20,12 @@ contract NttManagerNoRateLimiting is NttManager {
     // ==================== Override RateLimiter functions =========================
 
     /// @notice Not used, always returns empty RateLimitParams.
-    function getOutboundLimitParams() public pure override returns (RateLimitParams memory) {}
+    function getOutboundLimitParams()
+        public
+        pure
+        override
+        returns (RateLimitLib.RateLimitParams memory)
+    {}
 
     /// @notice Not used, always returns zero.
     function getCurrentOutboundCapacity() public pure override returns (uint256) {
@@ -37,7 +42,7 @@ contract NttManagerNoRateLimiting is NttManager {
     /// @notice Not used, always returns empty RateLimitParams.
     function getInboundLimitParams(
         uint16 // chainId_
-    ) public pure override returns (RateLimitParams memory) {}
+    ) public pure override returns (RateLimitLib.RateLimitParams memory) {}
 
     /// @notice Not used, always returns zero.
     function getCurrentInboundCapacity(
