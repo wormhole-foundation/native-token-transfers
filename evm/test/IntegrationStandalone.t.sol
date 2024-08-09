@@ -395,9 +395,7 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
             // Test timing on the queues
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    IRateLimiter.OutboundQueuedTransferStillQueued.selector,
-                    0,
-                    vm.getBlockTimestamp()
+                    OutboundQueuedTransferStillQueued.selector, 0, vm.getBlockTimestamp()
                 )
             );
             nttManagerChain2.completeOutboundQueuedTransfer(0);
@@ -405,7 +403,7 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
 
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    IRateLimiter.OutboundQueuedTransferStillQueued.selector,
+                    OutboundQueuedTransferStillQueued.selector,
                     0,
                     vm.getBlockTimestamp() - 1 days + 1
                 )
@@ -416,15 +414,11 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
             nttManagerChain2.completeOutboundQueuedTransfer(0);
 
             // Replay - should be deleted
-            vm.expectRevert(
-                abi.encodeWithSelector(IRateLimiter.OutboundQueuedTransferNotFound.selector, 0)
-            );
+            vm.expectRevert(abi.encodeWithSelector(OutboundQueuedTransferNotFound.selector, 0));
             nttManagerChain2.completeOutboundQueuedTransfer(0);
 
             // Non-existant
-            vm.expectRevert(
-                abi.encodeWithSelector(IRateLimiter.OutboundQueuedTransferNotFound.selector, 1)
-            );
+            vm.expectRevert(abi.encodeWithSelector(OutboundQueuedTransferNotFound.selector, 1));
             nttManagerChain2.completeOutboundQueuedTransfer(1);
 
             uint256 supplyAfter = token2.totalSupply();
@@ -465,9 +459,7 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
             // Double redeem
             vm.warp(vm.getBlockTimestamp() + 100000);
             vm.expectRevert(
-                abi.encodeWithSelector(
-                    IRateLimiter.InboundQueuedTransferNotFound.selector, queuedDigests[0]
-                )
+                abi.encodeWithSelector(InboundQueuedTransferNotFound.selector, queuedDigests[0])
             );
             nttManagerChain1.completeInboundQueuedTransfer(queuedDigests[0]);
 

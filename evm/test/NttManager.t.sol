@@ -498,15 +498,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
         assertEq(nttManagerBalanceBefore, token.balanceOf(address(nttManager)));
 
         // We cannot cancel a queued transfer more than once
-        vm.expectRevert(
-            abi.encodeWithSelector(IRateLimiter.OutboundQueuedTransferNotFound.selector, s1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(OutboundQueuedTransferNotFound.selector, s1));
         nttManager.cancelOutboundQueuedTransfer(s1);
 
         // We cannot complete an outbound transfer that has already been cancelled
-        vm.expectRevert(
-            abi.encodeWithSelector(IRateLimiter.OutboundQueuedTransferNotFound.selector, s1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(OutboundQueuedTransferNotFound.selector, s1));
         nttManager.completeOutboundQueuedTransfer(s1);
 
         // The next transfer has previous sequence number + 1

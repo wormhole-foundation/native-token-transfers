@@ -504,7 +504,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // assert that transfer still can't be completed
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRateLimiter.OutboundQueuedTransferStillQueued.selector, 0, initialBlockTimestamp
+                OutboundQueuedTransferStillQueued.selector, 0, initialBlockTimestamp
             )
         );
         nttManager.completeOutboundQueuedTransfer(0);
@@ -515,9 +515,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         assertEq(seq, 0);
 
         // now ensure transfer was removed from queue
-        vm.expectRevert(
-            abi.encodeWithSelector(IRateLimiter.OutboundQueuedTransferNotFound.selector, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(OutboundQueuedTransferNotFound.selector, 0));
         nttManager.completeOutboundQueuedTransfer(0);
     }
 
@@ -621,9 +619,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             // assert that transfer still can't be completed
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    IRateLimiter.InboundQueuedTransferStillQueued.selector,
-                    digest,
-                    initialBlockTimestamp
+                    InboundQueuedTransferStillQueued.selector, digest, initialBlockTimestamp
                 )
             );
             nttManager.completeInboundQueuedTransfer(digest);
@@ -635,9 +631,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert transfer no longer in queue
-            vm.expectRevert(
-                abi.encodeWithSelector(IRateLimiter.InboundQueuedTransferNotFound.selector, digest)
-            );
+            vm.expectRevert(abi.encodeWithSelector(InboundQueuedTransferNotFound.selector, digest));
             nttManager.completeInboundQueuedTransfer(digest);
         }
 
@@ -1044,7 +1038,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // assert that transfer still can't be completed
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRateLimiter.OutboundQueuedTransferStillQueued.selector, 0, initialBlockTimestamp
+                OutboundQueuedTransferStillQueued.selector, 0, initialBlockTimestamp
             )
         );
         nttManager.completeOutboundQueuedTransfer(0);
@@ -1055,9 +1049,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         assertEq(seq, 0);
 
         // now ensure transfer was removed from queue
-        vm.expectRevert(
-            abi.encodeWithSelector(IRateLimiter.OutboundQueuedTransferNotFound.selector, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(OutboundQueuedTransferNotFound.selector, 0));
         nttManager.completeOutboundQueuedTransfer(0);
     }
 
@@ -1126,9 +1118,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             // assert that transfer still can't be completed
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    IRateLimiter.InboundQueuedTransferStillQueued.selector,
-                    digest,
-                    initialBlockTimestamp
+                    InboundQueuedTransferStillQueued.selector, digest, initialBlockTimestamp
                 )
             );
             nttManager.completeInboundQueuedTransfer(digest);
@@ -1140,9 +1130,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         {
             // assert transfer no longer in queue
-            vm.expectRevert(
-                abi.encodeWithSelector(IRateLimiter.InboundQueuedTransferNotFound.selector, digest)
-            );
+            vm.expectRevert(abi.encodeWithSelector(InboundQueuedTransferNotFound.selector, digest));
             nttManager.completeInboundQueuedTransfer(digest);
         }
 

@@ -172,7 +172,7 @@ contract FuzzNttManager is FuzzingHelpers {
             }
             else if (amount > currentOutboundCapacity) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(IRateLimiter.NotEnoughCapacity.selector),
+                    errorSelector == selectorToUint(NotEnoughCapacity.selector),
                     "NttManager: transfer expected to fail if exceeding rate limit"
                 );
             }
@@ -287,7 +287,7 @@ contract FuzzNttManager is FuzzingHelpers {
             }
             else if (!shouldQueue && amount > currentOutboundCapacity) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(IRateLimiter.NotEnoughCapacity.selector),
+                    errorSelector == selectorToUint(NotEnoughCapacity.selector),
                     "NttManager: transfer expected to fail if exceeding rate limit and not queueing"
                 );
             }
@@ -366,7 +366,7 @@ contract FuzzNttManager is FuzzingHelpers {
             }
             else if (!shouldQueue && amount > currentOutboundCapacity) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(IRateLimiter.NotEnoughCapacity.selector),
+                    errorSelector == selectorToUint(NotEnoughCapacity.selector),
                     "NttManager: transfer expected to fail if exceeding rate limit and not queueing"
                 );
             }
@@ -434,20 +434,20 @@ contract FuzzNttManager is FuzzingHelpers {
             // If the message has been executed before it shouldn't be found again
             if (executedQueuedOutboundTransfers[messageSequence]) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(IRateLimiter.OutboundQueuedTransferNotFound.selector),
+                    errorSelector == selectorToUint(OutboundQueuedTransferNotFound.selector),
                     "NttManager: completeOutboundQueuedTransfer expected to fail if not found"
                 );
             }
 
             if (queuedTransfer.txTimestamp == 0) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(IRateLimiter.OutboundQueuedTransferNotFound.selector),
+                    errorSelector == selectorToUint(OutboundQueuedTransferNotFound.selector),
                     "NttManager: completeOutboundQueuedTransfer expected to fail if not found"
                 );
             }
             else if (newTimestamp - queuedTransfer.txTimestamp < 1 days) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(IRateLimiter.OutboundQueuedTransferStillQueued.selector),
+                    errorSelector == selectorToUint(OutboundQueuedTransferStillQueued.selector),
                     "NttManager: completeOutboundQueuedTransfer expected to fail if not queued for long enough"
                 );
             }
@@ -511,7 +511,7 @@ contract FuzzNttManager is FuzzingHelpers {
 
             if (executedQueuedOutboundTransfers[messageSequence] || !queuedOutboundTransfers[messageSequence]) {
                 assertWithMsg(
-                    errorSelector == selectorToUint(IRateLimiter.OutboundQueuedTransferNotFound.selector),
+                    errorSelector == selectorToUint(OutboundQueuedTransferNotFound.selector),
                     "NttManager: cancelOutboundQueuedTransfer expected to fail if not found or already executed/cancelled"
                 );
             }
