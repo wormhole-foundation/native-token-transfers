@@ -2497,6 +2497,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ntt-transceiver"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "example-native-token-transfers",
+ "hex",
+ "ntt-messages",
+ "solana-program",
+ "wormhole-anchor-sdk",
+ "wormhole-io",
+ "wormhole-sdk",
+]
+
+[[package]]
 name = "num"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
