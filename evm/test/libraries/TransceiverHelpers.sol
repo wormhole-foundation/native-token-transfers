@@ -60,7 +60,13 @@ library TransceiverHelpersLib {
 
         for (uint256 i; i < transceivers.length; i++) {
             ITransceiverReceiver e = transceivers[i];
-            e.receiveMessage(encodedEm);
+            // Wrap in DummyTransceiverMessage format
+            DummyTransceiver.DummyTransceiverMessage memory dummyMessage = DummyTransceiver
+                .DummyTransceiverMessage({
+                sourceChainId: SENDING_CHAIN_ID,
+                transceiverMessage: encodedEm
+            });
+            e.receiveMessage(abi.encode(dummyMessage));
         }
 
         return (m, em);
@@ -121,6 +127,13 @@ library TransceiverHelpersLib {
             nttManagerMessage,
             new bytes(0)
         );
-        return (m, transceiverMessage);
+
+        // Wrap in DummyTransceiverMessage format
+        DummyTransceiver.DummyTransceiverMessage memory dummyMessage = DummyTransceiver
+            .DummyTransceiverMessage({
+            sourceChainId: SENDING_CHAIN_ID,
+            transceiverMessage: transceiverMessage
+        });
+        return (m, abi.encode(dummyMessage));
     }
 }

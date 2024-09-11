@@ -683,9 +683,16 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
                 packTrimmedAmount(type(uint64).max, 8),
                 transceivers
             );
-            encodedEm = TransceiverStructs.encodeTransceiverMessage(
+            bytes memory rawTransceiverMessage = TransceiverStructs.encodeTransceiverMessage(
                 TransceiverHelpersLib.TEST_TRANSCEIVER_PAYLOAD_PREFIX, em
             );
+            // Wrap in DummyTransceiverMessage format
+            DummyTransceiver.DummyTransceiverMessage memory dummyMessage = DummyTransceiver
+                .DummyTransceiverMessage({
+                sourceChainId: TransceiverHelpersLib.SENDING_CHAIN_ID,
+                transceiverMessage: rawTransceiverMessage
+            });
+            encodedEm = abi.encode(dummyMessage);
         }
 
         {
