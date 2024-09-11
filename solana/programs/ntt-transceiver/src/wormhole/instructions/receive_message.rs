@@ -1,7 +1,9 @@
 use crate::peer::TransceiverPeer;
 use anchor_lang::prelude::*;
 use example_native_token_transfers::{
-    config::*, error::NTTError, messages::ValidatedTransceiverMessage,
+    config::{anchor_reexports::*, *},
+    error::NTTError,
+    messages::ValidatedTransceiverMessage,
 };
 use ntt_messages::{
     chain_id::ChainId,
