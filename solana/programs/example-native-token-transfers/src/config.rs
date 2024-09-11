@@ -5,6 +5,23 @@ use ntt_messages::{chain_id::ChainId, mode::Mode};
 
 use crate::bitmap::Bitmap;
 
+/// This is a hack to re-export some modules that anchor generates as
+/// pub(crate), as it's not possible to directly re-export a module with a
+/// relaxed visibility.
+/// Instead, we define public modules with the *same* name, and pub use all the
+/// members of the original.
+/// Within this crate, this module should not be used. Outside of this crate,
+/// importing `anchor_reexports::*` achieves what we want.
+pub mod anchor_reexports {
+    pub mod __cpi_client_accounts_not_paused_config {
+        pub use super::super::__cpi_client_accounts_not_paused_config::*;
+    }
+
+    pub mod __client_accounts_not_paused_config {
+        pub use super::super::__client_accounts_not_paused_config::*;
+    }
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct Config {

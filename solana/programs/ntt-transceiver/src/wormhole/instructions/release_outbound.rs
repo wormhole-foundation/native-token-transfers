@@ -1,7 +1,10 @@
 use crate::wormhole::accounts::*;
 use anchor_lang::prelude::*;
 use example_native_token_transfers::{
-    error::NTTError, queue::outbox::OutboxItem, registered_transceiver::*, config::*,
+    config::{anchor_reexports::*, *},
+    error::NTTError,
+    queue::outbox::OutboxItem,
+    registered_transceiver::*,
 };
 use ntt_messages::{
     ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage, transceiver::TransceiverMessage,
