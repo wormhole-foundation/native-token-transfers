@@ -11,6 +11,11 @@ name = "ntt_transceiver"
 [features]
 no-entrypoint = []
 no-idl = []
+idl-build = [
+  "anchor-lang/idl-build",
+  "anchor-spl/idl-build",
+  "example-native-token-transfers/idl-build"
+]
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
