@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+pub mod messages;
 pub mod peer;
 pub mod wormhole;
 
