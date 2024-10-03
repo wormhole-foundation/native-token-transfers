@@ -43,7 +43,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
         })
     }
 
-    pub fn message<'a>(data: &'a [u8]) -> Result<TransceiverMessageDataBytes<'a, A>> {
+    pub fn message(data: &[u8]) -> Result<TransceiverMessageDataBytes<A>> {
         if data.len() < ValidatedTransceiverMessage::<A>::DISCRIMINATOR.len() {
             return Err(ErrorCode::AccountDiscriminatorNotFound.into());
         }
