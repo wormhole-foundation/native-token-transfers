@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cell::Ref, io, marker::PhantomData};
+use std::{io, marker::PhantomData};
 
 #[cfg(feature = "anchor")]
 use anchor_lang::prelude::*;
@@ -24,42 +24,35 @@ pub struct TransceiverMessageData<A: MaybeSpace> {
 }
 
 /// This struct is for zero-copy deserialization of
-/// `ValidatedTransceiverMessage::message` in the redeem ix
+/// `ValidatedTransceiverMessage::message()` in the redeem ix
 pub struct TransceiverMessageDataBytes<'a, A: MaybeSpace> {
     _phantom: PhantomData<A>,
-    span: Ref<'a, &'a mut [u8]>,
+    span: &'a [u8],
 }
 
 impl<A: MaybeSpace> AsRef<[u8]> for TransceiverMessageDataBytes<'_, A> {
     fn as_ref(&self) -> &[u8] {
-        &self.span
+        self.span
     }
 }
 
 impl<'a, A: MaybeSpace> TransceiverMessageDataBytes<'a, A> {
-    // TODO: the offset could be made dynamic
-    pub const OFFSET: usize = 10;
-
     pub fn source_ntt_manager(&self) -> [u8; 32] {
-        self.span[Self::OFFSET..(Self::OFFSET + 32)]
-            .try_into()
-            .unwrap()
+        self.span[..32].try_into().unwrap()
     }
 
     pub fn recipient_ntt_manager(&self) -> [u8; 32] {
-        self.span[(Self::OFFSET + 32)..(Self::OFFSET + 64)]
-            .try_into()
-            .unwrap()
+        self.span[32..64].try_into().unwrap()
     }
 
     pub fn ntt_manager_payload(&self) -> NttManagerMessage<A>
     where
         A: AnchorDeserialize,
     {
-        NttManagerMessage::deserialize(&mut &self.span[(Self::OFFSET + 64)..]).unwrap()
+        NttManagerMessage::deserialize(&mut &self.span[64..]).unwrap()
     }
 
-    pub fn parse(span: Ref<'a, &'a mut [u8]>) -> TransceiverMessageDataBytes<'a, A> {
+    pub fn parse(span: &'a [u8]) -> TransceiverMessageDataBytes<'a, A> {
         TransceiverMessageDataBytes {
             _phantom: PhantomData,
             span,

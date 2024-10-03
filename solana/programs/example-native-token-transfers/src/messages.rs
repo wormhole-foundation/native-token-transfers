@@ -43,8 +43,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
         })
     }
 
-    pub fn message<'a>(info: &'a UncheckedAccount) -> Result<TransceiverMessageDataBytes<'a, A>> {
-        let data = info.try_borrow_data().unwrap();
+    pub fn message<'a>(data: &'a [u8]) -> Result<TransceiverMessageDataBytes<'a, A>> {
         if data.len() < ValidatedTransceiverMessage::<A>::DISCRIMINATOR.len() {
             return Err(ErrorCode::AccountDiscriminatorNotFound.into());
         }
@@ -52,7 +51,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
         if Self::DISCRIMINATOR != given_disc {
             return Err(ErrorCode::AccountDiscriminatorMismatch.into());
         }
-        Ok(TransceiverMessageDataBytes::parse(data))
+        Ok(TransceiverMessageDataBytes::parse(&data[10..]))
     }
 }
 
