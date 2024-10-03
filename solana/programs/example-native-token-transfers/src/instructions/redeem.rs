@@ -24,28 +24,29 @@ pub struct Redeem<'info> {
 
     // NOTE: this works when the contract is paused
     #[account(
-        constraint = config.threshold > 0 @ NTTError::ZeroThreshold,
+        constraint = config.threshold > 0 @ NTTError::ZeroThreshold
     )]
     pub config: Account<'info, Config>,
 
     #[account(
-        seeds = [NttManagerPeer::SEED_PREFIX, transceiver_message.from_chain.id.to_be_bytes().as_ref()],
-        constraint = peer.address == transceiver_message.message.source_ntt_manager @ NTTError::InvalidNttManagerPeer,
+        seeds = [NttManagerPeer::SEED_PREFIX, ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref()],
+        constraint = peer.address == ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.source_ntt_manager() @ NTTError::InvalidNttManagerPeer,
         bump = peer.bump,
     )]
     pub peer: Account<'info, NttManagerPeer>,
 
     #[account(
         // check that the message is targeted to this chain
-        constraint = transceiver_message.message.ntt_manager_payload.payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
+        constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.ntt_manager_payload().payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
         // check that we're the intended recipient
-        constraint = transceiver_message.message.recipient_ntt_manager == crate::ID.to_bytes() @ NTTError::InvalidRecipientNttManager,
+        constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.recipient_ntt_manager() == crate::ID.to_bytes() @ NTTError::InvalidRecipientNttManager,
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
         owner = transceiver.transceiver_address,
     )]
-    pub transceiver_message:
-        Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>>,
+    /// CHECK: `transceiver_message` has to be manually deserialized as Anchor
+    /// `Account<T>` and `owner` constraints are mutually-exclusive
+    pub transceiver_message: UncheckedAccount<'info>,
 
     #[account(
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver
@@ -63,8 +64,8 @@ pub struct Redeem<'info> {
         space = 8 + InboxItem::INIT_SPACE,
         seeds = [
             InboxItem::SEED_PREFIX,
-            transceiver_message.message.ntt_manager_payload.keccak256(
-                transceiver_message.from_chain
+            ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.ntt_manager_payload().keccak256(
+                ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?
             ).as_ref(),
         ],
         bump,
@@ -87,7 +88,7 @@ pub struct Redeem<'info> {
         mut,
         seeds = [
             InboxRateLimit::SEED_PREFIX,
-            transceiver_message.from_chain.id.to_be_bytes().as_ref(),
+            ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref(),
         ],
         bump,
     )]
@@ -105,8 +106,13 @@ pub struct RedeemArgs {}
 pub fn redeem(ctx: Context<Redeem>, _args: RedeemArgs) -> Result<()> {
     let accs = ctx.accounts;
 
+    let transceiver_message: ValidatedTransceiverMessage<NativeTokenTransfer<Payload>> =
+        ValidatedTransceiverMessage::try_from(
+            &accs.transceiver_message,
+            &accs.transceiver.transceiver_address,
+        )?;
     let message: NttManagerMessage<NativeTokenTransfer<Payload>> =
-        accs.transceiver_message.message.ntt_manager_payload.clone();
+        transceiver_message.message.ntt_manager_payload.clone();
 
     // Calculate the scaled amount based on the appropriate decimal encoding for the token.
     // Return an error if the resulting amount overflows.
