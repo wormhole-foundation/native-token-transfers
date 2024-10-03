@@ -1,5 +1,8 @@
-use anchor_lang::prelude::*;
-use ntt_messages::{chain_id::ChainId, transceiver::TransceiverMessageData};
+use anchor_lang::{prelude::*, system_program, Discriminator};
+use ntt_messages::{
+    chain_id::ChainId,
+    transceiver::{TransceiverMessageData, TransceiverMessageDataBytes},
+};
 use std::{collections::HashMap, marker::PhantomData};
 
 #[account]
@@ -11,6 +14,46 @@ pub struct ValidatedTransceiverMessage<A: AnchorDeserialize + AnchorSerialize + 
 
 impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceiverMessage<A> {
     pub const SEED_PREFIX: &'static [u8] = b"transceiver_message";
+
+    pub fn try_from(info: &UncheckedAccount, expected_owner: &Pubkey) -> Result<Self> {
+        if info.owner == &system_program::ID && info.lamports() == 0 {
+            return Err(ErrorCode::AccountNotInitialized.into());
+        }
+        if *info.owner != *expected_owner {
+            return Err(Error::from(ErrorCode::AccountOwnedByWrongProgram)
+                .with_pubkeys((*info.owner, *expected_owner)));
+        }
+        let mut data: &[u8] = &info.try_borrow_data()?;
+        ValidatedTransceiverMessage::try_deserialize(&mut data)
+    }
+
+    pub fn from_chain(info: &UncheckedAccount) -> Result<ChainId> {
+        let data: &[u8] = &info.try_borrow_data().unwrap();
+        if data.len() < ValidatedTransceiverMessage::<A>::DISCRIMINATOR.len() {
+            return Err(ErrorCode::AccountDiscriminatorNotFound.into());
+        }
+        let given_disc = &data[..8];
+        if Self::DISCRIMINATOR != given_disc {
+            return Err(ErrorCode::AccountDiscriminatorMismatch.into());
+        }
+        Ok(ChainId {
+            // This is LE bytes because we deserialize using Borsh.
+            // Not to be confused with the wire format (which is BE bytes)
+            id: u16::from_le_bytes(data[8..10].try_into().unwrap()),
+        })
+    }
+
+    pub fn message<'a>(info: &'a UncheckedAccount) -> Result<TransceiverMessageDataBytes<'a, A>> {
+        let data = info.try_borrow_data().unwrap();
+        if data.len() < ValidatedTransceiverMessage::<A>::DISCRIMINATOR.len() {
+            return Err(ErrorCode::AccountDiscriminatorNotFound.into());
+        }
+        let given_disc = &data[..8];
+        if Self::DISCRIMINATOR != given_disc {
+            return Err(ErrorCode::AccountDiscriminatorMismatch.into());
+        }
+        Ok(TransceiverMessageDataBytes::parse(data))
+    }
 }
 
 // This is a hack to get around the fact that the IDL generator doesn't support
