@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use example_native_token_transfers::{
     config::{anchor_reexports::*, *},
     error::NTTError,
+    transfer::Payload,
 };
 use ntt_messages::{
     chain_id::ChainId,
@@ -35,15 +36,17 @@ pub struct ReceiveMessage<'info> {
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
     )]
-    pub vaa:
-        Account<'info, PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer>>>,
+    pub vaa: Account<
+        'info,
+        PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>>,
+    >,
 
     #[account(
         init,
         payer = payer,
-        space = 8 + ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer>>::INIT_SPACE,
+        space = 8 + ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::INIT_SPACE,
         seeds = [
-            ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer>>::SEED_PREFIX,
+            ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::SEED_PREFIX,
             vaa.emitter_chain().to_be_bytes().as_ref(),
             vaa.message().ntt_manager_payload.id.as_ref(),
         ],
@@ -53,7 +56,8 @@ pub struct ReceiveMessage<'info> {
     // inbox item transfer struct with a bitmap storing which transceivers have
     // attested to the transfer. Then we only release it if there's quorum.
     // We would need to maybe_init this account in that case.
-    pub transceiver_message: Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer>>,
+    pub transceiver_message:
+        Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>>,
 
     pub system_program: Program<'info, System>,
 }
