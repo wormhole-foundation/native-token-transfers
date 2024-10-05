@@ -5,6 +5,7 @@ use example_native_token_transfers::{
     error::NTTError,
     queue::outbox::OutboxItem,
     registered_transceiver::*,
+    transfer::Payload,
 };
 use ntt_messages::{
     ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage, transceiver::TransceiverMessage,
@@ -67,7 +68,7 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
     }
 
     assert!(accs.outbox_item.released.get(accs.transceiver.id)?);
-    let message: TransceiverMessage<WormholeTransceiver, NativeTokenTransfer> =
+    let message: TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>> =
         TransceiverMessage::new(
             // TODO: should we just put the ntt id here statically?
             accs.outbox_item.to_account_info().owner.to_bytes(),
@@ -80,6 +81,7 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
                     source_token: accs.config.mint.to_bytes(),
                     to: accs.outbox_item.recipient_address,
                     to_chain: accs.outbox_item.recipient_chain,
+                    additional_payload: Payload {},
                 },
             },
             vec![],
