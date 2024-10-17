@@ -152,6 +152,10 @@ pub mod example_native_token_transfers {
         instructions::set_inbound_limit(ctx, args)
     }
 
+    pub fn mark_outbox_item_as_released(ctx: Context<MarkOutboxItemAsReleased>) -> Result<bool> {
+        instructions::mark_outbox_item_as_released(ctx)
+    }
+
     // standalone transceiver stuff
 
     pub fn set_wormhole_peer(
