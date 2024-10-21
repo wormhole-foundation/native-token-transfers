@@ -206,15 +206,18 @@ contract WormholeTransceiver is
             bytes32 refundRecipient = refundAddress;
             uint16 destinationChain = recipientChain;
 
-            wormholeRelayer.sendPayloadToEvm{value: deliveryPayment}(
+            wormholeRelayer.sendToEvm{value: deliveryPayment}(
                 destinationChain,
                 fromWormholeFormat(getWormholePeer(destinationChain)),
-                encodedTransceiverPayload,
-                0,
-                gasLimit,
+                encodedTransceiverPayload, 
+                0, // receiverValue
+                0, // paymentForExtraReceiverValue, 
+                gasLimit, 
                 destinationChain,
-                fromWormholeFormat(refundRecipient)
-            );
+                fromWormholeFormat(refundRecipient),
+                wormholeRelayer.getDefaultDeliveryProvider(), 
+                new VaaKey[](0),
+                consistencyLevel);
 
             emit RelayingInfo(uint8(RelayingType.Standard), refundAddress, deliveryPayment);
         } else if (!weIns.shouldSkipRelayerSend && isSpecialRelayingEnabled(recipientChain)) {
