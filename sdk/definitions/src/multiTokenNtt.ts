@@ -1,0 +1,165 @@
+import {
+  encoding,
+  serializeLayout,
+  toChainId,
+  type Chain,
+  type Network,
+} from "@wormhole-foundation/sdk-base";
+
+import {
+  AccountAddress,
+  ChainAddress,
+  EmptyPlatformMap,
+  TokenAddress,
+  TokenId,
+  UniversalAddress,
+  UnsignedTransaction,
+  VAA,
+  keccak256,
+} from "@wormhole-foundation/sdk-definitions";
+
+import {
+  NttManagerMessage,
+  genericMessageLayout,
+  multiTokenNativeTokenTransferLayout,
+  nttManagerMessageLayout,
+} from "./layouts/index.js";
+
+import { Ntt } from "./ntt.js";
+
+export namespace MultiTokenNtt {
+  const _protocol = "MultiTokenNtt";
+  export type ProtocolName = typeof _protocol;
+
+  export type Contracts = {
+    chain: Chain;
+    manager: string;
+    gmpManager: string;
+    transceiver: {
+      wormhole?: string;
+    };
+  };
+
+  export interface TokenMeta {
+    name: string;
+    symbol: string;
+    decimals: number;
+  }
+
+  export type Message = NttManagerMessage<
+    ReturnType<
+      typeof genericMessageLayout<typeof multiTokenNativeTokenTransferLayout>
+    >
+  >;
+
+  export type TransferOptions = {};
+
+  export type OriginalTokenId<C extends Chain = Chain> = {
+    chain: C;
+    address: UniversalAddress;
+  };
+
+  export type Attestation = VAA<"MultiTokenNtt:WormholeTransfer">;
+
+  /**
+   * messageDigest hashes a message for the Ntt manager, the digest is used
+   * to uniquely identify the message
+   * @param chain The chain that sent the message
+   * @param message The ntt message to hash
+   * @returns a 32 byte digest of the message
+   */
+  export function messageDigest(chain: Chain, message: Message): Uint8Array {
+    return keccak256(
+      encoding.bytes.concat(
+        encoding.bignum.toBytes(toChainId(chain), 2),
+        serializeLayout(
+          nttManagerMessageLayout(
+            genericMessageLayout(multiTokenNativeTokenTransferLayout)
+          ),
+          message
+        )
+      )
+    );
+  }
+}
+
+export interface MultiTokenNtt<N extends Network, C extends Chain> {
+  isPaused(): Promise<boolean>;
+
+  quoteDeliveryPrice(
+    destination: Chain,
+    options: MultiTokenNtt.TransferOptions
+  ): Promise<bigint>;
+
+  transfer(
+    sender: AccountAddress<C>,
+    token: TokenAddress<C>,
+    amount: bigint,
+    destination: ChainAddress
+  ): AsyncGenerator<UnsignedTransaction<N, C>>;
+
+  redeem(
+    attestations: MultiTokenNtt.Attestation[]
+  ): AsyncGenerator<UnsignedTransaction<N, C>>;
+
+  getTokenMeta(token: TokenId): Promise<MultiTokenNtt.TokenMeta>;
+
+  getCurrentOutboundCapacity(token: TokenId): Promise<bigint>;
+
+  getOutboundLimit(token: TokenId): Promise<bigint>;
+
+  getCurrentInboundCapacity(
+    originalToken: MultiTokenNtt.OriginalTokenId,
+    fromChain: Chain
+  ): Promise<bigint>;
+
+  getRateLimitDuration(): Promise<bigint>;
+
+  getInboundLimit(
+    originalToken: MultiTokenNtt.OriginalTokenId,
+    fromChain: Chain
+  ): Promise<bigint | null>;
+
+  getIsApproved(attestation: MultiTokenNtt.Attestation): Promise<boolean>;
+
+  getIsExecuted(attestation: MultiTokenNtt.Attestation): Promise<boolean>;
+
+  getIsTransferInboundQueued(
+    attestation: MultiTokenNtt.Attestation
+  ): Promise<boolean>;
+
+  getInboundQueuedTransfer(
+    fromChain: Chain,
+    transceiverMessage: MultiTokenNtt.Message
+  ): Promise<Ntt.InboundQueuedTransfer<C> | null>;
+
+  completeInboundQueuedTransfer(
+    fromChain: Chain,
+    transceiverMessage: MultiTokenNtt.Message,
+    payer?: AccountAddress<C>
+  ): AsyncGenerator<UnsignedTransaction<N, C>>;
+
+  getOriginalToken(localToken: TokenId): Promise<MultiTokenNtt.OriginalTokenId>;
+
+  getLocalToken(
+    originalToken: MultiTokenNtt.OriginalTokenId
+  ): Promise<TokenId | null>;
+
+  calculateLocalTokenAddress(
+    originalToken: MultiTokenNtt.OriginalTokenId,
+    tokenMeta: MultiTokenNtt.TokenMeta
+  ): Promise<TokenAddress<C>>;
+
+  getWrappedNativeToken(): Promise<TokenId>;
+}
+
+declare module "@wormhole-foundation/sdk-definitions" {
+  export namespace WormholeRegistry {
+    interface ProtocolToInterfaceMapping<N, C> {
+      MultiTokenNtt: MultiTokenNtt<N, C>;
+    }
+    interface ProtocolToPlatformMapping {
+      MultiTokenNtt: EmptyPlatformMap<MultiTokenNtt.ProtocolName>;
+    }
+  }
+}
