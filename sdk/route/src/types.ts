@@ -14,7 +14,7 @@ import {
   nativeTokenId,
   routes,
 } from "@wormhole-foundation/sdk-connect";
-import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { MultiTokenNtt, Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 export namespace NttRoute {
   // Currently only wormhole attestations supported
@@ -262,5 +262,70 @@ export namespace NttRoute {
       Math.min(amt.decimals, dstTokenDecimals, NttRoute.TRIMMED_DECIMALS)
     );
     return truncatedAmount;
+  }
+}
+
+export namespace MultiTokenNttRoute {
+  export type Config = {
+    contracts: MultiTokenNtt.Contracts[];
+  };
+
+  /** Options for Per-TransferRequest settings */
+  export interface Options {
+    relayerGasLimit?: bigint;
+  }
+
+  export const AutomaticOptions: Options = {
+    relayerGasLimit: undefined,
+  };
+
+  export type NormalizedParams = {
+    amount: amount.Amount;
+    options: MultiTokenNtt.TransferOptions;
+    sourceContracts: MultiTokenNtt.Contracts;
+    destinationContracts: MultiTokenNtt.Contracts;
+    sourceTokenId: TokenId;
+    destinationTokenId: TokenId;
+  };
+
+  export interface ValidatedParams
+    extends routes.ValidatedTransferParams<Options> {
+    normalizedParams: NormalizedParams;
+  }
+
+  export type AutomaticAttestationReceipt = {
+    id: WormholeMessageId;
+    attestation: VAA<"MultiTokenNtt:WormholeTransferStandardRelayer">;
+  };
+
+  export type AutomaticTransferReceipt<
+    SC extends Chain = Chain,
+    DC extends Chain = Chain
+  > = _TransferReceipt<AutomaticAttestationReceipt, SC, DC> & {
+    params: ValidatedParams;
+  };
+
+  export function resolveSupportedNetworks(config: Config): Network[] {
+    return ["Mainnet", "Testnet"];
+  }
+
+  export function resolveSupportedChains(
+    config: Config,
+    network: Network
+  ): Chain[] {
+    return config.contracts.flatMap((c) => c.chain);
+  }
+
+  export function resolveContracts(
+    config: Config,
+    chain: Chain
+  ): MultiTokenNtt.Contracts {
+    const cfg = config.contracts.find((c) => c.chain === chain);
+    if (!cfg) {
+      throw new Error(
+        "Cannot find MultiTokenNtt contracts in config for: " + chain
+      );
+    }
+    return cfg;
   }
 }

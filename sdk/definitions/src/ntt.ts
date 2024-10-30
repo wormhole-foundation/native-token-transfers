@@ -402,6 +402,7 @@ export namespace WormholeNttTransceiver {
   const _payloads = [
     "WormholeTransfer",
     "WormholeTransferStandardRelayer",
+    // "MultiTokenWormholeTransferStandardRelayer", // TODO: had to add this since MultiToken shares Transceiver type
   ] as const;
   export type PayloadNames = (typeof _payloads)[number];
   export type VAA<PayloadName extends PayloadNames = PayloadNames> =
