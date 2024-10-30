@@ -23,7 +23,8 @@
   "scripts": {
     "route": "tsx src/route.ts",
     "demo": "tsx src/index.ts",
-    "prettier": "prettier --write ./src"
+    "prettier": "prettier --write ./src",
+    "multiToken": "tsx src/multiToken.ts"
   },
   "devDependencies": {
     "dotenv": "^16.4.5",

@@ -1,46 +1,53 @@
 import {
   canonicalAddress,
+  isAttested,
+  nativeTokenId,
   routes,
-  Wormhole,
   wormhole,
 } from "@wormhole-foundation/sdk";
 import evm from "@wormhole-foundation/sdk/evm";
-import solana from "@wormhole-foundation/sdk/solana";
 
 // register protocol implementations
 import "@wormhole-foundation/sdk-evm-ntt";
-import "@wormhole-foundation/sdk-solana-ntt";
 
 import {
-  nttAutomaticRoute,
-  nttManualRoute,
+  MultiTokenNttExecutorRoute,
+  multiTokenNttExecutorRoute,
 } from "@wormhole-foundation/sdk-route-ntt";
-import { NttTokens } from "./consts.js";
 import { getSigner } from "./helpers.js";
 
-(async function () {
-  const wh = await wormhole("Testnet", [solana, evm]);
+const config: MultiTokenNttExecutorRoute.Config = {
+  contracts: [
+    {
+      chain: "Sepolia",
+      manager: "0x6c5aAE4622B835058A41879bA5e128019B9047d6",
+      gmpManager: "0xDaeE3A6B4196E3e46015b364F1DAe54CEAE74A91",
+    },
+    {
+      chain: "Monad",
+      manager: "0x600D3C45Cd002E7359D12597Bb8058a0C32A20Df",
+      gmpManager: "0x641a6608e2959c0D7Fe2a5F267DFDA519ED43d98",
+    },
+  ],
+};
 
-  const src = wh.getChain("Solana");
-  const dst = wh.getChain("ArbitrumSepolia");
+(async function () {
+  const wh = await wormhole("Testnet", [evm]);
+
+  const src = wh.getChain("Sepolia");
+  const dst = wh.getChain("Monad");
 
   const srcSigner = await getSigner(src);
   const dstSigner = await getSigner(dst);
 
-  const resolver = wh.resolver([
-    nttManualRoute({ tokens: NttTokens }),
-    nttAutomaticRoute({ tokens: NttTokens }),
-  ]);
+  const r = multiTokenNttExecutorRoute(config);
 
-  const { chain, token } = NttTokens.Test[0]!;
-  const sendToken = Wormhole.tokenId(chain, token);
+  const resolver = wh.resolver([r]);
+
+  const sendToken = nativeTokenId(src.chain);
 
   // given the send token, what can we possibly get on the destination chain?
-  const destTokens = await resolver.supportedDestinationTokens(
-    sendToken,
-    src,
-    dst
-  );
+  const destTokens = await r.supportedDestinationTokens(sendToken, src, dst);
   console.log(
     "For the given source token and routes configured, the following tokens may be receivable: ",
     destTokens.map((t) => canonicalAddress(t))
@@ -90,7 +97,7 @@ import { getSigner } from "./helpers.js";
 
   // Now the transfer may be initiated
   // A receipt will be returned, guess what you gotta do with that?
-  const receipt = await bestRoute.initiate(
+  let receipt = await bestRoute.initiate(
     tr,
     srcSigner.signer,
     quote,
@@ -98,9 +105,11 @@ import { getSigner } from "./helpers.js";
   );
   console.log("Initiated transfer with receipt: ", receipt);
 
-  // Kick off a wait log and executor
-  // If there is an opportunity to advance it to the next step, it will take it
-  // ie complete or finalize
-  // see the implementation for how this works
-  await routes.checkAndCompleteTransfer(bestRoute, receipt, dstSigner.signer);
+  for await (receipt of bestRoute.track(receipt, 120 * 1000)) {
+    if (routes.isManual(bestRoute) && isAttested(receipt)) {
+      console.log("completing transfer");
+      await bestRoute.complete(srcSigner.signer, receipt);
+    }
+    console.log("receipt state:", receipt.state);
+  }
 })();
