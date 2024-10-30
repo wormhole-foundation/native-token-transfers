@@ -10,8 +10,11 @@ import {
   AccountAddress,
   ChainAddress,
   EmptyPlatformMap,
-  ProtocolPayload,
-  ProtocolVAA,
+  NativeAddress,
+  TokenAddress,
+  UniversalAddress,
+  //   ProtocolPayload,
+  //   ProtocolVAA,
   UnsignedTransaction,
   VAA,
   keccak256,
@@ -19,32 +22,45 @@ import {
 
 import {
   NttManagerMessage,
-  nativeTokenTransferLayout,
+  genericMessageLayout,
+  multiTokenNativeTokenTransferLayout,
   nttManagerMessageLayout,
   transceiverInfo,
   transceiverInstructionLayout,
   transceiverRegistration,
 } from "./layouts/index.js";
-import { PublicKey } from "@solana/web3.js";
 
-/**
- * @namespace Ntt
- */
-export namespace Ntt {
-  const _protocol = "Ntt";
+import { Ntt, NttTransceiver } from "./ntt.js";
+
+// TODO: do we even need this file?
+// TODO: do we even need this namespace?
+// it just redefines a bunch of types from the Ntt namespace anyway
+export namespace MultiTokenNtt {
+  const _protocol = "MultiTokenNtt";
   export type ProtocolName = typeof _protocol;
 
   export type Mode = "locking" | "burning";
   export type Contracts = {
     token: string;
     manager: string;
+    gmpManager: string;
     transceiver: {
-      [type: string]: string;
+      wormhole?: string;
     };
     quoter?: string;
   };
 
-  export type Message = NttManagerMessage<typeof nativeTokenTransferLayout>;
+  export type TokenId = {
+    chain: Chain;
+    address: UniversalAddress;
+  };
+
+  // export type Message = NttManagerMessage<typeof nativeTokenTransferLayout>;
+  export type Message = NttManagerMessage<
+    ReturnType<
+      typeof genericMessageLayout<typeof multiTokenNativeTokenTransferLayout>
+    >
+  >;
 
   export type TransceiverInfo = NttManagerMessage<typeof transceiverInfo>;
   export type TransceiverRegistration = NttManagerMessage<
@@ -64,9 +80,7 @@ export namespace Ntt {
   // can we know this ahead of time or does it need to be
   // flexible enough for folks to add their own somehow?
   export type Attestation =
-    | VAA<"Ntt:WormholeTransfer">
-    | VAA<"Ntt:WormholeTransferStandardRelayer">;
-  // | VAA<"Ntt:MultiTokenWormholeTransferStandardRelayer">; // TODO: had to add this for now since MultiToken shares Transceiver type
+    VAA<"Ntt:MultiTokenWormholeTransferStandardRelayer">;
 
   /**
    * InboundQueuedTransfer is a queued transfer from another chain
@@ -118,7 +132,9 @@ export namespace Ntt {
       encoding.bytes.concat(
         encoding.bignum.toBytes(toChainId(chain), 2),
         serializeLayout(
-          nttManagerMessageLayout(nativeTokenTransferLayout),
+          nttManagerMessageLayout(
+            genericMessageLayout(multiTokenNativeTokenTransferLayout)
+          ),
           message
         )
       )
@@ -151,17 +167,10 @@ export namespace Ntt {
   }
 }
 
-/**
- * Ntt is the interface for the Ntt
- *
- * The Ntt is responsible for managing the coordination between the token contract and
- * the transceiver(s). It is also responsible for managing the capacity of inbound or outbount transfers.
- *
- * @typeparam N the network
- * @typeparam C the chain
- */
-export interface Ntt<N extends Network, C extends Chain> {
-  getMode(): Promise<Ntt.Mode>;
+// TODO: move this into ntt.ts?
+// Explain why this is a different protocol interface than ntt
+export interface MultiTokenNtt<N extends Network, C extends Chain> {
+  getMode(): Promise<MultiTokenNtt.Mode>;
 
   isPaused(): Promise<boolean>;
 
@@ -192,9 +201,7 @@ export interface Ntt<N extends Network, C extends Chain> {
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
-  // TODO: replace ix with transceiver type
-  setTransceiverPeer(
-    ix: number,
+  setWormholeTransceiverPeer(
     peer: ChainAddress,
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
@@ -211,12 +218,13 @@ export interface Ntt<N extends Network, C extends Chain> {
    */
   quoteDeliveryPrice(
     destination: Chain,
-    options: Ntt.TransferOptions
+    options: MultiTokenNtt.TransferOptions
   ): Promise<bigint>;
 
   /**
    * transfer sends a message to the Ntt manager to initiate a transfer
    * @param sender the address of the sender
+   * @param token the token to transfer
    * @param amount the amount to transfer
    * @param destination the destination chain
    * @param queue whether to queue the transfer if the outbound capacity is exceeded
@@ -224,19 +232,18 @@ export interface Ntt<N extends Network, C extends Chain> {
    */
   transfer(
     sender: AccountAddress<C>,
+    token: TokenAddress<C>,
     amount: bigint,
     destination: ChainAddress,
-    options: Ntt.TransferOptions
+    options: MultiTokenNtt.TransferOptions
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   /**
    * redeem redeems a set of Attestations to the corresponding transceivers on the destination chain
    * @param attestations The attestations to redeem, the length should be equal to the number of transceivers
-   *
-   * TODO: replace with Map<transceiver type, Attestation>
    */
   redeem(
-    attestations: Ntt.Attestation[],
+    attestations: MultiTokenNtt.Attestation[],
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
@@ -247,14 +254,11 @@ export interface Ntt<N extends Network, C extends Chain> {
   getTokenDecimals(): Promise<number>;
 
   /** Get the peer information for the given chain if it exists */
-  getPeer<C extends Chain>(chain: C): Promise<Ntt.Peer<C> | null>;
+  getPeer<C extends Chain>(chain: C): Promise<MultiTokenNtt.Peer<C> | null>;
 
-  /** Get the transceiver corresponding to index (0 = Wormhole)
-   *
-   * TODO: replace ix with transceiver type
-   */
   getTransceiver(
     ix: number
+    // TODO: MultiTokenNtt.Attestation compiler error
   ): Promise<NttTransceiver<N, C, Ntt.Attestation> | null>;
 
   /**
@@ -279,7 +283,10 @@ export interface Ntt<N extends Network, C extends Chain> {
    * getCurrentInboundCapacity returns the current inbound capacity of the Ntt manager
    * @param fromChain the chain to check the inbound capacity for
    */
-  getCurrentInboundCapacity(fromChain: Chain): Promise<bigint>;
+  getCurrentInboundCapacity(
+    tokenId: MultiTokenNtt.TokenId,
+    fromChain: Chain
+  ): Promise<bigint>;
 
   /**
    * getRateLimitDuration returns the duration of the rate limit for queued transfers in seconds
@@ -305,7 +312,7 @@ export interface Ntt<N extends Network, C extends Chain> {
    *
    * @param attestation the attestation to check
    */
-  getIsApproved(attestation: Ntt.Attestation): Promise<boolean>;
+  getIsApproved(attestation: MultiTokenNtt.Attestation): Promise<boolean>;
 
   /**
    * getIsExecuted returns whether an attestation is executed
@@ -313,13 +320,15 @@ export interface Ntt<N extends Network, C extends Chain> {
    *
    * @param attestation the attestation to check
    */
-  getIsExecuted(attestation: Ntt.Attestation): Promise<boolean>;
+  getIsExecuted(attestation: MultiTokenNtt.Attestation): Promise<boolean>;
 
   /**
    * getIsTransferInboundQueued returns whether the transfer is inbound queued
    * @param attestation the attestation to check
    */
-  getIsTransferInboundQueued(attestation: Ntt.Attestation): Promise<boolean>;
+  getIsTransferInboundQueued(
+    attestation: MultiTokenNtt.Attestation
+  ): Promise<boolean>;
 
   /**
    * getInboundQueuedTransfer returns the details of an inbound queued transfer
@@ -328,8 +337,8 @@ export interface Ntt<N extends Network, C extends Chain> {
    */
   getInboundQueuedTransfer(
     fromChain: Chain,
-    transceiverMessage: Ntt.Message
-  ): Promise<Ntt.InboundQueuedTransfer<C> | null>;
+    transceiverMessage: MultiTokenNtt.Message
+  ): Promise<MultiTokenNtt.InboundQueuedTransfer<C> | null>;
   /**
    * completeInboundQueuedTransfer completes an inbound queued transfer
    * @param fromChain the chain the transfer is from
@@ -338,7 +347,7 @@ export interface Ntt<N extends Network, C extends Chain> {
    */
   completeInboundQueuedTransfer(
     fromChain: Chain,
-    transceiverMessage: Ntt.Message,
+    transceiverMessage: MultiTokenNtt.Message,
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
@@ -355,93 +364,19 @@ export interface Ntt<N extends Network, C extends Chain> {
    * @returns the addresses that don't match the expected addresses, or null if
    * they all match
    */
-  verifyAddresses(): Promise<Partial<Ntt.Contracts> | null>;
+  verifyAddresses(): Promise<Partial<MultiTokenNtt.Contracts> | null>;
+
+  getTokenId(token: NativeAddress<C>): Promise<MultiTokenNtt.TokenId>;
 }
-
-export interface NttTransceiver<
-  N extends Network,
-  C extends Chain,
-  A extends Ntt.Attestation
-> {
-  getTransceiverType(payer?: AccountAddress<C>): Promise<string>;
-
-  /**
-   * Returns transceiver contract address on EVM and `emitterAccount` PDA address on Solana
-   */
-  getAddress(): ChainAddress<C>;
-
-  /** setPeer sets a peer address for a given chain
-   * Note: Admin only
-   */
-  setPeer(
-    peer: ChainAddress<Chain>,
-    payer?: AccountAddress<C>
-  ): AsyncGenerator<UnsignedTransaction<N, C>>;
-
-  getPeer<C extends Chain>(chain: C): Promise<ChainAddress<C> | null>;
-
-  setPauser(
-    newPauser: AccountAddress<C>,
-    payer?: AccountAddress<C>
-  ): AsyncGenerator<UnsignedTransaction<N, C>>;
-
-  getPauser(): Promise<AccountAddress<C> | null>;
-
-  /**
-   * receive calls the `receive*` method on the transceiver
-   *
-   * @param attestation the attestation to redeem against the transceiver
-   * @param sender the address of the sender
-   */
-  receive(
-    attestation: A,
-    sender?: AccountAddress<C>
-  ): AsyncGenerator<UnsignedTransaction<N, C>>;
-}
-
-export namespace WormholeNttTransceiver {
-  const _payloads = [
-    "WormholeTransfer",
-    "WormholeTransferStandardRelayer",
-    // "MultiTokenWormholeTransferStandardRelayer", // TODO: had to add this since MultiToken shares Transceiver type
-  ] as const;
-  export type PayloadNames = (typeof _payloads)[number];
-  export type VAA<PayloadName extends PayloadNames = PayloadNames> =
-    ProtocolVAA<Ntt.ProtocolName, PayloadName>;
-  export type Payload<PayloadName extends PayloadNames = PayloadNames> =
-    ProtocolPayload<Ntt.ProtocolName, PayloadName>;
-}
-
-/**
- * WormholeNttTransceiver is the interface for the Wormhole Ntt transceiver
- *
- * The WormholeNttTransceiver is responsible for verifying VAAs against the core
- * bridge and signaling the NttManager that it can mint tokens.
- */
-export interface WormholeNttTransceiver<N extends Network, C extends Chain>
-  extends NttTransceiver<N, C, WormholeNttTransceiver.VAA> {}
-
-export interface SolanaNttTransceiver<
-  N extends Network,
-  C extends Chain,
-  A extends Ntt.Attestation
-> extends NttTransceiver<N, C, A> {
-  programId: PublicKey;
-}
-
-export interface EvmNttTransceiver<
-  N extends Network,
-  C extends Chain,
-  A extends Ntt.Attestation
-> extends NttTransceiver<N, C, A> {}
 
 declare module "@wormhole-foundation/sdk-definitions" {
   export namespace WormholeRegistry {
     interface ProtocolToInterfaceMapping<N, C> {
-      Ntt: Ntt<N, C>;
+      // TODO: why is this an error?
+      MultiTokenNtt: MultiTokenNtt<N, C>;
     }
     interface ProtocolToPlatformMapping {
-      Ntt: EmptyPlatformMap<Ntt.ProtocolName>;
+      MultiTokenNtt: EmptyPlatformMap<MultiTokenNtt.ProtocolName>;
     }
   }
 }

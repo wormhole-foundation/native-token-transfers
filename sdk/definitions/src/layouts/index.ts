@@ -5,7 +5,11 @@ import {
 } from "@wormhole-foundation/sdk-definitions";
 import { nttManagerMessageLayout } from "./manager.js";
 import { transceiverInfo, transceiverRegistration } from "./transceiver.js";
-import { nativeTokenTransferLayout } from "./transfer.js";
+import {
+  genericMessageLayout,
+  multiTokenNativeTokenTransferLayout,
+  nativeTokenTransferLayout,
+} from "./transfer.js";
 import { wormholeTransceiverMessageLayout } from "./wormhole.js";
 
 export const nttNamedPayloads = [
@@ -20,6 +24,16 @@ export const nttNamedPayloads = [
     deliveryInstructionLayout(
       wormholeTransceiverMessageLayout(
         nttManagerMessageLayout(nativeTokenTransferLayout)
+      )
+    ),
+  ],
+  [
+    "MultiTokenWormholeTransferStandardRelayer",
+    deliveryInstructionLayout(
+      wormholeTransceiverMessageLayout(
+        nttManagerMessageLayout(
+          genericMessageLayout(multiTokenNativeTokenTransferLayout)
+        )
       )
     ),
   ],

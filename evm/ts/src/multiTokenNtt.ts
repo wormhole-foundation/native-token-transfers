@@ -1,0 +1,605 @@
+import {
+  Chain,
+  Network,
+  nativeChainIds,
+  toChain,
+  toChainId,
+} from "@wormhole-foundation/sdk-base";
+import {
+  AccountAddress,
+  ChainAddress,
+  ChainsConfig,
+  Contracts,
+  NativeAddress,
+  TokenAddress,
+  UniversalAddress,
+  universalAddress,
+} from "@wormhole-foundation/sdk-definitions";
+import type {
+  AnyEvmAddress,
+  EvmChains,
+  EvmPlatformType,
+} from "@wormhole-foundation/sdk-evm";
+import {
+  EvmAddress,
+  EvmPlatform,
+  EvmUnsignedTransaction,
+  addChainId,
+  addFrom,
+} from "@wormhole-foundation/sdk-evm";
+import "@wormhole-foundation/sdk-evm-core";
+
+import {
+  MultiTokenNtt,
+  Ntt,
+  NttTransceiver,
+} from "@wormhole-foundation/sdk-definitions-ntt";
+import { Contract, type Provider, type TransactionRequest } from "ethers";
+import { EvmNttWormholeTranceiver } from "./ntt.js";
+import {
+  GmpManager__factory,
+  GmpManager as GmpManagerAbi,
+  MultiTokenNtt__factory,
+  MultiTokenNtt as MultiTokenNttAbi,
+} from "./ethers-contracts/multiTokenNtt/index.js";
+import { _0_1_0 } from "./ethers-contracts/index.js";
+
+// TODO: move this and properly support ABI version loading
+function loadAbiVersion(version: string) {
+  return {
+    MultiTokenNtt: MultiTokenNtt__factory,
+    GmpManager: GmpManager__factory,
+    NttTransceiver: _0_1_0.NttTransceiver,
+  };
+}
+
+export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
+  implements MultiTokenNtt<N, C>
+{
+  tokenAddress: string;
+  readonly chainId: bigint;
+
+  // TODO: fetch the correct ABI
+  manager: MultiTokenNttAbi;
+  gmpManager: GmpManagerAbi;
+
+  xcvrs: EvmNttWormholeTranceiver<N, C>[];
+  managerAddress: string;
+
+  constructor(
+    readonly network: N,
+    readonly chain: C,
+    readonly provider: Provider,
+    readonly contracts: Contracts & { ntt?: MultiTokenNtt.Contracts },
+    readonly version: string = "1.0.0"
+  ) {
+    if (!contracts.ntt) throw new Error("No Ntt Contracts provided");
+
+    this.chainId = nativeChainIds.networkChainToNativeChainId.get(
+      network,
+      chain
+    ) as bigint;
+
+    this.tokenAddress = contracts.ntt.token;
+    this.managerAddress = contracts.ntt.manager;
+
+    const abiBindings = loadAbiVersion(this.version);
+
+    this.manager = abiBindings.MultiTokenNtt.connect(
+      contracts.ntt.manager,
+      this.provider
+    );
+
+    this.gmpManager = abiBindings.GmpManager.connect(
+      contracts.ntt.gmpManager,
+      this.provider
+    );
+
+    if (contracts.ntt.transceiver.wormhole) {
+      this.xcvrs = [
+        // Enable more Transceivers here
+        new EvmNttWormholeTranceiver(
+          // TODO: make this compatible
+          // @ts-ignore
+          this,
+          contracts.ntt.transceiver.wormhole,
+          abiBindings!
+        ),
+      ];
+    } else {
+      this.xcvrs = [];
+    }
+  }
+
+  async getTransceiver(ix: number): Promise<NttTransceiver<N, C, any> | null> {
+    // TODO: should we make an RPC call here, or just trust that the xcvrs are set up correctly?
+    return this.xcvrs[ix] || null;
+  }
+
+  // TODO: the mode depends on the token
+  async getMode(): Promise<Ntt.Mode> {
+    //const mode: bigint = await this.manager.getMode();
+    //return mode === 0n ? "locking" : "burning";
+    throw new Error("Not implemented");
+  }
+
+  async isPaused(): Promise<boolean> {
+    return await this.manager.isPaused();
+  }
+
+  async *pause() {
+    // TODO: pause not a method?
+    // const tx = await this.manager.pause.populateTransaction();
+    // yield this.createUnsignedTx(tx, "Ntt.pause");
+    throw new Error("Not implemented");
+  }
+
+  async *unpause() {
+    // TODO: unpause not a method?
+    // const tx = await this.manager.unpause.populateTransaction();
+    // yield this.createUnsignedTx(tx, "Ntt.unpause");
+    throw new Error("Not implemented");
+  }
+
+  async getOwner(): Promise<AccountAddress<C>> {
+    return new EvmAddress(await this.manager.owner()) as AccountAddress<C>;
+  }
+
+  async getPauser(): Promise<AccountAddress<C> | null> {
+    return new EvmAddress(await this.manager.pauser()) as AccountAddress<C>;
+  }
+
+  async *setOwner(owner: AnyEvmAddress) {
+    const canonicalOwner = new EvmAddress(owner).toString();
+    const tx = await this.manager.transferOwnership.populateTransaction(
+      canonicalOwner
+    );
+    yield this.createUnsignedTx(tx, "Ntt.setOwner");
+  }
+
+  async *setPauser(pauser: AnyEvmAddress) {
+    const canonicalPauser = new EvmAddress(pauser).toString();
+    const tx = await this.manager.transferPauserCapability.populateTransaction(
+      canonicalPauser
+    );
+    yield this.createUnsignedTx(tx, "Ntt.setPauser");
+  }
+
+  async getThreshold(): Promise<number> {
+    return Number(await this.gmpManager.getThreshold());
+  }
+
+  async isRelayingAvailable(destination: Chain): Promise<boolean> {
+    const enabled = await Promise.all(
+      this.xcvrs.map(async (x) => {
+        const [wh, special] = await Promise.all([
+          x.isWormholeRelayingEnabled(destination),
+          x.isSpecialRelayingEnabled(destination),
+        ]);
+        return wh || special;
+      })
+    );
+
+    return enabled.filter((x) => x).length > 0;
+  }
+
+  async getIsExecuted(
+    attestation: MultiTokenNtt.Attestation
+  ): Promise<boolean> {
+    //const payload =
+    //  attestation.payloadName === "WormholeTransfer"
+    //    ? attestation.payload
+    //    : attestation.payload["payload"];
+    const isExecuted = await this.gmpManager.isMessageExecuted(
+      // Ntt.messageDigest(attestation.emitterChain, payload.["nttManagerPayload"])
+      MultiTokenNtt.messageDigest(
+        attestation.emitterChain,
+        attestation.payload.payload.nttManagerPayload
+      )
+    );
+    if (!isExecuted) return false;
+    // Also check that the transfer is not queued for it to be considered complete
+    return !(await this.getIsTransferInboundQueued(attestation));
+  }
+
+  async getIsTransferInboundQueued(
+    attestation: MultiTokenNtt.Attestation
+  ): Promise<boolean> {
+    //const payload =
+    //  attestation.payloadName === "WormholeTransfer"
+    //    ? attestation.payload
+    //    : attestation.payload["payload"];
+    return (
+      (await this.getInboundQueuedTransfer(
+        attestation.emitterChain,
+        // payload["nttManagerPayload"]
+        attestation.payload.payload.nttManagerPayload
+      )) !== null
+    );
+  }
+
+  getIsApproved(attestation: MultiTokenNtt.Attestation): Promise<boolean> {
+    //const payload =
+    //  attestation.payloadName === "WormholeTransfer"
+    //    ? attestation.payload
+    //    : attestation.payload["payload"];
+    return this.gmpManager.isMessageApproved(
+      MultiTokenNtt.messageDigest(
+        attestation.emitterChain,
+        attestation.payload.payload.nttManagerPayload
+      )
+    );
+  }
+
+  async getTokenDecimals(): Promise<number> {
+    return await EvmPlatform.getDecimals(
+      this.chain,
+      this.provider,
+      this.tokenAddress
+    );
+  }
+
+  async getPeer<C extends Chain>(chain: C): Promise<Ntt.Peer<C> | null> {
+    //const peer = await this.manager.getPeer(toChainId(chain));
+    //const peerAddress = encoding.hex.decode(peer.peerAddress);
+    //const zeroAddress = new Uint8Array(32);
+    //if (encoding.bytes.equals(zeroAddress, peerAddress)) {
+    //  return null;
+    //}
+
+    //return {
+    //  address: { chain: chain, address: toUniversal(chain, peerAddress) },
+    //  tokenDecimals: Number(peer.tokenDecimals),
+    //  inboundLimit: await this.getInboundLimit(chain),
+    //};
+    throw new Error("Not implemented");
+  }
+
+  static async fromRpc<N extends Network>(
+    provider: Provider,
+    config: ChainsConfig<N, EvmPlatformType>
+  ): Promise<EvmMultiTokenNtt<N, EvmChains>> {
+    const [network, chain] = await EvmPlatform.chainFromRpc(provider);
+    const conf = config[chain]!;
+    if (conf.network !== network)
+      throw new Error(`Network mismatch: ${conf.network} != ${network}`);
+
+    const version = await EvmMultiTokenNtt.getVersion(provider, conf.contracts);
+    return new EvmMultiTokenNtt(
+      network as N,
+      chain,
+      provider,
+      conf.contracts,
+      version
+    );
+  }
+
+  encodeOptions(options: Ntt.TransferOptions): Ntt.TransceiverInstruction[] {
+    const ixs: Ntt.TransceiverInstruction[] = [];
+
+    ixs.push({
+      index: 0,
+      payload: this.xcvrs[0]!.encodeFlags({ skipRelay: !options.automatic }),
+    });
+
+    return ixs;
+  }
+
+  // TODO: getProtocol will call this if it's available
+  static async getVersion(
+    provider: Provider,
+    contracts: Contracts & { ntt?: MultiTokenNtt.Contracts }
+  ) {
+    const contract = new Contract(
+      contracts.ntt!.manager,
+      ["function NTT_MANAGER_VERSION() public view returns (string)"],
+      provider
+    );
+    try {
+      const abiVersion = await contract
+        .getFunction("NTT_MANAGER_VERSION")
+        .staticCall();
+      if (!abiVersion) {
+        throw new Error("NTT_MANAGER_VERSION not found");
+      }
+      return abiVersion;
+    } catch (e) {
+      console.error(
+        `Failed to get NTT_MANAGER_VERSION from contract ${contracts.ntt?.manager}`
+      );
+      throw e;
+    }
+  }
+
+  async getCustodyAddress() {
+    return this.managerAddress;
+  }
+
+  async quoteDeliveryPrice(
+    dstChain: Chain,
+    options: Ntt.TransferOptions
+  ): Promise<bigint> {
+    const [, totalPrice] = await this.gmpManager.quoteDeliveryPrice(
+      toChainId(dstChain),
+      MultiTokenNtt.encodeTransceiverInstructions(this.encodeOptions(options))
+    );
+    return totalPrice;
+  }
+
+  async *setPeer(
+    peer: ChainAddress<C>,
+    tokenDecimals: number,
+    inboundLimit: bigint
+  ) {
+    //const tx = await this.manager.setPeer.populateTransaction(
+    //  toChainId(peer.chain),
+    //  universalAddress(peer),
+    //  tokenDecimals,
+    //  inboundLimit
+    //);
+    //yield this.createUnsignedTx(tx, "Ntt.setPeer");
+    throw new Error("Not implemented");
+  }
+
+  async *setWormholeTransceiverPeer(peer: ChainAddress<C>) {
+    // TODO: we only have one right now, so just set the peer on that one
+    // in the future, these should(?) be keyed by attestation type
+    yield* this.xcvrs[0]!.setPeer(peer);
+  }
+
+  async *transfer(
+    sender: AccountAddress<C>,
+    token: TokenAddress<C>,
+    amount: bigint,
+    destination: ChainAddress,
+    options: Ntt.TransferOptions
+  ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
+    const senderAddress = new EvmAddress(sender).toString();
+
+    // Note: these flags are indexed by transceiver index
+    const totalPrice = await this.quoteDeliveryPrice(
+      destination.chain,
+      options
+    );
+
+    //TODO check for ERC-2612 (permit) support on token?
+    const tokenContract = EvmPlatform.getTokenImplementation(
+      this.provider,
+      this.tokenAddress
+    );
+
+    const allowance = await tokenContract.allowance(
+      senderAddress,
+      this.managerAddress
+    );
+    if (allowance < amount) {
+      const txReq = await tokenContract.approve.populateTransaction(
+        this.managerAddress,
+        amount
+      );
+      yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Approve");
+    }
+
+    console.log(totalPrice);
+
+    const receiver = universalAddress(destination);
+    const txReq = await this.manager[
+      "transfer(address,uint256,uint16,bytes32,bytes32,bool,bytes)"
+    ].populateTransaction(
+      token.toString(),
+      amount,
+      toChainId(destination.chain),
+      receiver,
+      receiver,
+      options.queue,
+      Ntt.encodeTransceiverInstructions(this.encodeOptions(options)),
+      { value: totalPrice }
+    );
+
+    yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.transfer");
+  }
+
+  // TODO: should this be some map of idx to transceiver?
+  async *redeem(attestations: MultiTokenNtt.Attestation[]) {
+    //if (attestations.length !== this.xcvrs.length)
+    //  throw new Error(
+    //    "Not enough attestations for the registered Transceivers"
+    //  );
+
+    //for (const idx in this.xcvrs) {
+    //  const xcvr = this.xcvrs[idx]!;
+    //  const attestation = attestations[idx];
+    //  if (attestation?.payloadName !== "WormholeTransfer") {
+    //    // TODO: support standard relayer attestations
+    //    // which must be submitted to the delivery provider
+    //    throw new Error("Invalid attestation type for redeem");
+    //  }
+    //  yield* xcvr.receive(attestation);
+    //}
+    throw new Error("Not implemented");
+  }
+
+  async getCurrentOutboundCapacity(): Promise<bigint> {
+    // return await this.manager.getCurrentOutboundCapacity();
+    throw new Error("Not implemented");
+  }
+
+  async getOutboundLimit(): Promise<bigint> {
+    //const encoded: EncodedTrimmedAmount = (
+    //  await this.manager.getOutboundLimitParams()
+    //).limit;
+    //const trimmedAmount: TrimmedAmount = decodeTrimmedAmount(encoded);
+    //const tokenDecimals = await this.getTokenDecimals();
+
+    //return untrim(trimmedAmount, tokenDecimals);
+    throw new Error("Not implemented");
+  }
+
+  async *setOutboundLimit(limit: bigint) {
+    //const tx = await this.manager.setOutboundLimit.populateTransaction(limit);
+    //yield this.createUnsignedTx(tx, "Ntt.setOutboundLimit");
+    throw new Error("Not implemented");
+  }
+
+  async getCurrentInboundCapacity(
+    tokenId: MultiTokenNtt.TokenId,
+    fromChain: Chain
+  ): Promise<bigint> {
+    return await this.manager.getCurrentInboundCapacity(
+      {
+        chainId: toChainId(fromChain),
+        tokenAddress: tokenId.address.toString(),
+      },
+      toChainId(fromChain)
+    );
+  }
+
+  async getInboundLimit(fromChain: Chain): Promise<bigint> {
+    //const encoded: EncodedTrimmedAmount = (
+    //  await this.manager.getInboundLimitParams(toChainId(fromChain))
+    //).limit;
+    //const trimmedAmount: TrimmedAmount = decodeTrimmedAmount(encoded);
+    //const tokenDecimals = await this.getTokenDecimals();
+
+    //return untrim(trimmedAmount, tokenDecimals);
+    throw new Error("Not implemented");
+  }
+
+  async *setInboundLimit(fromChain: Chain, limit: bigint) {
+    //const tx = await this.manager.setInboundLimit.populateTransaction(
+    //  limit,
+    //  toChainId(fromChain)
+    //);
+    //yield this.createUnsignedTx(tx, "Ntt.setInboundLimit");
+    throw new Error("Not implemented");
+  }
+
+  async getRateLimitDuration(): Promise<bigint> {
+    return await this.manager.rateLimitDuration();
+  }
+
+  async getInboundQueuedTransfer(
+    fromChain: Chain,
+    transceiverMessage: MultiTokenNtt.Message
+  ): Promise<Ntt.InboundQueuedTransfer<C> | null> {
+    const queuedTransfer = await this.manager.getInboundQueuedTransfer(
+      MultiTokenNtt.messageDigest(fromChain, transceiverMessage)
+    );
+    if (queuedTransfer.txTimestamp > 0n) {
+      const { recipient, amount, txTimestamp } = queuedTransfer;
+      const duration = await this.getRateLimitDuration();
+      return {
+        recipient: new EvmAddress(recipient) as AccountAddress<C>,
+        amount: amount,
+        rateLimitExpiryTimestamp: Number(txTimestamp + duration),
+      };
+    }
+    return null;
+  }
+
+  async *completeInboundQueuedTransfer(
+    fromChain: Chain,
+    transceiverMessage: MultiTokenNtt.Message,
+    payer?: AccountAddress<C>
+  ) {
+    const tx =
+      await this.manager.completeInboundQueuedTransfer.populateTransaction(
+        MultiTokenNtt.messageDigest(fromChain, transceiverMessage)
+      );
+    yield this.createUnsignedTx(tx, "Ntt.completeInboundQueuedTransfer");
+  }
+
+  async verifyAddresses(): Promise<Partial<Ntt.Contracts> | null> {
+    //const local: Partial<Ntt.Contracts> = {
+    //  manager: this.managerAddress,
+    //  token: this.tokenAddress,
+    //  transceiver: {
+    //    wormhole: this.xcvrs[0]?.address,
+    //  },
+    //  // TODO: what about the quoter?
+    //};
+
+    //const remote: Partial<Ntt.Contracts> = {
+    //  manager: this.managerAddress,
+    //  token: await this.manager.token(),
+    //  transceiver: {
+    //    wormhole: (await this.manager.getTransceivers())[0]!, // TODO: make this more generic
+    //  },
+    //};
+
+    //const deleteMatching = (a: any, b: any) => {
+    //  for (const k in a) {
+    //    if (typeof a[k] === "object") {
+    //      deleteMatching(a[k], b[k]);
+    //      if (Object.keys(a[k]).length === 0) delete a[k];
+    //    } else if (a[k] === b[k]) {
+    //      delete a[k];
+    //    }
+    //  }
+    //};
+
+    //deleteMatching(remote, local);
+
+    //return Object.keys(remote).length > 0 ? remote : null;
+    throw new Error("Not implemented");
+  }
+
+  async getTokenId(token: NativeAddress<C>): Promise<MultiTokenNtt.TokenId> {
+    const [tokenId] = await this.manager.getTokenId(token.toString());
+    return {
+      chain: toChain(tokenId.chainId),
+      address: new UniversalAddress(tokenId.tokenAddress),
+    };
+  }
+
+  createUnsignedTx(
+    txReq: TransactionRequest,
+    description: string,
+    parallelizable: boolean = false
+  ): EvmUnsignedTransaction<N, C> {
+    return new EvmUnsignedTransaction(
+      addChainId(txReq, this.chainId),
+      this.network,
+      this.chain,
+      description,
+      parallelizable
+    );
+  }
+}
+
+//type EncodedTrimmedAmount = bigint; // uint72
+//
+//type TrimmedAmount = {
+//  amount: bigint;
+//  decimals: number;
+//};
+
+//function decodeTrimmedAmount(encoded: EncodedTrimmedAmount): TrimmedAmount {
+//  const decimals = Number(encoded & 0xffn);
+//  const amount = encoded >> 8n;
+//  return {
+//    amount,
+//    decimals,
+//  };
+//}
+//
+//function untrim(trimmed: TrimmedAmount, toDecimals: number): bigint {
+//  const { amount, decimals: fromDecimals } = trimmed;
+//  return scale(amount, fromDecimals, toDecimals);
+//}
+
+//function scale(
+//  amount: bigint,
+//  fromDecimals: number,
+//  toDecimals: number
+//): bigint {
+//  if (fromDecimals == toDecimals) {
+//    return amount;
+//  }
+//
+//  if (fromDecimals > toDecimals) {
+//    return amount / 10n ** BigInt(fromDecimals - toDecimals);
+//  } else {
+//    return amount * 10n ** BigInt(toDecimals - fromDecimals);
+//  }
+//}
