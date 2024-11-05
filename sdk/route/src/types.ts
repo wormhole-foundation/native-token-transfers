@@ -422,6 +422,48 @@ export namespace MultiTokenNttRoute {
     throw new Error("Cannot find Ntt contracts in config for: " + address);
   }
 
+  export function resolveNttContractsByToken(
+    config: Config,
+    token: TokenId,
+    fromChain: Chain,
+    toChain: Chain
+  ): { srcInfo: MultiTokenNtt.Contracts; dstInfo: MultiTokenNtt.Contracts } {
+    const cfg = Object.values(config.tokens);
+    const address = canonicalAddress(token);
+    for (const tokens of cfg) {
+      const found = tokens.find(
+        (tc) =>
+          tc.token.toLowerCase() === address.toLowerCase() &&
+          tc.chain === token.chain
+      );
+      if (found) {
+        const src = tokens.find((tc) => tc.chain === fromChain)!;
+        const dst = tokens.find((tc) => tc.chain === toChain)!;
+        return {
+          srcInfo: {
+            token: src.token,
+            manager: src.manager,
+            gmpManager: src.gmpManager,
+            transceiver: {
+              wormhole: src.transceiver.find((v) => v.type === "wormhole")!
+                .address,
+            },
+          },
+          dstInfo: {
+            token: dst.token,
+            manager: dst.manager,
+            gmpManager: dst.gmpManager,
+            transceiver: {
+              wormhole: dst.transceiver.find((v) => v.type === "wormhole")!
+                .address,
+            },
+          },
+        };
+      }
+    }
+    throw new Error("Cannot find Ntt contracts in config for: " + address);
+  }
+
   // returns true if the amount is greater than 95% of the capacity
   // useful for warning about the possibility of a transfer being queued
   export function isCapacityThresholdExceeded(

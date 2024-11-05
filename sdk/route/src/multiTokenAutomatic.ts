@@ -14,7 +14,6 @@ import {
   Wormhole,
   WormholeMessageId,
   amount,
-  canonicalAddress,
   finality,
   isAttested,
   isDestinationQueued,
@@ -268,8 +267,13 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
   }
 
   async resume(tx: TransactionId): Promise<R> {
+    // TODO: this is a hack since whscan doesn't support looking up VAA by txid for monad devnet yet
+    const fromChain = this.wh.getChain(tx.chain);
+    const [msg] = await fromChain.parseTransaction(tx.txid);
+    if (!msg) throw new Error("No Wormhole messages found");
+
     const vaa = await this.wh.getVaa(
-      tx.txid,
+      msg,
       "Ntt:MultiTokenWormholeTransferStandardRelayer"
     );
     if (!vaa) throw new Error("No VAA found for transaction: " + tx.txid);
@@ -286,26 +290,32 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       payload.nttManagerPayload.payload.data.token.token.tokenAddress;
     const { trimmedAmount } = payload.nttManagerPayload.payload.data;
 
-    const tokenId = Wormhole.tokenId(vaa.emitterChain, sourceToken.toString());
-    const manager = canonicalAddress({
-      chain: vaa.emitterChain,
-      address: payload["sourceNttManager"],
-    });
-    // const fromMultiTokenNttManager = payload.nttManagerPayload.payload.callee;
+    const tokenChain =
+      payload.nttManagerPayload.payload.data.token.token.chainId;
+    const tokenId = Wormhole.tokenId(tokenChain, sourceToken.toString());
+    //const manager = canonicalAddress({
+    //  chain: vaa.emitterChain,
+    //  address: payload.nttManagerPayload.payload.callee,
+    //});
 
-    const srcInfo = MultiTokenNttRoute.resolveNttContracts(
-      this.staticConfig,
-      tokenId
-    );
+    // const srcInfo = MultiTokenNttRoute.resolveNttContracts(
+    //  this.staticConfig,
+    //  tokenId
+    //);
 
-    const dstInfo = MultiTokenNttRoute.resolveDestinationNttContracts(
+    //const dstInfo = MultiTokenNttRoute.resolveDestinationNttContracts(
+    //  this.staticConfig,
+    //  {
+    //    chain: vaa.emitterChain,
+    //    address: Wormhole.chainAddress(vaa.emitterChain, manager).address,
+    //  },
+    //  recipientChain
+    //);
+
+    const { srcInfo, dstInfo } = MultiTokenNttRoute.resolveNttContractsByToken(
       this.staticConfig,
-      {
-        chain: vaa.emitterChain,
-        // TODO: is sourceNttManager the same as fromMultiTokenNttManager (defined above)?
-        address: Wormhole.chainAddress(vaa.emitterChain, srcInfo.manager)
-          .address,
-      },
+      tokenId,
+      fromChain.chain,
       recipientChain
     );
 
@@ -330,8 +340,8 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
           amount: amt,
           options: { queue: false, automatic: true },
           sourceContracts: {
-            token: tokenId.address.toString(),
-            manager,
+            token: srcInfo.token,
+            manager: srcInfo.manager,
             gmpManager: srcInfo.gmpManager,
             transceiver: {
               wormhole: srcInfo.transceiver.wormhole,
@@ -385,8 +395,13 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
       const { txid } = receipt.originTxs[receipt.originTxs.length - 1]!;
 
+      // TODO: this is a hack since whscan doesn't support looking up VAA by txid for monad devnet yet
+      const fromChain = this.wh.getChain(receipt.from);
+      const [msg] = await fromChain.parseTransaction(txid);
+      if (!msg) throw new Error("No Wormhole messages found");
+
       const vaa = await this.wh.getVaa(
-        txid,
+        msg,
         "Ntt:MultiTokenWormholeTransferStandardRelayer",
         timeout
       );
