@@ -9,6 +9,7 @@ import {
 import {
   AccountAddress,
   ChainAddress,
+  ChainContext,
   EmptyPlatformMap,
   NativeAddress,
   TokenAddress,
@@ -235,7 +236,8 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
     token: TokenAddress<C>,
     amount: bigint,
     destination: ChainAddress,
-    options: MultiTokenNtt.TransferOptions
+    options: MultiTokenNtt.TransferOptions,
+    chainContext: ChainContext<N, C> // TODO: this is a hack
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   /**

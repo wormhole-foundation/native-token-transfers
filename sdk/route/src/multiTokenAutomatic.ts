@@ -80,8 +80,8 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     fromChain: ChainContext<N>,
     toChain: ChainContext<N>
   ): Promise<TokenId[]> {
-    // TODO: we will need to fetch the token info from the dest chain
-    // it may not exist yet
+    // TODO: we will need to fetch the token from the dest chain
+    // it may not have been created yet (how to handle this? dummy token?)
     return MultiTokenNttRoute.resolveDestinationTokens(
       this.config,
       sourceToken,
@@ -253,7 +253,8 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       request.source.id.address,
       amount.units(params.normalizedParams.amount),
       to,
-      params.normalizedParams.options
+      params.normalizedParams.options,
+      fromChain
     );
     const txids = await signSendWait(fromChain, initXfer, signer);
 

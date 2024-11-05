@@ -8,8 +8,10 @@ import {
 import {
   AccountAddress,
   ChainAddress,
+  ChainContext,
   ChainsConfig,
   Contracts,
+  isNative,
   NativeAddress,
   TokenAddress,
   UniversalAddress,
@@ -352,7 +354,8 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     token: TokenAddress<C>,
     amount: bigint,
     destination: ChainAddress,
-    options: Ntt.TransferOptions
+    options: Ntt.TransferOptions,
+    chainContext: ChainContext<N, C> // TODO: this is a hack to support wrapping the native gas token
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
 
@@ -362,10 +365,29 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       options
     );
 
+    // TODO: this is a hack to support wrapping the native gas token
+    // the contract should have a method to do this for us
+    let tokenAddress;
+    if (isNative(token)) {
+      const wrapped = await chainContext.getNativeWrappedTokenId();
+      tokenAddress = wrapped.address.toString();
+      const wrappedContract = new Contract(
+        tokenAddress,
+        ["function deposit() public payable"],
+        this.provider
+      );
+      const txReq = await wrappedContract["deposit"]!.populateTransaction({
+        value: amount,
+      });
+      yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Deposit");
+    } else {
+      tokenAddress = token.toString();
+    }
+
     //TODO check for ERC-2612 (permit) support on token?
     const tokenContract = EvmPlatform.getTokenImplementation(
       this.provider,
-      this.tokenAddress
+      tokenAddress
     );
 
     const allowance = await tokenContract.allowance(
@@ -379,8 +401,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       );
       yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Approve");
     }
-
-    console.log(totalPrice);
 
     const receiver = universalAddress(destination);
     const txReq = await this.manager[
