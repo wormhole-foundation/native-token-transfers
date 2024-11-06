@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::{token_2022::spl_token_2022::instruction::AuthorityType, token_interface};
 use ntt_messages::chain_id::ChainId;
 use wormhole_solana_utils::cpi::bpf_loader_upgradeable::{self, BpfLoaderUpgradeable};
 
@@ -151,6 +152,51 @@ pub fn claim_ownership(ctx: Context<ClaimOwnership>) -> Result<()> {
             &[&[b"upgrade_lock", &[ctx.bumps.upgrade_lock]]],
         ),
         &crate::ID,
+    )
+}
+
+// * Set token authority
+#[derive(Accounts)]
+pub struct SetTokenAuthority<'info> {
+    #[account(
+        constraint = config.owner == owner.key()
+    )]
+    pub config: Account<'info, Config>,
+
+    pub owner: Signer<'info>,
+
+    #[account(
+        mut,
+        address = config.mint,
+    )]
+    /// CHECK: the mint address matches the config
+    pub mint: InterfaceAccount<'info, token_interface::Mint>,
+
+    pub token_program: Interface<'info, token_interface::TokenInterface>,
+
+    #[account(
+        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        bump,
+    )]
+    /// CHECK: The seeds constraint enforces that this is the correct account.
+    pub token_authority: UncheckedAccount<'info>,
+
+    /// CHECK: This is unsafe as is so should be used with caution
+    pub new_authority: UncheckedAccount<'info>,
+}
+
+pub fn set_token_authority_one_step_unchecked(ctx: Context<SetTokenAuthority>) -> Result<()> {
+    token_interface::set_authority(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            token_interface::SetAuthority {
+                account_or_mint: ctx.accounts.mint.to_account_info(),
+                current_authority: ctx.accounts.token_authority.to_account_info(),
+            },
+            &[&[crate::TOKEN_AUTHORITY_SEED, &[ctx.bumps.token_authority]]],
+        ),
+        AuthorityType::MintTokens,
+        Some(ctx.accounts.new_authority.key()),
     )
 }
 

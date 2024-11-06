@@ -720,6 +720,42 @@ export type ExampleNativeTokenTransfers = {
       "args": []
     },
     {
+      "name": "setTokenAuthorityOneStepUnchecked",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "newAuthority",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "setPaused",
       "accounts": [
         {
@@ -2737,6 +2773,42 @@ export const IDL: ExampleNativeTokenTransfers = {
         },
         {
           "name": "bpfLoaderUpgradeableProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "setTokenAuthorityOneStepUnchecked",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "newAuthority",
           "isMut": false,
           "isSigner": false
         }

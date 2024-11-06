@@ -126,6 +126,10 @@ pub mod example_native_token_transfers {
         instructions::claim_ownership(ctx)
     }
 
+    pub fn set_token_authority_one_step_unchecked(ctx: Context<SetTokenAuthority>) -> Result<()> {
+        instructions::set_token_authority_one_step_unchecked(ctx)
+    }
+
     pub fn set_paused(ctx: Context<SetPaused>, pause: bool) -> Result<()> {
         instructions::set_paused(ctx, pause)
     }
