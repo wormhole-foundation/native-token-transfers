@@ -161,12 +161,10 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ntt: params.normalizedParams.sourceContracts,
     });
 
-    console.log("FETCHING DELIVERY PRICE");
     const deliveryPrice = await ntt.quoteDeliveryPrice(
       toChain.chain,
       params.normalizedParams.options
     );
-    console.log("DELIVERY PRICE", deliveryPrice);
 
     const result: QR = {
       success: true,
@@ -196,9 +194,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     //const dstNtt = await toChain.getProtocol("MultiTokenNtt", {
     //  ntt: params.normalizedParams.destinationContracts,
     //});
-    //console.log("FETCHING RATE LIMIT DURATION");
     //const duration = await dstNtt.getRateLimitDuration();
-    //console.log("RATE LIMIT DURATION", duration);
     //if (duration > 0n) {
     //  // TODO: support native
     //  if (isNative(request.source.id.address))
