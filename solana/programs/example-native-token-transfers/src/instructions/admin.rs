@@ -156,10 +156,12 @@ pub fn claim_ownership(ctx: Context<ClaimOwnership>) -> Result<()> {
 }
 
 // * Set token authority
+
 #[derive(Accounts)]
 pub struct SetTokenAuthority<'info> {
     #[account(
-        constraint = config.owner == owner.key()
+        has_one = owner,
+        constraint = config.paused @ NTTError::NotPaused,
     )]
     pub config: Account<'info, Config>,
 
@@ -178,7 +180,7 @@ pub struct SetTokenAuthority<'info> {
         seeds = [crate::TOKEN_AUTHORITY_SEED],
         bump,
     )]
-    /// CHECK: The seeds constraint enforces that this is the correct account.
+    /// CHECK: token_program will ensure this is the valid mint_authority.
     pub token_authority: UncheckedAccount<'info>,
 
     /// CHECK: This is unsafe as is so should be used with caution

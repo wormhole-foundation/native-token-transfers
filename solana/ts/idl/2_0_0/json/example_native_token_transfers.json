@@ -2055,6 +2055,11 @@
       "code": 6023,
       "name": "NoRegisteredTransceivers",
       "msg": "NoRegisteredTransceivers"
+    },
+    {
+      "code": 6024,
+      "name": "NotPaused",
+      "msg": "NotPaused"
     }
   ]
 }
