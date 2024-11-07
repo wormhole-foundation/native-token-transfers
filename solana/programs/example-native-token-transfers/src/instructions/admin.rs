@@ -10,6 +10,7 @@ use crate::{
     config::Config,
     error::NTTError,
     peer::NttManagerPeer,
+    pending_token_authority::PendingTokenAuthority,
     queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit, rate_limit::RateLimitState},
     registered_transceiver::RegisteredTransceiver,
 };
@@ -174,20 +175,120 @@ pub struct SetTokenAuthority<'info> {
     /// CHECK: the mint address matches the config
     pub mint: InterfaceAccount<'info, token_interface::Mint>,
 
+    #[account(
+        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        bump,
+        constraint = mint.mint_authority.unwrap() == token_authority.key() @ NTTError::InvalidMintAuthority
+    )]
+    /// CHECK: The constraints enforce this is valid mint authority
+    pub token_authority: UncheckedAccount<'info>,
+
+    /// CHECK: This account will be the signer in the [claim_token_authority] instruction.
+    pub new_authority: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetTokenAuthorityChecked<'info> {
+    pub common: SetTokenAuthority<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        init_if_needed,
+        space = 8 + PendingTokenAuthority::INIT_SPACE,
+        payer = payer,
+        seeds = [PendingTokenAuthority::SEED_PREFIX],
+        bump
+     )]
+    pub pending_token_authority: Account<'info, PendingTokenAuthority>,
+
+    pub system_program: Program<'info, System>,
+}
+
+pub fn set_token_authority(ctx: Context<SetTokenAuthorityChecked>) -> Result<()> {
+    ctx.accounts
+        .pending_token_authority
+        .set_inner(PendingTokenAuthority {
+            bump: ctx.bumps.pending_token_authority,
+            pending_authority: ctx.accounts.common.new_authority.key(),
+        });
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct SetTokenAuthorityUnchecked<'info> {
+    pub common: SetTokenAuthority<'info>,
+
     pub token_program: Interface<'info, token_interface::TokenInterface>,
+}
+
+pub fn set_token_authority_one_step_unchecked(
+    ctx: Context<SetTokenAuthorityUnchecked>,
+) -> Result<()> {
+    token_interface::set_authority(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            token_interface::SetAuthority {
+                account_or_mint: ctx.accounts.common.mint.to_account_info(),
+                current_authority: ctx.accounts.common.token_authority.to_account_info(),
+            },
+            &[&[
+                crate::TOKEN_AUTHORITY_SEED,
+                &[ctx.bumps.common.token_authority],
+            ]],
+        ),
+        AuthorityType::MintTokens,
+        Some(ctx.accounts.common.new_authority.key()),
+    )
+}
+
+#[derive(Accounts)]
+pub struct ClaimTokenAuthority<'info> {
+    #[account(
+        constraint = config.paused @ NTTError::NotPaused,
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        mut,
+        address = config.mint,
+    )]
+    /// CHECK: the mint address matches the config
+    pub mint: InterfaceAccount<'info, token_interface::Mint>,
 
     #[account(
         seeds = [crate::TOKEN_AUTHORITY_SEED],
         bump,
     )]
-    /// CHECK: token_program will ensure this is the valid mint_authority.
+    /// CHECK: The seeds constraint enforces that this is the correct address
     pub token_authority: UncheckedAccount<'info>,
 
-    /// CHECK: This is unsafe as is so should be used with caution
-    pub new_authority: UncheckedAccount<'info>,
+    #[account(
+        constraint = (
+            new_authority.key() == pending_token_authority.pending_authority
+            || new_authority.key() == token_authority.key()
+        ) @ NTTError::InvalidPendingTokenAuthority
+    )]
+    pub new_authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [PendingTokenAuthority::SEED_PREFIX],
+        bump = pending_token_authority.bump,
+        close = payer
+     )]
+    pub pending_token_authority: Account<'info, PendingTokenAuthority>,
+
+    pub token_program: Interface<'info, token_interface::TokenInterface>,
+
+    pub system_program: Program<'info, System>,
 }
 
-pub fn set_token_authority_one_step_unchecked(ctx: Context<SetTokenAuthority>) -> Result<()> {
+pub fn claim_token_authority(ctx: Context<ClaimTokenAuthority>) -> Result<()> {
     token_interface::set_authority(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),

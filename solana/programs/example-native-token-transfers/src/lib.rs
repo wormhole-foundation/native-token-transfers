@@ -18,6 +18,7 @@ pub mod error;
 pub mod instructions;
 pub mod messages;
 pub mod peer;
+pub mod pending_token_authority;
 pub mod queue;
 pub mod registered_transceiver;
 pub mod transceivers;
@@ -126,8 +127,18 @@ pub mod example_native_token_transfers {
         instructions::claim_ownership(ctx)
     }
 
-    pub fn set_token_authority_one_step_unchecked(ctx: Context<SetTokenAuthority>) -> Result<()> {
+    pub fn set_token_authority(ctx: Context<SetTokenAuthorityChecked>) -> Result<()> {
+        instructions::set_token_authority(ctx)
+    }
+
+    pub fn set_token_authority_one_step_unchecked(
+        ctx: Context<SetTokenAuthorityUnchecked>,
+    ) -> Result<()> {
         instructions::set_token_authority_one_step_unchecked(ctx)
+    }
+
+    pub fn claim_token_authority(ctx: Context<ClaimTokenAuthority>) -> Result<()> {
+        instructions::claim_token_authority(ctx)
     }
 
     pub fn set_paused(ctx: Context<SetPaused>, pause: bool) -> Result<()> {
