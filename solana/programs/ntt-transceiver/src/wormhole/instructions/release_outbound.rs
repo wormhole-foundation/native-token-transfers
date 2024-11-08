@@ -110,10 +110,7 @@ pub struct ReleaseOutboundArgs {
     pub revert_on_delay: bool,
 }
 
-pub fn release_outbound<'info>(
-    ctx: Context<'_, '_, '_, 'info, ReleaseOutbound>,
-    args: ReleaseOutboundArgs,
-) -> Result<()> {
+pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs) -> Result<()> {
     let accs = ctx.accounts;
     let released = accs.mark_outbox_item_as_released(ctx.bumps.outbox_item_signer)?;
 
