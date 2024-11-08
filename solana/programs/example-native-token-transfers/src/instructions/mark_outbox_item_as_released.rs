@@ -4,7 +4,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 
-pub const OUTBOX_ITEM_SIGNER_SEED: &'static [u8] = b"outbox_item_signer";
+pub const OUTBOX_ITEM_SIGNER_SEED: &[u8] = b"outbox_item_signer";
 
 #[derive(Accounts)]
 pub struct MarkOutboxItemAsReleased<'info> {
