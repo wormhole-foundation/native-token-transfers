@@ -31,6 +31,9 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import { DummyTransferHook } from "../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
+import { type NttTransceiver as NttTransceiverIdlType } from "../ts/idl/3_0_0/ts/ntt_transceiver.js";
+import { NTT } from "../ts/index.js";
+import { derivePda } from "../ts/lib/utils.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
 
 const solanaRootDir = `${__dirname}/../`;

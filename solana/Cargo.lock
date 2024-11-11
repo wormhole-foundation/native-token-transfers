@@ -1394,7 +1394,7 @@ checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 
 [[package]]
 name = "dummy-transfer-hook"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -1553,7 +1553,7 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "example-native-token-transfers"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -2476,7 +2476,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "ntt-messages"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "hex",
@@ -2486,7 +2486,7 @@ dependencies = [
 
 [[package]]
 name = "ntt-quoter"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "cfg-if",
@@ -2498,7 +2498,7 @@ dependencies = [
 
 [[package]]
 name = "ntt-transceiver"
-version = "0.1.0"
+version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -6407,7 +6407,7 @@ dependencies = [
 
 [[package]]
 name = "wormhole-governance"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "hex",
