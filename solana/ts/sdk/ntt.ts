@@ -42,6 +42,10 @@ import {
   utils,
 } from "@wormhole-foundation/sdk-solana-core";
 import BN from "bn.js";
+import {
+  type NttTransceiver as NttTransceiverIdlType,
+  IDL as NttTransceiverIdl,
+} from "../idl/3_0_0/ts/ntt_transceiver.js";
 import { NTT, NttQuoter, WEI_PER_GWEI } from "../lib/index.js";
 
 import { IdlVersion, NttBindings, getNttProgram } from "../lib/bindings.js";
