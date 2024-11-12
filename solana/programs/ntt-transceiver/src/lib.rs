@@ -7,10 +7,16 @@ use wormhole::instructions::*;
 
 declare_id!("Ee6jpX9oq2EsGuqGb6iZZxvtcpmMGZk8SAUbnQy4jcHR");
 
+pub const TRANSCEIVER_TYPE: &str = "wormhole";
+
 #[program]
 pub mod ntt_transceiver {
 
     use super::*;
+
+    pub fn transceiver_type(_ctx: Context<TransceiverType>) -> Result<String> {
+        Ok(TRANSCEIVER_TYPE.to_string())
+    }
 
     pub fn set_wormhole_peer(
         ctx: Context<SetTransceiverPeer>,
@@ -43,4 +49,4 @@ pub mod ntt_transceiver {
 }
 
 #[derive(Accounts)]
-pub struct Initialize {}
+pub struct TransceiverType {}
