@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/ntt-cli",
-  "version": "0.5.0",
+  "version": "1.0.2-beta",
   "module": "src/index.ts",
   "type": "module",
   "devDependencies": {
