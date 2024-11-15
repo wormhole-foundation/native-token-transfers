@@ -8,7 +8,6 @@ import {
 import {
   AccountAddress,
   ChainAddress,
-  ChainContext,
   ChainsConfig,
   Contracts,
   isNative,
@@ -36,7 +35,12 @@ import {
   Ntt,
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import { Contract, type Provider, type TransactionRequest } from "ethers";
+import {
+  Contract,
+  ZeroAddress,
+  type Provider,
+  type TransactionRequest,
+} from "ethers";
 import { EvmNttWormholeTranceiver } from "./ntt.js";
 import {
   GmpManager__factory,
@@ -276,8 +280,10 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
-  encodeOptions(options: Ntt.TransferOptions): Ntt.TransceiverInstruction[] {
-    const ixs: Ntt.TransceiverInstruction[] = [];
+  encodeOptions(
+    options: MultiTokenNtt.TransferOptions
+  ): MultiTokenNtt.TransceiverInstruction[] {
+    const ixs: MultiTokenNtt.TransceiverInstruction[] = [];
 
     ixs.push({
       index: 0,
@@ -319,10 +325,11 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
   async quoteDeliveryPrice(
     dstChain: Chain,
-    options: Ntt.TransferOptions
+    options: MultiTokenNtt.TransferOptions
   ): Promise<bigint> {
     const [, totalPrice] = await this.gmpManager.quoteDeliveryPrice(
       toChainId(dstChain),
+      options.relayerGasLimit,
       MultiTokenNtt.encodeTransceiverInstructions(this.encodeOptions(options))
     );
     return totalPrice;
@@ -354,8 +361,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     token: TokenAddress<C>,
     amount: bigint,
     destination: ChainAddress,
-    options: Ntt.TransferOptions,
-    chainContext: ChainContext<N, C> // TODO: this is a hack to support wrapping the native gas token
+    options: MultiTokenNtt.TransferOptions
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
 
@@ -365,58 +371,58 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       options
     );
 
-    // TODO: this is a hack to support wrapping the native gas token
-    // the contract should have a method to do this for us
-    let tokenAddress;
-    if (isNative(token)) {
-      const wrapped = await chainContext.getNativeWrappedTokenId();
-      tokenAddress = wrapped.address.toString();
-      const wrappedContract = new Contract(
-        tokenAddress,
-        ["function deposit() public payable"],
-        this.provider
-      );
-      const txReq = await wrappedContract["deposit"]!.populateTransaction({
-        value: amount,
-      });
-      yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Deposit");
-    } else {
-      tokenAddress = token.toString();
-    }
-
-    //TODO check for ERC-2612 (permit) support on token?
-    const tokenContract = EvmPlatform.getTokenImplementation(
-      this.provider,
-      tokenAddress
-    );
-
-    const allowance = await tokenContract.allowance(
-      senderAddress,
-      this.managerAddress
-    );
-    if (allowance < amount) {
-      const txReq = await tokenContract.approve.populateTransaction(
-        this.managerAddress,
-        amount
-      );
-      yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Approve");
-    }
-
     const receiver = universalAddress(destination);
-    const txReq = await this.manager[
-      "transfer(address,uint256,uint16,bytes32,bytes32,bool,bytes)"
-    ].populateTransaction(
-      token.toString(),
-      amount,
-      toChainId(destination.chain),
-      receiver,
-      receiver,
-      options.queue,
-      Ntt.encodeTransceiverInstructions(this.encodeOptions(options)),
-      { value: totalPrice }
-    );
 
-    yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.transfer");
+    let transferTx;
+    if (isNative(token)) {
+      transferTx = await this.manager[
+        "transferETH(uint256,uint16,uint256,bytes32)"
+      ].populateTransaction(
+        amount,
+        toChainId(destination.chain),
+        options.relayerGasLimit,
+        receiver,
+        { value: amount + totalPrice }
+      );
+    } else {
+      //TODO check for ERC-2612 (permit) support on token?
+      const tokenContract = EvmPlatform.getTokenImplementation(
+        this.provider,
+        token.toString()
+      );
+
+      const allowance = await tokenContract.allowance(
+        senderAddress,
+        this.managerAddress
+      );
+      if (allowance < amount) {
+        const approveTx = await tokenContract.approve.populateTransaction(
+          this.managerAddress,
+          amount
+        );
+
+        yield this.createUnsignedTx(
+          addFrom(approveTx, senderAddress),
+          "Ntt.Approve"
+        );
+      }
+
+      transferTx = await this.manager[
+        "transfer(address,uint256,uint16,uint256,bytes32)"
+      ].populateTransaction(
+        token.toString(),
+        amount,
+        toChainId(destination.chain),
+        options.relayerGasLimit,
+        receiver,
+        { value: totalPrice }
+      );
+    }
+
+    yield this.createUnsignedTx(
+      addFrom(transferTx, senderAddress),
+      "Ntt.transfer"
+    );
   }
 
   // TODO: should this be some map of idx to transceiver?
@@ -564,12 +570,26 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     throw new Error("Not implemented");
   }
 
-  async getTokenId(token: NativeAddress<C>): Promise<MultiTokenNtt.TokenId> {
+  async getTokenId(token: TokenAddress<C>): Promise<MultiTokenNtt.TokenId> {
     const [tokenId] = await this.manager.getTokenId(token.toString());
     return {
       chain: toChain(tokenId.chainId),
       address: new UniversalAddress(tokenId.tokenAddress),
     };
+  }
+
+  // This will return null if the token is not yet created
+  async getToken(
+    tokenId: MultiTokenNtt.TokenId
+  ): Promise<TokenAddress<C> | null> {
+    const token = await this.manager.getToken({
+      chainId: toChainId(tokenId.chain),
+      tokenAddress: tokenId.address.toString(),
+    });
+    console.log(`getToken result: ${token}`);
+    if (token === ZeroAddress) return null;
+
+    return new EvmAddress(token) as NativeAddress<C>;
   }
 
   createUnsignedTx(

@@ -258,7 +258,7 @@ export namespace MultiTokenNttRoute {
   /** Options for Per-TransferRequest settings */
   export interface Options {
     automatic: boolean;
-    gasDropoff?: string;
+    relayerGasLimit?: bigint;
   }
 
   export const ManualOptions: Options = {
@@ -267,7 +267,7 @@ export namespace MultiTokenNttRoute {
 
   export const AutomaticOptions: Options = {
     automatic: true,
-    gasDropoff: "0.0",
+    relayerGasLimit: undefined,
   };
 
   export type NormalizedParams = {

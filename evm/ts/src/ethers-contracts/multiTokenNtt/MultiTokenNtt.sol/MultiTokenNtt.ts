@@ -103,6 +103,7 @@ export interface MultiTokenNttInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "NTT_MANAGER_VERSION"
+      | "WETH"
       | "cancelOutboundQueuedTransfer"
       | "completeInboundQueuedTransfer"
       | "completeOutboundQueuedTransfer"
@@ -116,6 +117,7 @@ export interface MultiTokenNttInterface extends Interface {
       | "getPeer"
       | "getToken"
       | "getTokenId"
+      | "gmpManager"
       | "initialize"
       | "isPaused"
       | "migrate"
@@ -126,10 +128,14 @@ export interface MultiTokenNttInterface extends Interface {
       | "setInboundLimit"
       | "setOutboundLimit"
       | "setPeer"
-      | "transfer(address,uint256,uint16,bytes32,bytes32,bool,bytes)"
-      | "transfer(address,uint256,uint16,bytes32)"
+      | "tokenImplementation"
+      | "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)"
+      | "transfer(address,uint256,uint16,uint256,bytes32)"
+      | "transferETH(uint256,uint16,uint256,bytes32)"
+      | "transferETH(uint256,uint16,uint256,bytes32,bytes32,bool,bytes)"
       | "transferOwnership"
       | "transferPauserCapability"
+      | "upgrade"
   ): FunctionFragment;
 
   getEvent(
@@ -155,6 +161,7 @@ export interface MultiTokenNttInterface extends Interface {
     functionFragment: "NTT_MANAGER_VERSION",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "WETH", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "cancelOutboundQueuedTransfer",
     values: [BigNumberish]
@@ -165,7 +172,7 @@ export interface MultiTokenNttInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "completeOutboundQueuedTransfer",
-    values: [BigNumberish]
+    values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "getCurrentInboundCapacity",
@@ -208,6 +215,10 @@ export interface MultiTokenNttInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "gmpManager",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "initialize",
     values?: undefined
   ): string;
@@ -236,9 +247,14 @@ export interface MultiTokenNttInterface extends Interface {
     values: [BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
-    functionFragment: "transfer(address,uint256,uint16,bytes32,bytes32,bool,bytes)",
+    functionFragment: "tokenImplementation",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)",
     values: [
       AddressLike,
+      BigNumberish,
       BigNumberish,
       BigNumberish,
       BytesLike,
@@ -248,8 +264,24 @@ export interface MultiTokenNttInterface extends Interface {
     ]
   ): string;
   encodeFunctionData(
-    functionFragment: "transfer(address,uint256,uint16,bytes32)",
-    values: [AddressLike, BigNumberish, BigNumberish, BytesLike]
+    functionFragment: "transfer(address,uint256,uint16,uint256,bytes32)",
+    values: [AddressLike, BigNumberish, BigNumberish, BigNumberish, BytesLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transferETH(uint256,uint16,uint256,bytes32)",
+    values: [BigNumberish, BigNumberish, BigNumberish, BytesLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transferETH(uint256,uint16,uint256,bytes32,bytes32,bool,bytes)",
+    values: [
+      BigNumberish,
+      BigNumberish,
+      BigNumberish,
+      BytesLike,
+      BytesLike,
+      boolean,
+      BytesLike
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "transferOwnership",
@@ -259,11 +291,16 @@ export interface MultiTokenNttInterface extends Interface {
     functionFragment: "transferPauserCapability",
     values: [AddressLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "upgrade",
+    values: [AddressLike]
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "NTT_MANAGER_VERSION",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "WETH", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "cancelOutboundQueuedTransfer",
     data: BytesLike
@@ -307,6 +344,7 @@ export interface MultiTokenNttInterface extends Interface {
   decodeFunctionResult(functionFragment: "getPeer", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "getToken", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "getTokenId", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "gmpManager", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isPaused", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "migrate", data: BytesLike): Result;
@@ -330,11 +368,23 @@ export interface MultiTokenNttInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "setPeer", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "transfer(address,uint256,uint16,bytes32,bytes32,bool,bytes)",
+    functionFragment: "tokenImplementation",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "transfer(address,uint256,uint16,bytes32)",
+    functionFragment: "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "transfer(address,uint256,uint16,uint256,bytes32)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "transferETH(uint256,uint16,uint256,bytes32)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "transferETH(uint256,uint16,uint256,bytes32,bytes32,bool,bytes)",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -345,6 +395,7 @@ export interface MultiTokenNttInterface extends Interface {
     functionFragment: "transferPauserCapability",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "upgrade", data: BytesLike): Result;
 }
 
 export namespace AdminChangedEvent {
@@ -633,6 +684,8 @@ export interface MultiTokenNtt extends BaseContract {
 
   NTT_MANAGER_VERSION: TypedContractMethod<[], [string], "view">;
 
+  WETH: TypedContractMethod<[], [string], "view">;
+
   cancelOutboundQueuedTransfer: TypedContractMethod<
     [messageSequence: BigNumberish],
     [void],
@@ -646,7 +699,7 @@ export interface MultiTokenNtt extends BaseContract {
   >;
 
   completeOutboundQueuedTransfer: TypedContractMethod<
-    [messageSequence: BigNumberish],
+    [messageSequence: BigNumberish, gasLimit: BigNumberish],
     [bigint],
     "payable"
   >;
@@ -703,6 +756,8 @@ export interface MultiTokenNtt extends BaseContract {
     "view"
   >;
 
+  gmpManager: TypedContractMethod<[], [string], "view">;
+
   initialize: TypedContractMethod<[], [void], "payable">;
 
   isPaused: TypedContractMethod<[], [boolean], "view">;
@@ -739,11 +794,14 @@ export interface MultiTokenNtt extends BaseContract {
     "nonpayable"
   >;
 
-  "transfer(address,uint256,uint16,bytes32,bytes32,bool,bytes)": TypedContractMethod<
+  tokenImplementation: TypedContractMethod<[], [string], "view">;
+
+  "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)": TypedContractMethod<
     [
       token: AddressLike,
       amount: BigNumberish,
       recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
       recipient: BytesLike,
       refundAddress: BytesLike,
       shouldQueue: boolean,
@@ -753,12 +811,38 @@ export interface MultiTokenNtt extends BaseContract {
     "payable"
   >;
 
-  "transfer(address,uint256,uint16,bytes32)": TypedContractMethod<
+  "transfer(address,uint256,uint16,uint256,bytes32)": TypedContractMethod<
     [
       token: AddressLike,
       amount: BigNumberish,
       recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
       recipient: BytesLike
+    ],
+    [bigint],
+    "payable"
+  >;
+
+  "transferETH(uint256,uint16,uint256,bytes32)": TypedContractMethod<
+    [
+      amount: BigNumberish,
+      recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
+      recipient: BytesLike
+    ],
+    [bigint],
+    "payable"
+  >;
+
+  "transferETH(uint256,uint16,uint256,bytes32,bytes32,bool,bytes)": TypedContractMethod<
+    [
+      amount: BigNumberish,
+      recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
+      recipient: BytesLike,
+      refundAddress: BytesLike,
+      shouldQueue: boolean,
+      transceiverInstructions: BytesLike
     ],
     [bigint],
     "payable"
@@ -776,12 +860,21 @@ export interface MultiTokenNtt extends BaseContract {
     "nonpayable"
   >;
 
+  upgrade: TypedContractMethod<
+    [newImplementation: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
   ): T;
 
   getFunction(
     nameOrSignature: "NTT_MANAGER_VERSION"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "WETH"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "cancelOutboundQueuedTransfer"
@@ -791,7 +884,11 @@ export interface MultiTokenNtt extends BaseContract {
   ): TypedContractMethod<[digest: BytesLike], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "completeOutboundQueuedTransfer"
-  ): TypedContractMethod<[messageSequence: BigNumberish], [bigint], "payable">;
+  ): TypedContractMethod<
+    [messageSequence: BigNumberish, gasLimit: BigNumberish],
+    [bigint],
+    "payable"
+  >;
   getFunction(
     nameOrSignature: "getCurrentInboundCapacity"
   ): TypedContractMethod<
@@ -851,6 +948,9 @@ export interface MultiTokenNtt extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "gmpManager"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "initialize"
   ): TypedContractMethod<[], [void], "payable">;
   getFunction(
@@ -897,12 +997,16 @@ export interface MultiTokenNtt extends BaseContract {
     "nonpayable"
   >;
   getFunction(
-    nameOrSignature: "transfer(address,uint256,uint16,bytes32,bytes32,bool,bytes)"
+    nameOrSignature: "tokenImplementation"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)"
   ): TypedContractMethod<
     [
       token: AddressLike,
       amount: BigNumberish,
       recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
       recipient: BytesLike,
       refundAddress: BytesLike,
       shouldQueue: boolean,
@@ -912,13 +1016,41 @@ export interface MultiTokenNtt extends BaseContract {
     "payable"
   >;
   getFunction(
-    nameOrSignature: "transfer(address,uint256,uint16,bytes32)"
+    nameOrSignature: "transfer(address,uint256,uint16,uint256,bytes32)"
   ): TypedContractMethod<
     [
       token: AddressLike,
       amount: BigNumberish,
       recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
       recipient: BytesLike
+    ],
+    [bigint],
+    "payable"
+  >;
+  getFunction(
+    nameOrSignature: "transferETH(uint256,uint16,uint256,bytes32)"
+  ): TypedContractMethod<
+    [
+      amount: BigNumberish,
+      recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
+      recipient: BytesLike
+    ],
+    [bigint],
+    "payable"
+  >;
+  getFunction(
+    nameOrSignature: "transferETH(uint256,uint16,uint256,bytes32,bytes32,bool,bytes)"
+  ): TypedContractMethod<
+    [
+      amount: BigNumberish,
+      recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
+      recipient: BytesLike,
+      refundAddress: BytesLike,
+      shouldQueue: boolean,
+      transceiverInstructions: BytesLike
     ],
     [bigint],
     "payable"
@@ -929,6 +1061,13 @@ export interface MultiTokenNtt extends BaseContract {
   getFunction(
     nameOrSignature: "transferPauserCapability"
   ): TypedContractMethod<[newPauser: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "upgrade"
+  ): TypedContractMethod<
+    [newImplementation: AddressLike],
+    [void],
+    "nonpayable"
+  >;
 
   getEvent(
     key: "AdminChanged"

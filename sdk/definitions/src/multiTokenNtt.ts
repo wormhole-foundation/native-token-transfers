@@ -9,9 +9,7 @@ import {
 import {
   AccountAddress,
   ChainAddress,
-  ChainContext,
   EmptyPlatformMap,
-  NativeAddress,
   TokenAddress,
   UniversalAddress,
   //   ProtocolPayload,
@@ -68,13 +66,16 @@ export namespace MultiTokenNtt {
     typeof transceiverRegistration
   >;
 
+  // TODO: never queue, always automatic?
   export type TransferOptions = {
     /** Whether or not to queue the transfer if the outbound capacity is exceeded */
-    queue: boolean;
+    // queue: boolean;
     /** Whether or not to request this transfer should be relayed, otherwise manual redemption is required */
     automatic?: boolean;
     /** How much native gas on the destination to send along with the transfer */
-    gasDropoff?: bigint;
+    // gasDropoff?: bigint;
+    // TODO: document
+    relayerGasLimit: bigint;
   };
 
   // TODO: what are the set of attestation types for Ntt?
@@ -236,8 +237,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
     token: TokenAddress<C>,
     amount: bigint,
     destination: ChainAddress,
-    options: MultiTokenNtt.TransferOptions,
-    chainContext: ChainContext<N, C> // TODO: this is a hack
+    options: MultiTokenNtt.TransferOptions
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   /**
@@ -368,7 +368,9 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
    */
   verifyAddresses(): Promise<Partial<MultiTokenNtt.Contracts> | null>;
 
-  getTokenId(token: NativeAddress<C>): Promise<MultiTokenNtt.TokenId>;
+  getTokenId(token: TokenAddress<C>): Promise<MultiTokenNtt.TokenId>;
+
+  getToken(tokenId: MultiTokenNtt.TokenId): Promise<TokenAddress<C> | null>;
 }
 
 declare module "@wormhole-foundation/sdk-definitions" {

@@ -17,6 +17,7 @@ import {
   finality,
   isAttested,
   isDestinationQueued,
+  isNative,
   isRedeemed,
   isSourceFinalized,
   isSourceInitiated,
@@ -49,8 +50,11 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
   extends routes.AutomaticRoute<N, Op, Vp, R>
   implements routes.StaticRouteMethods<typeof MultiTokenNttAutomaticRoute>
 {
-  // ntt does not support gas drop-off currently
   static NATIVE_GAS_DROPOFF_SUPPORTED: boolean = false;
+
+  static DEFAULT_RELAYER_GAS_LIMIT = 275_000n;
+
+  static DEFAULT_RELAYER_GAS_LIMIT_NO_TOKEN = 1_000_000n;
 
   // @ts-ignore
   // Since we set the config on the static class, access it with this param
@@ -116,12 +120,29 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     params: Tp
   ): Promise<Vr> {
+    //if (request.source.id.chain !== request.fromChain.chain) {
+    //  return {
+    //    valid: false,
+    //    params: params,
+    //    error: new Error("Source token must be native to the source chain"),
+    //  };
+    //}
+
+    //if (request.destination.id.chain !== request.toChain.chain) {
+    //  return {
+    //    valid: false,
+    //    params: params,
+    //    error: new Error(
+    //      "Destination token must be native to the destination chain"
+    //    ),
+    //  };
+    //}
+
     const options = params.options ?? this.getDefaultOptions();
 
-    const gasDropoff = amount.parse(
-      options.gasDropoff ?? "0.0",
-      request.toChain.config.nativeTokenDecimals
-    );
+    const relayerGasLimit =
+      options.relayerGasLimit ??
+      (await this.getDefaultRelayerGasLimit(request));
 
     const amt = amount.parse(params.amount, request.source.decimals);
 
@@ -138,14 +159,52 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
           request.destination.id
         ),
         options: {
-          queue: false,
           automatic: true,
-          gasDropoff: amount.units(gasDropoff),
+          relayerGasLimit,
         },
       },
       options,
     };
     return { valid: true, params: validatedParams };
+  }
+
+  async getDefaultRelayerGasLimit(
+    request: routes.RouteTransferRequest<N>
+  ): Promise<bigint> {
+    const fromNtt = await request.fromChain.getProtocol("MultiTokenNtt", {
+      ntt: MultiTokenNttRoute.resolveNttContracts(
+        this.staticConfig,
+        request.source.id
+      ),
+    });
+
+    const toNtt = await request.toChain.getProtocol("MultiTokenNtt", {
+      ntt: MultiTokenNttRoute.resolveNttContracts(
+        this.staticConfig,
+        request.destination.id
+      ),
+    });
+
+    const fromToken = isNative(request.source.id)
+      ? await request.fromChain.getNativeWrappedTokenId()
+      : request.source.id;
+
+    const fromTokenId = await fromNtt.getTokenId(fromToken.address);
+
+    // TODO: these defaults should be high enough to cover most cases
+    // if the token is not created yet, then the tx will require more gas
+    const toToken = await toNtt.getToken(fromTokenId);
+
+    console.log(
+      `getDefaultRelayerGasLimit: fromTokenId: ${fromTokenId.address.toString()}, toToken: ${toToken?.toString()}`
+    );
+
+    const gasLimit =
+      toToken === null
+        ? MultiTokenNttAutomaticRoute.DEFAULT_RELAYER_GAS_LIMIT_NO_TOKEN
+        : MultiTokenNttAutomaticRoute.DEFAULT_RELAYER_GAS_LIMIT;
+
+    return gasLimit;
   }
 
   async quote(
@@ -184,10 +243,6 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
           fromChain.config.nativeTokenDecimals
         ),
       },
-      destinationNativeGas: amount.fromBaseUnits(
-        params.normalizedParams.options.gasDropoff ?? 0n,
-        toChain.config.nativeTokenDecimals
-      ),
       eta: finality.estimateFinalityTime(request.fromChain.chain),
     };
 
@@ -241,15 +296,12 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ntt: params.normalizedParams.sourceContracts,
     });
 
-    // TODO: support "native"
-
     const initXfer = ntt.transfer(
       sender,
       request.source.id.address,
       amount.units(params.normalizedParams.amount),
       to,
-      params.normalizedParams.options,
-      fromChain
+      params.normalizedParams.options
     );
     const txids = await signSendWait(fromChain, initXfer, signer);
 
@@ -334,7 +386,11 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
         options: { automatic: true },
         normalizedParams: {
           amount: amt,
-          options: { queue: false, automatic: true },
+          options: {
+            // queue: false,
+            automatic: true,
+            relayerGasLimit: 0n, // TODO: how to get?
+          },
           sourceContracts: {
             token: srcInfo.token,
             manager: srcInfo.manager,

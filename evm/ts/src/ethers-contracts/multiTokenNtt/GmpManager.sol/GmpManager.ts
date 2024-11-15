@@ -67,6 +67,7 @@ export interface GmpManagerInterface extends Interface {
       | "chainId"
       | "executeMsg"
       | "getMigratesImmutables"
+      | "getMode"
       | "getPeer"
       | "getThreshold"
       | "getTransceiverInfo"
@@ -88,6 +89,7 @@ export interface GmpManagerInterface extends Interface {
       | "setThreshold"
       | "setTransceiver"
       | "token"
+      | "tokenDecimals"
       | "transceiverAttestedToMessage"
       | "transferOwnership"
       | "transferPauserCapability"
@@ -140,6 +142,7 @@ export interface GmpManagerInterface extends Interface {
     functionFragment: "getMigratesImmutables",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "getMode", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "getPeer",
     values: [BigNumberish]
@@ -183,7 +186,7 @@ export interface GmpManagerInterface extends Interface {
   encodeFunctionData(functionFragment: "pauser", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "quoteDeliveryPrice",
-    values: [BigNumberish, BytesLike]
+    values: [BigNumberish, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "removeTransceiver",
@@ -191,7 +194,14 @@ export interface GmpManagerInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "sendMessage",
-    values: [BigNumberish, BytesLike, BytesLike, BytesLike, BytesLike]
+    values: [
+      BigNumberish,
+      BytesLike,
+      BigNumberish,
+      BytesLike,
+      BytesLike,
+      BytesLike
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "setPeer",
@@ -206,6 +216,10 @@ export interface GmpManagerInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(functionFragment: "token", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "tokenDecimals",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "transceiverAttestedToMessage",
     values: [BytesLike, BigNumberish]
@@ -238,6 +252,7 @@ export interface GmpManagerInterface extends Interface {
     functionFragment: "getMigratesImmutables",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "getMode", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "getPeer", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getThreshold",
@@ -295,6 +310,10 @@ export interface GmpManagerInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "token", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "tokenDecimals",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "transceiverAttestedToMessage",
     data: BytesLike
@@ -646,6 +665,8 @@ export interface GmpManager extends BaseContract {
 
   getMigratesImmutables: TypedContractMethod<[], [boolean], "view">;
 
+  getMode: TypedContractMethod<[], [bigint], "view">;
+
   getPeer: TypedContractMethod<
     [chainId_: BigNumberish],
     [GmpManager.GmpPeerStructOutput],
@@ -695,7 +716,11 @@ export interface GmpManager extends BaseContract {
   pauser: TypedContractMethod<[], [string], "view">;
 
   quoteDeliveryPrice: TypedContractMethod<
-    [recipientChain: BigNumberish, transceiverInstructions: BytesLike],
+    [
+      recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
+      transceiverInstructions: BytesLike
+    ],
     [[bigint[], bigint]],
     "view"
   >;
@@ -710,6 +735,7 @@ export interface GmpManager extends BaseContract {
     [
       targetChain: BigNumberish,
       callee: BytesLike,
+      gasLimit: BigNumberish,
       refundAddress: BytesLike,
       data: BytesLike,
       transceiverInstructions: BytesLike
@@ -737,6 +763,8 @@ export interface GmpManager extends BaseContract {
   >;
 
   token: TypedContractMethod<[], [string], "view">;
+
+  tokenDecimals: TypedContractMethod<[], [bigint], "view">;
 
   transceiverAttestedToMessage: TypedContractMethod<
     [digest: BytesLike, index: BigNumberish],
@@ -800,6 +828,9 @@ export interface GmpManager extends BaseContract {
     nameOrSignature: "getMigratesImmutables"
   ): TypedContractMethod<[], [boolean], "view">;
   getFunction(
+    nameOrSignature: "getMode"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "getPeer"
   ): TypedContractMethod<
     [chainId_: BigNumberish],
@@ -852,7 +883,11 @@ export interface GmpManager extends BaseContract {
   getFunction(
     nameOrSignature: "quoteDeliveryPrice"
   ): TypedContractMethod<
-    [recipientChain: BigNumberish, transceiverInstructions: BytesLike],
+    [
+      recipientChain: BigNumberish,
+      gasLimit: BigNumberish,
+      transceiverInstructions: BytesLike
+    ],
     [[bigint[], bigint]],
     "view"
   >;
@@ -865,6 +900,7 @@ export interface GmpManager extends BaseContract {
     [
       targetChain: BigNumberish,
       callee: BytesLike,
+      gasLimit: BigNumberish,
       refundAddress: BytesLike,
       data: BytesLike,
       transceiverInstructions: BytesLike
@@ -888,6 +924,9 @@ export interface GmpManager extends BaseContract {
   getFunction(
     nameOrSignature: "token"
   ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "tokenDecimals"
+  ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "transceiverAttestedToMessage"
   ): TypedContractMethod<
