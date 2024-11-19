@@ -13,11 +13,6 @@ use ntt_messages::{
     ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage, transceiver::TransceiverMessage,
     transceivers::wormhole::WormholeTransceiver,
 };
-use solana_program::{
-    hash,
-    instruction::Instruction,
-    program::{get_return_data, invoke_signed},
-};
 
 #[derive(Accounts)]
 pub struct ReleaseOutbound<'info> {
@@ -70,38 +65,22 @@ pub struct ReleaseOutbound<'info> {
 
 impl<'info> ReleaseOutbound<'info> {
     pub fn mark_outbox_item_as_released(&self, bump_seed: u8) -> Result<bool> {
-        // calculate signhash of mark_outbox_item_as_released function
-        let ix_data = {
-            let preimage = format!("{}:{}", "global", "mark_outbox_item_as_released");
-            let mut sighash = [0u8; 8];
-            sighash.copy_from_slice(&hash::hash(preimage.as_bytes()).to_bytes()[..8]);
-            sighash
-        };
-        // deref config account info from NotPausedConfig
-        assert!(self.config.to_account_infos().len() == 1);
-        let config_info = &self.config.to_account_infos()[0];
-        // construct CPI call
-        let account_metas = vec![
-            AccountMeta::new_readonly(self.outbox_item_signer.key(), true),
-            AccountMeta::new_readonly(config_info.key(), false),
-            AccountMeta::new(self.outbox_item.key(), false),
-            AccountMeta::new_readonly(self.transceiver.key(), false),
-        ];
-        let instruction = Instruction::new_with_borsh(self.manager.key(), &ix_data, account_metas);
-        let account_infos = vec![
-            self.outbox_item_signer.to_account_info(),
-            config_info.clone(),
-            self.outbox_item.to_account_info(),
-            self.transceiver.to_account_info(),
-        ];
-        invoke_signed(
-            &instruction,
-            &account_infos,
-            &[&[OUTBOX_ITEM_SIGNER_SEED, &[bump_seed]]],
+        let result = example_native_token_transfers::cpi::mark_outbox_item_as_released(
+            CpiContext::new_with_signer(
+                self.manager.to_account_info(),
+                example_native_token_transfers::cpi::accounts::MarkOutboxItemAsReleased {
+                    signer: self.outbox_item_signer.to_account_info(),
+                    config: example_native_token_transfers::cpi::accounts::NotPausedConfig {
+                        config: self.config.config.to_account_info(),
+                    },
+                    outbox_item: self.outbox_item.to_account_info(),
+                    transceiver: self.transceiver.to_account_info(),
+                },
+                // signer seeds
+                &[&[OUTBOX_ITEM_SIGNER_SEED, &[bump_seed]]],
+            ),
         )?;
-        // get return value
-        let (_key, data) = get_return_data().unwrap();
-        Ok(data.len() == 1 && data[0] == 1)
+        Ok(result.get())
     }
 }
 

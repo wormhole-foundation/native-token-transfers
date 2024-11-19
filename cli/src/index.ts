@@ -675,7 +675,7 @@ yargs(hideBin(process.argv))
                     await signSendWait(ctx, tx, signer.signer)
                 }
                 for (const transceiver of missingConfig.transceiverPeers) {
-                    const tx = ntt.setWormholeTransceiverPeer(transceiver, signer.address.address)
+                    const tx = ntt.setTransceiverPeer(0, transceiver, signer.address.address)
                     await signSendWait(ctx, tx, signer.signer)
                 }
                 for (const evmChain of missingConfig.evmChains) {
@@ -696,10 +696,9 @@ yargs(hideBin(process.argv))
                         continue;
                     }
                     const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
-                    const tx = solanaNtt.registerTransceiver({
+                    const tx = solanaNtt.registerWormholeTransceiver({
                         payer: signer.address.address as AccountAddress<SolanaChains>,
                         owner: signer.address.address as AccountAddress<SolanaChains>,
-                        transceiver: solanaNtt.program.programId
                     })
                     try {
                         await signSendWait(ctx, tx, signer.signer)
@@ -1283,7 +1282,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     // time by checking it here and failing early (not to mention better
     // diagnostics).
 
-    const emitter = NTT.pdas(providedProgramId).emitterAccount().toBase58();
+    const emitter = NTT.transceiverPdas(providedProgramId).emitterAccount().toBase58();
     const payerKeypair = Keypair.fromSecretKey(new Uint8Array(JSON.parse(fs.readFileSync(payer).toString())));
 
     // this is not super pretty... I want to initialise the 'ntt' object, but
@@ -1779,7 +1778,7 @@ async function getPdas<N extends Network, C extends Chain>(chain: C, ntt: Ntt<N,
     }
     const solanaNtt = ntt as SolanaNtt<N, SolanaChains>;
     const config = solanaNtt.pdas.configAccount();
-    const emitter = solanaNtt.pdas.emitterAccount();
+    const emitter = NTT.transceiverPdas(solanaNtt.program.programId).emitterAccount();
     const outboxRateLimit = solanaNtt.pdas.outboxRateLimitAccount();
     const tokenAuthority = solanaNtt.pdas.tokenAuthority();
     const lutAccount = solanaNtt.pdas.lutAccount();
@@ -1818,7 +1817,7 @@ async function nttFromManager<N extends Network, C extends Chain>(
         ntt: {
             manager: nativeManagerAddress,
             token: null,
-            transceiver: { wormhole: null },
+            transceiver: {},
         }
     });
     const diff = await onlyManager.verifyAddresses();

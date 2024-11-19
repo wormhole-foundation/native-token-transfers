@@ -9,7 +9,7 @@ skip-lint = false
 [programs.localnet]
 dummy_transfer_hook = "BgabMDLaxsyB7eGMBt9L22MSk9KMrL4zY2iNe14kyFP5"
 example_native_token_transfers = "nttiK1SepaQt6sZ4WGW5whvc9tEnGXGxuKeptcQPCcS"
-ntt-transceiver = "Ee6jpX9oq2EsGuqGb6iZZxvtcpmMGZk8SAUbnQy4jcHR"
+ntt_transceiver = "Ee6jpX9oq2EsGuqGb6iZZxvtcpmMGZk8SAUbnQy4jcHR"
 ntt_quoter = "9jFBLvMZZERVmeY4tbq5MejbXRE18paGEuoB6xVJZgGe"
 wormhole_governance = "wgvEiKVzX9yyEoh41jZAdC6JqGUTS4CFXbFGBV5TKdZ"
 

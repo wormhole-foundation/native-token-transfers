@@ -37,6 +37,7 @@ import solanaTiltKey from "./solana-tilt.json"; // from https://github.com/wormh
 import { Ntt } from "../definitions/src/index.js";
 import "../../evm/ts/src/index.js";
 import "../../solana/ts/sdk/index.js";
+import { NTT } from "../../solana/ts/lib/index.js";
 import { SolanaNtt } from "../../solana/ts/sdk/index.js";
 import { submitAccountantVAA } from "./accountant.js";
 
@@ -127,7 +128,7 @@ export async function link(chainInfos: Ctx[]) {
     chain: hubChain,
     emitter: Wormhole.chainAddress(
       hubChain,
-      hub.contracts!.transceiver.wormhole!
+      hub.contracts!.transceiver["wormhole"]!
     ).address.toUniversalAddress(),
     sequence: 0n,
   };
@@ -524,7 +525,9 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     token: mint.toBase58(),
     manager: managerProgramId,
     transceiver: {
-      wormhole: managerProgramId,
+      wormhole: NTT.transceiverPdas(managerProgramId)
+        .emitterAccount()
+        .toString(),
     },
   };
 
@@ -565,10 +568,11 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     // mindful in the deploy script too.
     await new Promise((resolve) => setTimeout(resolve, 400));
 
-    const registrTxs = manager.registerTransceiver({
-      payer: Wormhole.chainAddress("Solana", keypair.publicKey.toBase58()).address,
-      owner: Wormhole.chainAddress("Solana", keypair.publicKey.toBase58()).address,
-      transceiver: manager.program.programId,
+    const registrTxs = manager.registerWormholeTransceiver({
+      payer: Wormhole.chainAddress("Solana", keypair.publicKey.toBase58())
+        .address,
+      owner: Wormhole.chainAddress("Solana", keypair.publicKey.toBase58())
+        .address,
     });
     await signSendWait(ctx.context, registrTxs, signer);
     console.log("Registered transceiver with self");
@@ -578,7 +582,9 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     ...ctx,
     contracts: {
       transceiver: {
-        wormhole: manager.pdas.emitterAccount().toString(),
+        wormhole: NTT.transceiverPdas(manager.program.programId)
+          .emitterAccount()
+          .toString(),
       },
       manager: manager.program.programId.toString(),
       token: mint.toString(),
@@ -611,7 +617,8 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
   );
   await signSendWait(target, setPeerTxs, signer);
 
-  const setXcvrPeerTxs = nttManager.setWormholeTransceiverPeer(
+  const setXcvrPeerTxs = nttManager.setTransceiverPeer(
+    0, // 0 = Wormhole
     peerTransceiver,
     sender.address
   );
@@ -625,7 +632,7 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
   ) {
     const nativeSigner = (signer as NativeSigner).unwrap();
     const xcvr = WormholeTransceiver__factory.connect(
-      targetCtx.contracts!.transceiver.wormhole!,
+      targetCtx.contracts!.transceiver["wormhole"]!,
       nativeSigner.signer
     );
     const peerChainId = toChainId(peer.chain);
