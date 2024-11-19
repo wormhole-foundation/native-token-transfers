@@ -66,7 +66,7 @@ pub struct NotPausedConfig<'info> {
     #[account(
         constraint = !config.paused @ crate::error::NTTError::Paused,
     )]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 }
 
 impl<'info> Deref for NotPausedConfig<'info> {

@@ -61,9 +61,7 @@
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "associated token account for the given mint."
-          ]
+          "docs": ["associated token account for the given mint."]
         },
         {
           "name": "associatedTokenProgram",
@@ -242,9 +240,7 @@
               "name": "from",
               "isMut": true,
               "isSigner": false,
-              "docs": [
-                "account can spend these tokens."
-              ]
+              "docs": ["account can spend these tokens."]
             },
             {
               "name": "tokenProgram",
@@ -341,9 +337,7 @@
               "name": "from",
               "isMut": true,
               "isSigner": false,
-              "docs": [
-                "account can spend these tokens."
-              ]
+              "docs": ["account can spend these tokens."]
             },
             {
               "name": "tokenProgram",
@@ -426,7 +420,10 @@
         {
           "name": "transceiverMessage",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "`Account<T>` and `owner` constraints are mutually-exclusive"
+          ]
         },
         {
           "name": "transceiver",
@@ -766,9 +763,7 @@
           "name": "transceiver",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "used here that wraps the Transceiver account type."
-          ]
+          "docs": ["used here that wraps the Transceiver account type."]
         },
         {
           "name": "registeredTransceiver",
@@ -1168,25 +1163,19 @@
           },
           {
             "name": "owner",
-            "docs": [
-              "Owner of the program."
-            ],
+            "docs": ["Owner of the program."],
             "type": "publicKey"
           },
           {
             "name": "pendingOwner",
-            "docs": [
-              "Pending next owner (before claiming ownership)."
-            ],
+            "docs": ["Pending next owner (before claiming ownership)."],
             "type": {
               "option": "publicKey"
             }
           },
           {
             "name": "mint",
-            "docs": [
-              "Mint address of the token managed by this program."
-            ],
+            "docs": ["Mint address of the token managed by this program."],
             "type": "publicKey"
           },
           {
@@ -1253,9 +1242,7 @@
           },
           {
             "name": "custody",
-            "docs": [
-              "The custody account that holds tokens in locking mode."
-            ],
+            "docs": ["The custody account that holds tokens in locking mode."],
             "type": "publicKey"
           }
         ]
@@ -1292,10 +1279,7 @@
           {
             "name": "address",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
@@ -1387,19 +1371,13 @@
           {
             "name": "recipientNttManager",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
             "name": "recipientAddress",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
@@ -1464,10 +1442,7 @@
           {
             "name": "address",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           }
         ]
@@ -1487,9 +1462,7 @@
           },
           {
             "name": "lastLamports",
-            "docs": [
-              "Lamports in the collection account"
-            ],
+            "docs": ["Lamports in the collection account"],
             "type": "u64"
           },
           {
@@ -1562,10 +1535,7 @@
           {
             "name": "address",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
@@ -1574,9 +1544,7 @@
           },
           {
             "name": "tokenDecimals",
-            "docs": [
-              "The token decimals on the peer chain."
-            ],
+            "docs": ["The token decimals on the peer chain."],
             "type": "u8"
           }
         ]
@@ -1641,10 +1609,7 @@
           {
             "name": "recipientAddress",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
@@ -1670,9 +1635,7 @@
           },
           {
             "name": "ReleaseAfter",
-            "fields": [
-              "i64"
-            ]
+            "fields": ["i64"]
           },
           {
             "name": "Released"
@@ -1687,9 +1650,7 @@
         "fields": [
           {
             "name": "limit",
-            "docs": [
-              "The maximum capacity of the rate limiter."
-            ],
+            "docs": ["The maximum capacity of the rate limiter."],
             "type": "u64"
           },
           {
@@ -1728,10 +1689,7 @@
           {
             "name": "address",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           }
         ]

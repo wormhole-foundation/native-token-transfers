@@ -1,3907 +1,3818 @@
 export type ExampleNativeTokenTransfers = {
-  "version": "2.0.0",
-  "name": "example_native_token_transfers",
-  "instructions": [
+  version: "2.0.0";
+  name: "example_native_token_transfers";
+  instructions: [
     {
-      "name": "initialize",
-      "accounts": [
+      name: "initialize";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "deployer",
-          "isMut": false,
-          "isSigner": true
+          name: "deployer";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "programData",
-          "isMut": false,
-          "isSigner": false
+          name: "programData";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          name: "mint";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "rateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "rateLimit";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
+          name: "tokenAuthority";
+          isMut: false;
+          isSigner: false;
+          docs: [
             "In any case, this function is used to set the Config and initialize the program so we",
             "assume the caller of this function will have total control over the program.",
             "",
-            "TODO: Using `UncheckedAccount` here leads to \"Access violation in stack frame ...\".",
+            'TODO: Using `UncheckedAccount` here leads to "Access violation in stack frame ...".',
             "Could refactor code to use `Box<_>` to reduce stack size."
-          ]
+          ];
         },
         {
-          "name": "custody",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
+          name: "custody";
+          isMut: true;
+          isSigner: false;
+          docs: [
             "The custody account that holds tokens in locking mode and temporarily",
             "holds tokens in burning mode.",
             "function if  the token account has already been created."
-          ]
+          ];
         },
         {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "associated token account for the given mint."
-          ]
+          name: "tokenProgram";
+          isMut: false;
+          isSigner: false;
+          docs: ["associated token account for the given mint."];
         },
         {
-          "name": "associatedTokenProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "associatedTokenProgram";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "bpfLoaderUpgradeableProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "bpfLoaderUpgradeableProgram";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "InitializeArgs"
-          }
+          name: "args";
+          type: {
+            defined: "InitializeArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "initializeLut",
-      "accounts": [
+      name: "initializeLut";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": false
+          name: "authority";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "lutAddress",
-          "isMut": true,
-          "isSigner": false
+          name: "lutAddress";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "lut",
-          "isMut": true,
-          "isSigner": false
+          name: "lut";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "lutProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "lutProgram";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "entries",
-          "accounts": [
+          name: "entries";
+          accounts: [
             {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
+              name: "config";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "custody",
-              "isMut": false,
-              "isSigner": false
+              name: "custody";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "mint",
-              "isMut": false,
-              "isSigner": false
+              name: "mint";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenAuthority";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "outboxRateLimit",
-              "isMut": false,
-              "isSigner": false
+              name: "outboxRateLimit";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "wormhole",
-              "accounts": [
+              name: "wormhole";
+              accounts: [
                 {
-                  "name": "bridge",
-                  "isMut": true,
-                  "isSigner": false
+                  name: "bridge";
+                  isMut: true;
+                  isSigner: false;
                 },
                 {
-                  "name": "feeCollector",
-                  "isMut": true,
-                  "isSigner": false
+                  name: "feeCollector";
+                  isMut: true;
+                  isSigner: false;
                 },
                 {
-                  "name": "sequence",
-                  "isMut": true,
-                  "isSigner": false
+                  name: "sequence";
+                  isMut: true;
+                  isSigner: false;
                 },
                 {
-                  "name": "program",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "program";
+                  isMut: false;
+                  isSigner: false;
                 },
                 {
-                  "name": "systemProgram",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "systemProgram";
+                  isMut: false;
+                  isSigner: false;
                 },
                 {
-                  "name": "clock",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "clock";
+                  isMut: false;
+                  isSigner: false;
                 },
                 {
-                  "name": "rent",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "rent";
+                  isMut: false;
+                  isSigner: false;
                 }
-              ]
+              ];
             }
-          ]
+          ];
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "recentSlot",
-          "type": "u64"
+          name: "recentSlot";
+          type: "u64";
         }
-      ]
+      ];
     },
     {
-      "name": "version",
-      "accounts": [],
-      "args": [],
-      "returns": "string"
+      name: "version";
+      accounts: [];
+      args: [];
+      returns: "string";
     },
     {
-      "name": "transferBurn",
-      "accounts": [
+      name: "transferBurn";
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "common";
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "payer";
+              isMut: true;
+              isSigner: true;
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "config";
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "config";
+                  isMut: false;
+                  isSigner: false;
                 }
-              ]
+              ];
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "mint";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "from",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
-                "account can spend these tokens."
-              ]
+              name: "from";
+              isMut: true;
+              isSigner: false;
+              docs: ["account can spend these tokens."];
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "outboxItem",
-              "isMut": true,
-              "isSigner": true
+              name: "outboxItem";
+              isMut: true;
+              isSigner: true;
             },
             {
-              "name": "outboxRateLimit",
-              "isMut": true,
-              "isSigner": false
+              name: "outboxRateLimit";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
+              name: "custody";
+              isMut: true;
+              isSigner: false;
+              docs: [
                 "Tokens are always transferred to the custody account first regardless of",
                 "the mode.",
                 "For an explanation, see the note in [`transfer_burn`]."
-              ]
+              ];
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram";
+              isMut: false;
+              isSigner: false;
             }
-          ]
+          ];
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "sessionAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
+          name: "sessionAuthority";
+          isMut: false;
+          isSigner: false;
+          docs: [
             "See [`crate::SESSION_AUTHORITY_SEED`] for an explanation of the flow."
-          ]
+          ];
         },
         {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false
+          name: "tokenAuthority";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "TransferArgs"
-          }
+          name: "args";
+          type: {
+            defined: "TransferArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "transferLock",
-      "accounts": [
+      name: "transferLock";
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "common";
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "payer";
+              isMut: true;
+              isSigner: true;
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "config";
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "config";
+                  isMut: false;
+                  isSigner: false;
                 }
-              ]
+              ];
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "mint";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "from",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
-                "account can spend these tokens."
-              ]
+              name: "from";
+              isMut: true;
+              isSigner: false;
+              docs: ["account can spend these tokens."];
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "outboxItem",
-              "isMut": true,
-              "isSigner": true
+              name: "outboxItem";
+              isMut: true;
+              isSigner: true;
             },
             {
-              "name": "outboxRateLimit",
-              "isMut": true,
-              "isSigner": false
+              name: "outboxRateLimit";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
+              name: "custody";
+              isMut: true;
+              isSigner: false;
+              docs: [
                 "Tokens are always transferred to the custody account first regardless of",
                 "the mode.",
                 "For an explanation, see the note in [`transfer_burn`]."
-              ]
+              ];
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram";
+              isMut: false;
+              isSigner: false;
             }
-          ]
+          ];
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "sessionAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
+          name: "sessionAuthority";
+          isMut: false;
+          isSigner: false;
+          docs: [
             "See [`crate::SESSION_AUTHORITY_SEED`] for an explanation of the flow."
-          ]
+          ];
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "TransferArgs"
-          }
+          name: "args";
+          type: {
+            defined: "TransferArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "redeem",
-      "accounts": [
+      name: "redeem";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "transceiverMessage",
-          "isMut": false,
-          "isSigner": false
+          name: "transceiverMessage";
+          isMut: false;
+          isSigner: false;
+          docs: ["`Account<T>` and `owner` constraints are mutually-exclusive"];
         },
         {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false
+          name: "transceiver";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          name: "mint";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "inboxItem",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
+          name: "inboxItem";
+          isMut: true;
+          isSigner: false;
+          docs: [
             "NOTE: This account is content-addressed (PDA seeded by the message hash).",
             "This is because in a multi-transceiver configuration, the different",
-            "transceivers \"vote\" on messages (by delivering them). By making the inbox",
+            'transceivers "vote" on messages (by delivering them). By making the inbox',
             "items content-addressed, we can ensure that disagreeing votes don't",
             "interfere with each other.",
             "On the first call to [`redeem()`], [`InboxItem`] will be allocated and initialized with",
             "default values.",
-            "On subsequent calls, we want to modify the `InboxItem` by \"voting\" on it. Therefore the",
+            'On subsequent calls, we want to modify the `InboxItem` by "voting" on it. Therefore the',
             "program should not fail which would occur when using the `init` constraint.",
             "The [`InboxItem::init`] field is used to guard against malicious or accidental modification",
             "InboxItem fields that should remain constant."
-          ]
+          ];
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "outboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "outboxRateLimit";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "RedeemArgs"
-          }
+          name: "args";
+          type: {
+            defined: "RedeemArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "releaseInboundMint",
-      "accounts": [
+      name: "releaseInboundMint";
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "common";
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "payer";
+              isMut: true;
+              isSigner: true;
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "config";
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "config";
+                  isMut: false;
+                  isSigner: false;
                 }
-              ]
+              ];
             },
             {
-              "name": "inboxItem",
-              "isMut": true,
-              "isSigner": false
+              name: "inboxItem";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "recipient",
-              "isMut": true,
-              "isSigner": false
+              name: "recipient";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false,
-              "docs": [
+              name: "tokenAuthority";
+              isMut: false;
+              isSigner: false;
+              docs: [
                 "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              ];
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "mint";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false
+              name: "custody";
+              isMut: true;
+              isSigner: false;
             }
-          ]
+          ];
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseInboundArgs"
-          }
+          name: "args";
+          type: {
+            defined: "ReleaseInboundArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "releaseInboundUnlock",
-      "accounts": [
+      name: "releaseInboundUnlock";
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "common";
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "payer";
+              isMut: true;
+              isSigner: true;
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "config";
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
+                  name: "config";
+                  isMut: false;
+                  isSigner: false;
                 }
-              ]
+              ];
             },
             {
-              "name": "inboxItem",
-              "isMut": true,
-              "isSigner": false
+              name: "inboxItem";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "recipient",
-              "isMut": true,
-              "isSigner": false
+              name: "recipient";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false,
-              "docs": [
+              name: "tokenAuthority";
+              isMut: false;
+              isSigner: false;
+              docs: [
                 "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              ];
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "mint";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false
+              name: "custody";
+              isMut: true;
+              isSigner: false;
             }
-          ]
+          ];
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseInboundArgs"
-          }
+          name: "args";
+          type: {
+            defined: "ReleaseInboundArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "transferOwnership",
-      "accounts": [
+      name: "transferOwnership";
+      accounts: [
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "newOwner",
-          "isMut": false,
-          "isSigner": false
+          name: "newOwner";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "upgradeLock",
-          "isMut": false,
-          "isSigner": false
+          name: "upgradeLock";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "programData",
-          "isMut": true,
-          "isSigner": false
+          name: "programData";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "bpfLoaderUpgradeableProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "bpfLoaderUpgradeableProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": []
+      ];
+      args: [];
     },
     {
-      "name": "claimOwnership",
-      "accounts": [
+      name: "claimOwnership";
+      accounts: [
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "upgradeLock",
-          "isMut": false,
-          "isSigner": false
+          name: "upgradeLock";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "newOwner",
-          "isMut": false,
-          "isSigner": true
+          name: "newOwner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "programData",
-          "isMut": true,
-          "isSigner": false
+          name: "programData";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "bpfLoaderUpgradeableProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "bpfLoaderUpgradeableProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": []
+      ];
+      args: [];
     },
     {
-      "name": "setPaused",
-      "accounts": [
+      name: "setPaused";
+      accounts: [
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config";
+          isMut: true;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "pause",
-          "type": "bool"
+          name: "pause";
+          type: "bool";
         }
-      ]
+      ];
     },
     {
-      "name": "setPeer",
-      "accounts": [
+      name: "setPeer";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "peer",
-          "isMut": true,
-          "isSigner": false
+          name: "peer";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetPeerArgs"
-          }
+          name: "args";
+          type: {
+            defined: "SetPeerArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "registerTransceiver",
-      "accounts": [
+      name: "registerTransceiver";
+      accounts: [
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "used here that wraps the Transceiver account type."
-          ]
+          name: "transceiver";
+          isMut: false;
+          isSigner: false;
+          docs: ["used here that wraps the Transceiver account type."];
         },
         {
-          "name": "registeredTransceiver",
-          "isMut": true,
-          "isSigner": false
+          name: "registeredTransceiver";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": []
+      ];
+      args: [];
     },
     {
-      "name": "setOutboundLimit",
-      "accounts": [
+      name: "setOutboundLimit";
+      accounts: [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "rateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "rateLimit";
+          isMut: true;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetOutboundLimitArgs"
-          }
+          name: "args";
+          type: {
+            defined: "SetOutboundLimitArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "setInboundLimit",
-      "accounts": [
+      name: "setInboundLimit";
+      accounts: [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "rateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "rateLimit";
+          isMut: true;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetInboundLimitArgs"
-          }
+          name: "args";
+          type: {
+            defined: "SetInboundLimitArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "setWormholePeer",
-      "accounts": [
+      name: "setWormholePeer";
+      accounts: [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner";
+          isMut: false;
+          isSigner: true;
         },
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "peer",
-          "isMut": true,
-          "isSigner": false
+          name: "peer";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetTransceiverPeerArgs"
-          }
+          name: "args";
+          type: {
+            defined: "SetTransceiverPeerArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "receiveWormholeMessage",
-      "accounts": [
+      name: "receiveWormholeMessage";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "config",
-          "accounts": [
+          name: "config";
+          accounts: [
             {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
+              name: "config";
+              isMut: false;
+              isSigner: false;
             }
-          ]
+          ];
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "vaa",
-          "isMut": false,
-          "isSigner": false
+          name: "vaa";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "transceiverMessage",
-          "isMut": true,
-          "isSigner": false
+          name: "transceiverMessage";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
         }
-      ],
-      "args": []
+      ];
+      args: [];
     },
     {
-      "name": "releaseWormholeOutbound",
-      "accounts": [
+      name: "releaseWormholeOutbound";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "config",
-          "accounts": [
+          name: "config";
+          accounts: [
             {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
+              name: "config";
+              isMut: false;
+              isSigner: false;
             }
-          ]
+          ];
         },
         {
-          "name": "outboxItem",
-          "isMut": true,
-          "isSigner": false
+          name: "outboxItem";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false
+          name: "transceiver";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": false
+          name: "wormholeMessage";
+          isMut: true;
+          isSigner: false;
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
+          name: "emitter";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "wormhole",
-          "accounts": [
+          name: "wormhole";
+          accounts: [
             {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
+              name: "bridge";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
+              name: "feeCollector";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
+              name: "sequence";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
+              name: "program";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
+              name: "clock";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
+              name: "rent";
+              isMut: false;
+              isSigner: false;
             }
-          ]
+          ];
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseOutboundArgs"
-          }
+          name: "args";
+          type: {
+            defined: "ReleaseOutboundArgs";
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "broadcastWormholeId",
-      "accounts": [
+      name: "broadcastWormholeId";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          name: "mint";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
+          name: "wormholeMessage";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
+          name: "emitter";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "wormhole",
-          "accounts": [
+          name: "wormhole";
+          accounts: [
             {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
+              name: "bridge";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
+              name: "feeCollector";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
+              name: "sequence";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
+              name: "program";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
+              name: "clock";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
+              name: "rent";
+              isMut: false;
+              isSigner: false;
             }
-          ]
+          ];
         }
-      ],
-      "args": []
+      ];
+      args: [];
     },
     {
-      "name": "broadcastWormholePeer",
-      "accounts": [
+      name: "broadcastWormholePeer";
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
+          name: "wormholeMessage";
+          isMut: true;
+          isSigner: true;
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
+          name: "emitter";
+          isMut: false;
+          isSigner: false;
         },
         {
-          "name": "wormhole",
-          "accounts": [
+          name: "wormhole";
+          accounts: [
             {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
+              name: "bridge";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
+              name: "feeCollector";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
+              name: "sequence";
+              isMut: true;
+              isSigner: false;
             },
             {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
+              name: "program";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
+              name: "clock";
+              isMut: false;
+              isSigner: false;
             },
             {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
+              name: "rent";
+              isMut: false;
+              isSigner: false;
             }
-          ]
+          ];
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "BroadcastPeerArgs"
-          }
+          name: "args";
+          type: {
+            defined: "BroadcastPeerArgs";
+          };
         }
-      ]
+      ];
     }
-  ],
-  "accounts": [
+  ];
+  accounts: [
     {
-      "name": "config",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "config";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump";
+            type: "u8";
           },
           {
-            "name": "owner",
-            "docs": [
-              "Owner of the program."
-            ],
-            "type": "publicKey"
+            name: "owner";
+            docs: ["Owner of the program."];
+            type: "publicKey";
           },
           {
-            "name": "pendingOwner",
-            "docs": [
-              "Pending next owner (before claiming ownership)."
-            ],
-            "type": {
-              "option": "publicKey"
-            }
+            name: "pendingOwner";
+            docs: ["Pending next owner (before claiming ownership)."];
+            type: {
+              option: "publicKey";
+            };
           },
           {
-            "name": "mint",
-            "docs": [
-              "Mint address of the token managed by this program."
-            ],
-            "type": "publicKey"
+            name: "mint";
+            docs: ["Mint address of the token managed by this program."];
+            type: "publicKey";
           },
           {
-            "name": "tokenProgram",
-            "docs": [
+            name: "tokenProgram";
+            docs: [
               "Address of the token program (token or token22). This could always be queried",
               "from the [`mint`] account's owner, but storing it here avoids an indirection",
               "on the client side."
-            ],
-            "type": "publicKey"
+            ];
+            type: "publicKey";
           },
           {
-            "name": "mode",
-            "docs": [
+            name: "mode";
+            docs: [
               "The mode that this program is running in. This is used to determine",
               "whether the program is burning tokens or locking tokens."
-            ],
-            "type": {
-              "defined": "Mode"
-            }
+            ];
+            type: {
+              defined: "Mode";
+            };
           },
           {
-            "name": "chainId",
-            "docs": [
+            name: "chainId";
+            docs: [
               "The chain id of the chain that this program is running on. We don't",
               "hardcode this so that the program is deployable on any potential SVM",
               "forks."
-            ],
-            "type": {
-              "defined": "ChainId"
-            }
+            ];
+            type: {
+              defined: "ChainId";
+            };
           },
           {
-            "name": "nextTransceiverId",
-            "docs": [
+            name: "nextTransceiverId";
+            docs: [
               "The next transceiver id to use when registering an transceiver."
-            ],
-            "type": "u8"
+            ];
+            type: "u8";
           },
           {
-            "name": "threshold",
-            "docs": [
+            name: "threshold";
+            docs: [
               "The number of transceivers that must attest to a transfer before it is",
               "accepted."
-            ],
-            "type": "u8"
+            ];
+            type: "u8";
           },
           {
-            "name": "enabledTransceivers",
-            "docs": [
+            name: "enabledTransceivers";
+            docs: [
               "Bitmap of enabled transceivers.",
               "The maximum number of transceivers is equal to [`Bitmap::BITS`]."
-            ],
-            "type": {
-              "defined": "Bitmap"
-            }
+            ];
+            type: {
+              defined: "Bitmap";
+            };
           },
           {
-            "name": "paused",
-            "docs": [
+            name: "paused";
+            docs: [
               "Pause the program. This is useful for upgrades and other maintenance."
-            ],
-            "type": "bool"
+            ];
+            type: "bool";
           },
           {
-            "name": "custody",
-            "docs": [
-              "The custody account that holds tokens in locking mode."
-            ],
-            "type": "publicKey"
+            name: "custody";
+            docs: ["The custody account that holds tokens in locking mode."];
+            type: "publicKey";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "LUT",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "LUT";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump";
+            type: "u8";
           },
           {
-            "name": "address",
-            "type": "publicKey"
+            name: "address";
+            type: "publicKey";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "nttManagerPeer",
-      "docs": [
+      name: "nttManagerPeer";
+      docs: [
         "A peer on another chain. Stored in a PDA seeded by the chain id."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
+      ];
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump";
+            type: "u8";
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "address";
+            type: {
+              array: ["u8", 32];
+            };
           },
           {
-            "name": "tokenDecimals",
-            "type": "u8"
+            name: "tokenDecimals";
+            type: "u8";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "inboxItem",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "inboxItem";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "init",
-            "type": "bool"
+            name: "init";
+            type: "bool";
           },
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump";
+            type: "u8";
           },
           {
-            "name": "amount",
-            "type": "u64"
+            name: "amount";
+            type: "u64";
           },
           {
-            "name": "recipientAddress",
-            "type": "publicKey"
+            name: "recipientAddress";
+            type: "publicKey";
           },
           {
-            "name": "votes",
-            "type": {
-              "defined": "Bitmap"
-            }
+            name: "votes";
+            type: {
+              defined: "Bitmap";
+            };
           },
           {
-            "name": "releaseStatus",
-            "type": {
-              "defined": "ReleaseStatus"
-            }
+            name: "releaseStatus";
+            type: {
+              defined: "ReleaseStatus";
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "inboxRateLimit",
-      "docs": [
+      name: "inboxRateLimit";
+      docs: [
         "Inbound rate limit per chain.",
         "SECURITY: must check the PDA (since there are multiple PDAs, namely one for each chain.)"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
+      ];
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump";
+            type: "u8";
           },
           {
-            "name": "rateLimit",
-            "type": {
-              "defined": "RateLimitState"
-            }
+            name: "rateLimit";
+            type: {
+              defined: "RateLimitState";
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "outboxItem",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "outboxItem";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "amount",
-            "type": {
-              "defined": "TrimmedAmount"
-            }
+            name: "amount";
+            type: {
+              defined: "TrimmedAmount";
+            };
           },
           {
-            "name": "sender",
-            "type": "publicKey"
+            name: "sender";
+            type: "publicKey";
           },
           {
-            "name": "recipientChain",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "recipientChain";
+            type: {
+              defined: "ChainId";
+            };
           },
           {
-            "name": "recipientNttManager",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "recipientNttManager";
+            type: {
+              array: ["u8", 32];
+            };
           },
           {
-            "name": "recipientAddress",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "recipientAddress";
+            type: {
+              array: ["u8", 32];
+            };
           },
           {
-            "name": "releaseTimestamp",
-            "type": "i64"
+            name: "releaseTimestamp";
+            type: "i64";
           },
           {
-            "name": "released",
-            "type": {
-              "defined": "Bitmap"
-            }
+            name: "released";
+            type: {
+              defined: "Bitmap";
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "outboxRateLimit",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "outboxRateLimit";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "rateLimit",
-            "type": {
-              "defined": "RateLimitState"
-            }
+            name: "rateLimit";
+            type: {
+              defined: "RateLimitState";
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "registeredTransceiver",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "registeredTransceiver";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump";
+            type: "u8";
           },
           {
-            "name": "id",
-            "type": "u8"
+            name: "id";
+            type: "u8";
           },
           {
-            "name": "transceiverAddress",
-            "type": "publicKey"
+            name: "transceiverAddress";
+            type: "publicKey";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "transceiverPeer",
-      "docs": [
+      name: "transceiverPeer";
+      docs: [
         "A peer on another chain. Stored in a PDA seeded by the chain id."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
+      ];
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump";
+            type: "u8";
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "address";
+            type: {
+              array: ["u8", 32];
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "bridgeData",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "bridgeData";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "guardianSetIndex",
-            "docs": [
+            name: "guardianSetIndex";
+            docs: [
               "The current guardian set index, used to decide which signature sets to accept."
-            ],
-            "type": "u32"
+            ];
+            type: "u32";
           },
           {
-            "name": "lastLamports",
-            "docs": [
-              "Lamports in the collection account"
-            ],
-            "type": "u64"
+            name: "lastLamports";
+            docs: ["Lamports in the collection account"];
+            type: "u64";
           },
           {
-            "name": "config",
-            "docs": [
+            name: "config";
+            docs: [
               "Bridge configuration, which is set once upon initialization."
-            ],
-            "type": {
-              "defined": "BridgeConfig"
-            }
+            ];
+            type: {
+              defined: "BridgeConfig";
+            };
           }
-        ]
-      }
+        ];
+      };
     }
-  ],
-  "types": [
+  ];
+  types: [
     {
-      "name": "Bitmap",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "Bitmap";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "map",
-            "type": "u128"
+            name: "map";
+            type: "u128";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "SetInboundLimitArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetInboundLimitArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "limit",
-            "type": "u64"
+            name: "limit";
+            type: "u64";
           },
           {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "chainId";
+            type: {
+              defined: "ChainId";
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "SetOutboundLimitArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetOutboundLimitArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "limit",
-            "type": "u64"
+            name: "limit";
+            type: "u64";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "SetPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetPeerArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "chainId";
+            type: {
+              defined: "ChainId";
+            };
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "address";
+            type: {
+              array: ["u8", 32];
+            };
           },
           {
-            "name": "limit",
-            "type": "u64"
+            name: "limit";
+            type: "u64";
           },
           {
-            "name": "tokenDecimals",
-            "docs": [
-              "The token decimals on the peer chain."
-            ],
-            "type": "u8"
+            name: "tokenDecimals";
+            docs: ["The token decimals on the peer chain."];
+            type: "u8";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "InitializeArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "InitializeArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "chainId",
-            "type": "u16"
+            name: "chainId";
+            type: "u16";
           },
           {
-            "name": "limit",
-            "type": "u64"
+            name: "limit";
+            type: "u64";
           },
           {
-            "name": "mode",
-            "type": {
-              "defined": "Mode"
-            }
+            name: "mode";
+            type: {
+              defined: "Mode";
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "RedeemArgs",
-      "type": {
-        "kind": "struct",
-        "fields": []
-      }
+      name: "RedeemArgs";
+      type: {
+        kind: "struct";
+        fields: [];
+      };
     },
     {
-      "name": "ReleaseInboundArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "ReleaseInboundArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "revertOnDelay",
-            "type": "bool"
+            name: "revertOnDelay";
+            type: "bool";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "TransferArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "TransferArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "amount",
-            "type": "u64"
+            name: "amount";
+            type: "u64";
           },
           {
-            "name": "recipientChain",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "recipientChain";
+            type: {
+              defined: "ChainId";
+            };
           },
           {
-            "name": "recipientAddress",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "recipientAddress";
+            type: {
+              array: ["u8", 32];
+            };
           },
           {
-            "name": "shouldQueue",
-            "type": "bool"
+            name: "shouldQueue";
+            type: "bool";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "ReleaseStatus",
-      "docs": [
+      name: "ReleaseStatus";
+      docs: [
         "The status of an InboxItem. This determines whether the tokens are minted/unlocked to the recipient. As",
         "such, this must be used as a state machine that moves forward in a linear manner. A state",
-        "should never \"move backward\" to a previous state (e.g. should never move from `Released` to",
+        'should never "move backward" to a previous state (e.g. should never move from `Released` to',
         "`ReleaseAfter`)."
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
+      ];
+      type: {
+        kind: "enum";
+        variants: [
           {
-            "name": "NotApproved"
+            name: "NotApproved";
           },
           {
-            "name": "ReleaseAfter",
-            "fields": [
-              "i64"
-            ]
+            name: "ReleaseAfter";
+            fields: ["i64"];
           },
           {
-            "name": "Released"
+            name: "Released";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "RateLimitState",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "RateLimitState";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "limit",
-            "docs": [
-              "The maximum capacity of the rate limiter."
-            ],
-            "type": "u64"
+            name: "limit";
+            docs: ["The maximum capacity of the rate limiter."];
+            type: "u64";
           },
           {
-            "name": "capacityAtLastTx",
-            "docs": [
+            name: "capacityAtLastTx";
+            docs: [
               "The capacity of the rate limiter at `last_tx_timestamp`.",
               "The actual current capacity is calculated in `capacity_at`, by",
               "accounting for the time that has passed since `last_tx_timestamp` and",
               "the refill rate."
-            ],
-            "type": "u64"
+            ];
+            type: "u64";
           },
           {
-            "name": "lastTxTimestamp",
-            "docs": [
+            name: "lastTxTimestamp";
+            docs: [
               "The timestamp of the last transaction that counted towards the current",
               "capacity. Transactions that exceeded the capacity do not count, they are",
               "just delayed."
-            ],
-            "type": "i64"
+            ];
+            type: "i64";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "SetTransceiverPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetTransceiverPeerArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "chainId";
+            type: {
+              defined: "ChainId";
+            };
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "address";
+            type: {
+              array: ["u8", 32];
+            };
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "BroadcastPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "BroadcastPeerArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "chainId",
-            "type": "u16"
+            name: "chainId";
+            type: "u16";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "ReleaseOutboundArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "ReleaseOutboundArgs";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "revertOnDelay",
-            "type": "bool"
+            name: "revertOnDelay";
+            type: "bool";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "ChainId",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "ChainId";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "id",
-            "type": "u16"
+            name: "id";
+            type: "u16";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "Mode",
-      "type": {
-        "kind": "enum",
-        "variants": [
+      name: "Mode";
+      type: {
+        kind: "enum";
+        variants: [
           {
-            "name": "Locking"
+            name: "Locking";
           },
           {
-            "name": "Burning"
+            name: "Burning";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "TrimmedAmount",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "TrimmedAmount";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "amount",
-            "type": "u64"
+            name: "amount";
+            type: "u64";
           },
           {
-            "name": "decimals",
-            "type": "u8"
+            name: "decimals";
+            type: "u8";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "BridgeConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "BridgeConfig";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "guardianSetExpirationTime",
-            "docs": [
+            name: "guardianSetExpirationTime";
+            docs: [
               "Period for how long a guardian set is valid after it has been replaced by a new one.  This",
               "guarantees that VAAs issued by that set can still be submitted for a certain period.  In",
               "this period we still trust the old guardian set."
-            ],
-            "type": "u32"
+            ];
+            type: "u32";
           },
           {
-            "name": "fee",
-            "docs": [
+            name: "fee";
+            docs: [
               "Amount of lamports that needs to be paid to the protocol to post a message"
-            ],
-            "type": "u64"
+            ];
+            type: "u64";
           }
-        ]
-      }
+        ];
+      };
     }
-  ],
-  "errors": [
+  ];
+  errors: [
     {
-      "code": 6000,
-      "name": "CantReleaseYet",
-      "msg": "CantReleaseYet"
+      code: 6000;
+      name: "CantReleaseYet";
+      msg: "CantReleaseYet";
     },
     {
-      "code": 6001,
-      "name": "InvalidPendingOwner",
-      "msg": "InvalidPendingOwner"
+      code: 6001;
+      name: "InvalidPendingOwner";
+      msg: "InvalidPendingOwner";
     },
     {
-      "code": 6002,
-      "name": "InvalidChainId",
-      "msg": "InvalidChainId"
+      code: 6002;
+      name: "InvalidChainId";
+      msg: "InvalidChainId";
     },
     {
-      "code": 6003,
-      "name": "InvalidRecipientAddress",
-      "msg": "InvalidRecipientAddress"
+      code: 6003;
+      name: "InvalidRecipientAddress";
+      msg: "InvalidRecipientAddress";
     },
     {
-      "code": 6004,
-      "name": "InvalidTransceiverPeer",
-      "msg": "InvalidTransceiverPeer"
+      code: 6004;
+      name: "InvalidTransceiverPeer";
+      msg: "InvalidTransceiverPeer";
     },
     {
-      "code": 6005,
-      "name": "InvalidNttManagerPeer",
-      "msg": "InvalidNttManagerPeer"
+      code: 6005;
+      name: "InvalidNttManagerPeer";
+      msg: "InvalidNttManagerPeer";
     },
     {
-      "code": 6006,
-      "name": "InvalidRecipientNttManager",
-      "msg": "InvalidRecipientNttManager"
+      code: 6006;
+      name: "InvalidRecipientNttManager";
+      msg: "InvalidRecipientNttManager";
     },
     {
-      "code": 6007,
-      "name": "TransferAlreadyRedeemed",
-      "msg": "TransferAlreadyRedeemed"
+      code: 6007;
+      name: "TransferAlreadyRedeemed";
+      msg: "TransferAlreadyRedeemed";
     },
     {
-      "code": 6008,
-      "name": "TransferCannotBeRedeemed",
-      "msg": "TransferCannotBeRedeemed"
+      code: 6008;
+      name: "TransferCannotBeRedeemed";
+      msg: "TransferCannotBeRedeemed";
     },
     {
-      "code": 6009,
-      "name": "TransferNotApproved",
-      "msg": "TransferNotApproved"
+      code: 6009;
+      name: "TransferNotApproved";
+      msg: "TransferNotApproved";
     },
     {
-      "code": 6010,
-      "name": "MessageAlreadySent",
-      "msg": "MessageAlreadySent"
+      code: 6010;
+      name: "MessageAlreadySent";
+      msg: "MessageAlreadySent";
     },
     {
-      "code": 6011,
-      "name": "InvalidMode",
-      "msg": "InvalidMode"
+      code: 6011;
+      name: "InvalidMode";
+      msg: "InvalidMode";
     },
     {
-      "code": 6012,
-      "name": "InvalidMintAuthority",
-      "msg": "InvalidMintAuthority"
+      code: 6012;
+      name: "InvalidMintAuthority";
+      msg: "InvalidMintAuthority";
     },
     {
-      "code": 6013,
-      "name": "TransferExceedsRateLimit",
-      "msg": "TransferExceedsRateLimit"
+      code: 6013;
+      name: "TransferExceedsRateLimit";
+      msg: "TransferExceedsRateLimit";
     },
     {
-      "code": 6014,
-      "name": "Paused",
-      "msg": "Paused"
+      code: 6014;
+      name: "Paused";
+      msg: "Paused";
     },
     {
-      "code": 6015,
-      "name": "DisabledTransceiver",
-      "msg": "DisabledTransceiver"
+      code: 6015;
+      name: "DisabledTransceiver";
+      msg: "DisabledTransceiver";
     },
     {
-      "code": 6016,
-      "name": "InvalidDeployer",
-      "msg": "InvalidDeployer"
+      code: 6016;
+      name: "InvalidDeployer";
+      msg: "InvalidDeployer";
     },
     {
-      "code": 6017,
-      "name": "BadAmountAfterTransfer",
-      "msg": "BadAmountAfterTransfer"
+      code: 6017;
+      name: "BadAmountAfterTransfer";
+      msg: "BadAmountAfterTransfer";
     },
     {
-      "code": 6018,
-      "name": "BadAmountAfterBurn",
-      "msg": "BadAmountAfterBurn"
+      code: 6018;
+      name: "BadAmountAfterBurn";
+      msg: "BadAmountAfterBurn";
     },
     {
-      "code": 6019,
-      "name": "ZeroThreshold",
-      "msg": "ZeroThreshold"
+      code: 6019;
+      name: "ZeroThreshold";
+      msg: "ZeroThreshold";
     },
     {
-      "code": 6020,
-      "name": "OverflowExponent",
-      "msg": "OverflowExponent"
+      code: 6020;
+      name: "OverflowExponent";
+      msg: "OverflowExponent";
     },
     {
-      "code": 6021,
-      "name": "OverflowScaledAmount",
-      "msg": "OverflowScaledAmount"
+      code: 6021;
+      name: "OverflowScaledAmount";
+      msg: "OverflowScaledAmount";
     },
     {
-      "code": 6022,
-      "name": "BitmapIndexOutOfBounds",
-      "msg": "BitmapIndexOutOfBounds"
+      code: 6022;
+      name: "BitmapIndexOutOfBounds";
+      msg: "BitmapIndexOutOfBounds";
     },
     {
-      "code": 6023,
-      "name": "NoRegisteredTransceivers",
-      "msg": "NoRegisteredTransceivers"
+      code: 6023;
+      name: "NoRegisteredTransceivers";
+      msg: "NoRegisteredTransceivers";
     }
-  ]
-}
+  ];
+};
 export const IDL: ExampleNativeTokenTransfers = {
-  "version": "2.0.0",
-  "name": "example_native_token_transfers",
-  "instructions": [
+  version: "2.0.0",
+  name: "example_native_token_transfers",
+  instructions: [
     {
-      "name": "initialize",
-      "accounts": [
+      name: "initialize",
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "deployer",
-          "isMut": false,
-          "isSigner": true
+          name: "deployer",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "programData",
-          "isMut": false,
-          "isSigner": false
+          name: "programData",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          name: "mint",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "rateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "rateLimit",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
+          name: "tokenAuthority",
+          isMut: false,
+          isSigner: false,
+          docs: [
             "In any case, this function is used to set the Config and initialize the program so we",
             "assume the caller of this function will have total control over the program.",
             "",
-            "TODO: Using `UncheckedAccount` here leads to \"Access violation in stack frame ...\".",
-            "Could refactor code to use `Box<_>` to reduce stack size."
-          ]
+            'TODO: Using `UncheckedAccount` here leads to "Access violation in stack frame ...".',
+            "Could refactor code to use `Box<_>` to reduce stack size.",
+          ],
         },
         {
-          "name": "custody",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
+          name: "custody",
+          isMut: true,
+          isSigner: false,
+          docs: [
             "The custody account that holds tokens in locking mode and temporarily",
             "holds tokens in burning mode.",
-            "function if  the token account has already been created."
-          ]
+            "function if  the token account has already been created.",
+          ],
         },
         {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "associated token account for the given mint."
-          ]
+          name: "tokenProgram",
+          isMut: false,
+          isSigner: false,
+          docs: ["associated token account for the given mint."],
         },
         {
-          "name": "associatedTokenProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "associatedTokenProgram",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "bpfLoaderUpgradeableProgram",
-          "isMut": false,
-          "isSigner": false
+          name: "bpfLoaderUpgradeableProgram",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "InitializeArgs"
-          }
-        }
-      ]
-    },
-    {
-      "name": "initializeLut",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "args",
+          type: {
+            defined: "InitializeArgs",
+          },
         },
-        {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "lutAddress",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lut",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lutProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "entries",
-          "accounts": [
-            {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "custody",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "mint",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "outboxRateLimit",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "wormhole",
-              "accounts": [
-                {
-                  "name": "bridge",
-                  "isMut": true,
-                  "isSigner": false
-                },
-                {
-                  "name": "feeCollector",
-                  "isMut": true,
-                  "isSigner": false
-                },
-                {
-                  "name": "sequence",
-                  "isMut": true,
-                  "isSigner": false
-                },
-                {
-                  "name": "program",
-                  "isMut": false,
-                  "isSigner": false
-                },
-                {
-                  "name": "systemProgram",
-                  "isMut": false,
-                  "isSigner": false
-                },
-                {
-                  "name": "clock",
-                  "isMut": false,
-                  "isSigner": false
-                },
-                {
-                  "name": "rent",
-                  "isMut": false,
-                  "isSigner": false
-                }
-              ]
-            }
-          ]
-        }
       ],
-      "args": [
-        {
-          "name": "recentSlot",
-          "type": "u64"
-        }
-      ]
     },
     {
-      "name": "version",
-      "accounts": [],
-      "args": [],
-      "returns": "string"
-    },
-    {
-      "name": "transferBurn",
-      "accounts": [
+      name: "initializeLut",
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "payer",
+          isMut: true,
+          isSigner: true,
+        },
+        {
+          name: "authority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "lutAddress",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "lut",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "lutProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "entries",
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "config",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "custody",
+              isMut: false,
+              isSigner: false,
+            },
+            {
+              name: "tokenProgram",
+              isMut: false,
+              isSigner: false,
+            },
+            {
+              name: "mint",
+              isMut: false,
+              isSigner: false,
+            },
+            {
+              name: "tokenAuthority",
+              isMut: false,
+              isSigner: false,
+            },
+            {
+              name: "outboxRateLimit",
+              isMut: false,
+              isSigner: false,
+            },
+            {
+              name: "wormhole",
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
-                }
-              ]
+                  name: "bridge",
+                  isMut: true,
+                  isSigner: false,
+                },
+                {
+                  name: "feeCollector",
+                  isMut: true,
+                  isSigner: false,
+                },
+                {
+                  name: "sequence",
+                  isMut: true,
+                  isSigner: false,
+                },
+                {
+                  name: "program",
+                  isMut: false,
+                  isSigner: false,
+                },
+                {
+                  name: "systemProgram",
+                  isMut: false,
+                  isSigner: false,
+                },
+                {
+                  name: "clock",
+                  isMut: false,
+                  isSigner: false,
+                },
+                {
+                  name: "rent",
+                  isMut: false,
+                  isSigner: false,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      args: [
+        {
+          name: "recentSlot",
+          type: "u64",
+        },
+      ],
+    },
+    {
+      name: "version",
+      accounts: [],
+      args: [],
+      returns: "string",
+    },
+    {
+      name: "transferBurn",
+      accounts: [
+        {
+          name: "common",
+          accounts: [
+            {
+              name: "payer",
+              isMut: true,
+              isSigner: true,
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "config",
+              accounts: [
+                {
+                  name: "config",
+                  isMut: false,
+                  isSigner: false,
+                },
+              ],
             },
             {
-              "name": "from",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
-                "account can spend these tokens."
-              ]
+              name: "mint",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "from",
+              isMut: true,
+              isSigner: false,
+              docs: ["account can spend these tokens."],
             },
             {
-              "name": "outboxItem",
-              "isMut": true,
-              "isSigner": true
+              name: "tokenProgram",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "outboxRateLimit",
-              "isMut": true,
-              "isSigner": false
+              name: "outboxItem",
+              isMut: true,
+              isSigner: true,
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
+              name: "outboxRateLimit",
+              isMut: true,
+              isSigner: false,
+            },
+            {
+              name: "custody",
+              isMut: true,
+              isSigner: false,
+              docs: [
                 "Tokens are always transferred to the custody account first regardless of",
                 "the mode.",
-                "For an explanation, see the note in [`transfer_burn`]."
-              ]
+                "For an explanation, see the note in [`transfer_burn`].",
+              ],
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
+              name: "systemProgram",
+              isMut: false,
+              isSigner: false,
+            },
+          ],
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "sessionAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "See [`crate::SESSION_AUTHORITY_SEED`] for an explanation of the flow."
-          ]
+          name: "sessionAuthority",
+          isMut: false,
+          isSigner: false,
+          docs: [
+            "See [`crate::SESSION_AUTHORITY_SEED`] for an explanation of the flow.",
+          ],
         },
         {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "tokenAuthority",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "TransferArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "TransferArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "transferLock",
-      "accounts": [
+      name: "transferLock",
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "common",
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "payer",
+              isMut: true,
+              isSigner: true,
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "config",
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
-                }
-              ]
+                  name: "config",
+                  isMut: false,
+                  isSigner: false,
+                },
+              ],
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "mint",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "from",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
-                "account can spend these tokens."
-              ]
+              name: "from",
+              isMut: true,
+              isSigner: false,
+              docs: ["account can spend these tokens."],
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "outboxItem",
-              "isMut": true,
-              "isSigner": true
+              name: "outboxItem",
+              isMut: true,
+              isSigner: true,
             },
             {
-              "name": "outboxRateLimit",
-              "isMut": true,
-              "isSigner": false
+              name: "outboxRateLimit",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false,
-              "docs": [
+              name: "custody",
+              isMut: true,
+              isSigner: false,
+              docs: [
                 "Tokens are always transferred to the custody account first regardless of",
                 "the mode.",
-                "For an explanation, see the note in [`transfer_burn`]."
-              ]
+                "For an explanation, see the note in [`transfer_burn`].",
+              ],
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
+              name: "systemProgram",
+              isMut: false,
+              isSigner: false,
+            },
+          ],
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "sessionAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "See [`crate::SESSION_AUTHORITY_SEED`] for an explanation of the flow."
-          ]
-        }
+          name: "sessionAuthority",
+          isMut: false,
+          isSigner: false,
+          docs: [
+            "See [`crate::SESSION_AUTHORITY_SEED`] for an explanation of the flow.",
+          ],
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "TransferArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "TransferArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "redeem",
-      "accounts": [
+      name: "redeem",
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "transceiverMessage",
-          "isMut": false,
-          "isSigner": false
+          name: "transceiverMessage",
+          isMut: false,
+          isSigner: false,
+          docs: ["`Account<T>` and `owner` constraints are mutually-exclusive"],
         },
         {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false
+          name: "transceiver",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          name: "mint",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "inboxItem",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
+          name: "inboxItem",
+          isMut: true,
+          isSigner: false,
+          docs: [
             "NOTE: This account is content-addressed (PDA seeded by the message hash).",
             "This is because in a multi-transceiver configuration, the different",
-            "transceivers \"vote\" on messages (by delivering them). By making the inbox",
+            'transceivers "vote" on messages (by delivering them). By making the inbox',
             "items content-addressed, we can ensure that disagreeing votes don't",
             "interfere with each other.",
             "On the first call to [`redeem()`], [`InboxItem`] will be allocated and initialized with",
             "default values.",
-            "On subsequent calls, we want to modify the `InboxItem` by \"voting\" on it. Therefore the",
+            'On subsequent calls, we want to modify the `InboxItem` by "voting" on it. Therefore the',
             "program should not fail which would occur when using the `init` constraint.",
             "The [`InboxItem::init`] field is used to guard against malicious or accidental modification",
-            "InboxItem fields that should remain constant."
-          ]
+            "InboxItem fields that should remain constant.",
+          ],
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "outboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "outboxRateLimit",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "RedeemArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "RedeemArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "releaseInboundMint",
-      "accounts": [
+      name: "releaseInboundMint",
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "common",
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "payer",
+              isMut: true,
+              isSigner: true,
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "config",
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
-                }
-              ]
+                  name: "config",
+                  isMut: false,
+                  isSigner: false,
+                },
+              ],
             },
             {
-              "name": "inboxItem",
-              "isMut": true,
-              "isSigner": false
+              name: "inboxItem",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "recipient",
-              "isMut": true,
-              "isSigner": false
+              name: "recipient",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false,
-              "docs": [
-                "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              name: "tokenAuthority",
+              isMut: false,
+              isSigner: false,
+              docs: [
+                "CHECK The seeds constraint ensures that this is the correct address",
+              ],
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "mint",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false
-            }
-          ]
-        }
+              name: "custody",
+              isMut: true,
+              isSigner: false,
+            },
+          ],
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseInboundArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "ReleaseInboundArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "releaseInboundUnlock",
-      "accounts": [
+      name: "releaseInboundUnlock",
+      accounts: [
         {
-          "name": "common",
-          "accounts": [
+          name: "common",
+          accounts: [
             {
-              "name": "payer",
-              "isMut": true,
-              "isSigner": true
+              name: "payer",
+              isMut: true,
+              isSigner: true,
             },
             {
-              "name": "config",
-              "accounts": [
+              name: "config",
+              accounts: [
                 {
-                  "name": "config",
-                  "isMut": false,
-                  "isSigner": false
-                }
-              ]
+                  name: "config",
+                  isMut: false,
+                  isSigner: false,
+                },
+              ],
             },
             {
-              "name": "inboxItem",
-              "isMut": true,
-              "isSigner": false
+              name: "inboxItem",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "recipient",
-              "isMut": true,
-              "isSigner": false
+              name: "recipient",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false,
-              "docs": [
-                "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              name: "tokenAuthority",
+              isMut: false,
+              isSigner: false,
+              docs: [
+                "CHECK The seeds constraint ensures that this is the correct address",
+              ],
             },
             {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
+              name: "mint",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "tokenProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "tokenProgram",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "custody",
-              "isMut": true,
-              "isSigner": false
-            }
-          ]
-        }
+              name: "custody",
+              isMut: true,
+              isSigner: false,
+            },
+          ],
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseInboundArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "ReleaseInboundArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "transferOwnership",
-      "accounts": [
+      name: "transferOwnership",
+      accounts: [
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "newOwner",
-          "isMut": false,
-          "isSigner": false
+          name: "newOwner",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "upgradeLock",
-          "isMut": false,
-          "isSigner": false
+          name: "upgradeLock",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "programData",
-          "isMut": true,
-          "isSigner": false
+          name: "programData",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "bpfLoaderUpgradeableProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "bpfLoaderUpgradeableProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": []
+      args: [],
     },
     {
-      "name": "claimOwnership",
-      "accounts": [
+      name: "claimOwnership",
+      accounts: [
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "upgradeLock",
-          "isMut": false,
-          "isSigner": false
+          name: "upgradeLock",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "newOwner",
-          "isMut": false,
-          "isSigner": true
+          name: "newOwner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "programData",
-          "isMut": true,
-          "isSigner": false
+          name: "programData",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "bpfLoaderUpgradeableProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "bpfLoaderUpgradeableProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": []
+      args: [],
     },
     {
-      "name": "setPaused",
-      "accounts": [
+      name: "setPaused",
+      accounts: [
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
-        }
+          name: "config",
+          isMut: true,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "pause",
-          "type": "bool"
-        }
-      ]
+          name: "pause",
+          type: "bool",
+        },
+      ],
     },
     {
-      "name": "setPeer",
-      "accounts": [
+      name: "setPeer",
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "peer",
-          "isMut": true,
-          "isSigner": false
+          name: "peer",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "inboxRateLimit",
-          "isMut": true,
-          "isSigner": false
+          name: "inboxRateLimit",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetPeerArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "SetPeerArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "registerTransceiver",
-      "accounts": [
+      name: "registerTransceiver",
+      accounts: [
         {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
+          name: "config",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "used here that wraps the Transceiver account type."
-          ]
+          name: "transceiver",
+          isMut: false,
+          isSigner: false,
+          docs: ["used here that wraps the Transceiver account type."],
         },
         {
-          "name": "registeredTransceiver",
-          "isMut": true,
-          "isSigner": false
+          name: "registeredTransceiver",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": []
+      args: [],
     },
     {
-      "name": "setOutboundLimit",
-      "accounts": [
+      name: "setOutboundLimit",
+      accounts: [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "rateLimit",
-          "isMut": true,
-          "isSigner": false
-        }
+          name: "rateLimit",
+          isMut: true,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetOutboundLimitArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "SetOutboundLimitArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "setInboundLimit",
-      "accounts": [
+      name: "setInboundLimit",
+      accounts: [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "rateLimit",
-          "isMut": true,
-          "isSigner": false
-        }
+          name: "rateLimit",
+          isMut: true,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetInboundLimitArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "SetInboundLimitArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "setWormholePeer",
-      "accounts": [
+      name: "setWormholePeer",
+      accounts: [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
+          name: "owner",
+          isMut: false,
+          isSigner: true,
         },
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "peer",
-          "isMut": true,
-          "isSigner": false
+          name: "peer",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "SetTransceiverPeerArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "SetTransceiverPeerArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "receiveWormholeMessage",
-      "accounts": [
+      name: "receiveWormholeMessage",
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "config",
-          "accounts": [
+          name: "config",
+          accounts: [
             {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
+              name: "config",
+              isMut: false,
+              isSigner: false,
+            },
+          ],
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "vaa",
-          "isMut": false,
-          "isSigner": false
+          name: "vaa",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "transceiverMessage",
-          "isMut": true,
-          "isSigner": false
+          name: "transceiverMessage",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
-      "args": []
+      args: [],
     },
     {
-      "name": "releaseWormholeOutbound",
-      "accounts": [
+      name: "releaseWormholeOutbound",
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "config",
-          "accounts": [
+          name: "config",
+          accounts: [
             {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
+              name: "config",
+              isMut: false,
+              isSigner: false,
+            },
+          ],
         },
         {
-          "name": "outboxItem",
-          "isMut": true,
-          "isSigner": false
+          name: "outboxItem",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false
+          name: "transceiver",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": false
+          name: "wormholeMessage",
+          isMut: true,
+          isSigner: false,
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
+          name: "emitter",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "wormhole",
-          "accounts": [
+          name: "wormhole",
+          accounts: [
             {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
+              name: "bridge",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
+              name: "feeCollector",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
+              name: "sequence",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
+              name: "program",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
+              name: "clock",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
+              name: "rent",
+              isMut: false,
+              isSigner: false,
+            },
+          ],
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseOutboundArgs"
-          }
-        }
-      ]
+          name: "args",
+          type: {
+            defined: "ReleaseOutboundArgs",
+          },
+        },
+      ],
     },
     {
-      "name": "broadcastWormholeId",
-      "accounts": [
+      name: "broadcastWormholeId",
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          name: "mint",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
+          name: "wormholeMessage",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
+          name: "emitter",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "wormhole",
-          "accounts": [
+          name: "wormhole",
+          accounts: [
             {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
+              name: "bridge",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
+              name: "feeCollector",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
+              name: "sequence",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
+              name: "program",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
+              name: "clock",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
+              name: "rent",
+              isMut: false,
+              isSigner: false,
+            },
+          ],
+        },
       ],
-      "args": []
+      args: [],
     },
     {
-      "name": "broadcastWormholePeer",
-      "accounts": [
+      name: "broadcastWormholePeer",
+      accounts: [
         {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          name: "payer",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
+          name: "config",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
+          name: "peer",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
+          name: "wormholeMessage",
+          isMut: true,
+          isSigner: true,
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
+          name: "emitter",
+          isMut: false,
+          isSigner: false,
         },
         {
-          "name": "wormhole",
-          "accounts": [
+          name: "wormhole",
+          accounts: [
             {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
+              name: "bridge",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
+              name: "feeCollector",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
+              name: "sequence",
+              isMut: true,
+              isSigner: false,
             },
             {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
+              name: "program",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
+              name: "systemProgram",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
+              name: "clock",
+              isMut: false,
+              isSigner: false,
             },
             {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
+              name: "rent",
+              isMut: false,
+              isSigner: false,
+            },
+          ],
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "args",
-          "type": {
-            "defined": "BroadcastPeerArgs"
-          }
-        }
-      ]
-    }
+          name: "args",
+          type: {
+            defined: "BroadcastPeerArgs",
+          },
+        },
+      ],
+    },
   ],
-  "accounts": [
+  accounts: [
     {
-      "name": "config",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "config",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump",
+            type: "u8",
           },
           {
-            "name": "owner",
-            "docs": [
-              "Owner of the program."
-            ],
-            "type": "publicKey"
+            name: "owner",
+            docs: ["Owner of the program."],
+            type: "publicKey",
           },
           {
-            "name": "pendingOwner",
-            "docs": [
-              "Pending next owner (before claiming ownership)."
-            ],
-            "type": {
-              "option": "publicKey"
-            }
+            name: "pendingOwner",
+            docs: ["Pending next owner (before claiming ownership)."],
+            type: {
+              option: "publicKey",
+            },
           },
           {
-            "name": "mint",
-            "docs": [
-              "Mint address of the token managed by this program."
-            ],
-            "type": "publicKey"
+            name: "mint",
+            docs: ["Mint address of the token managed by this program."],
+            type: "publicKey",
           },
           {
-            "name": "tokenProgram",
-            "docs": [
+            name: "tokenProgram",
+            docs: [
               "Address of the token program (token or token22). This could always be queried",
               "from the [`mint`] account's owner, but storing it here avoids an indirection",
-              "on the client side."
+              "on the client side.",
             ],
-            "type": "publicKey"
+            type: "publicKey",
           },
           {
-            "name": "mode",
-            "docs": [
+            name: "mode",
+            docs: [
               "The mode that this program is running in. This is used to determine",
-              "whether the program is burning tokens or locking tokens."
+              "whether the program is burning tokens or locking tokens.",
             ],
-            "type": {
-              "defined": "Mode"
-            }
+            type: {
+              defined: "Mode",
+            },
           },
           {
-            "name": "chainId",
-            "docs": [
+            name: "chainId",
+            docs: [
               "The chain id of the chain that this program is running on. We don't",
               "hardcode this so that the program is deployable on any potential SVM",
-              "forks."
+              "forks.",
             ],
-            "type": {
-              "defined": "ChainId"
-            }
+            type: {
+              defined: "ChainId",
+            },
           },
           {
-            "name": "nextTransceiverId",
-            "docs": [
-              "The next transceiver id to use when registering an transceiver."
+            name: "nextTransceiverId",
+            docs: [
+              "The next transceiver id to use when registering an transceiver.",
             ],
-            "type": "u8"
+            type: "u8",
           },
           {
-            "name": "threshold",
-            "docs": [
+            name: "threshold",
+            docs: [
               "The number of transceivers that must attest to a transfer before it is",
-              "accepted."
+              "accepted.",
             ],
-            "type": "u8"
+            type: "u8",
           },
           {
-            "name": "enabledTransceivers",
-            "docs": [
+            name: "enabledTransceivers",
+            docs: [
               "Bitmap of enabled transceivers.",
-              "The maximum number of transceivers is equal to [`Bitmap::BITS`]."
+              "The maximum number of transceivers is equal to [`Bitmap::BITS`].",
             ],
-            "type": {
-              "defined": "Bitmap"
-            }
+            type: {
+              defined: "Bitmap",
+            },
           },
           {
-            "name": "paused",
-            "docs": [
-              "Pause the program. This is useful for upgrades and other maintenance."
+            name: "paused",
+            docs: [
+              "Pause the program. This is useful for upgrades and other maintenance.",
             ],
-            "type": "bool"
+            type: "bool",
           },
           {
-            "name": "custody",
-            "docs": [
-              "The custody account that holds tokens in locking mode."
-            ],
-            "type": "publicKey"
-          }
-        ]
-      }
+            name: "custody",
+            docs: ["The custody account that holds tokens in locking mode."],
+            type: "publicKey",
+          },
+        ],
+      },
     },
     {
-      "name": "LUT",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "LUT",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump",
+            type: "u8",
           },
           {
-            "name": "address",
-            "type": "publicKey"
-          }
-        ]
-      }
+            name: "address",
+            type: "publicKey",
+          },
+        ],
+      },
     },
     {
-      "name": "nttManagerPeer",
-      "docs": [
-        "A peer on another chain. Stored in a PDA seeded by the chain id."
+      name: "nttManagerPeer",
+      docs: [
+        "A peer on another chain. Stored in a PDA seeded by the chain id.",
       ],
-      "type": {
-        "kind": "struct",
-        "fields": [
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump",
+            type: "u8",
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "address",
+            type: {
+              array: ["u8", 32],
+            },
           },
           {
-            "name": "tokenDecimals",
-            "type": "u8"
-          }
-        ]
-      }
+            name: "tokenDecimals",
+            type: "u8",
+          },
+        ],
+      },
     },
     {
-      "name": "inboxItem",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "inboxItem",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "init",
-            "type": "bool"
+            name: "init",
+            type: "bool",
           },
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump",
+            type: "u8",
           },
           {
-            "name": "amount",
-            "type": "u64"
+            name: "amount",
+            type: "u64",
           },
           {
-            "name": "recipientAddress",
-            "type": "publicKey"
+            name: "recipientAddress",
+            type: "publicKey",
           },
           {
-            "name": "votes",
-            "type": {
-              "defined": "Bitmap"
-            }
+            name: "votes",
+            type: {
+              defined: "Bitmap",
+            },
           },
           {
-            "name": "releaseStatus",
-            "type": {
-              "defined": "ReleaseStatus"
-            }
-          }
-        ]
-      }
+            name: "releaseStatus",
+            type: {
+              defined: "ReleaseStatus",
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "inboxRateLimit",
-      "docs": [
+      name: "inboxRateLimit",
+      docs: [
         "Inbound rate limit per chain.",
-        "SECURITY: must check the PDA (since there are multiple PDAs, namely one for each chain.)"
+        "SECURITY: must check the PDA (since there are multiple PDAs, namely one for each chain.)",
       ],
-      "type": {
-        "kind": "struct",
-        "fields": [
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump",
+            type: "u8",
           },
           {
-            "name": "rateLimit",
-            "type": {
-              "defined": "RateLimitState"
-            }
-          }
-        ]
-      }
+            name: "rateLimit",
+            type: {
+              defined: "RateLimitState",
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "outboxItem",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "outboxItem",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "amount",
-            "type": {
-              "defined": "TrimmedAmount"
-            }
+            name: "amount",
+            type: {
+              defined: "TrimmedAmount",
+            },
           },
           {
-            "name": "sender",
-            "type": "publicKey"
+            name: "sender",
+            type: "publicKey",
           },
           {
-            "name": "recipientChain",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "recipientChain",
+            type: {
+              defined: "ChainId",
+            },
           },
           {
-            "name": "recipientNttManager",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "recipientNttManager",
+            type: {
+              array: ["u8", 32],
+            },
           },
           {
-            "name": "recipientAddress",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "recipientAddress",
+            type: {
+              array: ["u8", 32],
+            },
           },
           {
-            "name": "releaseTimestamp",
-            "type": "i64"
+            name: "releaseTimestamp",
+            type: "i64",
           },
           {
-            "name": "released",
-            "type": {
-              "defined": "Bitmap"
-            }
-          }
-        ]
-      }
+            name: "released",
+            type: {
+              defined: "Bitmap",
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "outboxRateLimit",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "outboxRateLimit",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "rateLimit",
-            "type": {
-              "defined": "RateLimitState"
-            }
-          }
-        ]
-      }
+            name: "rateLimit",
+            type: {
+              defined: "RateLimitState",
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "registeredTransceiver",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "registeredTransceiver",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump",
+            type: "u8",
           },
           {
-            "name": "id",
-            "type": "u8"
+            name: "id",
+            type: "u8",
           },
           {
-            "name": "transceiverAddress",
-            "type": "publicKey"
-          }
-        ]
-      }
+            name: "transceiverAddress",
+            type: "publicKey",
+          },
+        ],
+      },
     },
     {
-      "name": "transceiverPeer",
-      "docs": [
-        "A peer on another chain. Stored in a PDA seeded by the chain id."
+      name: "transceiverPeer",
+      docs: [
+        "A peer on another chain. Stored in a PDA seeded by the chain id.",
       ],
-      "type": {
-        "kind": "struct",
-        "fields": [
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "bump",
-            "type": "u8"
+            name: "bump",
+            type: "u8",
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
+            name: "address",
+            type: {
+              array: ["u8", 32],
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "bridgeData",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "bridgeData",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "guardianSetIndex",
-            "docs": [
-              "The current guardian set index, used to decide which signature sets to accept."
+            name: "guardianSetIndex",
+            docs: [
+              "The current guardian set index, used to decide which signature sets to accept.",
             ],
-            "type": "u32"
+            type: "u32",
           },
           {
-            "name": "lastLamports",
-            "docs": [
-              "Lamports in the collection account"
-            ],
-            "type": "u64"
+            name: "lastLamports",
+            docs: ["Lamports in the collection account"],
+            type: "u64",
           },
           {
-            "name": "config",
-            "docs": [
-              "Bridge configuration, which is set once upon initialization."
+            name: "config",
+            docs: [
+              "Bridge configuration, which is set once upon initialization.",
             ],
-            "type": {
-              "defined": "BridgeConfig"
-            }
-          }
-        ]
-      }
-    }
+            type: {
+              defined: "BridgeConfig",
+            },
+          },
+        ],
+      },
+    },
   ],
-  "types": [
+  types: [
     {
-      "name": "Bitmap",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "Bitmap",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "map",
-            "type": "u128"
-          }
-        ]
-      }
+            name: "map",
+            type: "u128",
+          },
+        ],
+      },
     },
     {
-      "name": "SetInboundLimitArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetInboundLimitArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "limit",
-            "type": "u64"
+            name: "limit",
+            type: "u64",
           },
           {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
-          }
-        ]
-      }
+            name: "chainId",
+            type: {
+              defined: "ChainId",
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "SetOutboundLimitArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetOutboundLimitArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "limit",
-            "type": "u64"
-          }
-        ]
-      }
+            name: "limit",
+            type: "u64",
+          },
+        ],
+      },
     },
     {
-      "name": "SetPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetPeerArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "chainId",
+            type: {
+              defined: "ChainId",
+            },
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "address",
+            type: {
+              array: ["u8", 32],
+            },
           },
           {
-            "name": "limit",
-            "type": "u64"
+            name: "limit",
+            type: "u64",
           },
           {
-            "name": "tokenDecimals",
-            "docs": [
-              "The token decimals on the peer chain."
-            ],
-            "type": "u8"
-          }
-        ]
-      }
+            name: "tokenDecimals",
+            docs: ["The token decimals on the peer chain."],
+            type: "u8",
+          },
+        ],
+      },
     },
     {
-      "name": "InitializeArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "InitializeArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "chainId",
-            "type": "u16"
+            name: "chainId",
+            type: "u16",
           },
           {
-            "name": "limit",
-            "type": "u64"
+            name: "limit",
+            type: "u64",
           },
           {
-            "name": "mode",
-            "type": {
-              "defined": "Mode"
-            }
-          }
-        ]
-      }
+            name: "mode",
+            type: {
+              defined: "Mode",
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "RedeemArgs",
-      "type": {
-        "kind": "struct",
-        "fields": []
-      }
+      name: "RedeemArgs",
+      type: {
+        kind: "struct",
+        fields: [],
+      },
     },
     {
-      "name": "ReleaseInboundArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "ReleaseInboundArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "revertOnDelay",
-            "type": "bool"
-          }
-        ]
-      }
+            name: "revertOnDelay",
+            type: "bool",
+          },
+        ],
+      },
     },
     {
-      "name": "TransferArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "TransferArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "amount",
-            "type": "u64"
+            name: "amount",
+            type: "u64",
           },
           {
-            "name": "recipientChain",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "recipientChain",
+            type: {
+              defined: "ChainId",
+            },
           },
           {
-            "name": "recipientAddress",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            name: "recipientAddress",
+            type: {
+              array: ["u8", 32],
+            },
           },
           {
-            "name": "shouldQueue",
-            "type": "bool"
-          }
-        ]
-      }
+            name: "shouldQueue",
+            type: "bool",
+          },
+        ],
+      },
     },
     {
-      "name": "ReleaseStatus",
-      "docs": [
+      name: "ReleaseStatus",
+      docs: [
         "The status of an InboxItem. This determines whether the tokens are minted/unlocked to the recipient. As",
         "such, this must be used as a state machine that moves forward in a linear manner. A state",
-        "should never \"move backward\" to a previous state (e.g. should never move from `Released` to",
-        "`ReleaseAfter`)."
+        'should never "move backward" to a previous state (e.g. should never move from `Released` to',
+        "`ReleaseAfter`).",
       ],
-      "type": {
-        "kind": "enum",
-        "variants": [
+      type: {
+        kind: "enum",
+        variants: [
           {
-            "name": "NotApproved"
+            name: "NotApproved",
           },
           {
-            "name": "ReleaseAfter",
-            "fields": [
-              "i64"
-            ]
+            name: "ReleaseAfter",
+            fields: ["i64"],
           },
           {
-            "name": "Released"
-          }
-        ]
-      }
+            name: "Released",
+          },
+        ],
+      },
     },
     {
-      "name": "RateLimitState",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "RateLimitState",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "limit",
-            "docs": [
-              "The maximum capacity of the rate limiter."
-            ],
-            "type": "u64"
+            name: "limit",
+            docs: ["The maximum capacity of the rate limiter."],
+            type: "u64",
           },
           {
-            "name": "capacityAtLastTx",
-            "docs": [
+            name: "capacityAtLastTx",
+            docs: [
               "The capacity of the rate limiter at `last_tx_timestamp`.",
               "The actual current capacity is calculated in `capacity_at`, by",
               "accounting for the time that has passed since `last_tx_timestamp` and",
-              "the refill rate."
+              "the refill rate.",
             ],
-            "type": "u64"
+            type: "u64",
           },
           {
-            "name": "lastTxTimestamp",
-            "docs": [
+            name: "lastTxTimestamp",
+            docs: [
               "The timestamp of the last transaction that counted towards the current",
               "capacity. Transactions that exceeded the capacity do not count, they are",
-              "just delayed."
+              "just delayed.",
             ],
-            "type": "i64"
-          }
-        ]
-      }
+            type: "i64",
+          },
+        ],
+      },
     },
     {
-      "name": "SetTransceiverPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "SetTransceiverPeerArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
+            name: "chainId",
+            type: {
+              defined: "ChainId",
+            },
           },
           {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
+            name: "address",
+            type: {
+              array: ["u8", 32],
+            },
+          },
+        ],
+      },
     },
     {
-      "name": "BroadcastPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "BroadcastPeerArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "chainId",
-            "type": "u16"
-          }
-        ]
-      }
+            name: "chainId",
+            type: "u16",
+          },
+        ],
+      },
     },
     {
-      "name": "ReleaseOutboundArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "ReleaseOutboundArgs",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "revertOnDelay",
-            "type": "bool"
-          }
-        ]
-      }
+            name: "revertOnDelay",
+            type: "bool",
+          },
+        ],
+      },
     },
     {
-      "name": "ChainId",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "ChainId",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "id",
-            "type": "u16"
-          }
-        ]
-      }
+            name: "id",
+            type: "u16",
+          },
+        ],
+      },
     },
     {
-      "name": "Mode",
-      "type": {
-        "kind": "enum",
-        "variants": [
+      name: "Mode",
+      type: {
+        kind: "enum",
+        variants: [
           {
-            "name": "Locking"
+            name: "Locking",
           },
           {
-            "name": "Burning"
-          }
-        ]
-      }
+            name: "Burning",
+          },
+        ],
+      },
     },
     {
-      "name": "TrimmedAmount",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "TrimmedAmount",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "amount",
-            "type": "u64"
+            name: "amount",
+            type: "u64",
           },
           {
-            "name": "decimals",
-            "type": "u8"
-          }
-        ]
-      }
+            name: "decimals",
+            type: "u8",
+          },
+        ],
+      },
     },
     {
-      "name": "BridgeConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "BridgeConfig",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "guardianSetExpirationTime",
-            "docs": [
+            name: "guardianSetExpirationTime",
+            docs: [
               "Period for how long a guardian set is valid after it has been replaced by a new one.  This",
               "guarantees that VAAs issued by that set can still be submitted for a certain period.  In",
-              "this period we still trust the old guardian set."
+              "this period we still trust the old guardian set.",
             ],
-            "type": "u32"
+            type: "u32",
           },
           {
-            "name": "fee",
-            "docs": [
-              "Amount of lamports that needs to be paid to the protocol to post a message"
+            name: "fee",
+            docs: [
+              "Amount of lamports that needs to be paid to the protocol to post a message",
             ],
-            "type": "u64"
-          }
-        ]
-      }
-    }
+            type: "u64",
+          },
+        ],
+      },
+    },
   ],
-  "errors": [
+  errors: [
     {
-      "code": 6000,
-      "name": "CantReleaseYet",
-      "msg": "CantReleaseYet"
+      code: 6000,
+      name: "CantReleaseYet",
+      msg: "CantReleaseYet",
     },
     {
-      "code": 6001,
-      "name": "InvalidPendingOwner",
-      "msg": "InvalidPendingOwner"
+      code: 6001,
+      name: "InvalidPendingOwner",
+      msg: "InvalidPendingOwner",
     },
     {
-      "code": 6002,
-      "name": "InvalidChainId",
-      "msg": "InvalidChainId"
+      code: 6002,
+      name: "InvalidChainId",
+      msg: "InvalidChainId",
     },
     {
-      "code": 6003,
-      "name": "InvalidRecipientAddress",
-      "msg": "InvalidRecipientAddress"
+      code: 6003,
+      name: "InvalidRecipientAddress",
+      msg: "InvalidRecipientAddress",
     },
     {
-      "code": 6004,
-      "name": "InvalidTransceiverPeer",
-      "msg": "InvalidTransceiverPeer"
+      code: 6004,
+      name: "InvalidTransceiverPeer",
+      msg: "InvalidTransceiverPeer",
     },
     {
-      "code": 6005,
-      "name": "InvalidNttManagerPeer",
-      "msg": "InvalidNttManagerPeer"
+      code: 6005,
+      name: "InvalidNttManagerPeer",
+      msg: "InvalidNttManagerPeer",
     },
     {
-      "code": 6006,
-      "name": "InvalidRecipientNttManager",
-      "msg": "InvalidRecipientNttManager"
+      code: 6006,
+      name: "InvalidRecipientNttManager",
+      msg: "InvalidRecipientNttManager",
     },
     {
-      "code": 6007,
-      "name": "TransferAlreadyRedeemed",
-      "msg": "TransferAlreadyRedeemed"
+      code: 6007,
+      name: "TransferAlreadyRedeemed",
+      msg: "TransferAlreadyRedeemed",
     },
     {
-      "code": 6008,
-      "name": "TransferCannotBeRedeemed",
-      "msg": "TransferCannotBeRedeemed"
+      code: 6008,
+      name: "TransferCannotBeRedeemed",
+      msg: "TransferCannotBeRedeemed",
     },
     {
-      "code": 6009,
-      "name": "TransferNotApproved",
-      "msg": "TransferNotApproved"
+      code: 6009,
+      name: "TransferNotApproved",
+      msg: "TransferNotApproved",
     },
     {
-      "code": 6010,
-      "name": "MessageAlreadySent",
-      "msg": "MessageAlreadySent"
+      code: 6010,
+      name: "MessageAlreadySent",
+      msg: "MessageAlreadySent",
     },
     {
-      "code": 6011,
-      "name": "InvalidMode",
-      "msg": "InvalidMode"
+      code: 6011,
+      name: "InvalidMode",
+      msg: "InvalidMode",
     },
     {
-      "code": 6012,
-      "name": "InvalidMintAuthority",
-      "msg": "InvalidMintAuthority"
+      code: 6012,
+      name: "InvalidMintAuthority",
+      msg: "InvalidMintAuthority",
     },
     {
-      "code": 6013,
-      "name": "TransferExceedsRateLimit",
-      "msg": "TransferExceedsRateLimit"
+      code: 6013,
+      name: "TransferExceedsRateLimit",
+      msg: "TransferExceedsRateLimit",
     },
     {
-      "code": 6014,
-      "name": "Paused",
-      "msg": "Paused"
+      code: 6014,
+      name: "Paused",
+      msg: "Paused",
     },
     {
-      "code": 6015,
-      "name": "DisabledTransceiver",
-      "msg": "DisabledTransceiver"
+      code: 6015,
+      name: "DisabledTransceiver",
+      msg: "DisabledTransceiver",
     },
     {
-      "code": 6016,
-      "name": "InvalidDeployer",
-      "msg": "InvalidDeployer"
+      code: 6016,
+      name: "InvalidDeployer",
+      msg: "InvalidDeployer",
     },
     {
-      "code": 6017,
-      "name": "BadAmountAfterTransfer",
-      "msg": "BadAmountAfterTransfer"
+      code: 6017,
+      name: "BadAmountAfterTransfer",
+      msg: "BadAmountAfterTransfer",
     },
     {
-      "code": 6018,
-      "name": "BadAmountAfterBurn",
-      "msg": "BadAmountAfterBurn"
+      code: 6018,
+      name: "BadAmountAfterBurn",
+      msg: "BadAmountAfterBurn",
     },
     {
-      "code": 6019,
-      "name": "ZeroThreshold",
-      "msg": "ZeroThreshold"
+      code: 6019,
+      name: "ZeroThreshold",
+      msg: "ZeroThreshold",
     },
     {
-      "code": 6020,
-      "name": "OverflowExponent",
-      "msg": "OverflowExponent"
+      code: 6020,
+      name: "OverflowExponent",
+      msg: "OverflowExponent",
     },
     {
-      "code": 6021,
-      "name": "OverflowScaledAmount",
-      "msg": "OverflowScaledAmount"
+      code: 6021,
+      name: "OverflowScaledAmount",
+      msg: "OverflowScaledAmount",
     },
     {
-      "code": 6022,
-      "name": "BitmapIndexOutOfBounds",
-      "msg": "BitmapIndexOutOfBounds"
+      code: 6022,
+      name: "BitmapIndexOutOfBounds",
+      msg: "BitmapIndexOutOfBounds",
     },
     {
-      "code": 6023,
-      "name": "NoRegisteredTransceivers",
-      "msg": "NoRegisteredTransceivers"
-    }
-  ]
-}
-
+      code: 6023,
+      name: "NoRegisteredTransceivers",
+      msg: "NoRegisteredTransceivers",
+    },
+  ],
+};

@@ -38,7 +38,7 @@ wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true
 wormhole-sdk.workspace = true
 
-example-native-token-transfers = { path = "../example-native-token-transfers", features = ["no-entrypoint"] }
+example-native-token-transfers = { path = "../example-native-token-transfers", features = ["no-entrypoint", "cpi"] }
 
 [dev-dependencies]
 hex.workspace = true

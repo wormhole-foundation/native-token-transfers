@@ -42,7 +42,7 @@ pub struct Redeem<'info> {
         constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.recipient_ntt_manager() == crate::ID.to_bytes() @ NTTError::InvalidRecipientNttManager,
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
-        owner = transceiver.transceiver_address,
+        owner = transceiver.transceiver_address
     )]
     /// CHECK: `transceiver_message` has to be manually deserialized as Anchor
     /// `Account<T>` and `owner` constraints are mutually-exclusive

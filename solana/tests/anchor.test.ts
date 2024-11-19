@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import * as spl from "@solana/spl-token";
 import {
+  AccountAddress,
   ChainAddress,
   ChainContext,
   Signer,
@@ -13,7 +14,6 @@ import {
   serialize,
   serializePayload,
   signSendWait as ssw,
-  AccountAddress,
 } from "@wormhole-foundation/sdk";
 import * as testing from "@wormhole-foundation/sdk-definitions/testing";
 import {
@@ -26,22 +26,25 @@ import * as fs from "fs";
 
 import {
   PublicKey,
-  sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
+  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import { DummyTransferHook } from "../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
-import { type NttTransceiver as NttTransceiverIdlType } from "../ts/idl/3_0_0/ts/ntt_transceiver.js";
-import { NTT } from "../ts/index.js";
+import { getTransceiverProgram, IdlVersion, NTT } from "../ts/index.js";
 import { derivePda } from "../ts/lib/utils.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
 
 const solanaRootDir = `${__dirname}/../`;
 
+const VERSION: IdlVersion = "3.0.0";
 const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
 const CORE_BRIDGE_ADDRESS = contracts.coreBridge("Mainnet", "Solana");
-const NTT_ADDRESS = anchor.workspace.ExampleNativeTokenTransfers.programId;
+const NTT_ADDRESS: PublicKey =
+  anchor.workspace.ExampleNativeTokenTransfers.programId;
+const WH_TRANSCEIVER_ADDRESS: PublicKey =
+  anchor.workspace.NttTransceiver.programId;
 
 async function signSendWait(
   chain: ChainContext<any, any, any>,
@@ -117,6 +120,14 @@ async function counterValue(): Promise<anchor.BN> {
 const coreBridge = new SolanaWormholeCore("Devnet", "Solana", connection, {
   coreBridge: CORE_BRIDGE_ADDRESS,
 });
+
+const nttTransceivers = {
+  wormhole: getTransceiverProgram(
+    connection,
+    WH_TRANSCEIVER_ADDRESS.toBase58(),
+    VERSION
+  ),
+};
 
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 
@@ -195,21 +206,29 @@ describe("example-native-token-transfers", () => {
 
       tokenAddress = mint.publicKey.toBase58();
       // Create our contract client
-      ntt = new SolanaNtt("Devnet", "Solana", connection, {
-        ...ctx.config.contracts,
-        ntt: {
-          token: tokenAddress,
-          manager: NTT_ADDRESS,
-          transceiver: { wormhole: NTT_ADDRESS },
+      ntt = new SolanaNtt(
+        "Devnet",
+        "Solana",
+        connection,
+        {
+          ...ctx.config.contracts,
+          ntt: {
+            token: tokenAddress,
+            manager: NTT_ADDRESS.toBase58(),
+            transceiver: {
+              wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+            },
+          },
         },
-      });
+        VERSION
+      );
     } catch (e) {
       console.error("Failed to setup solana token: ", e);
       throw e;
     }
   });
 
-  describe("Locking", () => {
+  describe("Burning", () => {
     beforeAll(async () => {
       try {
         await spl.setAuthority(
@@ -233,10 +252,9 @@ describe("example-native-token-transfers", () => {
         await signSendWait(ctx, initTxs, signer);
 
         // register
-        const registerTxs = ntt.registerTransceiver({
+        const registerTxs = ntt.registerWormholeTransceiver({
           payer: new SolanaAddress(payer.publicKey),
           owner: new SolanaAddress(payer.publicKey),
-          transceiver: ntt.program.programId,
         });
         await signSendWait(ctx, registerTxs, signer);
 
@@ -302,8 +320,17 @@ describe("example-native-token-transfers", () => {
       );
       await signSendWait(ctx, xferTxs, signer);
 
-      const wormholeMessage = ntt.pdas.wormholeMessageAccount(
+      // assert that released bitmap has transceiver bits set
+      const outboxItemInfo = await ntt.program.account.outboxItem.fetch(
         outboxItem.publicKey
+      );
+      expect(outboxItemInfo.released.map.bitLength()).toBe(
+        Object.keys(nttTransceivers).length
+      );
+
+      const wormholeMessage = derivePda(
+        ["message", outboxItem.publicKey.toBytes()],
+        nttTransceivers["wormhole"].programId
       );
 
       const unsignedVaa = await coreBridge.parsePostMessageAccount(
@@ -364,7 +391,6 @@ describe("example-native-token-transfers", () => {
       const published = emitter.publishMessage(0, serialized, 200);
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
-
       const redeemTxs = ntt.redeem([vaa], sender);
       try {
         await signSendWait(ctx, redeemTxs, signer);
@@ -373,7 +399,6 @@ describe("example-native-token-transfers", () => {
         throw e;
       }
 
-      // expect(released).toEqual(true);
       expect((await counterValue()).toString()).toEqual("2");
     });
   });
@@ -384,8 +409,10 @@ describe("example-native-token-transfers", () => {
     const overrides = {
       Solana: {
         token: tokenAddress,
-        manager: NTT_ADDRESS,
-        transceiver: { wormhole: NTT_ADDRESS },
+        manager: NTT_ADDRESS.toBase58(),
+        transceiver: {
+          wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+        },
       },
     };
 
@@ -417,7 +444,34 @@ describe("example-native-token-transfers", () => {
           { ntt: overrides["Solana"] },
           new SolanaAddress(payer.publicKey.toBase58())
         );
-        expect(version).toBe("2.0.0");
+        expect(version).toBe("3.0.0");
+      });
+
+      test("It initializes using `emitterAccount` as transceiver address", async function () {
+        const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
+          JSON.stringify(overrides["Solana"])
+        );
+        overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(NTT_ADDRESS)
+          .emitterAccount()
+          .toBase58();
+
+        const ntt = new SolanaNtt("Devnet", "Solana", connection, {
+          ...ctx.config.contracts,
+          ...{ ntt: overrideEmitter },
+        });
+        expect(ntt).toBeTruthy();
+      });
+
+      test("It gets the correct transceiver type", async function () {
+        const ntt = new SolanaNtt("Devnet", "Solana", connection, {
+          ...ctx.config.contracts,
+          ...{ ntt: overrides["Solana"] },
+        });
+        const whTransceiver = await ntt.getWormholeTransceiver();
+        const transceiverType = await whTransceiver!.getTransceiverType(
+          new SolanaAddress(payer.publicKey.toBase58())
+        );
+        expect(transceiverType).toBe("wormhole");
       });
     });
   });

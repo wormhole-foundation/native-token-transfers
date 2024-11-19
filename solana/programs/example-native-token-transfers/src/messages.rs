@@ -15,6 +15,17 @@ pub struct ValidatedTransceiverMessage<A: AnchorDeserialize + AnchorSerialize + 
 impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceiverMessage<A> {
     pub const SEED_PREFIX: &'static [u8] = b"transceiver_message";
 
+    pub fn discriminator_check(data: &[u8]) -> Result<()> {
+        if data.len() < Self::DISCRIMINATOR.len() {
+            return Err(ErrorCode::AccountDiscriminatorNotFound.into());
+        }
+        let given_disc = &data[..8];
+        if Self::DISCRIMINATOR != given_disc {
+            return Err(ErrorCode::AccountDiscriminatorMismatch.into());
+        }
+        Ok(())
+    }
+
     pub fn try_from(info: &UncheckedAccount, expected_owner: &Pubkey) -> Result<Self> {
         if info.owner == &system_program::ID && info.lamports() == 0 {
             return Err(ErrorCode::AccountNotInitialized.into());
@@ -29,13 +40,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
 
     pub fn from_chain(info: &UncheckedAccount) -> Result<ChainId> {
         let data: &[u8] = &info.try_borrow_data().unwrap();
-        if data.len() < ValidatedTransceiverMessage::<A>::DISCRIMINATOR.len() {
-            return Err(ErrorCode::AccountDiscriminatorNotFound.into());
-        }
-        let given_disc = &data[..8];
-        if Self::DISCRIMINATOR != given_disc {
-            return Err(ErrorCode::AccountDiscriminatorMismatch.into());
-        }
+        Self::discriminator_check(data)?;
         Ok(ChainId {
             // This is LE bytes because we deserialize using Borsh.
             // Not to be confused with the wire format (which is BE bytes)
@@ -44,13 +49,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
     }
 
     pub fn message(data: &[u8]) -> Result<TransceiverMessageDataBytes<A>> {
-        if data.len() < ValidatedTransceiverMessage::<A>::DISCRIMINATOR.len() {
-            return Err(ErrorCode::AccountDiscriminatorNotFound.into());
-        }
-        let given_disc = &data[..8];
-        if Self::DISCRIMINATOR != given_disc {
-            return Err(ErrorCode::AccountDiscriminatorMismatch.into());
-        }
+        Self::discriminator_check(data)?;
         Ok(TransceiverMessageDataBytes::parse(&data[10..]))
     }
 }

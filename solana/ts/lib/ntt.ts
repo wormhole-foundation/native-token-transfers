@@ -12,11 +12,9 @@ import {
   AddressLookupTableProgram,
   Commitment,
   Connection,
-  Keypair,
   PublicKey,
   PublicKeyInitData,
   SystemProgram,
-  Transaction,
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
@@ -39,7 +37,6 @@ import {
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { SolanaTransaction } from "@wormhole-foundation/sdk-solana";
 import { utils } from "@wormhole-foundation/sdk-solana-core";
 import {
   IdlVersion,
@@ -86,7 +83,6 @@ export namespace NTT {
   /** pdas returns an object containing all functions to compute program addresses */
   export const pdas = (programId: PublicKeyInitData) => {
     const configAccount = (): PublicKey => derivePda("config", programId);
-    const emitterAccount = (): PublicKey => derivePda("emitter", programId);
     const inboxRateLimitAccount = (chain: Chain): PublicKey =>
       derivePda(["inbox_rate_limit", chainToBytes(chain)], programId);
     const inboxItemAccount = (
@@ -103,17 +99,8 @@ export namespace NTT {
       derivePda("token_authority", programId);
     const peerAccount = (chain: Chain): PublicKey =>
       derivePda(["peer", chainToBytes(chain)], programId);
-    const transceiverPeerAccount = (chain: Chain): PublicKey =>
-      derivePda(["transceiver_peer", chainToBytes(chain)], programId);
     const registeredTransceiver = (transceiver: PublicKey): PublicKey =>
       derivePda(["registered_transceiver", transceiver.toBytes()], programId);
-    const transceiverMessageAccount = (
-      chain: Chain,
-      id: Uint8Array
-    ): PublicKey =>
-      derivePda(["transceiver_message", chainToBytes(chain), id], programId);
-    const wormholeMessageAccount = (outboxItem: PublicKey): PublicKey =>
-      derivePda(["message", outboxItem.toBytes()], programId);
     const lutAccount = (): PublicKey => derivePda("lut", programId);
     const lutAuthority = (): PublicKey => derivePda("lut_authority", programId);
     const sessionAuthority = (
@@ -144,14 +131,36 @@ export namespace NTT {
       inboxItemAccount,
       sessionAuthority,
       tokenAuthority,
-      emitterAccount,
-      wormholeMessageAccount,
       peerAccount,
-      transceiverPeerAccount,
-      transceiverMessageAccount,
       registeredTransceiver,
       lutAccount,
       lutAuthority,
+    };
+  };
+
+  /** Type of object containing methods to compute program addresses */
+  export type TransceiverPdas = ReturnType<typeof transceiverPdas>;
+  /** pdas returns an object containing all functions to compute program addresses */
+  export const transceiverPdas = (programId: PublicKeyInitData) => {
+    const emitterAccount = (): PublicKey => derivePda("emitter", programId);
+    const outboxItemSigner = () => derivePda(["outbox_item_signer"], programId);
+    const transceiverPeerAccount = (chain: Chain): PublicKey =>
+      derivePda(["transceiver_peer", chainToBytes(chain)], programId);
+    const transceiverMessageAccount = (
+      chain: Chain,
+      id: Uint8Array
+    ): PublicKey =>
+      derivePda(["transceiver_message", chainToBytes(chain), id], programId);
+    const wormholeMessageAccount = (outboxItem: PublicKey): PublicKey =>
+      derivePda(["message", outboxItem.toBytes()], programId);
+
+    // TODO: memoize?
+    return {
+      emitterAccount,
+      outboxItemSigner,
+      transceiverPeerAccount,
+      transceiverMessageAccount,
+      wormholeMessageAccount,
     };
   };
 
@@ -270,6 +279,7 @@ export namespace NTT {
   export async function initializeOrUpdateLUT(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     config: NttBindings.Config<IdlVersion>,
+    whTransceiver: PublicKey,
     args: {
       payer: PublicKey;
       wormholeId: PublicKey;
@@ -292,10 +302,11 @@ export namespace NTT {
     });
 
     const whAccs = utils.getWormholeDerivedAccounts(
-      program.programId,
+      whTransceiver,
       args.wormholeId.toString()
     );
 
+    // TODO: add `whAccs.emitter`, `whTransceiver`, and transceiverEmitter PDA account to LUT
     const entries = {
       config: pdas.configAccount(),
       custody: config.custody,
@@ -516,47 +527,6 @@ export namespace NTT {
     }
 
     return transferIx;
-  }
-
-  /**
-   * Creates a release_outbound instruction. The `payer` needs to sign the transaction.
-   */
-  export async function createReleaseOutboundInstruction(
-    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
-    args: {
-      wormholeId: PublicKey;
-      payer: PublicKey;
-      outboxItem: PublicKey;
-      revertOnDelay: boolean;
-    },
-    pdas?: Pdas
-  ): Promise<TransactionInstruction> {
-    pdas = pdas ?? NTT.pdas(program.programId);
-
-    const whAccs = utils.getWormholeDerivedAccounts(
-      program.programId,
-      args.wormholeId
-    );
-
-    return await program.methods
-      .releaseWormholeOutbound({
-        revertOnDelay: args.revertOnDelay,
-      })
-      .accounts({
-        payer: args.payer,
-        config: { config: pdas.configAccount() },
-        outboxItem: args.outboxItem,
-        wormholeMessage: pdas.wormholeMessageAccount(args.outboxItem),
-        emitter: whAccs.wormholeEmitter,
-        transceiver: pdas.registeredTransceiver(program.programId),
-        wormhole: {
-          bridge: whAccs.wormholeBridge,
-          feeCollector: whAccs.wormholeFeeCollector,
-          sequence: whAccs.wormholeSequence,
-          program: args.wormholeId,
-        },
-      })
-      .instruction();
   }
 
   // TODO: document that if recipient is provided, then the instruction can be
@@ -789,118 +759,6 @@ export namespace NTT {
       .instruction();
   }
 
-  export async function setWormholeTransceiverPeer(
-    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
-    args: {
-      wormholeId: PublicKey;
-      payer: PublicKey;
-      owner: PublicKey;
-      chain: Chain;
-      address: ArrayLike<number>;
-    },
-    pdas?: Pdas
-  ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
-    const ix = await program.methods
-      .setWormholePeer({
-        chainId: { id: toChainId(args.chain) },
-        address: Array.from(args.address),
-      })
-      .accounts({
-        payer: args.payer,
-        owner: args.owner,
-        config: pdas.configAccount(),
-        peer: pdas.transceiverPeerAccount(args.chain),
-      })
-      .instruction();
-
-    const wormholeMessage = Keypair.generate();
-    const whAccs = utils.getWormholeDerivedAccounts(
-      program.programId,
-      args.wormholeId
-    );
-
-    const broadcastIx = await program.methods
-      .broadcastWormholePeer({ chainId: toChainId(args.chain) })
-      .accounts({
-        payer: args.payer,
-        config: pdas.configAccount(),
-        peer: pdas.transceiverPeerAccount(args.chain),
-        wormholeMessage: wormholeMessage.publicKey,
-        emitter: pdas.emitterAccount(),
-        wormhole: {
-          bridge: whAccs.wormholeBridge,
-          feeCollector: whAccs.wormholeFeeCollector,
-          sequence: whAccs.wormholeSequence,
-          program: args.wormholeId,
-        },
-      })
-      .instruction();
-
-    const transaction = new Transaction().add(ix, broadcastIx);
-    transaction.feePayer = args.payer;
-    return {
-      transaction,
-      signers: [wormholeMessage],
-    } as SolanaTransaction;
-  }
-
-  export async function registerTransceiver(
-    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
-    config: NttBindings.Config<IdlVersion>,
-    args: {
-      wormholeId: PublicKey;
-      payer: PublicKey;
-      owner: PublicKey;
-      transceiver: PublicKey;
-    },
-    pdas?: Pdas
-  ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
-    const ix = await program.methods
-      .registerTransceiver()
-      .accounts({
-        payer: args.payer,
-        owner: args.owner,
-        config: pdas.configAccount(),
-        transceiver: args.transceiver,
-        registeredTransceiver: pdas.registeredTransceiver(args.transceiver),
-      })
-      .instruction();
-
-    const wormholeMessage = Keypair.generate();
-    const whAccs = utils.getWormholeDerivedAccounts(
-      program.programId,
-      args.wormholeId
-    );
-    const broadcastIx = await program.methods
-      .broadcastWormholeId()
-      .accountsStrict({
-        payer: args.payer,
-        config: pdas.configAccount(),
-        mint: config.mint,
-        wormholeMessage: wormholeMessage.publicKey,
-        emitter: pdas.emitterAccount(),
-        wormhole: {
-          bridge: whAccs.wormholeBridge,
-          feeCollector: whAccs.wormholeFeeCollector,
-          sequence: whAccs.wormholeSequence,
-          program: args.wormholeId,
-          systemProgram: SystemProgram.programId,
-          clock: web3.SYSVAR_CLOCK_PUBKEY,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        },
-      })
-      .instruction();
-
-    const transaction = new Transaction().add(ix, broadcastIx);
-    transaction.feePayer = args.payer;
-    return {
-      transaction,
-      signers: [wormholeMessage],
-    };
-  }
-
   export async function createSetOutboundLimitInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     args: {
@@ -945,66 +803,36 @@ export namespace NTT {
       .instruction();
   }
 
-  export async function createReceiveWormholeMessageInstruction(
-    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
-    args: {
-      wormholeId: PublicKey;
-      payer: PublicKey;
-      vaa: VAA<"Ntt:WormholeTransfer">;
-    },
-    pdas?: Pdas
-  ): Promise<TransactionInstruction> {
-    pdas = pdas ?? NTT.pdas(program.programId);
-
-    const wormholeNTT = args.vaa;
-    const nttMessage = wormholeNTT.payload.nttManagerPayload;
-    const chain = wormholeNTT.emitterChain;
-
-    const transceiverPeer = pdas.transceiverPeerAccount(chain);
-
-    return await program.methods
-      .receiveWormholeMessage()
-      .accounts({
-        payer: args.payer,
-        config: { config: pdas.configAccount() },
-        peer: transceiverPeer,
-        vaa: utils.derivePostedVaaKey(
-          args.wormholeId,
-          Buffer.from(wormholeNTT.hash)
-        ),
-        transceiverMessage: pdas.transceiverMessageAccount(
-          chain,
-          nttMessage.id
-        ),
-      })
-      .instruction();
-  }
   export async function createRedeemInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     config: NttBindings.Config<IdlVersion>,
+    transceiverProgramId: PublicKey,
     args: {
       payer: PublicKey;
       vaa: VAA<"Ntt:WormholeTransfer">;
     },
-    pdas?: Pdas
+    pdas?: Pdas,
+    transceiverPdas?: TransceiverPdas
   ): Promise<TransactionInstruction> {
     pdas = pdas ?? NTT.pdas(program.programId);
+    transceiverPdas =
+      transceiverPdas ?? NTT.transceiverPdas(transceiverProgramId);
 
     const wormholeNTT = args.vaa;
     const nttMessage = wormholeNTT.payload.nttManagerPayload;
     const chain = wormholeNTT.emitterChain;
 
-    return await program.methods
+    return program.methods
       .redeem({})
       .accounts({
         payer: args.payer,
         config: pdas.configAccount(),
         peer: pdas.peerAccount(chain),
-        transceiverMessage: pdas.transceiverMessageAccount(
+        transceiverMessage: transceiverPdas.transceiverMessageAccount(
           chain,
           nttMessage.id
         ),
-        transceiver: pdas.registeredTransceiver(program.programId),
+        transceiver: pdas.registeredTransceiver(transceiverProgramId),
         mint: config.mint,
         inboxItem: pdas.inboxItemAccount(chain, nttMessage),
         inboxRateLimit: pdas.inboxRateLimitAccount(chain),
