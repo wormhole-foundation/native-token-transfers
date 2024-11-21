@@ -52,9 +52,9 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 {
   static NATIVE_GAS_DROPOFF_SUPPORTED: boolean = false;
 
-  static DEFAULT_RELAYER_GAS_LIMIT = 275_000n;
+  static DEFAULT_RELAYER_GAS_LIMIT: bigint = 300_000n;
 
-  static DEFAULT_RELAYER_GAS_LIMIT_NO_TOKEN = 1_000_000n;
+  static DEFAULT_RELAYER_GAS_LIMIT_NO_TOKEN: bigint = 1_000_000n;
 
   // @ts-ignore
   // Since we set the config on the static class, access it with this param
@@ -75,6 +75,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
   static async supportedSourceTokens(
     fromChain: ChainContext<Network>
   ): Promise<TokenId[]> {
+    // TODO: technically any source token is supported
     return MultiTokenNttRoute.resolveSourceTokens(this.config, fromChain);
   }
 
@@ -185,24 +186,25 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ),
     });
 
-    const fromToken = isNative(request.source.id)
+    const fromToken = isNative(request.source.id.address)
       ? await request.fromChain.getNativeWrappedTokenId()
       : request.source.id;
 
     const fromTokenId = await fromNtt.getTokenId(fromToken.address);
 
-    // TODO: these defaults should be high enough to cover most cases
-    // if the token is not created yet, then the tx will require more gas
     const toToken = await toNtt.getToken(fromTokenId);
 
-    console.log(
-      `getDefaultRelayerGasLimit: fromTokenId: ${fromTokenId.address.toString()}, toToken: ${toToken?.toString()}`
-    );
-
+    // If the destination token has not been created yet, more gas will be required to create it.
     const gasLimit =
       toToken === null
         ? MultiTokenNttAutomaticRoute.DEFAULT_RELAYER_GAS_LIMIT_NO_TOKEN
         : MultiTokenNttAutomaticRoute.DEFAULT_RELAYER_GAS_LIMIT;
+
+    console.log(
+      `gasLimit: fromTokenId: ${fromTokenId.address.toString()}, toToken: ${
+        toToken?.toString() || null
+      }, gasLimit: ${gasLimit}`
+    );
 
     return gasLimit;
   }
@@ -219,6 +221,8 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     const ntt = await fromChain.getProtocol("MultiTokenNtt", {
       ntt: params.normalizedParams.sourceContracts,
     });
+
+    console.log(params.normalizedParams.options.relayerGasLimit);
 
     const deliveryPrice = await ntt.quoteDeliveryPrice(
       toChain.chain,
