@@ -1552,39 +1552,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
-name = "example-native-token-transfers"
-version = "2.0.0"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "base64 0.21.7",
- "bincode",
- "bitmaps 3.2.1",
- "cfg-if",
- "hex",
- "libsecp256k1",
- "ntt-messages",
- "serde",
- "serde_json",
- "serde_wormhole",
- "sha3 0.10.8",
- "solana-address-lookup-table-program",
- "solana-program",
- "solana-program-runtime",
- "solana-program-test",
- "solana-sdk",
- "spl-associated-token-account 3.0.2",
- "spl-token",
- "spl-token-2022 3.0.2",
- "wormhole-anchor-sdk",
- "wormhole-governance",
- "wormhole-io",
- "wormhole-raw-vaas",
- "wormhole-sdk",
- "wormhole-solana-utils",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2446,6 +2413,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "native-token-transfers"
+version = "2.0.0"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "base64 0.21.7",
+ "bincode",
+ "bitmaps 3.2.1",
+ "cfg-if",
+ "hex",
+ "libsecp256k1",
+ "ntt-messages",
+ "serde",
+ "serde_json",
+ "serde_wormhole",
+ "sha3 0.10.8",
+ "solana-address-lookup-table-program",
+ "solana-program",
+ "solana-program-runtime",
+ "solana-program-test",
+ "solana-sdk",
+ "spl-associated-token-account 3.0.2",
+ "spl-token",
+ "spl-token-2022 3.0.2",
+ "wormhole-anchor-sdk",
+ "wormhole-governance",
+ "wormhole-io",
+ "wormhole-raw-vaas",
+ "wormhole-sdk",
+ "wormhole-solana-utils",
+]
+
+[[package]]
 name = "nix"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2490,7 +2490,7 @@ version = "2.0.0"
 dependencies = [
  "anchor-lang",
  "cfg-if",
- "example-native-token-transfers",
+ "native-token-transfers",
  "solana-program",
  "wormhole-io",
  "wormhole-solana-utils",

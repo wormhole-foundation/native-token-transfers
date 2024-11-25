@@ -13,7 +13,7 @@ Depending on the platforms you will deploy on:
 Run
 
 ``` bash
-curl -fsSL https://raw.githubusercontent.com/wormhole-foundation/example-native-token-transfers/main/cli/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wormhole-foundation/native-token-transfers/main/cli/install.sh | bash
 ```
 
 The installer will put the `ntt` binary in `$HOME/.bun/bin`, so make sure that directory is included in your `$PATH`. Once `ntt` is installed, it can be updated to the latest release any time by running

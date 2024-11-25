@@ -29,4 +29,4 @@ cfg-if.workspace = true
 wormhole-io.workspace = true
 wormhole-solana-utils.workspace = true
 
-example-native-token-transfers = { path = "../example-native-token-transfers", features = ["no-entrypoint"] }
+native-token-transfers = { path = "../native-token-transfers", features = ["no-entrypoint"] }

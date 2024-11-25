@@ -117,7 +117,7 @@ const coreBridge = new SolanaWormholeCore("Devnet", "Solana", connection, {
 
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 
-describe("example-native-token-transfers", () => {
+describe("native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
   let signer: Signer;
   let sender: AccountAddress<"Solana">;
