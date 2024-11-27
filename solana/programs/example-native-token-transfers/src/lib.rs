@@ -63,7 +63,7 @@ pub const TOKEN_AUTHORITY_SEED: &[u8] = b"token_authority";
 /// user, atomically).
 pub const SESSION_AUTHORITY_SEED: &[u8] = b"session_authority";
 
-pub const VERSION: &str = "2.0.0";
+pub const VERSION: &str = "3.0.0";
 
 #[program]
 pub mod example_native_token_transfers {
@@ -152,6 +152,10 @@ pub mod example_native_token_transfers {
         instructions::set_inbound_limit(ctx, args)
     }
 
+    pub fn mark_outbox_item_as_released(ctx: Context<MarkOutboxItemAsReleased>) -> Result<bool> {
+        instructions::mark_outbox_item_as_released(ctx)
+    }
+
     // standalone transceiver stuff
 
     pub fn set_wormhole_peer(
@@ -184,5 +188,18 @@ pub mod example_native_token_transfers {
     }
 }
 
+// The Version struct is just a dummy type because anchor needs every function
+// to have a context. When compiled in CPI mode, anchor generates code that
+// assumes that the struct has a lifetime parameter. So in that mode, we bind a
+// dummy lifetime parameter (and use it in a dummy account).
+// When compiling normally, we don't do this, and just use an empty struct, which anchor is happy with.
+#[cfg(feature = "cpi")]
+#[derive(Accounts)]
+pub struct Version<'info> {
+    /// CHECK: refer to comment above
+    pub dummy: UncheckedAccount<'info>,
+}
+
+#[cfg(not(feature = "cpi"))]
 #[derive(Accounts)]
 pub struct Version {}

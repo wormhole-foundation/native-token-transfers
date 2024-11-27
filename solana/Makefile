@@ -22,8 +22,10 @@ cargo-build:
 # because the javascript library does not support generics yet, and just panics
 anchor-build:
 	anchor build --arch sbf
-	@echo "Removing generics from target/idl/example_native_token_transfers.json"
-	./scripts/patch-idl target/idl/example_native_token_transfers.json
+	for jsonfile in target/idl/*.json; do \
+	  echo "Removing generics from" $$jsonfile; \
+	  ./scripts/patch-idl $$jsonfile; \
+	done
 
 prod-build:
 	anchor build --verifiable

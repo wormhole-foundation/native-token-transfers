@@ -297,7 +297,7 @@ export class NttManualRoute<N extends Network>
             token: dstInfo.token,
             manager: dstInfo.manager,
             transceiver: {
-              wormhole: dstInfo.transceiver.wormhole,
+              wormhole: dstInfo.transceiver["wormhole"]!,
             },
           },
         },

@@ -9,5 +9,5 @@ if [ -z "$FILE" ]; then
     exit 1
 fi
 
-cat $FILE | jq '(.accounts, .types) |= map(select(has("generics") | not))' > temp.json && mv temp.json $FILE
+cat $FILE | (jq '(.accounts, .types) |= map(select(has("generics") | not))' > temp.json 2>/dev/null && mv temp.json $FILE) || rm temp.json
 echo "Patched $FILE"
