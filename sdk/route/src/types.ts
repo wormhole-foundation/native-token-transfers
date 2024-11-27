@@ -18,6 +18,8 @@ export namespace NttRoute {
   // Currently only wormhole attestations supported
   export type TransceiverType = "wormhole";
 
+  export const TRIMMED_DECIMALS = 8;
+
   export type TransceiverConfig = {
     type: TransceiverType;
     address: string;
