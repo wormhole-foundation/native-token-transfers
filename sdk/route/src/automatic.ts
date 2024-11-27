@@ -121,12 +121,16 @@ export class NttAutomaticRoute<N extends Network>
       request.toChain.config.nativeTokenDecimals
     );
 
-    const amt = amount.parse(params.amount, request.source.decimals);
+    const parsedAmount = amount.parse(params.amount, request.source.decimals);
+    const transferAmount = NttRoute.getTransferAmount(
+      parsedAmount,
+      request.destination.decimals
+    );
 
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
-        amount: amt,
+        amount: transferAmount,
         sourceContracts: NttRoute.resolveNttContracts(
           this.staticConfig,
           request.source.id
@@ -160,6 +164,11 @@ export class NttAutomaticRoute<N extends Network>
       params.normalizedParams.options
     );
 
+    const dstAmount = amount.scale(
+      params.normalizedParams.amount,
+      request.destination.decimals
+    );
+
     const result: QR = {
       success: true,
       params,
@@ -169,7 +178,7 @@ export class NttAutomaticRoute<N extends Network>
       },
       destinationToken: {
         token: request.destination.id,
-        amount: amount.parse(params.amount, request.destination.decimals),
+        amount: dstAmount,
       },
       relayFee: {
         token: Wormhole.tokenId(fromChain.chain, "native"),
@@ -190,10 +199,6 @@ export class NttAutomaticRoute<N extends Network>
     const duration = await dstNtt.getRateLimitDuration();
     if (duration > 0n) {
       const capacity = await dstNtt.getCurrentInboundCapacity(fromChain.chain);
-      const dstAmount = amount.parse(
-        params.amount,
-        request.destination.decimals
-      );
       if (
         NttRoute.isCapacityThresholdExceeded(amount.units(dstAmount), capacity)
       ) {
