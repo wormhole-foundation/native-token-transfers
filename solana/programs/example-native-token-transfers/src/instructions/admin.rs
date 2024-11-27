@@ -155,8 +155,6 @@ pub fn claim_ownership(ctx: Context<ClaimOwnership>) -> Result<()> {
 }
 
 // * Set peers
-// TODO: update peers? should that be a separate instruction? take timestamp
-// for modification? (for total ordering)
 
 #[derive(Accounts)]
 #[instruction(args: SetPeerArgs)]
