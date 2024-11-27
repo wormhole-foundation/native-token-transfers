@@ -214,4 +214,16 @@ export namespace NttRoute {
     const threshold = (capacity * 95n) / 100n;
     return amount > threshold;
   }
+
+  export function getTransferAmount(
+    amt: amount.Amount,
+    dstTokenDecimals: number
+  ): amount.Amount {
+    // remove dust to avoid `TransferAmountHasDust` revert reason
+    const truncatedAmount = amount.truncate(
+      amt,
+      Math.min(amt.decimals, dstTokenDecimals, NttRoute.TRIMMED_DECIMALS)
+    );
+    return truncatedAmount;
+  }
 }

@@ -121,21 +121,16 @@ export class NttAutomaticRoute<N extends Network>
       request.toChain.config.nativeTokenDecimals
     );
 
-    const amt = amount.parse(params.amount, request.source.decimals);
-    // remove dust to avoid `TransferAmountHasDust` revert reason
-    const truncatedAmount = amount.truncate(
-      amt,
-      Math.min(
-        request.source.decimals,
-        request.destination.decimals,
-        NttRoute.TRIMMED_DECIMALS
-      )
+    const parsedAmount = amount.parse(params.amount, request.source.decimals);
+    const transferAmount = NttRoute.getTransferAmount(
+      parsedAmount,
+      request.destination.decimals
     );
 
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
-        amount: truncatedAmount,
+        amount: transferAmount,
         sourceContracts: NttRoute.resolveNttContracts(
           this.staticConfig,
           request.source.id
