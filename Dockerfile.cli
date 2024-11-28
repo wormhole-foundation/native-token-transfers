@@ -21,7 +21,7 @@ RUN apt install -y jq
 
 FROM base as base-solana
 
-RUN cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+RUN cargo install --git https://github.com/coral-xyz/anchor --tag v0.29.0 avm --locked --force
 RUN avm install 0.29.0
 RUN avm use 0.29.0
 
