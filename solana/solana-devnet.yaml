@@ -35,7 +35,7 @@ spec:
       terminationGracePeriodSeconds: 1
       containers:
         - name: solana-devnet
-          image: ntt-solana-contract
+          image: solana-test-validator
           command:
             - solana-test-validator
             - --bpf-program
