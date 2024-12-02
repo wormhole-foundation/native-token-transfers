@@ -1,6 +1,6 @@
 [package]
 name = "ntt-quoter"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2021"
 
 [lib]

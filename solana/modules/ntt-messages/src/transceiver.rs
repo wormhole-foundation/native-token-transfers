@@ -23,6 +23,43 @@ pub struct TransceiverMessageData<A: MaybeSpace> {
     pub ntt_manager_payload: NttManagerMessage<A>,
 }
 
+/// This struct is for zero-copy deserialization of
+/// `ValidatedTransceiverMessage::message()` in the redeem ix
+pub struct TransceiverMessageDataBytes<'a, A: MaybeSpace> {
+    _phantom: PhantomData<A>,
+    span: &'a [u8],
+}
+
+impl<A: MaybeSpace> AsRef<[u8]> for TransceiverMessageDataBytes<'_, A> {
+    fn as_ref(&self) -> &[u8] {
+        self.span
+    }
+}
+
+impl<'a, A: MaybeSpace> TransceiverMessageDataBytes<'a, A> {
+    pub fn source_ntt_manager(&self) -> [u8; 32] {
+        self.span[..32].try_into().unwrap()
+    }
+
+    pub fn recipient_ntt_manager(&self) -> [u8; 32] {
+        self.span[32..64].try_into().unwrap()
+    }
+
+    pub fn ntt_manager_payload(&self) -> NttManagerMessage<A>
+    where
+        A: AnchorDeserialize,
+    {
+        NttManagerMessage::deserialize(&mut &self.span[64..]).unwrap()
+    }
+
+    pub fn parse(span: &'a [u8]) -> TransceiverMessageDataBytes<'a, A> {
+        TransceiverMessageDataBytes {
+            _phantom: PhantomData,
+            span,
+        }
+    }
+}
+
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct TransceiverMessage<E: Transceiver, A: MaybeSpace> {
     _phantom: PhantomData<E>,
