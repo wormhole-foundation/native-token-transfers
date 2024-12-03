@@ -106,7 +106,7 @@ function select_branch {
   branch=""
   regex="refs/tags/v[0-9]*\.[0-9]*\.[0-9]*+cli"
   if git ls-remote --tags "$REPO" | grep -q "$regex"; then
-    branch="$(git ls-remote --tags "$REPO" | grep "$regex" | sort -V | tail -n 1 | awk '{print $2}')"
+    branch="$(git ls-remote --tags "$REPO" | grep "$regex" | awk '{print $2}' | sort -V | tail -n 1)"
   else
     # otherwise error
     echo "No tag of the form vX.Y.Z+cli found" >&2

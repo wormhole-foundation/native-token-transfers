@@ -18,6 +18,8 @@ export namespace NttRoute {
   // Currently only wormhole attestations supported
   export type TransceiverType = "wormhole";
 
+  export const TRIMMED_DECIMALS = 8;
+
   export type TransceiverConfig = {
     type: TransceiverType;
     address: string;
@@ -211,5 +213,17 @@ export namespace NttRoute {
   ): boolean {
     const threshold = (capacity * 95n) / 100n;
     return amount > threshold;
+  }
+
+  export function trimAmount(
+    amt: amount.Amount,
+    dstTokenDecimals: number
+  ): amount.Amount {
+    // remove dust to avoid `TransferAmountHasDust` revert reason
+    const truncatedAmount = amount.truncate(
+      amt,
+      Math.min(amt.decimals, dstTokenDecimals, NttRoute.TRIMMED_DECIMALS)
+    );
+    return truncatedAmount;
   }
 }

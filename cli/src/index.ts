@@ -1115,7 +1115,15 @@ async function deployEvm<N extends Network, C extends Chain>(
     }
 
     const rpc = ch.config.rpc;
-    const specialRelayer = "0x63BE47835c7D66c4aA5B2C688Dc6ed9771c94C74"; // TODO: how to configure this?
+    // TODO: how to make specialRelayer configurable??
+    let specialRelayer: string;
+    if (ch.chain === "Avalanche") {
+        specialRelayer = "0x1a19d8a194630642f750376Ae72b4eDF5aDFd25F";
+    } else if (ch.chain === "Bsc") {
+        specialRelayer = "0x8C56eE9cd232d23541a697C0eBd3cA597DE3c88D";
+    } else {
+        specialRelayer = "0x63BE47835c7D66c4aA5B2C688Dc6ed9771c94C74";
+    }
 
     const provider = new ethers.JsonRpcProvider(rpc);
     const abi = ["function decimals() external view returns (uint8)"];
