@@ -114,6 +114,14 @@ export class NttAutomaticRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     params: Tp
   ): Promise<Vr> {
+    if (!(await this.isAvailable(request))) {
+      return {
+        valid: false,
+        params,
+        error: new Error("Relaying is not available"),
+      };
+    }
+
     const options = params.options ?? this.getDefaultOptions();
 
     const gasDropoff = amount.parse(
