@@ -630,6 +630,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       mint: PublicKey;
       mode: Ntt.Mode;
       outboundLimit: bigint;
+      multisig?: PublicKey;
     }
   ) {
     const mintInfo = await this.connection.getAccountInfo(args.mint);
@@ -640,17 +641,30 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
     const payer = new SolanaAddress(sender).unwrap();
 
-    const ix = await NTT.createInitializeInstruction(
-      this.program,
-      {
-        ...args,
-        payer,
-        owner: payer,
-        chain: this.chain,
-        tokenProgram: mintInfo.owner,
-      },
-      this.pdas
-    );
+    const ix = args.multisig
+      ? await NTT.createInitializeMultisigInstruction(
+          this.program,
+          {
+            ...args,
+            payer,
+            owner: payer,
+            chain: this.chain,
+            tokenProgram: mintInfo.owner,
+            multisig: args.multisig,
+          },
+          this.pdas
+        )
+      : await NTT.createInitializeInstruction(
+          this.program,
+          {
+            ...args,
+            payer,
+            owner: payer,
+            chain: this.chain,
+            tokenProgram: mintInfo.owner,
+          },
+          this.pdas
+        );
 
     const tx = new Transaction();
     tx.feePayer = payer;
@@ -930,7 +944,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     }
   }
 
-  async *redeem(attestations: Ntt.Attestation[], payer: AccountAddress<C>) {
+  async *redeem(
+    attestations: Ntt.Attestation[],
+    payer: AccountAddress<C>,
+    multisig?: PublicKey
+  ) {
     const config = await this.getConfig();
     if (config.paused) throw new Error("Contract is paused");
 
@@ -987,12 +1005,19 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           chain: emitterChain,
           revertOnDelay: false,
         };
-        const releaseIx =
+        let releaseIx =
           config.mode.locking != null
-            ? NTT.createReleaseInboundUnlockInstruction(
+            ? NTT.createReleaseInboundUnlockInstruction(this.program, config, {
+                ...releaseArgs,
+              })
+            : multisig
+            ? NTT.createReleaseInboundMultisigMintInstruction(
                 this.program,
                 config,
-                releaseArgs
+                {
+                  ...releaseArgs,
+                  multisig,
+                }
               )
             : NTT.createReleaseInboundMintInstruction(
                 this.program,

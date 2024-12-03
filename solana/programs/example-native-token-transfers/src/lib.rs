@@ -74,6 +74,13 @@ pub mod example_native_token_transfers {
         instructions::initialize(ctx, args)
     }
 
+    pub fn initialize_multisig(
+        ctx: Context<InitializeMultisig>,
+        args: InitializeMultisigArgs,
+    ) -> Result<()> {
+        instructions::initialize_multisig(ctx, args)
+    }
+
     pub fn initialize_lut(ctx: Context<InitializeLUT>, recent_slot: u64) -> Result<()> {
         instructions::initialize_lut(ctx, recent_slot)
     }
@@ -112,6 +119,13 @@ pub mod example_native_token_transfers {
         args: ReleaseInboundArgs,
     ) -> Result<()> {
         instructions::release_inbound_unlock(ctx, args)
+    }
+
+    pub fn release_inbound_multisig_mint<'info>(
+        ctx: Context<'_, '_, '_, 'info, ReleaseInboundMultisigMint<'info>>,
+        args: ReleaseInboundMultisigArgs,
+    ) -> Result<()> {
+        instructions::release_inbound_multisig_mint(ctx, args)
     }
 
     pub fn transfer_ownership(ctx: Context<TransferOwnership>) -> Result<()> {

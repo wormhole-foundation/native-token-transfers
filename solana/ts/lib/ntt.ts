@@ -274,6 +274,51 @@ export namespace NTT {
       .instruction();
   }
 
+  export async function createInitializeMultisigInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    args: {
+      payer: PublicKey;
+      owner: PublicKey;
+      chain: Chain;
+      mint: PublicKey;
+      outboundLimit: bigint;
+      tokenProgram: PublicKey;
+      mode: "burning" | "locking";
+      multisig: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    const mode: any =
+      args.mode === "burning" ? { burning: {} } : { locking: {} };
+    const chainId = toChainId(args.chain);
+
+    pdas = pdas ?? NTT.pdas(program.programId);
+
+    const limit = new BN(args.outboundLimit.toString());
+    return await program.methods
+      .initializeMultisig({ chainId, limit: limit, mode })
+      .accountsStrict({
+        payer: args.payer,
+        deployer: args.owner,
+        programData: programDataAddress(program.programId),
+        config: pdas.configAccount(),
+        mint: args.mint,
+        rateLimit: pdas.outboxRateLimitAccount(),
+        multisig: args.multisig,
+        tokenProgram: args.tokenProgram,
+        tokenAuthority: pdas.tokenAuthority(),
+        custody: await NTT.custodyAccountAddress(
+          pdas,
+          args.mint,
+          args.tokenProgram
+        ),
+        bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
+        associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+  }
+
   // This function should be called after each upgrade. If there's nothing to
   // do, it won't actually submit a transaction, so it's cheap to call.
   export async function initializeOrUpdateLUT(
@@ -569,6 +614,90 @@ export namespace NTT {
           tokenAuthority: pdas.tokenAuthority(),
           tokenProgram: config.tokenProgram,
           custody: await custodyAccountAddress(pdas, config),
+        },
+      })
+      .instruction();
+
+    const mintInfo = await splToken.getMint(
+      program.provider.connection,
+      config.mint,
+      undefined,
+      config.tokenProgram
+    );
+    const transferHook = splToken.getTransferHook(mintInfo);
+
+    if (transferHook) {
+      const source = await custodyAccountAddress(pdas, config);
+      const mint = config.mint;
+      const destination = getAssociatedTokenAddressSync(
+        mint,
+        recipientAddress,
+        true,
+        config.tokenProgram
+      );
+      const owner = pdas.tokenAuthority();
+      await addExtraAccountMetasForExecute(
+        program.provider.connection,
+        transferIx,
+        transferHook.programId,
+        source,
+        mint,
+        destination,
+        owner,
+        // TODO(csongor): compute the amount that's passed into transfer.
+        // Leaving this 0 is fine unless the transfer hook accounts addresses
+        // depend on the amount (which is unlikely).
+        // If this turns out to be the case, the amount to put here is the
+        // untrimmed amount after removing dust.
+        0
+      );
+    }
+
+    return transferIx;
+  }
+
+  // TODO: document that if recipient is provided, then the instruction can be
+  // created before the inbox item is created (i.e. they can be put in the same tx)
+  export async function createReleaseInboundMultisigMintInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    config: NttBindings.Config<IdlVersion>,
+    args: {
+      payer: PublicKey;
+      chain: Chain;
+      nttMessage: Ntt.Message;
+      revertOnDelay: boolean;
+      multisig: PublicKey;
+      recipient?: PublicKey;
+    },
+    pdas?: Pdas
+  ): Promise<TransactionInstruction> {
+    pdas = pdas ?? NTT.pdas(program.programId);
+
+    const recipientAddress =
+      args.recipient ??
+      (await getInboxItem(program, args.chain, args.nttMessage))
+        .recipientAddress;
+
+    const transferIx = await program.methods
+      .releaseInboundMultisigMint({
+        revertOnDelay: args.revertOnDelay,
+      })
+      .accountsStrict({
+        common: {
+          payer: args.payer,
+          config: { config: pdas.configAccount() },
+          inboxItem: pdas.inboxItemAccount(args.chain, args.nttMessage),
+          recipient: getAssociatedTokenAddressSync(
+            config.mint,
+            recipientAddress,
+            true,
+            config.tokenProgram
+          ),
+          mint: config.mint,
+          tokenAuthority: pdas.tokenAuthority(),
+          tokenProgram: config.tokenProgram,
+          custody: await custodyAccountAddress(pdas, config),
+          multisig: args.multisig,
         },
       })
       .instruction();
