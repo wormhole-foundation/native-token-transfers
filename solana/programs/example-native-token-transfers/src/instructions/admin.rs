@@ -155,8 +155,6 @@ pub fn claim_ownership(ctx: Context<ClaimOwnership>) -> Result<()> {
 }
 
 // * Set peers
-// TODO: update peers? should that be a separate instruction? take timestamp
-// for modification? (for total ordering)
 
 #[derive(Accounts)]
 #[instruction(args: SetPeerArgs)]
@@ -172,7 +170,7 @@ pub struct SetPeer<'info> {
     pub config: Account<'info, Config>,
 
     #[account(
-        init,
+        init_if_needed,
         space = 8 + NttManagerPeer::INIT_SPACE,
         payer = payer,
         seeds = [NttManagerPeer::SEED_PREFIX, args.chain_id.id.to_be_bytes().as_ref()],
@@ -181,7 +179,7 @@ pub struct SetPeer<'info> {
     pub peer: Account<'info, NttManagerPeer>,
 
     #[account(
-        init,
+        init_if_needed,
         space = 8 + InboxRateLimit::INIT_SPACE,
         payer = payer,
         seeds = [
