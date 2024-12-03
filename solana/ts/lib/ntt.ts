@@ -97,6 +97,8 @@ export namespace NTT {
       derivePda("outbox_rate_limit", programId);
     const tokenAuthority = (): PublicKey =>
       derivePda("token_authority", programId);
+    const pendingTokenAuthority = (): PublicKey =>
+      derivePda("pending_token_authority", programId);
     const peerAccount = (chain: Chain): PublicKey =>
       derivePda(["peer", chainToBytes(chain)], programId);
     const registeredTransceiver = (transceiver: PublicKey): PublicKey =>
@@ -131,6 +133,7 @@ export namespace NTT {
       inboxItemAccount,
       sessionAuthority,
       tokenAuthority,
+      pendingTokenAuthority,
       peerAccount,
       registeredTransceiver,
       lutAccount,
@@ -706,6 +709,34 @@ export namespace NTT {
       .accounts({
         config: pdas.configAccount(),
         newOwner: args.newOwner,
+      })
+      .instruction();
+  }
+
+  export async function createSetTokenAuthorityInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    config: NttBindings.Config<IdlVersion>,
+    args: {
+      payer: PublicKey;
+      owner: PublicKey;
+      newAuthority: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return await program.methods
+      .setTokenAuthority()
+      .accountsStrict({
+        common: {
+          config: pdas.configAccount(),
+          tokenAuthority: pdas.tokenAuthority(),
+          mint: config.mint,
+          owner: args.owner,
+          newAuthority: args.newAuthority,
+        },
+        payer: args.payer,
+        pendingTokenAuthority: pdas.pendingTokenAuthority(),
+        systemProgram: SystemProgram.programId,
       })
       .instruction();
   }
