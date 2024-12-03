@@ -160,6 +160,13 @@ export class NttAutomaticRoute<N extends Network>
       ntt: params.normalizedParams.sourceContracts,
     });
 
+    if (!(await ntt.isRelayingAvailable(toChain.chain))) {
+      return {
+        success: false,
+        error: new Error(`Relaying to chain ${toChain.chain} is not available`),
+      };
+    }
+
     const deliveryPrice = await ntt.quoteDeliveryPrice(
       toChain.chain,
       params.normalizedParams.options
