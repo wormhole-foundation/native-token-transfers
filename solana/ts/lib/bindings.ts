@@ -1,11 +1,12 @@
 import { IdlAccounts, Program } from "@coral-xyz/anchor";
 import { Connection } from "@solana/web3.js";
-import { _1_0_0, _2_0_0 } from "./anchor-idl/index.js";
+import { _1_0_0, _2_0_0, _3_0_0 } from "./anchor-idl/index.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 export interface IdlBinding<V extends IdlVersion> {
   idl: {
     ntt: NttBindings.NativeTokenTransfer<V>;
+    transceiver: NttBindings.Transceiver<V>;
     quoter: NttBindings.Quoter<V>;
   };
 }
@@ -14,6 +15,7 @@ export interface IdlBinding<V extends IdlVersion> {
 // We check for the first match in descending order, allowing for higher minor and patch versions
 // being used by the live contract (these are supposed to still be compatible with older ABIs).
 export const IdlVersions = [
+  ["3.0.0", _3_0_0],
   ["2.0.0", _2_0_0],
   ["1.0.0", _1_0_0],
 ] as const;
@@ -23,11 +25,21 @@ export type IdlVersion = (typeof IdlVersions)[number][0];
 export namespace NttBindings {
   export type NativeTokenTransfer<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawExampleNativeTokenTransfers
-    : _2_0_0.RawExampleNativeTokenTransfers;
+    : V extends "2.0.0"
+    ? _2_0_0.RawExampleNativeTokenTransfers
+    : _3_0_0.RawExampleNativeTokenTransfers;
 
   export type Quoter<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawNttQuoter
-    : _2_0_0.RawNttQuoter;
+    : V extends "2.0.0"
+    ? _2_0_0.RawNttQuoter
+    : _3_0_0.RawNttQuoter;
+
+  export type Transceiver<V extends IdlVersion> = V extends "1.0.0"
+    ? _1_0_0.RawExampleNativeTokenTransfers
+    : V extends "2.0.0"
+    ? _2_0_0.RawExampleNativeTokenTransfers
+    : _3_0_0.RawNttTransceiver;
 
   type ProgramAccounts<V extends IdlVersion> = IdlAccounts<
     NttBindings.NativeTokenTransfer<V>
@@ -55,6 +67,19 @@ export function getNttProgram<V extends IdlVersion>(
     idl: { ntt },
   } = loadIdlVersion(version);
   return new Program<NttBindings.NativeTokenTransfer<V>>(ntt, address, {
+    connection,
+  });
+}
+
+export function getTransceiverProgram<V extends IdlVersion>(
+  connection: Connection,
+  address: string,
+  version: V
+) {
+  const {
+    idl: { transceiver },
+  } = loadIdlVersion(version);
+  return new Program<NttBindings.Transceiver<V>>(transceiver, address, {
     connection,
   });
 }

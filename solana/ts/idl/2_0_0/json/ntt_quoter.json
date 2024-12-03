@@ -29,9 +29,7 @@
           "name": "outboxItem",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "and checking the release constraint into a single function"
-          ]
+          "docs": ["and checking the release constraint into a single function"]
         },
         {
           "name": "relayRequest",

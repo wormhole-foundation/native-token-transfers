@@ -1,0 +1,44 @@
+[package]
+name = "ntt-transceiver"
+version = "3.0.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ntt_transceiver"
+
+[features]
+no-entrypoint = []
+no-idl = []
+idl-build = [
+  "anchor-lang/idl-build",
+  "anchor-spl/idl-build",
+  "example-native-token-transfers/idl-build"
+]
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+mainnet = [ "wormhole-anchor-sdk/mainnet" ]
+solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
+tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
+tilt-devnet2 = [ "tilt-devnet" ]
+
+[lints]
+workspace = true
+
+[dependencies]
+ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
+anchor-lang.workspace = true
+anchor-spl.workspace = true
+solana-program.workspace = true
+
+wormhole-anchor-sdk.workspace = true
+wormhole-io.workspace = true
+wormhole-sdk.workspace = true
+
+example-native-token-transfers = { path = "../example-native-token-transfers", features = ["no-entrypoint", "cpi"] }
+
+[dev-dependencies]
+hex.workspace = true

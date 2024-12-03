@@ -1,6 +1,6 @@
 [package]
 name = "example-native-token-transfers"
-version = "2.0.0"
+version = "3.0.0"
 description = "Example implementation of native token transfer standard"
 edition = "2021"
 
