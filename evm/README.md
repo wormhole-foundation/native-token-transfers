@@ -150,9 +150,10 @@ _Events_
 /// @notice Emitted when a transfer has been redeemed
 ///         (either minted or unlocked on the recipient chain).
 /// @dev Topic0
-///      0x504e6efe18ab9eed10dc6501a417f5b12a2f7f2b1593aed9b89f9bce3cf29a91.
+///      0x822760cb8aef838664db98515460929d89d5799b7546e9269dffdc09e2cbb995.
+/// @param sourceChain The source chain.
 /// @param digest The digest of the message.
-event TransferRedeemed(bytes32 indexed digest);
+event TransferRedeemed(uint16 indexed sourceChain, bytes32 indexed digest);
 ```
 
 ## Prerequisites

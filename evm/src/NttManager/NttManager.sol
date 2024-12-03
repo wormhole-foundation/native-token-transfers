@@ -256,7 +256,9 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
             sourceChainId, sourceNttManagerAddress, message.id, message.sender, nativeTokenTransfer
         );
 
-        _mintOrUnlockToRecipient(digest, transferRecipient, nativeTransferAmount, false);
+        _mintOrUnlockToRecipient(
+            sourceChainId, digest, transferRecipient, nativeTransferAmount, false
+        );
     }
 
     /// @dev Override this function to process an additional payload on the NativeTokenTransfer
@@ -284,7 +286,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bool isRateLimited = _isInboundAmountRateLimited(nativeTransferAmount, sourceChainId);
         if (isRateLimited) {
             // queue up the transfer
-            _enqueueInboundTransfer(digest, nativeTransferAmount, transferRecipient);
+            _enqueueInboundTransfer(sourceChainId, digest, nativeTransferAmount, transferRecipient);
 
             // end execution early
             return true;
@@ -317,7 +319,13 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         delete _getInboundQueueStorage()[digest];
 
         // run it through the mint/unlock logic
-        _mintOrUnlockToRecipient(digest, queuedTransfer.recipient, queuedTransfer.amount, false);
+        _mintOrUnlockToRecipient(
+            queuedTransfer.sourceChain,
+            digest,
+            queuedTransfer.recipient,
+            queuedTransfer.amount,
+            false
+        );
     }
 
     /// @inheritdoc INttManager
@@ -370,7 +378,11 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
 
         // return the queued funds to the sender
         _mintOrUnlockToRecipient(
-            bytes32(uint256(messageSequence)), msg.sender, queuedTransfer.amount, true
+            queuedTransfer.sourceChain,
+            bytes32(uint256(messageSequence)),
+            msg.sender,
+            queuedTransfer.amount,
+            true
         );
     }
 
@@ -494,6 +506,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
 
             // queue up and return
             _enqueueOutboundTransfer(
+                chainId,
                 sequence,
                 trimmedAmount,
                 recipientChain,
@@ -611,6 +624,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     }
 
     function _mintOrUnlockToRecipient(
+        uint16 sourceChain,
         bytes32 digest,
         address recipient,
         TrimmedAmount amount,
@@ -626,7 +640,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         if (cancelled) {
             emit OutboundTransferCancelled(uint256(digest), recipient, untrimmedAmount);
         } else {
-            emit TransferRedeemed(digest);
+            emit TransferRedeemed(sourceChain, digest);
         }
 
         if (mode == Mode.LOCKING) {

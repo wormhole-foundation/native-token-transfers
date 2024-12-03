@@ -184,7 +184,7 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
 
         vm.stopPrank();
 
-        // Get the TransferSent(bytes32) event to ensure it matches up with the TransferRedeemed(bytes32) event later
+        // Get the TransferSent(bytes32) event digest to ensure it matches up with the TransferRedeemed(uint16,bytes32) event digest later
         Vm.Log[] memory recordedLogs = vm.getRecordedLogs();
         bytes32 sentEventDigest;
         for (uint256 i = 0; i < recordedLogs.length; i++) {
@@ -220,18 +220,24 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
             );
         }
 
-        // Get the TransferRedeemed(bytes32) event to ensure it matches up with the TransferSent(bytes32) event earlier
+        // Get the TransferRedeemed(uint16,bytes32) event digest to ensure it matches up with the TransferSent(bytes32) event digest earlier
         recordedLogs = vm.getRecordedLogs();
         bytes32 recvEventDigest;
+        bytes32 recvSourceChain;
         for (uint256 i = 0; i < recordedLogs.length; i++) {
-            if (recordedLogs[i].topics[0] == keccak256("TransferRedeemed(bytes32)")) {
-                recvEventDigest = recordedLogs[i].topics[1];
+            if (recordedLogs[i].topics[0] == keccak256("TransferRedeemed(uint16,bytes32)")) {
+                recvSourceChain = recordedLogs[i].topics[1];
+                recvEventDigest = recordedLogs[i].topics[2];
                 break;
             }
         }
         require(
+            recvSourceChain == bytes32(uint256(chainId1)),
+            "Incorrect TransferRedeemed(uint16,bytes32) event sourceChain"
+        );
+        require(
             sentEventDigest == recvEventDigest,
-            "TransferRedeemed(bytes32) event should match TransferSent(bytes32)"
+            "TransferRedeemed(uint16,bytes32) event digest should match TransferSent(bytes32) event digest"
         );
 
         // Can't resubmit the same message twice

@@ -423,7 +423,7 @@ abstract contract ManagerBase is
         _setTransceiverAttestedToMessage(digest, _getTransceiverInfosStorage()[transceiver].index);
 
         emit MessageAttestedTo(
-            digest, transceiver, _getTransceiverInfosStorage()[transceiver].index
+            chainId, digest, transceiver, _getTransceiverInfosStorage()[transceiver].index
         );
     }
 
