@@ -114,14 +114,6 @@ export class NttAutomaticRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     params: Tp
   ): Promise<Vr> {
-    if (!(await this.isAvailable(request))) {
-      return {
-        valid: false,
-        params,
-        error: new Error("Relaying is not available"),
-      };
-    }
-
     const options = params.options ?? this.getDefaultOptions();
 
     const gasDropoff = amount.parse(
@@ -167,6 +159,13 @@ export class NttAutomaticRoute<N extends Network>
     const ntt = await fromChain.getProtocol("Ntt", {
       ntt: params.normalizedParams.sourceContracts,
     });
+
+    if (!(await ntt.isRelayingAvailable(toChain.chain))) {
+      return {
+        success: false,
+        error: new Error(`Relaying to chain ${toChain.chain} is not available`),
+      };
+    }
 
     const deliveryPrice = await ntt.quoteDeliveryPrice(
       toChain.chain,
