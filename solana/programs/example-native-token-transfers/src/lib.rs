@@ -71,13 +71,13 @@ pub mod example_native_token_transfers {
 
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
+    pub fn initialize(ctx: Context<InitializeDefault>, args: InitializeArgs) -> Result<()> {
         instructions::initialize(ctx, args)
     }
 
     pub fn initialize_multisig(
         ctx: Context<InitializeMultisig>,
-        args: InitializeMultisigArgs,
+        args: InitializeArgs,
     ) -> Result<()> {
         instructions::initialize_multisig(ctx, args)
     }
@@ -109,10 +109,17 @@ pub mod example_native_token_transfers {
     }
 
     pub fn release_inbound_mint<'info>(
-        ctx: Context<'_, '_, '_, 'info, ReleaseInboundMint<'info>>,
+        ctx: Context<'_, '_, '_, 'info, ReleaseInboundMintDefault<'info>>,
         args: ReleaseInboundArgs,
     ) -> Result<()> {
         instructions::release_inbound_mint(ctx, args)
+    }
+
+    pub fn release_inbound_mint_multisig<'info>(
+        ctx: Context<'_, '_, '_, 'info, ReleaseInboundMintMultisig<'info>>,
+        args: ReleaseInboundArgs,
+    ) -> Result<()> {
+        instructions::release_inbound_mint_multisig(ctx, args)
     }
 
     pub fn release_inbound_unlock<'info>(
@@ -120,13 +127,6 @@ pub mod example_native_token_transfers {
         args: ReleaseInboundArgs,
     ) -> Result<()> {
         instructions::release_inbound_unlock(ctx, args)
-    }
-
-    pub fn release_inbound_multisig_mint<'info>(
-        ctx: Context<'_, '_, '_, 'info, ReleaseInboundMultisigMint<'info>>,
-        args: ReleaseInboundMultisigArgs,
-    ) -> Result<()> {
-        instructions::release_inbound_multisig_mint(ctx, args)
     }
 
     pub fn transfer_ownership(ctx: Context<TransferOwnership>) -> Result<()> {

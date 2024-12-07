@@ -37,12 +37,7 @@ pub struct Initialize<'info> {
     )]
     pub config: Box<Account<'info, crate::config::Config>>,
 
-    #[account(
-        constraint =
-            args.mode == Mode::Locking
-            || mint.mint_authority.unwrap() == token_authority.key()
-            @ NTTError::InvalidMintAuthority,
-    )]
+    #[account()]
     pub mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     #[account(
@@ -95,25 +90,79 @@ pub struct InitializeArgs {
     pub mode: ntt_messages::mode::Mode,
 }
 
-pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
-    ctx.accounts.config.set_inner(crate::config::Config {
-        bump: ctx.bumps.config,
-        mint: ctx.accounts.mint.key(),
-        token_program: ctx.accounts.token_program.key(),
-        mode: args.mode,
-        chain_id: ChainId { id: args.chain_id },
-        owner: ctx.accounts.deployer.key(),
+#[derive(Accounts)]
+#[instruction(args: InitializeArgs)]
+pub struct InitializeDefault<'info> {
+    #[account(
+        constraint =
+            args.mode == Mode::Locking
+            || common.mint.mint_authority.unwrap() == common.token_authority.key()
+            @ NTTError::InvalidMintAuthority,
+    )]
+    pub common: Initialize<'info>,
+}
+
+pub fn initialize(ctx: Context<InitializeDefault>, args: InitializeArgs) -> Result<()> {
+    initialize_config_and_rate_limit(
+        &mut ctx.accounts.common,
+        ctx.bumps.common.config,
+        args.chain_id,
+        args.limit,
+        args.mode,
+    )
+}
+
+#[derive(Accounts)]
+#[instruction(args: InitializeArgs)]
+pub struct InitializeMultisig<'info> {
+    #[account(
+        constraint =
+            args.mode == Mode::Locking
+            || common.mint.mint_authority.unwrap() == multisig.key()
+            @ NTTError::InvalidMintAuthority,
+    )]
+    pub common: Initialize<'info>,
+
+    #[account()]
+    /// CHECK: multisig is mint authority
+    pub multisig: UncheckedAccount<'info>,
+}
+
+pub fn initialize_multisig(ctx: Context<InitializeMultisig>, args: InitializeArgs) -> Result<()> {
+    initialize_config_and_rate_limit(
+        &mut ctx.accounts.common,
+        ctx.bumps.common.config,
+        args.chain_id,
+        args.limit,
+        args.mode,
+    )
+}
+
+fn initialize_config_and_rate_limit(
+    common: &mut Initialize<'_>,
+    config_bump: u8,
+    chain_id: u16,
+    limit: u64,
+    mode: ntt_messages::mode::Mode,
+) -> Result<()> {
+    common.config.set_inner(crate::config::Config {
+        bump: config_bump,
+        mint: common.mint.key(),
+        token_program: common.token_program.key(),
+        mode,
+        chain_id: ChainId { id: chain_id },
+        owner: common.deployer.key(),
         pending_owner: None,
         paused: false,
         next_transceiver_id: 0,
         // NOTE: can't be changed for now
         threshold: 1,
         enabled_transceivers: Bitmap::new(),
-        custody: ctx.accounts.custody.key(),
+        custody: common.custody.key(),
     });
 
-    ctx.accounts.rate_limit.set_inner(OutboxRateLimit {
-        rate_limit: RateLimitState::new(args.limit),
+    common.rate_limit.set_inner(OutboxRateLimit {
+        rate_limit: RateLimitState::new(limit),
     });
 
     Ok(())
