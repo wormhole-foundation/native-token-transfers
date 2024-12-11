@@ -24,12 +24,6 @@ import {
 import { SolanaWormholeCore } from "@wormhole-foundation/sdk-solana-core";
 import * as fs from "fs";
 
-import {
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-} from "@solana/web3.js";
 import { DummyTransferHook } from "../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
 import { getTransceiverProgram, IdlVersion, NTT } from "../ts/index.js";
 import { derivePda } from "../ts/lib/utils.js";
@@ -41,9 +35,9 @@ const VERSION: IdlVersion = "3.0.0";
 const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
 const CORE_BRIDGE_ADDRESS = contracts.coreBridge("Mainnet", "Solana");
-const NTT_ADDRESS: PublicKey =
+const NTT_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.ExampleNativeTokenTransfers.programId;
-const WH_TRANSCEIVER_ADDRESS: PublicKey =
+const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.NttTransceiver.programId;
 
 async function signSendWait(
@@ -102,12 +96,12 @@ const mint = anchor.web3.Keypair.generate();
 const dummyTransferHook = anchor.workspace
   .DummyTransferHook as anchor.Program<DummyTransferHook>;
 
-const [extraAccountMetaListPDA] = PublicKey.findProgramAddressSync(
+const [extraAccountMetaListPDA] = anchor.web3.PublicKey.findProgramAddressSync(
   [Buffer.from("extra-account-metas"), mint.publicKey.toBuffer()],
   dummyTransferHook.programId
 );
 
-const [counterPDA] = PublicKey.findProgramAddressSync(
+const [counterPDA] = anchor.web3.PublicKey.findProgramAddressSync(
   [Buffer.from("counter")],
   dummyTransferHook.programId
 );
@@ -135,6 +129,7 @@ describe("example-native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
   let signer: Signer;
   let sender: AccountAddress<"Solana">;
+  let multisig: anchor.web3.PublicKey;
   let tokenAddress: string;
 
   beforeAll(async () => {
@@ -150,8 +145,8 @@ describe("example-native-token-transfers", () => {
         mintLen
       );
 
-      const transaction = new Transaction().add(
-        SystemProgram.createAccount({
+      const transaction = new anchor.web3.Transaction().add(
+        anchor.web3.SystemProgram.createAccount({
           fromPubkey: payer.publicKey,
           newAccountPubkey: mint.publicKey,
           space: mintLen,
@@ -178,9 +173,14 @@ describe("example-native-token-transfers", () => {
       transaction.feePayer = payer.publicKey;
       transaction.recentBlockhash = blockhash;
 
-      await sendAndConfirmTransaction(connection, transaction, [payer, mint], {
-        commitment: "confirmed",
-      });
+      await anchor.web3.sendAndConfirmTransaction(
+        connection,
+        transaction,
+        [payer, mint],
+        {
+          commitment: "confirmed",
+        }
+      );
 
       tokenAccount = await spl.createAssociatedTokenAccount(
         connection,
@@ -231,13 +231,22 @@ describe("example-native-token-transfers", () => {
   describe("Burning", () => {
     beforeAll(async () => {
       try {
+        multisig = await spl.createMultisig(
+          connection,
+          payer,
+          [owner.publicKey, ntt.pdas.tokenAuthority()],
+          1,
+          anchor.web3.Keypair.generate(),
+          undefined,
+          TOKEN_PROGRAM
+        );
         await spl.setAuthority(
           connection,
           payer,
           mint.publicKey,
           owner,
           spl.AuthorityType.MintTokens,
-          ntt.pdas.tokenAuthority(),
+          multisig,
           [],
           undefined,
           TOKEN_PROGRAM
@@ -248,6 +257,7 @@ describe("example-native-token-transfers", () => {
           mint: mint.publicKey,
           outboundLimit: 1000000n,
           mode: "burning",
+          multisig,
         });
         await signSendWait(ctx, initTxs, signer);
 
@@ -285,11 +295,11 @@ describe("example-native-token-transfers", () => {
             extraAccountMetaList: extraAccountMetaListPDA,
             tokenProgram: TOKEN_PROGRAM,
             associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-            systemProgram: SystemProgram.programId,
+            systemProgram: anchor.web3.SystemProgram.programId,
           })
           .instruction();
 
-      const transaction = new Transaction().add(
+      const transaction = new anchor.web3.Transaction().add(
         initializeExtraAccountMetaListInstruction
       );
       transaction.feePayer = payer.publicKey;
@@ -297,9 +307,14 @@ describe("example-native-token-transfers", () => {
       transaction.recentBlockhash = blockhash;
 
       transaction.sign(payer);
-      await sendAndConfirmTransaction(connection, transaction, [payer], {
-        commitment: "confirmed",
-      });
+      await anchor.web3.sendAndConfirmTransaction(
+        connection,
+        transaction,
+        [payer],
+        {
+          commitment: "confirmed",
+        }
+      );
     });
 
     test("Can send tokens", async () => {
@@ -391,7 +406,7 @@ describe("example-native-token-transfers", () => {
       const published = emitter.publishMessage(0, serialized, 200);
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
-      const redeemTxs = ntt.redeem([vaa], sender);
+      const redeemTxs = ntt.redeem([vaa], sender, multisig);
       try {
         await signSendWait(ctx, redeemTxs, signer);
       } catch (e) {
@@ -400,6 +415,32 @@ describe("example-native-token-transfers", () => {
       }
 
       expect((await counterValue()).toString()).toEqual("2");
+    });
+
+    it("Can mint independently", async () => {
+      const dest = await spl.getOrCreateAssociatedTokenAccount(
+        connection,
+        payer,
+        mint.publicKey,
+        anchor.web3.Keypair.generate().publicKey,
+        false,
+        undefined,
+        undefined,
+        TOKEN_PROGRAM
+      );
+      await spl.mintTo(
+        connection,
+        payer,
+        mint.publicKey,
+        dest.address,
+        multisig,
+        1,
+        [owner],
+        undefined,
+        TOKEN_PROGRAM
+      );
+      const balance = await connection.getTokenAccountBalance(dest.address);
+      expect(balance.value.amount.toString()).toBe("1");
     });
   });
 
