@@ -1011,7 +1011,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
                 ...releaseArgs,
               })
             : multisig
-            ? NTT.createReleaseInboundMultisigMintInstruction(
+            ? NTT.createReleaseInboundMintMultisigInstruction(
                 this.program,
                 config,
                 {

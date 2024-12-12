@@ -301,23 +301,25 @@ export namespace NTT {
     return await program.methods
       .initializeMultisig({ chainId, limit: limit, mode })
       .accountsStrict({
-        payer: args.payer,
-        deployer: args.owner,
-        programData: programDataAddress(program.programId),
-        config: pdas.configAccount(),
-        mint: args.mint,
-        rateLimit: pdas.outboxRateLimitAccount(),
+        common: {
+          payer: args.payer,
+          deployer: args.owner,
+          programData: programDataAddress(program.programId),
+          config: pdas.configAccount(),
+          mint: args.mint,
+          rateLimit: pdas.outboxRateLimitAccount(),
+          tokenAuthority: pdas.tokenAuthority(),
+          custody: await NTT.custodyAccountAddress(
+            pdas,
+            args.mint,
+            args.tokenProgram
+          ),
+          tokenProgram: args.tokenProgram,
+          associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+          bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        },
         multisig: args.multisig,
-        tokenProgram: args.tokenProgram,
-        tokenAuthority: pdas.tokenAuthority(),
-        custody: await NTT.custodyAccountAddress(
-          pdas,
-          args.mint,
-          args.tokenProgram
-        ),
-        bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
-        associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
       })
       .instruction();
   }
@@ -661,7 +663,7 @@ export namespace NTT {
 
   // TODO: document that if recipient is provided, then the instruction can be
   // created before the inbox item is created (i.e. they can be put in the same tx)
-  export async function createReleaseInboundMultisigMintInstruction(
+  export async function createReleaseInboundMintMultisigInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     config: NttBindings.Config<IdlVersion>,
     args: {
@@ -682,7 +684,7 @@ export namespace NTT {
         .recipientAddress;
 
     const transferIx = await program.methods
-      .releaseInboundMultisigMint({
+      .releaseInboundMintMultisig({
         revertOnDelay: args.revertOnDelay,
       })
       .accountsStrict({
@@ -700,8 +702,8 @@ export namespace NTT {
           tokenAuthority: pdas.tokenAuthority(),
           tokenProgram: config.tokenProgram,
           custody: await custodyAccountAddress(pdas, config),
-          multisig: args.multisig,
         },
+        multisig: args.multisig,
       })
       .instruction();
 
