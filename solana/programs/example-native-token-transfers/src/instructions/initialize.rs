@@ -13,7 +13,6 @@ use crate::{
 };
 
 #[derive(Accounts)]
-#[instruction(args: InitializeArgs)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -90,22 +89,16 @@ pub struct InitializeArgs {
     pub mode: ntt_messages::mode::Mode,
 }
 
-#[derive(Accounts)]
-#[instruction(args: InitializeArgs)]
-pub struct InitializeDefault<'info> {
-    #[account(
-        constraint =
-            args.mode == Mode::Locking
-            || common.mint.mint_authority.unwrap() == common.token_authority.key()
-            @ NTTError::InvalidMintAuthority,
-    )]
-    pub common: Initialize<'info>,
-}
+pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
+    if !(args.mode == Mode::Locking
+        || ctx.accounts.mint.mint_authority.unwrap() == ctx.accounts.token_authority.key())
+    {
+        return Err(NTTError::InvalidMintAuthority.into());
+    }
 
-pub fn initialize(ctx: Context<InitializeDefault>, args: InitializeArgs) -> Result<()> {
     initialize_config_and_rate_limit(
-        &mut ctx.accounts.common,
-        ctx.bumps.common.config,
+        ctx.accounts,
+        ctx.bumps.config,
         args.chain_id,
         args.limit,
         args.mode,

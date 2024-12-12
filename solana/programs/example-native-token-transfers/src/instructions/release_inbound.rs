@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface;
 use ntt_messages::mode::Mode;
@@ -68,34 +66,6 @@ pub struct ReleaseInboundMint<'info> {
     common: ReleaseInbound<'info>,
 }
 
-impl<'info> Deref for ReleaseInboundMint<'info> {
-    type Target = ReleaseInbound<'info>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
-impl Deref for ReleaseInboundMintBumps {
-    type Target = ReleaseInboundBumps;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
-impl<'info> DerefMut for ReleaseInboundMint<'info> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.common
-    }
-}
-
-#[derive(Accounts)]
-pub struct ReleaseInboundMintDefault<'info> {
-    #[account(constraint = common.mint.mint_authority.unwrap() == common.token_authority.key())]
-    common: ReleaseInboundMint<'info>,
-}
-
 /// Release an inbound transfer and mint the tokens to the recipient.
 /// When `revert_on_error` is true, the transaction will revert if the
 /// release timestamp has not been reached. When `revert_on_error` is false, the
@@ -104,9 +74,16 @@ pub struct ReleaseInboundMintDefault<'info> {
 /// together with [`crate::instructions::redeem`] in a transaction, so that the minting
 /// is attempted optimistically.
 pub fn release_inbound_mint<'info>(
-    ctx: Context<'_, '_, '_, 'info, ReleaseInboundMintDefault<'info>>,
+    ctx: Context<'_, '_, '_, 'info, ReleaseInboundMint<'info>>,
     args: ReleaseInboundArgs,
 ) -> Result<()> {
+    if ctx.accounts.common.mint.mint_authority.unwrap() != ctx.accounts.common.token_authority.key()
+    {
+        return Err(NTTError::InvalidMintAuthority.into());
+    }
+
+    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+
     // NOTE: minting tokens is a two-step process:
     // 1. Mint tokens to the custody account
     // 2. Transfer the tokens from the custody account to the recipient
@@ -136,7 +113,7 @@ pub fn release_inbound_mint<'info>(
                 &[ctx.bumps.common.token_authority],
             ]],
         ),
-        ctx.accounts.common.inbox_item.amount,
+        inbox_item.amount,
     )?;
 
     // Step 2: transfer the tokens from the custody account to the recipient
@@ -147,21 +124,23 @@ pub fn release_inbound_mint<'info>(
         ctx.accounts.common.recipient.to_account_info(),
         ctx.accounts.common.token_authority.to_account_info(),
         ctx.remaining_accounts,
-        ctx.accounts.common.inbox_item.amount,
+        inbox_item.amount,
         ctx.accounts.common.mint.decimals,
         &[&[
             crate::TOKEN_AUTHORITY_SEED,
             &[ctx.bumps.common.token_authority],
         ]],
     )?;
-
-    release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)
+    Ok(())
 }
 
 #[derive(Accounts)]
 pub struct ReleaseInboundMintMultisig<'info> {
-    #[account(constraint = common.mint.mint_authority.unwrap() == multisig.key())]
-    common: ReleaseInboundMint<'info>,
+    #[account(
+        constraint = common.config.mode == Mode::Burning @ NTTError::InvalidMode,
+        constraint = common.mint.mint_authority.unwrap() == multisig.key()
+    )]
+    common: ReleaseInbound<'info>,
 
     /// CHECK: multisig account should be mint authority
     pub multisig: UncheckedAccount<'info>,
@@ -171,6 +150,8 @@ pub fn release_inbound_mint_multisig<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundMintMultisig<'info>>,
     args: ReleaseInboundArgs,
 ) -> Result<()> {
+    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+
     // NOTE: minting tokens is a two-step process:
     // 1. Mint tokens to the custody account
     // 2. Transfer the tokens from the custody account to the recipient
@@ -193,7 +174,7 @@ pub fn release_inbound_mint_multisig<'info>(
         &ctx.accounts.common.custody.key(),
         &ctx.accounts.multisig.key(),
         &[&ctx.accounts.common.token_authority.key()],
-        ctx.accounts.common.inbox_item.amount,
+        inbox_item.amount,
     )?;
     solana_program::program::invoke_signed(
         &ix,
@@ -217,30 +198,13 @@ pub fn release_inbound_mint_multisig<'info>(
         ctx.accounts.common.recipient.to_account_info(),
         ctx.accounts.common.token_authority.to_account_info(),
         ctx.remaining_accounts,
-        ctx.accounts.common.inbox_item.amount,
+        inbox_item.amount,
         ctx.accounts.common.mint.decimals,
         &[&[
             crate::TOKEN_AUTHORITY_SEED,
             &[ctx.bumps.common.token_authority],
         ]],
     )?;
-
-    release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)
-}
-
-fn release_inbox_item(inbox_item: &mut InboxItem, revert_on_delay: bool) -> Result<()> {
-    let released = inbox_item.try_release()?;
-
-    if !released {
-        if revert_on_delay {
-            return Err(NTTError::CantReleaseYet.into());
-        } else {
-            return Ok(());
-        }
-    }
-
-    assert!(inbox_item.release_status == ReleaseStatus::Released);
-
     Ok(())
 }
 
@@ -250,6 +214,7 @@ fn release_inbox_item(inbox_item: &mut InboxItem, revert_on_delay: bool) -> Resu
 pub struct ReleaseInboundUnlock<'info> {
     #[account(
         constraint = common.config.mode == Mode::Locking @ NTTError::InvalidMode,
+        constraint = common.mint.mint_authority.unwrap() == common.token_authority.key()
     )]
     common: ReleaseInbound<'info>,
 }
@@ -265,17 +230,7 @@ pub fn release_inbound_unlock<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundUnlock<'info>>,
     args: ReleaseInboundArgs,
 ) -> Result<()> {
-    let inbox_item = &mut ctx.accounts.common.inbox_item;
-
-    let released = inbox_item.try_release()?;
-
-    if !released {
-        if args.revert_on_delay {
-            return Err(NTTError::CantReleaseYet.into());
-        } else {
-            return Ok(());
-        }
-    }
+    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
 
     onchain::invoke_transfer_checked(
         &ctx.accounts.common.token_program.key(),
@@ -292,4 +247,20 @@ pub fn release_inbound_unlock<'info>(
         ]],
     )?;
     Ok(())
+}
+
+fn release_inbox_item(inbox_item: &mut InboxItem, revert_on_delay: bool) -> Result<&mut InboxItem> {
+    let released = inbox_item.try_release()?;
+
+    if !released {
+        if revert_on_delay {
+            return Err(NTTError::CantReleaseYet.into());
+        } else {
+            return Ok(inbox_item);
+        }
+    }
+
+    assert!(inbox_item.release_status == ReleaseStatus::Released);
+
+    Ok(inbox_item)
 }
