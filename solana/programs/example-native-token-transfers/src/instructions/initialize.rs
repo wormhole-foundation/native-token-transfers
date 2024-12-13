@@ -36,7 +36,6 @@ pub struct Initialize<'info> {
     )]
     pub config: Box<Account<'info, crate::config::Config>>,
 
-    #[account()]
     pub mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     #[account(
@@ -90,6 +89,8 @@ pub struct InitializeArgs {
 }
 
 pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
+    // NOTE: this check was moved into the function body to reuse the `Initialize` struct
+    // in the multisig variant while preserving ABI
     if !(args.mode == Mode::Locking
         || ctx.accounts.mint.mint_authority.unwrap() == ctx.accounts.token_authority.key())
     {
@@ -116,7 +117,6 @@ pub struct InitializeMultisig<'info> {
     )]
     pub common: Initialize<'info>,
 
-    #[account()]
     /// CHECK: multisig is mint authority
     pub multisig: UncheckedAccount<'info>,
 }
