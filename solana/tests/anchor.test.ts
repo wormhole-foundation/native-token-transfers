@@ -173,14 +173,10 @@ describe("example-native-token-transfers", () => {
       transaction.feePayer = payer.publicKey;
       transaction.recentBlockhash = blockhash;
 
-      await anchor.web3.sendAndConfirmTransaction(
-        connection,
-        transaction,
-        [payer, mint],
-        {
-          commitment: "confirmed",
-        }
-      );
+      await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+        payer,
+        mint,
+      ]);
 
       tokenAccount = await spl.createAssociatedTokenAccount(
         connection,
@@ -307,14 +303,9 @@ describe("example-native-token-transfers", () => {
       transaction.recentBlockhash = blockhash;
 
       transaction.sign(payer);
-      await anchor.web3.sendAndConfirmTransaction(
-        connection,
-        transaction,
-        [payer],
-        {
-          commitment: "confirmed",
-        }
-      );
+      await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+        payer,
+      ]);
     });
 
     test("Can send tokens", async () => {
