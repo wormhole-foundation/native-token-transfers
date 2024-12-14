@@ -59,6 +59,8 @@ pub enum NTTError {
     InvalidPendingTokenAuthority,
     #[msg("IncorrectRentPayer")]
     IncorrectRentPayer,
+    #[msg("InvalidMultisig")]
+    InvalidMultisig,
 }
 
 impl From<ScalingError> for NTTError {

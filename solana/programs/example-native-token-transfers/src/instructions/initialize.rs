@@ -10,6 +10,7 @@ use crate::{
     bitmap::Bitmap,
     error::NTTError,
     queue::{outbox::OutboxRateLimit, rate_limit::RateLimitState},
+    spl_multisig::SplMultisig,
 };
 
 #[derive(Accounts)]
@@ -117,8 +118,12 @@ pub struct InitializeMultisig<'info> {
     )]
     pub common: Initialize<'info>,
 
-    /// CHECK: multisig is mint authority
-    pub multisig: UncheckedAccount<'info>,
+    #[account(
+        constraint =
+            multisig.m == 1 && multisig.signers.contains(&common.token_authority.key())
+            @ NTTError::InvalidMultisig, 
+    )]
+    pub multisig: InterfaceAccount<'info, SplMultisig>,
 }
 
 pub fn initialize_multisig(ctx: Context<InitializeMultisig>, args: InitializeArgs) -> Result<()> {

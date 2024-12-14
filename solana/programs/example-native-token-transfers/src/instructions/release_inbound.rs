@@ -7,6 +7,7 @@ use crate::{
     config::*,
     error::NTTError,
     queue::inbox::{InboxItem, ReleaseStatus},
+    spl_multisig::SplMultisig,
 };
 
 #[derive(Accounts)]
@@ -137,8 +138,12 @@ pub struct ReleaseInboundMintMultisig<'info> {
     )]
     common: ReleaseInbound<'info>,
 
-    /// CHECK: multisig account should be mint authority
-    pub multisig: UncheckedAccount<'info>,
+    #[account(
+        constraint =
+         multisig.m == 1 && multisig.signers.contains(&common.token_authority.key())
+            @ NTTError::InvalidMultisig,
+    )]
+    pub multisig: InterfaceAccount<'info, SplMultisig>,
 }
 
 pub fn release_inbound_mint_multisig<'info>(
