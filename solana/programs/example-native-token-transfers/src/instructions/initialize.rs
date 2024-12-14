@@ -70,7 +70,7 @@ pub struct Initialize<'info> {
     /// The custody account that holds tokens in locking mode and temporarily
     /// holds tokens in burning mode.
     /// CHECK: Use init_if_needed here to prevent a denial-of-service of the [`initialize`]
-    /// function if  the token account has already been created.
+    /// function if the token account has already been created.
     pub custody: InterfaceAccount<'info, token_interface::TokenAccount>,
 
     /// CHECK: checked to be the appropriate token program when initialising the
@@ -121,7 +121,7 @@ pub struct InitializeMultisig<'info> {
     #[account(
         constraint =
             multisig.m == 1 && multisig.signers.contains(&common.token_authority.key())
-            @ NTTError::InvalidMultisig, 
+            @ NTTError::InvalidMultisig,
     )]
     pub multisig: InterfaceAccount<'info, SplMultisig>,
 }

@@ -12,7 +12,7 @@ pub struct SplMultisig(spl_token_2022::state::Multisig);
 impl AccountDeserialize for SplMultisig {
     fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         spl_token_2022::state::Multisig::unpack(buf)
-            .map(|t| SplMultisig(t))
+            .map(SplMultisig)
             .map_err(Into::into)
     }
 }
