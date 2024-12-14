@@ -21,6 +21,7 @@ pub mod peer;
 pub mod pending_token_authority;
 pub mod queue;
 pub mod registered_transceiver;
+pub mod spl_multisig;
 pub mod transceivers;
 pub mod transfer;
 
