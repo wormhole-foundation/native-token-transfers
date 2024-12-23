@@ -63,7 +63,6 @@ pub struct ReleaseInboundArgs {
 pub struct ReleaseInboundMint<'info> {
     #[account(
         constraint = common.config.mode == Mode::Burning @ NTTError::InvalidMode,
-        constraint = common.mint.mint_authority.unwrap() == common.token_authority.key()
     )]
     common: ReleaseInbound<'info>,
 }
@@ -134,7 +133,6 @@ pub fn release_inbound_mint<'info>(
 pub struct ReleaseInboundMintMultisig<'info> {
     #[account(
         constraint = common.config.mode == Mode::Burning @ NTTError::InvalidMode,
-        constraint = common.mint.mint_authority.unwrap() == multisig.key()
     )]
     common: ReleaseInbound<'info>,
 
@@ -212,7 +210,6 @@ pub fn release_inbound_mint_multisig<'info>(
 pub struct ReleaseInboundUnlock<'info> {
     #[account(
         constraint = common.config.mode == Mode::Locking @ NTTError::InvalidMode,
-        constraint = common.mint.mint_authority.unwrap() == common.token_authority.key()
     )]
     common: ReleaseInbound<'info>,
 }
