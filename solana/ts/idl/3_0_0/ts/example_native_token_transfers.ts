@@ -54,7 +54,7 @@ export type ExampleNativeTokenTransfers = {
           "docs": [
             "The custody account that holds tokens in locking mode and temporarily",
             "holds tokens in burning mode.",
-            "function if  the token account has already been created."
+            "function if the token account has already been created."
           ]
         },
         {
@@ -145,7 +145,7 @@ export type ExampleNativeTokenTransfers = {
               "docs": [
                 "The custody account that holds tokens in locking mode and temporarily",
                 "holds tokens in burning mode.",
-                "function if  the token account has already been created."
+                "function if the token account has already been created."
               ]
             },
             {
@@ -2252,7 +2252,7 @@ export const IDL: ExampleNativeTokenTransfers = {
           "docs": [
             "The custody account that holds tokens in locking mode and temporarily",
             "holds tokens in burning mode.",
-            "function if  the token account has already been created."
+            "function if the token account has already been created."
           ]
         },
         {
@@ -2343,7 +2343,7 @@ export const IDL: ExampleNativeTokenTransfers = {
               "docs": [
                 "The custody account that holds tokens in locking mode and temporarily",
                 "holds tokens in burning mode.",
-                "function if  the token account has already been created."
+                "function if the token account has already been created."
               ]
             },
             {
