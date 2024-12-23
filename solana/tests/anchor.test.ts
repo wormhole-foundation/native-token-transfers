@@ -32,6 +32,7 @@ import { SolanaNtt } from "../ts/sdk/index.js";
 const solanaRootDir = `${__dirname}/../`;
 
 const VERSION: IdlVersion = "3.0.0";
+const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
 const CORE_BRIDGE_ADDRESS = contracts.coreBridge("Mainnet", "Solana");
@@ -122,8 +123,6 @@ const nttTransceivers = {
     VERSION
   ),
 };
-
-const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 
 describe("example-native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
