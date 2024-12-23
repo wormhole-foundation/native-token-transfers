@@ -354,6 +354,7 @@ abstract contract ManagerBase is
         assert(this.mode() == mode);
         assert(this.chainId() == chainId);
         assert(this.endpoint() == endpoint);
+        assert(this.executor() == executor);
     }
 
     function _checkThresholdInvariants() internal view {
