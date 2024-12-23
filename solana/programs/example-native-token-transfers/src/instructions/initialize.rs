@@ -92,8 +92,8 @@ pub struct InitializeArgs {
 pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
     // NOTE: this check was moved into the function body to reuse the `Initialize` struct
     // in the multisig variant while preserving ABI
-    if !(args.mode == Mode::Locking
-        || ctx.accounts.mint.mint_authority.unwrap() == ctx.accounts.token_authority.key())
+    if args.mode == Mode::Burning
+        && ctx.accounts.mint.mint_authority.unwrap() != ctx.accounts.token_authority.key()
     {
         return Err(NTTError::InvalidMintAuthority.into());
     }
