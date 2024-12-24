@@ -762,6 +762,33 @@ export namespace NTT {
       .instruction();
   }
 
+  export async function createRevertTokenAuthorityInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    config: NttBindings.Config<IdlVersion>,
+    args: {
+      rentPayer: PublicKey;
+      owner: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .revertTokenAuthority()
+      .accountsStrict({
+        common: {
+          config: pdas.configAccount(),
+          mint: config.mint,
+          tokenAuthority: pdas.tokenAuthority(),
+          tokenProgram: config.tokenProgram,
+          systemProgram: SystemProgram.programId,
+          rentPayer: args.rentPayer,
+          pendingTokenAuthority: pdas.pendingTokenAuthority(),
+        },
+        owner: args.owner,
+      })
+      .instruction();
+  }
+
   export async function createSetPeerInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     args: {
