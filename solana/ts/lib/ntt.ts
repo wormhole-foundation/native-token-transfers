@@ -254,7 +254,7 @@ export namespace NTT {
     pdas = pdas ?? NTT.pdas(program.programId);
 
     const limit = new BN(args.outboundLimit.toString());
-    return await program.methods
+    return program.methods
       .initialize({ chainId, limit: limit, mode })
       .accountsStrict({
         payer: args.payer,
@@ -361,7 +361,7 @@ export namespace NTT {
       }
     }
 
-    return await program.methods
+    return program.methods
       .initializeLut(new BN(slot))
       .accountsStrict({
         payer: args.payer,
@@ -704,7 +704,7 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
-    return await program.methods
+    return program.methods
       .transferOwnership()
       .accounts({
         config: pdas.configAccount(),
@@ -722,7 +722,7 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
-    return await program.methods
+    return program.methods
       .acceptTokenAuthority()
       .accountsStrict({
         config: pdas.configAccount(),
@@ -745,7 +745,7 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
-    return await program.methods
+    return program.methods
       .setTokenAuthority()
       .accountsStrict({
         common: {
@@ -775,7 +775,7 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
-    return await program.methods
+    return program.methods
       .setPeer({
         chainId: { id: toChainId(args.chain) },
         address: Array.from(args.address),
@@ -802,7 +802,7 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
-    return await program.methods
+    return program.methods
       .setPaused(args.paused)
       .accountsStrict({
         owner: args.owner,
@@ -820,7 +820,7 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
-    return await program.methods
+    return program.methods
       .setOutboundLimit({
         limit: args.limit,
       })
@@ -842,7 +842,7 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
-    return await program.methods
+    return program.methods
       .setInboundLimit({
         chainId: { id: toChainId(args.chain) },
         limit: args.limit,
@@ -907,7 +907,7 @@ export namespace NTT {
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     pdas: Pdas
   ): Promise<NttBindings.Config<IdlVersion>> {
-    return await program.account.config.fetch(pdas.configAccount());
+    return program.account.config.fetch(pdas.configAccount());
   }
 
   export async function getInboxItem(
@@ -915,7 +915,7 @@ export namespace NTT {
     fromChain: Chain,
     nttMessage: Ntt.Message
   ): Promise<NttBindings.InboxItem<IdlVersion>> {
-    return await program.account.inboxItem.fetch(
+    return program.account.inboxItem.fetch(
       NTT.pdas(program.programId).inboxItemAccount(fromChain, nttMessage)
     );
   }
