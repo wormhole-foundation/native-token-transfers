@@ -283,7 +283,7 @@ pub fn set_token_authority_one_step_unchecked(
 // * Claim token authority
 
 #[derive(Accounts)]
-pub struct RevertTokenAuthority<'info> {
+pub struct ClaimTokenAuthorityBase<'info> {
     #[account(
         has_one = mint,
         constraint = config.paused @ NTTError::NotPaused,
@@ -318,13 +318,23 @@ pub struct RevertTokenAuthority<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct RevertTokenAuthority<'info> {
+    pub common: ClaimTokenAuthorityBase<'info>,
+
+    #[account(
+        address = common.config.owner
+    )]
+    pub owner: Signer<'info>,
+}
+
 pub fn revert_token_authority(_ctx: Context<RevertTokenAuthority>) -> Result<()> {
     Ok(())
 }
 
 #[derive(Accounts)]
 pub struct ClaimTokenAuthority<'info> {
-    pub common: RevertTokenAuthority<'info>,
+    pub common: ClaimTokenAuthorityBase<'info>,
 
     #[account(
         address = common.pending_token_authority.pending_authority @ NTTError::InvalidPendingTokenAuthority

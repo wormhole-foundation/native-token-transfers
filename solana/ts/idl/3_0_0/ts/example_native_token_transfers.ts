@@ -846,39 +846,49 @@ export type ExampleNativeTokenTransfers = {
       "name": "revertTokenAuthority",
       "accounts": [
         {
-          "name": "config",
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "rentPayer",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "pendingTokenAuthority",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "systemProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "owner",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "rentPayer",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "pendingTokenAuthority",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "isSigner": true
         }
       ],
       "args": []
@@ -3120,39 +3130,49 @@ export const IDL: ExampleNativeTokenTransfers = {
       "name": "revertTokenAuthority",
       "accounts": [
         {
-          "name": "config",
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "rentPayer",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "pendingTokenAuthority",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "systemProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "owner",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "rentPayer",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "pendingTokenAuthority",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "isSigner": true
         }
       ],
       "args": []
