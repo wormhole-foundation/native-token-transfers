@@ -178,6 +178,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "Bio Protocol",
+      "programId": "ntt11hdA4n1PupHhLyT1fsjg4YF9agVz3CTuzLRQs1H",
+      "tokenAddress": "bioJ9JTqW62MLz7UKHU69gtKhPpGi1BQhccj2kmSvUJ",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
