@@ -1,0 +1,29 @@
+[package]
+name = "WormholeTransceiver"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+license = "Apache 2.0"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/testnet"
+override = true
+
+[dependencies.Wormhole]
+# git = "https://github.com/wormhole-foundation/wormhole.git"
+# rev = "sui/mainnet"
+# TODO: we're using this fork temporarily which allows us to create VAAs for testing
+git = "https://github.com/wormholelabs-xyz/wormhole.git"
+rev = "sui/vaa-new-test-only"
+subdir = "sui/wormhole"
+
+[dependencies.NttCommon]
+local = "../ntt_common"
+
+[addresses]
+wormhole_transceiver = "0x0"
+
+[dev-dependencies]
+
+[dev-addresses]
+wormhole = "0x10"
