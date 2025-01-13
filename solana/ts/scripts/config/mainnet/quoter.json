@@ -186,6 +186,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "Portal",
+      "programId": "nTTMrDU5CfFATK4ixizF8EK1GJaFwi35PjmNpK4Qp3e",
+      "tokenAddress": "BCC71Yn1f9Tn4p2QVKqhDWQaoHvQj6Qr8QK2m6desRHe",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
