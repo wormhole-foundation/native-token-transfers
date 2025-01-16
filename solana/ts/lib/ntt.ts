@@ -669,6 +669,7 @@ export namespace NTT {
       nttMessage: Ntt.Message;
       revertOnDelay: boolean;
       multisig: PublicKey;
+      additionalSigners: PublicKey[];
       recipient?: PublicKey;
     },
     pdas?: Pdas
@@ -702,6 +703,13 @@ export namespace NTT {
         },
         multisig: args.multisig,
       })
+      .remainingAccounts(
+        args.additionalSigners.map((pubkey) => ({
+          pubkey,
+          isSigner: true,
+          isWritable: false,
+        }))
+      )
       .instruction();
 
     const mintInfo = await splToken.getMint(
