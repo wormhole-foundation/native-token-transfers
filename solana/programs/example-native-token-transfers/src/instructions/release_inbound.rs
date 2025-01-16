@@ -164,22 +164,23 @@ pub fn release_inbound_mint_multisig<'info>(
     // The [`transfer_burn`] function operates in a similar way
     // (transfer to custody from sender, *then* burn).
 
-    let num_additional_signers = ctx.accounts.multisig.m as usize - 1;
-    if ctx.remaining_accounts.len() < num_additional_signers {
-        return Err(ProgramError::MissingRequiredSignature.into());
-    }
-    let additional_signers = &ctx.remaining_accounts[..num_additional_signers - 1];
-
     let mut signer_pubkeys = vec![ctx.accounts.common.token_authority.key];
-    signer_pubkeys.extend(additional_signers.iter().map(|x| x.key));
-
     let mut account_infos = vec![
         ctx.accounts.common.custody.to_account_info(),
         ctx.accounts.common.mint.to_account_info(),
         ctx.accounts.common.token_authority.to_account_info(),
         ctx.accounts.multisig.to_account_info(),
     ];
-    account_infos.extend_from_slice(additional_signers);
+
+    let num_additional_signers = ctx.accounts.multisig.m as usize - 1;
+    if num_additional_signers > 0 {
+        if ctx.remaining_accounts.len() < num_additional_signers {
+            return Err(ProgramError::MissingRequiredSignature.into());
+        }
+        let additional_signers = &ctx.remaining_accounts[..num_additional_signers - 1];
+        signer_pubkeys.extend(additional_signers.iter().map(|x| x.key));
+        account_infos.extend_from_slice(additional_signers);
+    }
 
     let token_authority_sig: &[&[&[u8]]] = &[&[
         crate::TOKEN_AUTHORITY_SEED,
