@@ -119,8 +119,7 @@ pub struct InitializeMultisig<'info> {
     pub common: Initialize<'info>,
 
     #[account(
-        constraint =
-            multisig.m == 1 && multisig.signers.contains(&common.token_authority.key())
+        constraint = multisig.signers.contains(&common.token_authority.key())
             @ NTTError::InvalidMultisig,
     )]
     pub multisig: InterfaceAccount<'info, SplMultisig>,
