@@ -79,6 +79,11 @@ pub fn release_inbound_mint<'info>(
     args: ReleaseInboundArgs,
 ) -> Result<()> {
     let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+    if inbox_item.is_none() {
+        return Ok(());
+    }
+    let inbox_item = inbox_item.unwrap();
+    assert!(inbox_item.release_status == ReleaseStatus::Released);
 
     // NOTE: minting tokens is a two-step process:
     // 1. Mint tokens to the custody account
@@ -149,6 +154,11 @@ pub fn release_inbound_mint_multisig<'info>(
     args: ReleaseInboundArgs,
 ) -> Result<()> {
     let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+    if inbox_item.is_none() {
+        return Ok(());
+    }
+    let inbox_item = inbox_item.unwrap();
+    assert!(inbox_item.release_status == ReleaseStatus::Released);
 
     // NOTE: minting tokens is a two-step process:
     // 1. Mint tokens to the custody account
@@ -226,6 +236,11 @@ pub fn release_inbound_unlock<'info>(
     args: ReleaseInboundArgs,
 ) -> Result<()> {
     let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+    if inbox_item.is_none() {
+        return Ok(());
+    }
+    let inbox_item = inbox_item.unwrap();
+    assert!(inbox_item.release_status == ReleaseStatus::Released);
 
     onchain::invoke_transfer_checked(
         &ctx.accounts.common.token_program.key(),
@@ -243,14 +258,15 @@ pub fn release_inbound_unlock<'info>(
     )?;
     Ok(())
 }
-
-fn release_inbox_item(inbox_item: &mut InboxItem, revert_on_delay: bool) -> Result<&mut InboxItem> {
+fn release_inbox_item(
+    inbox_item: &mut InboxItem,
+    revert_on_delay: bool,
+) -> Result<Option<&mut InboxItem>> {
     if inbox_item.try_release()? {
-        assert!(inbox_item.release_status == ReleaseStatus::Released);
-        Ok(inbox_item)
+        Ok(Some(inbox_item))
     } else if revert_on_delay {
         Err(NTTError::CantReleaseYet.into())
     } else {
-        Ok(inbox_item)
+        Ok(None)
     }
 }
