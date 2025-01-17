@@ -37,6 +37,8 @@ pub struct Initialize<'info> {
     )]
     pub config: Box<Account<'info, crate::config::Config>>,
 
+    // NOTE: this account is unconstrained and is the responsibility of the
+    // handler to constrain it
     pub mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     #[account(
