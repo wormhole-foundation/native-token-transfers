@@ -5,7 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
 import "../../src/interfaces/INttManager.sol";
-import "../../src/interfaces/IWormholeTransceiver.sol";
+import "example-messaging-endpoint/evm/src/interfaces/IAdapter.sol";
 
 contract ParseNttConfig is Script {
     using stdJson for string;
@@ -15,6 +15,7 @@ contract ParseNttConfig is Script {
     struct ChainConfig {
         uint16 chainId;
         uint8 decimals;
+        uint128 gasLimit;
         uint256 inboundLimit;
         bool isEvmChain;
         bool isSpecialRelayingEnabled;
@@ -47,11 +48,7 @@ contract ParseNttConfig is Script {
         uint16 wormholeChainId
     )
         internal
-        returns (
-            ChainConfig[] memory config,
-            INttManager nttManager,
-            IWormholeTransceiver wormholeTransceiver
-        )
+        returns (ChainConfig[] memory config, INttManager nttManager, IAdapter wormholeTransceiver)
     {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/cfg/WormholeNttConfig.json");
@@ -83,8 +80,7 @@ contract ParseNttConfig is Script {
             // Set the contract addresses for this chain.
             if (config[i].chainId == wormholeChainId) {
                 nttManager = INttManager(fromUniversalAddress(config[i].nttManager));
-                wormholeTransceiver =
-                    IWormholeTransceiver(fromUniversalAddress(config[i].wormholeTransceiver));
+                wormholeTransceiver = IAdapter(fromUniversalAddress(config[i].wormholeTransceiver));
             }
         }
     }

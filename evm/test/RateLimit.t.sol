@@ -12,11 +12,22 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./libraries/TransceiverHelpers.sol";
 import "./libraries/NttManagerHelpers.sol";
 import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
+import "./mocks/MockNttManager.sol";
+import "./mocks/MockEndpoint.sol";
+import "./mocks/MockExecutor.sol";
+import "./mocks/DummyTransceiver.sol";
 
 pragma solidity >=0.8.8 <0.9.0;
 
 contract TestRateLimit is Test, IRateLimiterEvents {
+    MockEndpoint endpoint;
+    MockEndpoint endpointOther;
+    MockExecutor executor;
+    MockExecutor executorOther;
     MockNttManagerContract nttManager;
+    MockNttManagerContract nttManagerOther;
+    DummyTransceiver transceiver;
+    DummyTransceiver transceiverOther;
 
     using TrimmedAmountLib for uint256;
     using TrimmedAmountLib for TrimmedAmount;
@@ -24,6 +35,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
     uint16 constant chainId = 7;
     uint16 constant chainId2 = 8;
+
+    address user_A = address(0x123);
+    address user_B = address(0x456);
 
     uint256 constant DEVNET_GUARDIAN_PK =
         0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
@@ -38,19 +52,68 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
 
+        endpoint = new MockEndpoint(chainId);
+        endpointOther = new MockEndpoint(chainId2);
+
+        executor = new MockExecutor(chainId);
+        executorOther = new MockExecutor(chainId2);
+
         DummyToken t = new DummyToken();
         NttManager implementation = new MockNttManagerContract(
-            address(t), IManagerBase.Mode.LOCKING, chainId, 1 days, false
+            address(endpoint),
+            address(executor),
+            address(t),
+            IManagerBase.Mode.LOCKING,
+            chainId,
+            1 days,
+            false
+        );
+
+        NttManager implementationOther = new MockNttManagerContract(
+            address(endpointOther),
+            address(executorOther),
+            address(t),
+            IManagerBase.Mode.LOCKING,
+            chainId2,
+            1 days,
+            false
         );
 
         nttManager = MockNttManagerContract(address(new ERC1967Proxy(address(implementation), "")));
         nttManager.initialize();
 
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        nttManagerOther =
+            MockNttManagerContract(address(new ERC1967Proxy(address(implementationOther), "")));
+        nttManagerOther.initialize();
 
-        DummyTransceiver e = new DummyTransceiver(address(nttManager));
-        nttManager.setTransceiver(address(e));
+        nttManager.setPeer(
+            chainId2,
+            toWormholeFormat(address(nttManagerOther)),
+            t.decimals(),
+            NttManagerHelpersLib.gasLimit,
+            type(uint64).max
+        );
+
+        nttManagerOther.setPeer(
+            chainId,
+            toWormholeFormat(address(nttManager)),
+            t.decimals(),
+            NttManagerHelpersLib.gasLimit,
+            type(uint64).max
+        );
+
+        transceiver = new DummyTransceiver(chainId, address(endpoint));
+        nttManager.setTransceiver(address(transceiver));
+        nttManager.enableSendTransceiver(chainId2, address(transceiver));
+        nttManager.enableRecvTransceiver(chainId2, address(transceiver));
+
+        transceiverOther = new DummyTransceiver(chainId2, address(endpointOther));
+        nttManagerOther.setTransceiver(address(transceiverOther));
+        nttManagerOther.enableSendTransceiver(chainId, address(transceiverOther));
+        nttManagerOther.enableRecvTransceiver(chainId, address(transceiverOther));
     }
+
+    function test_setUp() public {}
 
     function test_outboundRateLimit_setLimitSimple() public {
         DummyToken token = DummyToken(nttManager.token());
@@ -72,9 +135,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
     function test_outboundRateLimit() public {
         // transfer 3 tokens
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -93,7 +153,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -119,9 +181,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
     function test_outboundRateLimit_setHigherLimit() public {
         // transfer 3 tokens
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -140,7 +199,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -166,9 +227,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
     function test_outboundRateLimit_setLowerLimit() public {
         // transfer 3 tokens
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -187,7 +245,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -208,9 +268,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
     function test_outboundRateLimit_setHigherLimit_duration() public {
         // transfer 3 tokens
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -229,7 +286,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -264,9 +323,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
     function test_outboundRateLimit_setLowerLimit_durationCaseOne() public {
         // transfer 3 tokens
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -285,7 +341,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -312,9 +370,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     }
 
     function test_outboundRateLimit_setLowerLimit_durationCaseTwo() public {
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -335,7 +390,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -369,9 +426,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     }
 
     function test_outboundRateLimit_singleHit() public {
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -385,6 +439,10 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 transferAmount = 3 * 10 ** decimals;
         token.approve(address(nttManager), transferAmount);
 
+        bytes memory executorSignedQuote = executor.createSignedQuote(executorOther.chainId());
+        bytes memory executorRelayInstructions = executor.createRelayInstructions();
+        bytes memory adapterInstructions = endpoint.createAdapterInstructions();
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 IRateLimiter.NotEnoughCapacity.selector, outboundLimit, transferAmount
@@ -396,14 +454,13 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executorSignedQuote,
+            executorRelayInstructions,
+            adapterInstructions
         );
     }
 
     function test_outboundRateLimit_multiHit() public {
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -422,7 +479,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         // assert that first transfer went through
@@ -437,6 +496,10 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 badTransferAmount = 2 * 10 ** decimals;
         token.approve(address(nttManager), badTransferAmount);
 
+        bytes memory executorSignedQuote = executor.createSignedQuote(executorOther.chainId());
+        bytes memory executorRelayInstructions = executor.createRelayInstructions();
+        bytes memory adapterInstructions = endpoint.createAdapterInstructions();
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 IRateLimiter.NotEnoughCapacity.selector,
@@ -450,7 +513,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executorSignedQuote,
+            executorRelayInstructions,
+            adapterInstructions
         );
     }
 
@@ -460,9 +525,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     // test that it exits queue after >= rateLimitDuration
     // test that it's removed from queue and can't be replayed
     function test_outboundRateLimit_queue() public {
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -483,7 +545,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             true,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId(), 2 days), // We are going to warp the time below.
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         // assert that the transfer got queued up
@@ -523,21 +587,17 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     }
 
     function test_inboundRateLimit_simple() public {
-        address user_B = address(0x456);
-
-        (DummyTransceiver e1, DummyTransceiver e2) =
-            TransceiverHelpersLib.setup_transceivers(nttManager);
+        DummyTransceiver[] memory transceiversOther = new DummyTransceiver[](2);
+        (transceiversOther[0], transceiversOther[1]) =
+            TransceiverHelpersLib.addTransceiver(nttManagerOther, transceiverOther, chainId);
 
         DummyToken token = DummyToken(nttManager.token());
 
-        ITransceiverReceiver[] memory transceivers = new ITransceiverReceiver[](2);
-        transceivers[0] = e1;
-        transceivers[1] = e2;
-
         TrimmedAmount transferAmount = packTrimmedAmount(50, 8);
         TrimmedAmount limitAmount = packTrimmedAmount(100, 8);
-        TransceiverHelpersLib.attestTransceiversHelper(
-            user_B, 0, chainId, nttManager, nttManager, transferAmount, limitAmount, transceivers
+
+        TransceiverHelpersLib.transferAttestAndReceive(
+            user_B, 0, nttManager, nttManagerOther, transferAmount, limitAmount, transceiversOther
         );
 
         // assert that the user received tokens
@@ -545,7 +605,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         // assert that the inbound limits updated
         IRateLimiter.RateLimitParams memory inboundLimitParams =
-            nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
+            nttManagerOther.getInboundLimitParams(chainId);
         assertEq(
             inboundLimitParams.currentCapacity.getAmount(),
             (limitAmount - (transferAmount)).getAmount()
@@ -563,49 +623,39 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     }
 
     function test_inboundRateLimit_queue() public {
-        address user_B = address(0x456);
-
-        (DummyTransceiver e1, DummyTransceiver e2) =
-            TransceiverHelpersLib.setup_transceivers(nttManager);
-
         DummyToken token = DummyToken(nttManager.token());
 
-        ITransceiverReceiver[] memory transceivers = new ITransceiverReceiver[](1);
-        transceivers[0] = e1;
+        DummyTransceiver[] memory transceivers = new DummyTransceiver[](2);
+        (transceivers[0], transceivers[1]) =
+            TransceiverHelpersLib.addTransceiver(nttManagerOther, transceiverOther, chainId);
 
-        TransceiverStructs.NttManagerMessage memory m;
-        bytes memory encodedEm;
-        {
-            TransceiverStructs.TransceiverMessage memory em;
-            (m, em) = TransceiverHelpersLib.attestTransceiversHelper(
-                user_B,
-                0,
-                chainId,
-                nttManager,
-                nttManager,
-                packTrimmedAmount(50, 8),
-                uint256(5).trim(token.decimals(), token.decimals()),
-                transceivers
-            );
-            encodedEm = TransceiverStructs.encodeTransceiverMessage(
-                TransceiverHelpersLib.TEST_TRANSCEIVER_PAYLOAD_PREFIX, em
-            );
-        }
+        (
+            TransceiverStructs.NttManagerMessage memory m,
+            bytes memory encodedM,
+            DummyTransceiver.Message memory rmsg
+        ) = TransceiverHelpersLib.transferAndAttest(
+            user_B,
+            0,
+            nttManager,
+            nttManagerOther,
+            packTrimmedAmount(50, 8),
+            uint256(5).trim(token.decimals(), token.decimals()),
+            transceivers
+        );
 
-        bytes32 digest =
-            TransceiverStructs.nttManagerMessageDigest(TransceiverHelpersLib.SENDING_CHAIN_ID, m);
+        bytes32 digest = TransceiverStructs.nttManagerMessageDigest(chainId, m);
 
-        // no quorum yet
+        // Haven't executed yet.
         assertEq(token.balanceOf(address(user_B)), 0);
 
-        vm.expectEmit(address(nttManager));
+        vm.expectEmit(address(nttManagerOther));
         emit InboundTransferQueued(digest);
-        e2.receiveMessage(encodedEm);
+        nttManagerOther.executeMsg(rmsg.srcChain, rmsg.srcAddr, rmsg.sequence, encodedM);
 
         {
             // now we have quorum but it'll hit limit
             IRateLimiter.InboundQueuedTransfer memory qt =
-                nttManager.getInboundQueuedTransfer(digest);
+                nttManagerOther.getInboundQueuedTransfer(digest);
             assertEq(qt.amount.getAmount(), 50);
             assertEq(qt.txTimestamp, initialBlockTimestamp);
             assertEq(qt.recipient, user_B);
@@ -615,7 +665,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         assertEq(token.balanceOf(address(user_B)), 0);
 
         // change block time to (duration - 1) seconds later
-        uint256 durationElapsedTime = initialBlockTimestamp + nttManager.rateLimitDuration();
+        uint256 durationElapsedTime = initialBlockTimestamp + nttManagerOther.rateLimitDuration();
         vm.warp(durationElapsedTime - 1);
 
         {
@@ -627,49 +677,26 @@ contract TestRateLimit is Test, IRateLimiterEvents {
                     initialBlockTimestamp
                 )
             );
-            nttManager.completeInboundQueuedTransfer(digest);
+            nttManagerOther.completeInboundQueuedTransfer(digest);
         }
 
         // now complete transfer
         vm.warp(durationElapsedTime);
-        nttManager.completeInboundQueuedTransfer(digest);
+        nttManagerOther.completeInboundQueuedTransfer(digest);
 
         {
             // assert transfer no longer in queue
             vm.expectRevert(
                 abi.encodeWithSelector(IRateLimiter.InboundQueuedTransferNotFound.selector, digest)
             );
-            nttManager.completeInboundQueuedTransfer(digest);
+            nttManagerOther.completeInboundQueuedTransfer(digest);
         }
 
         // assert user now has funds
         assertEq(token.balanceOf(address(user_B)), 50 * 10 ** (token.decimals() - 8));
-
-        // replay protection on executeMsg
-        vm.recordLogs();
-        nttManager.executeMsg(
-            TransceiverHelpersLib.SENDING_CHAIN_ID, toWormholeFormat(address(nttManager)), m
-        );
-
-        {
-            Vm.Log[] memory entries = vm.getRecordedLogs();
-            assertEq(entries.length, 1);
-            assertEq(entries[0].topics.length, 3);
-            assertEq(entries[0].topics[0], keccak256("MessageAlreadyExecuted(bytes32,bytes32)"));
-            assertEq(entries[0].topics[1], toWormholeFormat(address(nttManager)));
-            assertEq(
-                entries[0].topics[2],
-                TransceiverStructs.nttManagerMessageDigest(
-                    TransceiverHelpersLib.SENDING_CHAIN_ID, m
-                )
-            );
-        }
     }
 
     function test_circular_flow() public {
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
@@ -691,7 +718,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -717,15 +746,13 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         vm.warp(receiveTime);
 
         // now receive 10 tokens from user_B -> user_A
-        (DummyTransceiver e1, DummyTransceiver e2) =
-            TransceiverHelpersLib.setup_transceivers(nttManager);
 
-        ITransceiverReceiver[] memory transceivers = new ITransceiverReceiver[](2);
-        transceivers[0] = e1;
-        transceivers[1] = e2;
+        DummyTransceiver[] memory transceivers = new DummyTransceiver[](2);
+        (transceivers[0], transceivers[1]) =
+            TransceiverHelpersLib.addTransceiver(nttManager, transceiver, chainId2);
 
-        TransceiverHelpersLib.attestTransceiversHelper(
-            user_A, 0, chainId, nttManager, nttManager, transferAmount, mintAmount, transceivers
+        TransceiverHelpersLib.transferAttestAndReceive(
+            user_A, 0, nttManagerOther, nttManager, transferAmount, mintAmount, transceivers
         );
 
         // assert that user_A has original amount
@@ -735,7 +762,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             // consume capacity on the inbound side
             // assert that the inbound capacity decreased
             IRateLimiter.RateLimitParams memory inboundLimitParams =
-                nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
+                nttManager.getInboundLimitParams(chainId2);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(),
                 (inboundLimitParams.limit - transferAmount).getAmount()
@@ -766,11 +793,13 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         nttManager.transfer(
             transferAmount.untrim(decimals),
-            TransceiverHelpersLib.SENDING_CHAIN_ID,
+            chainId2,
             toWormholeFormat(user_B),
             toWormholeFormat(userA),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -789,7 +818,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         {
             // assert that the inbound limit is at max again (because of backflow)
             IRateLimiter.RateLimitParams memory inboundLimitParams =
-                nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
+                nttManager.getInboundLimitParams(chainId2);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(), inboundLimitParams.limit.getAmount()
             );
@@ -798,26 +827,19 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     }
 
     // helper functions
-    function setupToken() public returns (address, address, DummyToken, uint8) {
-        address user_A = address(0x123);
-        address user_B = address(0x456);
-
+    function setupToken() public returns (DummyToken, uint8) {
         DummyToken token = DummyToken(nttManager.token());
 
         uint8 decimals = token.decimals();
         assertEq(decimals, 18);
 
-        return (user_A, user_B, token, decimals);
+        return (token, decimals);
     }
 
-    function initializeTransceivers() public returns (ITransceiverReceiver[] memory) {
-        (DummyTransceiver e1, DummyTransceiver e2) =
-            TransceiverHelpersLib.setup_transceivers(nttManager);
-
-        ITransceiverReceiver[] memory transceivers = new ITransceiverReceiver[](2);
-        transceivers[0] = e1;
-        transceivers[1] = e2;
-
+    function initializeTransceivers() public returns (DummyTransceiver[] memory) {
+        DummyTransceiver[] memory transceivers = new DummyTransceiver[](2);
+        (transceivers[0], transceivers[1]) =
+            TransceiverHelpersLib.addTransceiver(nttManager, transceiver, chainId2);
         return transceivers;
     }
 
@@ -849,7 +871,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // enforces transferAmt <= mintAmt
         transferAmt = bound(transferAmt, 0, mintAmt);
 
-        (address user_A, address user_B, DummyToken token, uint8 decimals) = setupToken();
+        (DummyToken token, uint8 decimals) = setupToken();
 
         // allow for amounts greater than uint64 to check if [`setOutboundLimit`] reverts
         // on amounts greater than u64 MAX.
@@ -873,6 +895,10 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // check error conditions
         // revert if amount to be transferred is 0
         if (transferAmount.getAmount() == 0) {
+            bytes memory executorSignedQuote = executor.createSignedQuote(executorOther.chainId());
+            bytes memory executorRelayInstructions = executor.createRelayInstructions();
+            bytes memory adapterInstructions = endpoint.createAdapterInstructions();
+
             vm.expectRevert(abi.encodeWithSelector(INttManager.ZeroAmount.selector));
             nttManager.transfer(
                 transferAmount.untrim(decimals),
@@ -880,7 +906,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
                 toWormholeFormat(user_B),
                 toWormholeFormat(user_A),
                 false,
-                new bytes(1)
+                executorSignedQuote,
+                executorRelayInstructions,
+                adapterInstructions
             );
 
             return;
@@ -893,7 +921,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -918,10 +948,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint256 receiveTime = initialBlockTimestamp + 1;
         vm.warp(receiveTime);
 
-        ITransceiverReceiver[] memory transceivers = initializeTransceivers();
-        // now receive tokens from user_B -> user_A
-        TransceiverHelpersLib.attestTransceiversHelper(
-            user_A, 0, chainId, nttManager, nttManager, transferAmount, mintAmount, transceivers
+        DummyTransceiver[] memory transceivers = initializeTransceivers();
+        TransceiverHelpersLib.transferAttestAndReceive(
+            user_A, 0, nttManagerOther, nttManager, transferAmount, mintAmount, transceivers
         );
 
         // assert that user_A has original amount
@@ -931,7 +960,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             // consume capacity on the inbound side
             // assert that the inbound capacity decreased
             IRateLimiter.RateLimitParams memory inboundLimitParams =
-                nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
+                nttManager.getInboundLimitParams(chainId2);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(),
                 (inboundLimitParams.limit - transferAmount).getAmount()
@@ -959,11 +988,13 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         nttManager.transfer(
             transferAmount.untrim(decimals),
-            TransceiverHelpersLib.SENDING_CHAIN_ID,
+            chainId2,
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             false,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId()),
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         vm.stopPrank();
@@ -982,7 +1013,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         {
             // assert that the inbound limit is at max again (because of backflow)
             IRateLimiter.RateLimitParams memory inboundLimitParams =
-                nttManager.getInboundLimitParams(TransceiverHelpersLib.SENDING_CHAIN_ID);
+                nttManager.getInboundLimitParams(chainId2);
             assertEq(
                 inboundLimitParams.currentCapacity.getAmount(), inboundLimitParams.limit.getAmount()
             );
@@ -992,8 +1023,6 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
     function testFuzz_outboundRateLimitShouldQueue(uint256 limitAmt, uint256 transferAmt) public {
         // setup
-        address user_A = address(0x123);
-        address user_B = address(0x456);
         DummyToken token = DummyToken(nttManager.token());
         uint8 decimals = token.decimals();
 
@@ -1023,7 +1052,9 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             toWormholeFormat(user_B),
             toWormholeFormat(user_A),
             true,
-            new bytes(1)
+            executor.createSignedQuote(executorOther.chainId(), 2 days), // We are going to warp the time below.
+            executor.createRelayInstructions(),
+            endpoint.createAdapterInstructions()
         );
 
         // assert that the transfer got queued up
@@ -1065,52 +1096,60 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     function testFuzz_inboundRateLimitShouldQueue(uint256 inboundLimitAmt, uint256 amount) public {
         amount = bound(amount, 1, type(uint64).max);
         inboundLimitAmt = bound(amount, 0, amount - 1);
-
-        address user_B = address(0x456);
-
-        (DummyTransceiver e1, DummyTransceiver e2) =
-            TransceiverHelpersLib.setup_transceivers(nttManager);
-
         DummyToken token = DummyToken(nttManager.token());
 
-        ITransceiverReceiver[] memory transceivers = new ITransceiverReceiver[](1);
-        transceivers[0] = e1;
+        DummyTransceiver[] memory transceivers = new DummyTransceiver[](2);
+        (transceivers[0], transceivers[1]) =
+            TransceiverHelpersLib.addTransceiver(nttManagerOther, transceiverOther, chainId);
 
-        TransceiverStructs.NttManagerMessage memory m;
-        bytes memory encodedEm;
+        // TransceiverStructs.NttManagerMessage memory m;
+        // bytes memory encodedEm;
         uint256 inboundLimit = inboundLimitAmt;
         TrimmedAmount trimmedAmount = packTrimmedAmount(uint64(amount), 8);
-        {
-            TransceiverStructs.TransceiverMessage memory em;
-            (m, em) = TransceiverHelpersLib.attestTransceiversHelper(
-                user_B,
-                0,
-                chainId,
-                nttManager,
-                nttManager,
-                trimmedAmount,
-                inboundLimit.trim(token.decimals(), token.decimals()),
-                transceivers
-            );
-            encodedEm = TransceiverStructs.encodeTransceiverMessage(
-                TransceiverHelpersLib.TEST_TRANSCEIVER_PAYLOAD_PREFIX, em
-            );
-        }
+        // {
+        //     TransceiverStructs.TransceiverMessage memory em;
+        //     (m, em) = TransceiverHelpersLib.attestTransceiversHelper(
+        //         user_B,
+        //         0,
+        //         chainId,
+        //         nttManager,
+        //         nttManager,
+        //         trimmedAmount,
+        //         inboundLimit.trim(token.decimals(), token.decimals()),
+        //         transceivers
+        //     );
+        //     encodedEm = TransceiverStructs.encodeTransceiverMessage(
+        //         TransceiverHelpersLib.TEST_TRANSCEIVER_PAYLOAD_PREFIX, em
+        //     );
+        // }
 
-        bytes32 digest =
-            TransceiverStructs.nttManagerMessageDigest(TransceiverHelpersLib.SENDING_CHAIN_ID, m);
+        (
+            TransceiverStructs.NttManagerMessage memory m,
+            bytes memory encodedM,
+            DummyTransceiver.Message memory rmsg
+        ) = TransceiverHelpersLib.transferAndAttest(
+            user_B,
+            0,
+            nttManager,
+            nttManagerOther,
+            trimmedAmount,
+            inboundLimit.trim(token.decimals(), token.decimals()),
+            transceivers
+        );
 
-        // no quorum yet
+        bytes32 digest = TransceiverStructs.nttManagerMessageDigest(chainId, m);
+
+        // Haven't executed yet.
         assertEq(token.balanceOf(address(user_B)), 0);
 
-        vm.expectEmit(address(nttManager));
+        vm.expectEmit(address(nttManagerOther));
         emit InboundTransferQueued(digest);
-        e2.receiveMessage(encodedEm);
+        nttManagerOther.executeMsg(rmsg.srcChain, rmsg.srcAddr, rmsg.sequence, encodedM);
 
         {
             // now we have quorum but it'll hit limit
             IRateLimiter.InboundQueuedTransfer memory qt =
-                nttManager.getInboundQueuedTransfer(digest);
+                nttManagerOther.getInboundQueuedTransfer(digest);
             assertEq(qt.amount.getAmount(), trimmedAmount.getAmount());
             assertEq(qt.txTimestamp, initialBlockTimestamp);
             assertEq(qt.recipient, user_B);
@@ -1120,7 +1159,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         assertEq(token.balanceOf(address(user_B)), 0);
 
         // change block time to (duration - 1) seconds later
-        uint256 durationElapsedTime = initialBlockTimestamp + nttManager.rateLimitDuration();
+        uint256 durationElapsedTime = initialBlockTimestamp + nttManagerOther.rateLimitDuration();
         vm.warp(durationElapsedTime - 1);
 
         {
@@ -1132,19 +1171,19 @@ contract TestRateLimit is Test, IRateLimiterEvents {
                     initialBlockTimestamp
                 )
             );
-            nttManager.completeInboundQueuedTransfer(digest);
+            nttManagerOther.completeInboundQueuedTransfer(digest);
         }
 
         // now complete transfer
         vm.warp(durationElapsedTime);
-        nttManager.completeInboundQueuedTransfer(digest);
+        nttManagerOther.completeInboundQueuedTransfer(digest);
 
         {
             // assert transfer no longer in queue
             vm.expectRevert(
                 abi.encodeWithSelector(IRateLimiter.InboundQueuedTransferNotFound.selector, digest)
             );
-            nttManager.completeInboundQueuedTransfer(digest);
+            nttManagerOther.completeInboundQueuedTransfer(digest);
         }
 
         // assert user now has funds
@@ -1152,25 +1191,5 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             token.balanceOf(address(user_B)),
             trimmedAmount.getAmount() * 10 ** (token.decimals() - 8)
         );
-
-        // replay protection on executeMsg
-        vm.recordLogs();
-        nttManager.executeMsg(
-            TransceiverHelpersLib.SENDING_CHAIN_ID, toWormholeFormat(address(nttManager)), m
-        );
-
-        {
-            Vm.Log[] memory entries = vm.getRecordedLogs();
-            assertEq(entries.length, 1);
-            assertEq(entries[0].topics.length, 3);
-            assertEq(entries[0].topics[0], keccak256("MessageAlreadyExecuted(bytes32,bytes32)"));
-            assertEq(entries[0].topics[1], toWormholeFormat(address(nttManager)));
-            assertEq(
-                entries[0].topics[2],
-                TransceiverStructs.nttManagerMessageDigest(
-                    TransceiverHelpersLib.SENDING_CHAIN_ID, m
-                )
-            );
-        }
     }
 }

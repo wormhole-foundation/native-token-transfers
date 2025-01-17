@@ -23,6 +23,7 @@
     "@types/node": "^20.12.2",
     "@wormhole-foundation/sdk": "^1.0.0",
     "@wormhole-foundation/wormchain-sdk": "^0.0.1",
+    "axios": "^1.7.9",
     "ethers": "^6.5.1",
     "ts-jest": "^29.1.2",
     "tsx": "^4.7.2",

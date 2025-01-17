@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
+import "example-messaging-endpoint/evm/src/libraries/UniversalAddress.sol";
+
 import "../libraries/TrimmedAmount.sol";
 import "../libraries/TransceiverStructs.sol";
 
@@ -11,6 +13,7 @@ interface INttManager is IManagerBase {
     struct NttManagerPeer {
         bytes32 peerAddress;
         uint8 tokenDecimals;
+        uint128 gasLimit;
     }
 
     /// @notice Emitted when a message is sent from the nttManager.
@@ -141,8 +144,19 @@ interface INttManager is IManagerBase {
     /// @dev Selector 0x20371f2a.
     error InvalidPeerSameChainId();
 
+    /// @notice Threshold has not been met for an attestation.
+    /// @dev Selector 0xf6f12287.
+    /// @param threshold The required threshold.
+    /// @param numAttested The number of attestations for this message.
+    error ThresholdNotMet(uint8 threshold, uint8 numAttested);
+
     /// @notice Feature is not implemented.
     error NotImplemented();
+
+    /// @notice The gas limit for the specified chain is not set.
+    /// @dev Selector 0xb30dea62.
+    /// @param destChain The chain ID for which the gas limit is not set.
+    error InvalidGasLimitZero(uint16 destChain);
 
     /// @notice Transfer a given amount to a recipient on a given chain. This function is called
     ///         by the user to send the token cross-chain. This function will either lock or burn the
@@ -151,11 +165,17 @@ interface INttManager is IManagerBase {
     /// @param amount The amount to transfer.
     /// @param recipientChain The Wormhole chain ID for the destination.
     /// @param recipient The recipient address.
+    /// @param executorQuote The signed quote to be passed to the executor.
+    /// @param relayInstructions The relay instructions to be passed to the executor.
+    /// @param transceiverInstructions The adapter instructions to be passed to the endpoint.
     /// @return msgId The resulting message ID of the transfer
     function transfer(
         uint256 amount,
         uint16 recipientChain,
-        bytes32 recipient
+        bytes32 recipient,
+        bytes calldata executorQuote,
+        bytes calldata relayInstructions,
+        bytes calldata transceiverInstructions
     ) external payable returns (uint64 msgId);
 
     /// @notice Transfer a given amount to a recipient on a given chain. This function is called
@@ -166,9 +186,11 @@ interface INttManager is IManagerBase {
     /// @param amount The amount to transfer.
     /// @param recipientChain The Wormhole chain ID for the destination.
     /// @param recipient The recipient address.
-    /// @param refundAddress The address to which a refund for unussed gas is issued on the recipient chain.
+    /// @param refundAddress The address to which a refund for unused gas is issued on the recipient chain.
     /// @param shouldQueue Whether the transfer should be queued if the outbound limit is hit.
-    /// @param encodedInstructions Additional instructions to be forwarded to the recipient chain.
+    /// @param executorQuote The signed quote to be passed to the executor.
+    /// @param relayInstructions The relay instructions to be passed to the executor.
+    /// @param transceiverInstructions The adapter instructions to be passed to the endpoint.
     /// @return msgId The resulting message ID of the transfer
     function transfer(
         uint256 amount,
@@ -176,7 +198,9 @@ interface INttManager is IManagerBase {
         bytes32 recipient,
         bytes32 refundAddress,
         bool shouldQueue,
-        bytes memory encodedInstructions
+        bytes calldata executorQuote,
+        bytes calldata relayInstructions,
+        bytes calldata transceiverInstructions
     ) external payable returns (uint64 msgId);
 
     /// @notice Complete an outbound transfer that's been queued.
@@ -200,31 +224,20 @@ interface INttManager is IManagerBase {
         bytes32 digest
     ) external;
 
-    /// @notice Called by an Endpoint contract to deliver a verified attestation.
-    /// @dev This function enforces attestation threshold and replay logic for messages. Once all
-    ///      validations are complete, this function calls `executeMsg` to execute the command specified
-    ///      by the message.
-    /// @param sourceChainId The Wormhole chain id of the sender.
-    /// @param sourceNttManagerAddress The address of the sender's NTT Manager contract.
-    /// @param payload The VAA payload.
-    function attestationReceived(
-        uint16 sourceChainId,
-        bytes32 sourceNttManagerAddress,
-        TransceiverStructs.NttManagerMessage memory payload
-    ) external;
-
     /// @notice Called after a message has been sufficiently verified to execute
     ///         the command in the message. This function will decode the payload
     ///         as an NttManagerMessage to extract the sequence, msgType, and other parameters.
     /// @dev This function is exposed as a fallback for when an `Transceiver` is deregistered
     ///      when a message is in flight.
-    /// @param sourceChainId The Wormhole chain id of the sender.
-    /// @param sourceNttManagerAddress The address of the sender's nttManager contract.
-    /// @param message The message to execute.
+    /// @param srcChain The Wormhole chain ID of the sender.
+    /// @param srcAddr The universal address of the peer on the sending chain.
+    /// @param sequence The sequence number of the message (per integrator).
+    /// @param payload The message to execute.
     function executeMsg(
-        uint16 sourceChainId,
-        bytes32 sourceNttManagerAddress,
-        TransceiverStructs.NttManagerMessage memory message
+        uint16 srcChain,
+        UniversalAddress srcAddr,
+        uint64 sequence,
+        bytes memory payload
     ) external;
 
     /// @notice Returns the number of decimals of the token managed by the NttManager.
@@ -242,14 +255,22 @@ interface INttManager is IManagerBase {
     /// @param peerChainId The Wormhole chain ID of the peer.
     /// @param peerContract The address of the peer nttManager contract.
     /// @param decimals The number of decimals of the token on the peer chain.
+    /// @param gasLimit The gas limit for the peer chain.
     /// @param inboundLimit The inbound rate limit for the peer chain id. This is formatted in the normal
     ///                     token representation. e.g. a limit of 100 for a token with 6 decimals = 100_000_000
     function setPeer(
         uint16 peerChainId,
         bytes32 peerContract,
         uint8 decimals,
+        uint128 gasLimit,
         uint256 inboundLimit
     ) external;
+
+    /// @notice Sets the gas limit for a given chain.
+    /// @dev This method can only be executed by the `owner`.
+    /// @param peerChainId The Wormhole chain ID of the peer.
+    /// @param limit The new gas limit.
+    function setGasLimit(uint16 peerChainId, uint128 limit) external;
 
     /// @notice Sets the outbound transfer limit for a given chain.
     /// @dev This method can only be executed by the `owner`.

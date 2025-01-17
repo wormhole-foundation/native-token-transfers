@@ -1,0 +1,13 @@
+FROM node:20.11.1-alpine@sha256:f4c96a28c0b2d8981664e03f461c2677152cd9a756012ffa8e2c6727427c2bda
+
+RUN apk add git
+
+WORKDIR /usr/src/
+
+RUN git init && \
+    git remote add origin https://github.com/wormholelabs-xyz/example-messaging-executor && \
+    git fetch --depth 1 origin 0b0ae41d2e3c8dbda3107074080ad586021f75a9 && \
+    git checkout FETCH_HEAD
+
+RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.npm \
+  npm ci

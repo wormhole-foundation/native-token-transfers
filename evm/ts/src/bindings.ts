@@ -1,16 +1,12 @@
 import { Provider } from "ethers";
 
-import { _0_1_0, _1_0_0, _1_1_0 } from "./ethers-contracts/index.js";
+import { _0_1_0, _1_0_0, _1_1_0, _2_0_0 } from "./ethers-contracts/index.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 // This is a descending list of all ABI versions the SDK is aware of.
 // We check for the first match in descending order, allowing for higher minor and patch versions
 // being used by the live contract (these are supposed to still be compatible with older ABIs).
-export const abiVersions = [
-  ["1.1.0", _1_1_0],
-  ["1.0.0", _1_0_0],
-  ["0.1.0", _0_1_0],
-] as const;
+export const abiVersions = [["2.0.0", _2_0_0]] as const;
 export type AbiVersion = (typeof abiVersions)[number][0];
 
 export interface NttBindings {
@@ -32,7 +28,7 @@ export interface NttTransceiverBindings {
 }
 
 export namespace NttManagerBindings {
-  export type NttManager = ReturnType<typeof _0_1_0.NttManager.connect>;
+  export type NttManager = ReturnType<typeof _2_0_0.NttManager.connect>;
 }
 
 export interface NttManagerBindings {

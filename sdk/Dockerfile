@@ -15,10 +15,11 @@ COPY --from=ntt-evm-contract . evm/out
 RUN rm -rf evm/out/ts
 
 
-COPY . ./ 
+COPY package.json package-lock.json ./
 RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.npm \
   npm ci
 
+COPY . ./ 
 RUN npm run build
 RUN npm run generate:test
 

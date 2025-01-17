@@ -91,6 +91,7 @@ export namespace Ntt {
   export type Peer<C extends Chain> = {
     address: ChainAddress<C>;
     tokenDecimals: number;
+    gasLimit: bigint;
     inboundLimit: bigint;
   };
 
@@ -182,11 +183,12 @@ export interface Ntt<N extends Network, C extends Chain> {
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
-  getThreshold(): Promise<number>;
+  getThreshold(chainId: number): Promise<number>;
 
   setPeer(
     peer: ChainAddress,
     tokenDecimals: number,
+    gasLimit: bigint,
     inboundLimit: bigint,
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;

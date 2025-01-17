@@ -14,26 +14,55 @@ docker_build(
     ignore=["./sdk/__tests__", "./sdk/Dockerfile", "./sdk/ci.yaml", "./sdk/**/dist", "./sdk/node_modules", "./sdk/**/node_modules"],
     dockerfile = "./solana/Dockerfile",
 )
-docker_build(
-    ref = "solana-test-validator",
-    context = "solana",
-    dockerfile = "solana/Dockerfile.test-validator"
-)
-k8s_yaml_with_ns("./solana/solana-devnet.yaml")
-k8s_resource(
-    "solana-devnet",
-    labels = ["anchor-ntt"],
-    port_forwards = [
-        port_forward(8899, name = "Solana RPC [:8899]"),
-        port_forward(8900, name = "Solana WS [:8900]"),
-    ],
-)
+# docker_build(
+#     ref = "solana-test-validator",
+#     context = "solana",
+#     dockerfile = "solana/Dockerfile.test-validator"
+# )
+# k8s_yaml_with_ns("./solana/solana-devnet.yaml")
+# k8s_resource(
+#     "solana-devnet",
+#     labels = ["anchor-ntt"],
+#     port_forwards = [
+#         port_forward(8899, name = "Solana RPC [:8899]"),
+#         port_forward(8900, name = "Solana WS [:8900]"),
+#     ],
+# )
 
 # EVM build
 docker_build(
     ref = "ntt-evm-contract",
     context = "./evm",
     dockerfile = "./evm/Dockerfile",
+)
+
+# MM and Executor Contract Deploy / Setup
+docker_build(
+    ref = "executor-deploy",
+    context = "tilt",
+    dockerfile = "tilt/Dockerfile.deploy",
+    only = ["deploy.sh"]
+)
+docker_build(
+    ref = "executor",
+    context = "tilt",
+    dockerfile = "tilt/Dockerfile.executor",
+    only = [],
+)
+k8s_yaml_with_ns("tilt/executor-deploy.yaml") 
+k8s_resource(
+    "executor-deploy",
+    labels = ["executor"],
+    resource_deps = ["eth-devnet", "eth-devnet2"],
+)
+k8s_yaml_with_ns("tilt/executor.yaml") 
+k8s_resource(
+    "executor",
+    labels = ["executor"],
+    resource_deps = ["eth-devnet", "eth-devnet2", "guardian", "executor-deploy"],
+    port_forwards = [
+        port_forward(3000, name = "Executor [:3000]"),
+    ],
 )
 
 # CI tests
@@ -47,5 +76,5 @@ k8s_yaml_with_ns("./sdk/ci.yaml")
 k8s_resource(
     "ntt-ci-tests",
     labels = ["ntt"],
-    resource_deps = ["eth-devnet", "eth-devnet2", "solana-devnet", "guardian", "relayer-engine", "wormchain"],
+    resource_deps = ["eth-devnet", "eth-devnet2", "solana-devnet", "guardian", "relayer-engine", "wormchain", "executor"],
 )

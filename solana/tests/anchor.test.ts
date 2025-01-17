@@ -266,7 +266,7 @@ describe("example-native-token-transfers", () => {
         await signSendWait(ctx, setXcvrPeerTxs, signer);
 
         // Set manager peer
-        const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1000000n, sender);
+        const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1n, 1000000n, sender);
         await signSendWait(ctx, setPeerTxs, signer);
       } catch (e) {
         console.error("Failed to setup peer: ", e);
