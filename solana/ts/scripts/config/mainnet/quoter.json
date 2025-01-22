@@ -193,6 +193,14 @@
       "tokenAddress": "BCC71Yn1f9Tn4p2QVKqhDWQaoHvQj6Qr8QK2m6desRHe",
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
+      "isSupported": false
+    },
+    {
+      "name": "Portal",
+      "programId": "NTT3DKsRKTj7DKnLGM9PskA3qwt5Eeha5hoxkjf6PH6",
+      "tokenAddress": "6QP4vqsnDQC1s53ZbtxEjVA8Xecz5DypurfVXVy9xR33",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
       "isSupported": true
     }
   ],
