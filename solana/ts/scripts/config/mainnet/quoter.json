@@ -202,6 +202,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "VictoriaVR",
+      "programId": "Ntt4DumFpWsaM3MjoHBnbDcK7DfAsmWK7yC4nKK2MbR",
+      "tokenAddress": "7zJqVFQZkZqN7B3bHWWaPig4pBBqwbCVXpFtiDYxaVuX",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
