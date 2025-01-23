@@ -1029,7 +1029,7 @@ export namespace NTT {
       transceiverPdas ?? NTT.transceiverPdas(transceiverProgramId);
 
     const wormholeNTT = args.vaa;
-    const nttMessage = wormholeNTT.payload.nttManagerPayload;
+    const nttMessage = wormholeNTT.payload["nttManagerPayload"];
     const chain = wormholeNTT.emitterChain;
 
     return program.methods

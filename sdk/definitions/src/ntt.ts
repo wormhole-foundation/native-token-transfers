@@ -66,7 +66,6 @@ export namespace Ntt {
   export type Attestation =
     | VAA<"Ntt:WormholeTransfer">
     | VAA<"Ntt:WormholeTransferStandardRelayer">;
-  // | VAA<"Ntt:MultiTokenWormholeTransferStandardRelayer">; // TODO: had to add this for now since MultiToken shares Transceiver type
 
   /**
    * InboundQueuedTransfer is a queued transfer from another chain

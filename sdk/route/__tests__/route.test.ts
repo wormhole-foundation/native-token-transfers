@@ -73,12 +73,6 @@ describe("Manual Route Tests", function () {
     expect(supportedChains).toEqual(["Solana", "Sepolia"]);
   });
 
-  it("Should return supported tokens", async function () {
-    const tokens = await rt.supportedSourceTokens(fromChain);
-    expect(tokens).toHaveLength(1);
-    expect(canonicalAddress(tokens[0]!)).toEqual(SOL_TOKEN);
-  });
-
   it("Should correctly return corresponding destination token", async function () {
     const token = Wormhole.tokenId("Solana", SOL_TOKEN);
     const tokens = await rt.supportedDestinationTokens(
@@ -169,12 +163,6 @@ describe("Automatic Route Tests", function () {
   it("Should return supported chains", function () {
     const supportedChains = rt.supportedChains(network);
     expect(supportedChains).toEqual(["Solana", "Sepolia"]);
-  });
-
-  it("Should return supported tokens", async function () {
-    const tokens = await rt.supportedSourceTokens(fromChain);
-    expect(tokens).toHaveLength(1);
-    expect(canonicalAddress(tokens[0]!)).toEqual(SOL_TOKEN);
   });
 
   it("Should correctly return corresponding destination token", async function () {

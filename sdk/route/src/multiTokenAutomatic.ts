@@ -11,6 +11,7 @@ import {
   TokenId,
   TransactionId,
   TransferState,
+  UnattestedTokenId,
   Wormhole,
   WormholeMessageId,
   amount,
@@ -23,6 +24,7 @@ import {
   isSourceInitiated,
   routes,
   signSendWait,
+  toUniversal,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute } from "./types.js";
@@ -52,17 +54,19 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 {
   static NATIVE_GAS_DROPOFF_SUPPORTED: boolean = false;
 
-  static DEFAULT_RELAYER_GAS_LIMIT: bigint = 300_000n;
-
-  static DEFAULT_RELAYER_GAS_LIMIT_NO_TOKEN: bigint = 1_000_000n;
+  static RELAYER_GAS_LIMIT: bigint = 300_000n;
+  // More gas is needed to create a token if it doesn't exist on the destination chain yet (unattested)
+  static RELAYER_GAS_LIMIT_CREATE_TOKEN: bigint = 1_000_000n;
 
   // @ts-ignore
   // Since we set the config on the static class, access it with this param
   // the MultiTokenNttAutomaticRoute.config will always be empty
   readonly staticConfig = this.constructor.config;
-  static config: MultiTokenNttRoute.Config = { tokens: {} };
+  static config: MultiTokenNttRoute.Config = { contracts: [] };
 
   static meta = { name: "AutomaticMultiTokenNtt" };
+
+  //static unattestedTokenCache = new Map<string, UnattestedTokenId>();
 
   static supportedNetworks(): Network[] {
     return MultiTokenNttRoute.resolveSupportedNetworks(this.config);
@@ -72,11 +76,11 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     return MultiTokenNttRoute.resolveSupportedChains(this.config, network);
   }
 
-  static async supportedSourceTokens(
+  // TODO: remove this, just here to compile
+  static supportedSourceTokens(
     fromChain: ChainContext<Network>
   ): Promise<TokenId[]> {
-    // TODO: technically any source token is supported
-    return MultiTokenNttRoute.resolveSourceTokens(this.config, fromChain);
+    throw new Error("not implemented");
   }
 
   static async supportedDestinationTokens<N extends Network>(
@@ -84,14 +88,71 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     fromChain: ChainContext<N>,
     toChain: ChainContext<N>
   ): Promise<TokenId[]> {
-    // TODO: we will need to fetch the token from the dest chain
-    // it may not have been created yet (how to handle this? dummy token?)
-    return MultiTokenNttRoute.resolveDestinationTokens(
-      this.config,
-      sourceToken,
-      fromChain,
-      toChain
+    if (sourceToken.chain !== fromChain.chain) {
+      return [];
+    }
+
+    const fromNtt = await fromChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
+        this.config,
+        fromChain.chain
+      ),
+    });
+
+    const toNtt = await toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
+        this.config,
+        toChain.chain
+      ),
+    });
+
+    const { address: sourceTokenAddress } = isNative(sourceToken.address)
+      ? await fromChain.getNativeWrappedTokenId()
+      : sourceToken;
+
+    const tokenInfo = await fromNtt.getTokenInfo(sourceTokenAddress);
+
+    // If the token exists on the destination chain, return it
+    const destTokenAddress = await toNtt.getToken(tokenInfo);
+    if (destTokenAddress) {
+      return [Wormhole.tokenId(toChain.chain, destTokenAddress.toString())];
+    }
+
+    // Otherwise the token will be created when the transfer is redeemed
+    // The token address is deterministic, so calculate it here
+
+    //// Calculating the destination token address is expensive, so cache the result
+    //const cacheKey = `${this.meta.name}-${sourceToken.address.toString()}-${
+    //  fromChain.chain
+    //}-${toChain.chain}`;
+    //if (this.unattestedTokenCache.has(cacheKey)) {
+    //  return [this.unattestedTokenCache.get(cacheKey)!];
+    //}
+
+    const [tokenName, tokenSymbol, tokenDecimals] = await Promise.all([
+      fromNtt.getTokenName(sourceTokenAddress),
+      fromNtt.getTokenSymbol(sourceTokenAddress),
+      fromNtt.getTokenDecimals(sourceTokenAddress),
+    ]);
+
+    const precomputedDestTokenAddress = await toNtt.calculateTokenAddress(
+      tokenInfo,
+      tokenName,
+      tokenSymbol,
+      tokenDecimals
     );
+
+    const destToken: UnattestedTokenId = {
+      chain: toChain.chain,
+      address: precomputedDestTokenAddress,
+      isUnattested: true,
+      decimals: tokenDecimals, // TODO: if a non-EVM platform is supported, this may need to change
+      originalTokenId: sourceToken,
+    };
+
+    //this.unattestedTokenCache.set(cacheKey, destToken);
+
+    return [destToken];
   }
 
   static isProtocolSupported<N extends Network>(
@@ -105,39 +166,37 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
   }
 
   async isAvailable(request: routes.RouteTransferRequest<N>): Promise<boolean> {
-    const nttContracts = MultiTokenNttRoute.resolveNttContracts(
-      this.staticConfig,
-      request.source.id
-    );
-
     const ntt = await request.fromChain.getProtocol("MultiTokenNtt", {
-      ntt: nttContracts,
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
+        this.staticConfig,
+        request.fromChain.chain
+      ),
     });
 
-    return ntt.isRelayingAvailable(request.toChain.chain);
+    return await ntt.isRelayingAvailable(request.toChain.chain);
   }
 
   async validate(
     request: routes.RouteTransferRequest<N>,
     params: Tp
   ): Promise<Vr> {
-    //if (request.source.id.chain !== request.fromChain.chain) {
-    //  return {
-    //    valid: false,
-    //    params: params,
-    //    error: new Error("Source token must be native to the source chain"),
-    //  };
-    //}
+    if (request.source.id.chain !== request.fromChain.chain) {
+      return {
+        valid: false,
+        params: params,
+        error: new Error("Source token must be native to the source chain"),
+      };
+    }
 
-    //if (request.destination.id.chain !== request.toChain.chain) {
-    //  return {
-    //    valid: false,
-    //    params: params,
-    //    error: new Error(
-    //      "Destination token must be native to the destination chain"
-    //    ),
-    //  };
-    //}
+    if (request.destination.id.chain !== request.toChain.chain) {
+      return {
+        valid: false,
+        params: params,
+        error: new Error(
+          "Destination token must be native to the destination chain"
+        ),
+      };
+    }
 
     const options = params.options ?? this.getDefaultOptions();
 
@@ -151,16 +210,15 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       amount: params.amount,
       normalizedParams: {
         amount: amt,
-        sourceContracts: MultiTokenNttRoute.resolveNttContracts(
+        sourceContracts: MultiTokenNttRoute.resolveContracts(
           this.staticConfig,
-          request.source.id
+          request.fromChain.chain
         ),
-        destinationContracts: MultiTokenNttRoute.resolveNttContracts(
+        destinationContracts: MultiTokenNttRoute.resolveContracts(
           this.staticConfig,
-          request.destination.id
+          request.toChain.chain
         ),
         options: {
-          automatic: true,
           relayerGasLimit,
         },
       },
@@ -173,16 +231,16 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     request: routes.RouteTransferRequest<N>
   ): Promise<bigint> {
     const fromNtt = await request.fromChain.getProtocol("MultiTokenNtt", {
-      ntt: MultiTokenNttRoute.resolveNttContracts(
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
         this.staticConfig,
-        request.source.id
+        request.fromChain.chain
       ),
     });
 
     const toNtt = await request.toChain.getProtocol("MultiTokenNtt", {
-      ntt: MultiTokenNttRoute.resolveNttContracts(
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
         this.staticConfig,
-        request.destination.id
+        request.toChain.chain
       ),
     });
 
@@ -190,18 +248,18 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ? await request.fromChain.getNativeWrappedTokenId()
       : request.source.id;
 
-    const fromTokenId = await fromNtt.getTokenId(fromToken.address);
+    const tokenInfo = await fromNtt.getTokenInfo(fromToken.address);
 
-    const toToken = await toNtt.getToken(fromTokenId);
+    const toToken = await toNtt.getToken(tokenInfo);
 
-    // If the destination token has not been created yet, more gas will be required to create it.
+    // More gas is needed to create a token if it doesn't exist on the destination chain yet
     const gasLimit =
       toToken === null
-        ? MultiTokenNttAutomaticRoute.DEFAULT_RELAYER_GAS_LIMIT_NO_TOKEN
-        : MultiTokenNttAutomaticRoute.DEFAULT_RELAYER_GAS_LIMIT;
+        ? MultiTokenNttAutomaticRoute.RELAYER_GAS_LIMIT_CREATE_TOKEN
+        : MultiTokenNttAutomaticRoute.RELAYER_GAS_LIMIT;
 
     console.log(
-      `gasLimit: fromTokenId: ${fromTokenId.address.toString()}, toToken: ${
+      `gasLimit: originalTokenId: ${tokenInfo.address.toString()}, toToken: ${
         toToken?.toString() || null
       }, gasLimit: ${gasLimit}`
     );
@@ -213,18 +271,16 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     params: Vp
   ): Promise<QR> {
-    if (!(await this.isAvailable(request))) {
-      throw new routes.UnavailableError(new Error("Route is not available"));
-    }
-
     const { fromChain, toChain } = request;
-    const ntt = await fromChain.getProtocol("MultiTokenNtt", {
-      ntt: params.normalizedParams.sourceContracts,
+    const fromNtt = await fromChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: params.normalizedParams.sourceContracts,
     });
 
-    console.log(params.normalizedParams.options.relayerGasLimit);
+    if (!(await fromNtt.isRelayingAvailable(toChain.chain))) {
+      throw new routes.UnavailableError(new Error("Relaying is unavailable"));
+    }
 
-    const deliveryPrice = await ntt.quoteDeliveryPrice(
+    const deliveryPrice = await fromNtt.quoteDeliveryPrice(
       toChain.chain,
       params.normalizedParams.options
     );
@@ -251,7 +307,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     };
 
     //const dstNtt = await toChain.getProtocol("MultiTokenNtt", {
-    //  ntt: params.normalizedParams.destinationContracts,
+    //  multiTokenNtt: params.normalizedParams.destinationContracts,
     //});
     //const duration = await dstNtt.getRateLimitDuration();
     //if (duration > 0n) {
@@ -297,7 +353,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     const sender = Wormhole.parseAddress(signer.chain(), signer.address());
 
     const ntt = await fromChain.getProtocol("MultiTokenNtt", {
-      ntt: params.normalizedParams.sourceContracts,
+      multiTokenNtt: params.normalizedParams.sourceContracts,
     });
 
     const initXfer = ntt.transfer(
@@ -319,14 +375,13 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
   }
 
   async resume(tx: TransactionId): Promise<R> {
-    // TODO: this is a hack since whscan doesn't support looking up VAA by txid for monad devnet yet
     const fromChain = this.wh.getChain(tx.chain);
     const [msg] = await fromChain.parseTransaction(tx.txid);
     if (!msg) throw new Error("No Wormhole messages found");
 
     const vaa = await this.wh.getVaa(
       msg,
-      "Ntt:MultiTokenWormholeTransferStandardRelayer"
+      "MultiTokenNtt:WormholeTransferStandardRelayer"
     );
     if (!vaa) throw new Error("No VAA found for transaction: " + tx.txid);
 
@@ -338,13 +393,13 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 
     const { payload } = vaa.payload;
     const recipientChain = payload.nttManagerPayload.payload.toChain;
-    const sourceToken =
-      payload.nttManagerPayload.payload.data.token.token.tokenAddress;
+    // const sourceToken =
+    // payload.nttManagerPayload.payload.data.token.token.tokenAddress;
     const { trimmedAmount } = payload.nttManagerPayload.payload.data;
 
-    const tokenChain =
-      payload.nttManagerPayload.payload.data.token.token.chainId;
-    const tokenId = Wormhole.tokenId(tokenChain, sourceToken.toString());
+    // const tokenChain =
+    // payload.nttManagerPayload.payload.data.token.token.chainId;
+    // const tokenId = Wormhole.tokenId(tokenChain, sourceToken.toString());
     //const manager = canonicalAddress({
     //  chain: vaa.emitterChain,
     //  address: payload.nttManagerPayload.payload.callee,
@@ -364,10 +419,20 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     //  recipientChain
     //);
 
-    const { srcInfo, dstInfo } = MultiTokenNttRoute.resolveNttContractsByToken(
+    const sourceContracts = MultiTokenNttRoute.resolveContracts(
       this.staticConfig,
-      tokenId,
-      fromChain.chain,
+      fromChain.chain
+    );
+    if (
+      // TODO: is this the right comparison to make?
+      toUniversal(fromChain.chain, sourceContracts.manager) !==
+      payload.sourceNttManager
+    ) {
+      throw new Error("Invalid source NTT manager");
+    }
+
+    const destinationContracts = MultiTokenNttRoute.resolveContracts(
+      this.staticConfig,
       recipientChain
     );
 
@@ -387,30 +452,14 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       },
       params: {
         amount: amount.display(amt),
-        options: { automatic: true },
+        options: { relayerGasLimit: undefined }, // TODO: how to get?
         normalizedParams: {
           amount: amt,
           options: {
-            // queue: false,
-            automatic: true,
             relayerGasLimit: 0n, // TODO: how to get?
           },
-          sourceContracts: {
-            token: srcInfo.token,
-            manager: srcInfo.manager,
-            gmpManager: srcInfo.gmpManager,
-            transceiver: {
-              wormhole: srcInfo.transceiver.wormhole,
-            },
-          },
-          destinationContracts: {
-            token: dstInfo.token,
-            manager: dstInfo.manager,
-            gmpManager: dstInfo.gmpManager,
-            transceiver: {
-              wormhole: dstInfo.transceiver.wormhole,
-            },
-          },
+          sourceContracts,
+          destinationContracts,
         },
       },
     };
@@ -431,7 +480,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 
     const toChain = this.wh.getChain(receipt.to);
     const ntt = await toChain.getProtocol("MultiTokenNtt", {
-      ntt: receipt.params.normalizedParams.destinationContracts,
+      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
     const sender = Wormhole.chainAddress(signer.chain(), signer.address());
     const completeTransfer = ntt.completeInboundQueuedTransfer(
@@ -458,7 +507,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 
       const vaa = await this.wh.getVaa(
         msg,
-        "Ntt:MultiTokenWormholeTransferStandardRelayer",
+        "MultiTokenNtt:WormholeTransferStandardRelayer",
         timeout
       );
       if (!vaa) {
@@ -485,7 +534,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 
     const toChain = this.wh.getChain(receipt.to);
     const ntt = await toChain.getProtocol("MultiTokenNtt", {
-      ntt: receipt.params.normalizedParams.destinationContracts,
+      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
 
     if (isAttested(receipt)) {

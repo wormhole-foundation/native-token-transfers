@@ -1,7 +1,11 @@
 import { registerPayloadTypes } from "@wormhole-foundation/sdk-definitions";
-import { nttNamedPayloads } from "./layouts/index.js";
+import {
+  multiTokenNttNamedPayloads,
+  nttNamedPayloads,
+} from "./layouts/index.js";
 
 registerPayloadTypes("Ntt", nttNamedPayloads);
+registerPayloadTypes("MultiTokenNtt", multiTokenNttNamedPayloads);
 
 export * from "./ntt.js";
 export * from "./multiTokenNtt.js";

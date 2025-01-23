@@ -100,7 +100,7 @@ export class SolanaNttWormholeTransceiver<
     attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">,
     payer: PublicKey
   ) {
-    const nttMessage = attestation.payload.nttManagerPayload;
+    const nttMessage = attestation.payload["nttManagerPayload"];
     const chain = attestation.emitterChain;
     return this.program.methods
       .receiveWormholeMessage()
@@ -993,7 +993,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           }
         );
 
-        const nttMessage = wormholeNTT.payload.nttManagerPayload;
+        const nttMessage = wormholeNTT.payload["nttManagerPayload"];
         const emitterChain = wormholeNTT.emitterChain;
         const releaseArgs = {
           payer: senderAddress,
@@ -1183,7 +1183,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       config,
       nttMessage: transceiverMessage,
       recipient: new PublicKey(
-        transceiverMessage.payload.recipientAddress.toUint8Array()
+        transceiverMessage["payload"].recipientAddress.toUint8Array()
       ),
       chain: fromChain,
       revertOnDelay: false,
