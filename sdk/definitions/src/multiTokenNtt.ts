@@ -220,6 +220,8 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
     tokenSymbol: string,
     tokenDecimals: number
   ): Promise<TokenAddress<C>>;
+
+  getWrappedNativeToken(): Promise<TokenAddress<C>>;
 }
 
 declare module "@wormhole-foundation/sdk-definitions" {

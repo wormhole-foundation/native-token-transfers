@@ -457,6 +457,11 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     return toNative(this.chain, token);
   }
 
+  async getWrappedNativeToken(): Promise<TokenAddress<C>> {
+    const address = await this.manager.WETH();
+    return toNative(this.chain, address);
+  }
+
   async calculateTokenAddress(
     tokenInfo: MultiTokenNtt.TokenInfo,
     tokenName: string,

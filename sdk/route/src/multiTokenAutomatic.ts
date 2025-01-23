@@ -20,14 +20,16 @@ import {
   isDestinationQueued,
   isNative,
   isRedeemed,
+  isSameToken,
   isSourceFinalized,
   isSourceInitiated,
+  nativeTokenId,
   routes,
   signSendWait,
   toUniversal,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
-import { MultiTokenNttRoute } from "./types.js";
+import { MultiTokenNttRoute, NttRoute } from "./types.js";
 
 type Op = MultiTokenNttRoute.Options;
 type Tp = routes.TransferParams<Op>;
@@ -106,15 +108,21 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ),
     });
 
-    const { address: sourceTokenAddress } = isNative(sourceToken.address)
-      ? await fromChain.getNativeWrappedTokenId()
-      : sourceToken;
+    const sourceTokenAddress = isNative(sourceToken.address)
+      ? await fromNtt.getWrappedNativeToken()
+      : sourceToken.address;
 
     const tokenInfo = await fromNtt.getTokenInfo(sourceTokenAddress);
 
     // If the token exists on the destination chain, return it
     const destTokenAddress = await toNtt.getToken(tokenInfo);
     if (destTokenAddress) {
+      // If the destination token is the wrapped native token, return the native token (since it gets unwrapped by the contract)
+      const toChainNativeToken = await toNtt.getWrappedNativeToken();
+      if (isSameToken(toChainNativeToken, destTokenAddress.toString())) {
+        return [nativeTokenId(toChain.chain)];
+      }
+
       return [Wormhole.tokenId(toChain.chain, destTokenAddress.toString())];
     }
 
@@ -147,7 +155,10 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       address: precomputedDestTokenAddress,
       isUnattested: true,
       decimals: tokenDecimals, // TODO: if a non-EVM platform is supported, this may need to change
-      originalTokenId: sourceToken,
+      originalTokenId: Wormhole.tokenId(
+        sourceToken.chain,
+        sourceTokenAddress.toString()
+      ),
     };
 
     //this.unattestedTokenCache.set(cacheKey, destToken);
@@ -204,12 +215,17 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       options.relayerGasLimit ??
       (await this.getDefaultRelayerGasLimit(request));
 
-    const amt = amount.parse(params.amount, request.source.decimals);
+    const parsedAmount = amount.parse(params.amount, request.source.decimals);
+    // The trimmedAmount may differ from the parsedAmount if the parsedAmount includes dust
+    const trimmedAmount = NttRoute.trimAmount(
+      parsedAmount,
+      request.destination.decimals
+    );
 
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
-        amount: amt,
+        amount: trimmedAmount,
         sourceContracts: MultiTokenNttRoute.resolveContracts(
           this.staticConfig,
           request.fromChain.chain
@@ -244,23 +260,26 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ),
     });
 
-    const fromToken = isNative(request.source.id.address)
-      ? await request.fromChain.getNativeWrappedTokenId()
-      : request.source.id;
+    const sourceTokenAddress = isNative(request.source.id.address)
+      ? await fromNtt.getWrappedNativeToken()
+      : request.source.id.address;
+    //const fromToken = isNative(request.source.id.address)
+    //  ? await
+    //  : request.source.id;
 
-    const tokenInfo = await fromNtt.getTokenInfo(fromToken.address);
+    const tokenInfo = await fromNtt.getTokenInfo(sourceTokenAddress);
 
-    const toToken = await toNtt.getToken(tokenInfo);
+    const destToken = await toNtt.getToken(tokenInfo);
 
     // More gas is needed to create a token if it doesn't exist on the destination chain yet
     const gasLimit =
-      toToken === null
+      destToken === null
         ? MultiTokenNttAutomaticRoute.RELAYER_GAS_LIMIT_CREATE_TOKEN
         : MultiTokenNttAutomaticRoute.RELAYER_GAS_LIMIT;
 
     console.log(
       `gasLimit: originalTokenId: ${tokenInfo.address.toString()}, toToken: ${
-        toToken?.toString() || null
+        destToken?.toString() || null
       }, gasLimit: ${gasLimit}`
     );
 
