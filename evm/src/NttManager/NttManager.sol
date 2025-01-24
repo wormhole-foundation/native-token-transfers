@@ -383,7 +383,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bytes32 refundAddress,
         bool shouldQueue,
         bytes memory transceiverInstructions
-    ) internal returns (uint64) {
+    ) internal virtual returns (uint64) {
         if (amount == 0) {
             revert ZeroAmount();
         }
