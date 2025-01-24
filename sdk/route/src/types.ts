@@ -228,13 +228,9 @@ export namespace NttRoute {
   }
 }
 
-// TODO: a lot of the types here are duplicated from NttRoute
 export namespace MultiTokenNttRoute {
-  // Currently only wormhole attestations supported
-  export type TransceiverType = "wormhole";
-
   export type TransceiverConfig = {
-    type: TransceiverType;
+    type: NttRoute.TransceiverType;
     address: string;
   };
 
@@ -263,22 +259,10 @@ export namespace MultiTokenNttRoute {
     normalizedParams: NormalizedParams;
   }
 
-  //export type ManualAttestationReceipt = {
-  //  id: WormholeMessageId;
-  //  attestation: VAA<"Ntt:WormholeTransfer">;
-  //};
-
   export type AutomaticAttestationReceipt = {
     id: WormholeMessageId;
     attestation: VAA<"MultiTokenNtt:WormholeTransferStandardRelayer">;
   };
-
-  //export type ManualTransferReceipt<
-  //  SC extends Chain = Chain,
-  //  DC extends Chain = Chain
-  //> = _TransferReceipt<ManualAttestationReceipt, SC, DC> & {
-  //  params: ValidatedParams;
-  //};
 
   export type AutomaticTransferReceipt<
     SC extends Chain = Chain,
@@ -309,57 +293,5 @@ export namespace MultiTokenNttRoute {
       );
     }
     return cfg;
-  }
-
-  //export function resolveNttContractsByToken(
-  //  config: Config,
-  //  token: TokenId,
-  //  fromChain: Chain,
-  //  toChain: Chain
-  //): { srcInfo: MultiTokenNtt.Contracts; dstInfo: MultiTokenNtt.Contracts } {
-  //  const cfg = Object.values(config.tokens);
-  //  const address = canonicalAddress(token);
-  //  for (const tokens of cfg) {
-  //    const found = tokens.find(
-  //      (tc) =>
-  //        tc.token.toLowerCase() === address.toLowerCase() &&
-  //        tc.chain === token.chain
-  //    );
-  //    if (found) {
-  //      const src = tokens.find((tc) => tc.chain === fromChain)!;
-  //      const dst = tokens.find((tc) => tc.chain === toChain)!;
-  //      return {
-  //        srcInfo: {
-  //          token: src.token,
-  //          manager: src.manager,
-  //          gmpManager: src.gmpManager,
-  //          transceiver: {
-  //            wormhole: src.transceiver.find((v) => v.type === "wormhole")!
-  //              .address,
-  //          },
-  //        },
-  //        dstInfo: {
-  //          token: dst.token,
-  //          manager: dst.manager,
-  //          gmpManager: dst.gmpManager,
-  //          transceiver: {
-  //            wormhole: dst.transceiver.find((v) => v.type === "wormhole")!
-  //              .address,
-  //          },
-  //        },
-  //      };
-  //    }
-  //  }
-  //  throw new Error("Cannot find Ntt contracts in config for: " + address);
-  //}
-
-  // returns true if the amount is greater than 95% of the capacity
-  // useful for warning about the possibility of a transfer being queued
-  export function isCapacityThresholdExceeded(
-    amount: bigint,
-    capacity: bigint
-  ): boolean {
-    const threshold = (capacity * 95n) / 100n;
-    return amount > threshold;
   }
 }

@@ -11,7 +11,7 @@ import {
   ChainAddress,
   EmptyPlatformMap,
   TokenAddress,
-  UniversalAddress,
+  TokenId,
   UnsignedTransaction,
   VAA,
   keccak256,
@@ -37,11 +37,6 @@ export namespace MultiTokenNtt {
     transceiver: {
       wormhole?: string;
     };
-  };
-
-  export type TokenInfo = {
-    originalChain: Chain;
-    address: UniversalAddress;
   };
 
   export type Message = NttManagerMessage<
@@ -130,9 +125,9 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   // TODO: these methods probably belong on the platform
-  getTokenName(token: TokenAddress<C>): Promise<string>;
-  getTokenSymbol(token: TokenAddress<C>): Promise<string>;
-  getTokenDecimals(token: TokenAddress<C>): Promise<number>;
+  getTokenName(token: TokenId): Promise<string>;
+  getTokenSymbol(token: TokenId): Promise<string>;
+  getTokenDecimals(token: TokenId): Promise<number>;
 
   /**
    * getCurrentOutboundCapacity returns the current outbound capacity of the Ntt manager
@@ -149,7 +144,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
    * @param fromChain the chain to check the inbound capacity for
    */
   getCurrentInboundCapacity(
-    tokenInfo: MultiTokenNtt.TokenInfo,
+    originalToken: TokenId,
     fromChain: Chain
   ): Promise<bigint>;
 
@@ -210,18 +205,18 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
-  getTokenInfo(token: TokenAddress<C>): Promise<MultiTokenNtt.TokenInfo>;
+  getOriginalToken(localToken: TokenId): Promise<TokenId>;
 
-  getToken(tokenInfo: MultiTokenNtt.TokenInfo): Promise<TokenAddress<C> | null>;
+  getLocalToken(originalToken: TokenId): Promise<TokenId | null>;
 
-  calculateTokenAddress(
-    tokenInfo: MultiTokenNtt.TokenInfo,
+  calculateLocalTokenAddress(
+    originalToken: TokenId,
     tokenName: string,
     tokenSymbol: string,
     tokenDecimals: number
   ): Promise<TokenAddress<C>>;
 
-  getWrappedNativeToken(): Promise<TokenAddress<C>>;
+  getWrappedNativeToken(): Promise<TokenId>;
 }
 
 declare module "@wormhole-foundation/sdk-definitions" {

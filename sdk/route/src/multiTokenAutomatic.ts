@@ -56,9 +56,11 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 {
   static NATIVE_GAS_DROPOFF_SUPPORTED: boolean = false;
 
-  static RELAYER_GAS_LIMIT: bigint = 300_000n;
+  // Standard Relayer gas limits for transfers
+  // These default gas limits should be high enough to cover the gas usage of delivery or the delivery will fail.
+  static SR_GAS_LIMIT: bigint = 300_000n;
   // More gas is needed to create a token if it doesn't exist on the destination chain yet (unattested)
-  static RELAYER_GAS_LIMIT_CREATE_TOKEN: bigint = 1_000_000n;
+  static SR_GAS_LIMIT_CREATE_TOKEN: bigint = 1_000_000n;
 
   // @ts-ignore
   // Since we set the config on the static class, access it with this param
@@ -78,7 +80,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     return MultiTokenNttRoute.resolveSupportedChains(this.config, network);
   }
 
-  // TODO: remove this, just here to compile
+  // TODO: remove this
   static supportedSourceTokens(
     fromChain: ChainContext<Network>
   ): Promise<TokenId[]> {
@@ -108,62 +110,54 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ),
     });
 
-    const sourceTokenAddress = isNative(sourceToken.address)
-      ? await fromNtt.getWrappedNativeToken()
-      : sourceToken.address;
-
-    const tokenInfo = await fromNtt.getTokenInfo(sourceTokenAddress);
-
-    // If the token exists on the destination chain, return it
-    const destTokenAddress = await toNtt.getToken(tokenInfo);
-    if (destTokenAddress) {
-      // If the destination token is the wrapped native token, return the native token (since it gets unwrapped by the contract)
-      const toChainNativeToken = await toNtt.getWrappedNativeToken();
-      if (isSameToken(toChainNativeToken, destTokenAddress.toString())) {
-        return [nativeTokenId(toChain.chain)];
-      }
-
-      return [Wormhole.tokenId(toChain.chain, destTokenAddress.toString())];
+    if (isNative(sourceToken.address)) {
+      sourceToken = await fromNtt.getWrappedNativeToken();
     }
 
-    // Otherwise the token will be created when the transfer is redeemed
-    // The token address is deterministic, so calculate it here
+    const originalToken = await fromNtt.getOriginalToken(sourceToken);
 
-    //// Calculating the destination token address is expensive, so cache the result
-    //const cacheKey = `${this.meta.name}-${sourceToken.address.toString()}-${
-    //  fromChain.chain
-    //}-${toChain.chain}`;
-    //if (this.unattestedTokenCache.has(cacheKey)) {
-    //  return [this.unattestedTokenCache.get(cacheKey)!];
-    //}
+    // If the token exists on the destination chain, return it
+    const destToken = await toNtt.getLocalToken(originalToken);
+    if (destToken) {
+      // If the destination token is the wrapped native token,
+      // return the native token since it gets unwrapped by the contract
+      const destNativeToken = await toNtt.getWrappedNativeToken();
+      if (isSameToken(destNativeToken, destToken)) {
+        return [nativeTokenId(toChain.chain)];
+      }
+      return [destToken];
+    }
+
+    // Otherwise the token will be created by the contract when the transfer is completed
 
     const [tokenName, tokenSymbol, tokenDecimals] = await Promise.all([
-      fromNtt.getTokenName(sourceTokenAddress),
-      fromNtt.getTokenSymbol(sourceTokenAddress),
-      fromNtt.getTokenDecimals(sourceTokenAddress),
+      fromNtt.getTokenName(sourceToken),
+      fromNtt.getTokenSymbol(sourceToken),
+      fromNtt.getTokenDecimals(sourceToken),
     ]);
 
-    const precomputedDestTokenAddress = await toNtt.calculateTokenAddress(
-      tokenInfo,
+    // The destination token address is deterministic, so calculate it here
+    // NOTE: there is a very slim race condition where the token is overridden before a transfer is completed
+    const destTokenAddress = await toNtt.calculateLocalTokenAddress(
+      originalToken,
       tokenName,
       tokenSymbol,
       tokenDecimals
     );
 
-    const destToken: UnattestedTokenId = {
-      chain: toChain.chain,
-      address: precomputedDestTokenAddress,
-      isUnattested: true,
-      decimals: tokenDecimals, // TODO: if a non-EVM platform is supported, this may need to change
-      originalTokenId: Wormhole.tokenId(
-        sourceToken.chain,
-        sourceTokenAddress.toString()
-      ),
-    };
-
-    //this.unattestedTokenCache.set(cacheKey, destToken);
-
-    return [destToken];
+    return [
+      {
+        chain: toChain.chain,
+        address: destTokenAddress,
+        isUnattested: true,
+        // TODO: if a non-EVM platform is supported, decimals may need to change
+        decimals: tokenDecimals,
+        originalTokenId: Wormhole.tokenId(
+          sourceToken.chain,
+          sourceToken.address.toString()
+        ),
+      } as UnattestedTokenId,
+    ];
   }
 
   static isProtocolSupported<N extends Network>(
@@ -260,25 +254,22 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ),
     });
 
-    const sourceTokenAddress = isNative(request.source.id.address)
+    const sourceToken = isNative(request.source.id.address)
       ? await fromNtt.getWrappedNativeToken()
-      : request.source.id.address;
-    //const fromToken = isNative(request.source.id.address)
-    //  ? await
-    //  : request.source.id;
+      : request.source.id;
 
-    const tokenInfo = await fromNtt.getTokenInfo(sourceTokenAddress);
+    const originalToken = await fromNtt.getOriginalToken(sourceToken);
 
-    const destToken = await toNtt.getToken(tokenInfo);
+    const destToken = await toNtt.getLocalToken(originalToken);
 
-    // More gas is needed to create a token if it doesn't exist on the destination chain yet
+    // More gas is needed to create the token on the destination chain
     const gasLimit =
       destToken === null
-        ? MultiTokenNttAutomaticRoute.RELAYER_GAS_LIMIT_CREATE_TOKEN
-        : MultiTokenNttAutomaticRoute.RELAYER_GAS_LIMIT;
+        ? MultiTokenNttAutomaticRoute.SR_GAS_LIMIT_CREATE_TOKEN
+        : MultiTokenNttAutomaticRoute.SR_GAS_LIMIT;
 
     console.log(
-      `gasLimit: originalTokenId: ${tokenInfo.address.toString()}, toToken: ${
+      `gasLimit: originalTokenId: ${originalToken.address.toString()}, toToken: ${
         destToken?.toString() || null
       }, gasLimit: ${gasLimit}`
     );
@@ -316,7 +307,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
         amount: amount.parse(params.amount, request.destination.decimals),
       },
       relayFee: {
-        token: Wormhole.tokenId(fromChain.chain, "native"),
+        token: nativeTokenId(fromChain.chain),
         amount: amount.fromBaseUnits(
           deliveryPrice,
           fromChain.config.nativeTokenDecimals
@@ -519,7 +510,6 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
       const { txid } = receipt.originTxs[receipt.originTxs.length - 1]!;
 
-      // TODO: this is a hack since whscan doesn't support looking up VAA by txid for monad devnet yet
       const fromChain = this.wh.getChain(receipt.from);
       const [msg] = await fromChain.parseTransaction(txid);
       if (!msg) throw new Error("No Wormhole messages found");

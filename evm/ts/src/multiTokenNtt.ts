@@ -12,8 +12,8 @@ import {
   Contracts,
   isNative,
   TokenAddress,
+  TokenId,
   toNative,
-  UniversalAddress,
   universalAddress,
 } from "@wormhole-foundation/sdk-definitions";
 import type { EvmChains, EvmPlatformType } from "@wormhole-foundation/sdk-evm";
@@ -40,6 +40,7 @@ import {
   MultiTokenNtt as MultiTokenNttAbi,
 } from "./ethers-contracts/multiTokenNtt/index.js";
 import { _0_1_0 } from "./ethers-contracts/index.js";
+import { Wormhole } from "@wormhole-foundation/sdk-connect";
 
 // TODO: move this and properly support ABI version loading
 function loadAbiVersion(version: string) {
@@ -335,27 +336,27 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     throw new Error("Not implemented");
   }
 
-  async getTokenName(token: TokenAddress<C>): Promise<string> {
+  async getTokenName(token: TokenId): Promise<string> {
     const impl = EvmPlatform.getTokenImplementation(
       this.provider,
-      token.toString()
+      token.address.toString()
     );
     return await impl.name();
   }
 
-  async getTokenSymbol(token: TokenAddress<C>): Promise<string> {
+  async getTokenSymbol(token: TokenId): Promise<string> {
     const impl = EvmPlatform.getTokenImplementation(
       this.provider,
-      token.toString()
+      token.address.toString()
     );
     return await impl.symbol();
   }
 
-  async getTokenDecimals(token: TokenAddress<C>): Promise<number> {
+  async getTokenDecimals(token: TokenId): Promise<number> {
     return await EvmPlatform.getDecimals(
       this.chain,
       this.provider,
-      token.toString()
+      token.address.toString()
     );
   }
 
@@ -376,13 +377,15 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   async getCurrentInboundCapacity(
-    tokenInfo: MultiTokenNtt.TokenInfo,
+    originalToken: TokenId,
     fromChain: Chain
   ): Promise<bigint> {
+    if (isNative(originalToken.address))
+      throw new Error("Native token not supported");
     return await this.manager.getCurrentInboundCapacity(
       {
         chainId: toChainId(fromChain),
-        tokenAddress: tokenInfo.address.toString(),
+        tokenAddress: originalToken.address.toUniversalAddress().toUint8Array(),
       },
       toChainId(fromChain)
     );
@@ -434,40 +437,43 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     yield this.createUnsignedTx(tx, "Ntt.completeInboundQueuedTransfer");
   }
 
-  async getTokenInfo(token: TokenAddress<C>): Promise<MultiTokenNtt.TokenInfo> {
-    const [tokenId] = await this.manager.getTokenId(token.toString());
-    return {
-      originalChain: toChain(tokenId.chainId),
-      // TODO: toUniversal?
-      address: new UniversalAddress(tokenId.tokenAddress),
-    };
+  async getOriginalToken(localToken: TokenId): Promise<TokenId> {
+    const [tokenId] = await this.manager.getTokenId(
+      localToken.address.toString()
+    );
+    return Wormhole.tokenId(toChain(tokenId.chainId), tokenId.tokenAddress);
   }
 
   // This will return null if the token is not yet created
-  async getToken(
-    tokenInfo: MultiTokenNtt.TokenInfo
-  ): Promise<TokenAddress<C> | null> {
-    const token = await this.manager.getToken({
-      chainId: toChainId(tokenInfo.originalChain),
-      tokenAddress: tokenInfo.address.toString(),
+  async getLocalToken(originalToken: TokenId): Promise<TokenId | null> {
+    if (isNative(originalToken.address))
+      throw new Error("Native token not supported");
+
+    const localToken = await this.manager.getToken({
+      chainId: toChainId(originalToken.chain),
+      tokenAddress: originalToken.address.toUniversalAddress().toUint8Array(),
     });
-    console.log(`getToken result: ${token}`);
-    if (token === ethers.ZeroAddress) return null;
+    console.log(`getLocalToken result: ${localToken}`);
 
-    return toNative(this.chain, token);
+    if (localToken === ethers.ZeroAddress) return null;
+
+    return Wormhole.tokenId(this.chain, localToken);
   }
 
-  async getWrappedNativeToken(): Promise<TokenAddress<C>> {
-    const address = await this.manager.WETH();
-    return toNative(this.chain, address);
+  async getWrappedNativeToken(): Promise<TokenId> {
+    const wethAddress = await this.manager.WETH();
+    return Wormhole.tokenId(this.chain, wethAddress);
   }
 
-  async calculateTokenAddress(
-    tokenInfo: MultiTokenNtt.TokenInfo,
+  async calculateLocalTokenAddress(
+    originalToken: TokenId,
     tokenName: string,
     tokenSymbol: string,
     tokenDecimals: number
   ): Promise<TokenAddress<C>> {
+    if (isNative(originalToken.address))
+      throw new Error("Native token not supported");
+
     const tokenImplementation = await this.manager.tokenImplementation();
 
     const initializeSelector = ethers.id("initialize(string,string,uint8)");
@@ -500,19 +506,22 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
     const salt = ethers.solidityPackedKeccak256(
       ["uint16", "bytes32"],
-      [toChainId(tokenInfo.originalChain), tokenInfo.address.toUint8Array()]
+      [
+        toChainId(originalToken.chain),
+        originalToken.address.toUniversalAddress().toUint8Array(),
+      ]
     );
 
     // The address where the token will be deployed
-    const address = ethers.getCreate2Address(
+    const localTokenAddress = ethers.getCreate2Address(
       this.managerAddress,
       salt,
       initCodeHash
     );
 
-    console.log(`calculateTokenAddress: ${address}`);
+    console.log(`calculateTokenAddress: ${localTokenAddress}`);
 
-    return toNative(this.chain, address);
+    return toNative(this.chain, localTokenAddress);
   }
 
   createUnsignedTx(
