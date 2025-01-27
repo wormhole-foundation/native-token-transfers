@@ -201,6 +201,14 @@
       "tokenAddress": "6QP4vqsnDQC1s53ZbtxEjVA8Xecz5DypurfVXVy9xR33",
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
+      "isSupported": false
+    },
+    {
+      "name": "Portal",
+      "programId": "ntT3RcLXQV8bMPiTwFNXvE9RTcxsmJLCH6DGtLXzfgV",
+      "tokenAddress": "FMQjDvT1GztVxdvYgMBEde4L54fftFGx9m5GmbqeJGM5",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
     {
