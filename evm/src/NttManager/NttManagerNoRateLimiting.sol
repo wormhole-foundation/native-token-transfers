@@ -12,10 +12,12 @@ import "./NttManager.sol";
 /// @dev    All of the developer notes from `NttManager` apply here.
 contract NttManagerNoRateLimiting is NttManager {
     constructor(
+        address _endpoint,
+        address _executor,
         address _token,
         Mode _mode,
         uint16 _chainId
-    ) NttManager(_token, _mode, _chainId, 0, true) {}
+    ) NttManager(_endpoint, _executor, _token, _mode, _chainId, 0, true) {}
 
     // ==================== Override RateLimiter functions =========================
 
@@ -95,6 +97,8 @@ contract NttManagerNoRateLimiting is NttManager {
         bytes32, // recipient
         bytes32, // refundAddress
         bool, // shouldQueue
+        bytes memory, // executorQuote
+        bytes memory, // relayInstructions
         bytes memory, // transceiverInstructions
         TrimmedAmount, // trimmedAmount
         uint64 // sequence

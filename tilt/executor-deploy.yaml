@@ -1,0 +1,24 @@
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: executor-deploy
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: deploy
+          image: executor-deploy
+          command:
+            - /bin/sh
+            - -c
+            - "bash ./deploy.sh && touch /success"
+          readinessProbe:
+            exec:
+              command:
+                - test
+                - -e
+                - "/success"
+            initialDelaySeconds: 5
+            periodSeconds: 5

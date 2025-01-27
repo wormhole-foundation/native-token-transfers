@@ -10,3 +10,9 @@
 [submodule "evm/lib/solidity-bytes-utils"]
 	path = evm/lib/solidity-bytes-utils
 	url = https://github.com/GNSPS/solidity-bytes-utils
+[submodule "evm/lib/example-messaging-endpoint"]
+	path = evm/lib/example-messaging-endpoint
+	url = https://github.com/wormholelabs-xyz/example-messaging-endpoint
+[submodule "evm/lib/example-messaging-executor"]
+	path = evm/lib/example-messaging-executor
+	url = https://github.com/wormholelabs-xyz/example-messaging-executor

@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: executor
+  labels:
+    app: executor
+spec:
+  clusterIP: None
+  selector:
+    app: executor
+  ports:
+    - port: 3000
+      name: express
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: executor
+spec:
+  selector:
+    matchLabels:
+      app: executor
+  serviceName: executor
+  template:
+    metadata:
+      labels:
+        app: executor
+    spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: executor
+          image: executor
+          command:
+            - /bin/sh
+            - -c
+            - "npm start"
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            periodSeconds: 1
+            failureThreshold: 300
+          ports:
+            - containerPort: 3000
+              name: executor
+              protocol: TCP

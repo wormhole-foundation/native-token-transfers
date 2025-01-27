@@ -66,17 +66,17 @@ describe("Hub and Spoke Tests", function () {
 
   test("Test Solana and Ethereum Hubs", async () => {
     await Promise.all([
+      // testHub(
+      //   "Solana",
+      //   "Ethereum",
+      //   "Bsc",
+      //   makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY),
+      //   ACCT_MNEMONIC
+      // ),
       testHub(
-        "Solana",
         "Ethereum",
         "Bsc",
-        makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY),
-        ACCT_MNEMONIC
-      ),
-      testHub(
-        "Ethereum",
-        "Bsc",
-        "Solana",
+        // "Solana",
         makeGetNativeSigner(ETH_PRIVATE_KEY_2, SOL_PRIVATE_KEY_2),
         ACCT_MNEMONIC_2
       ),

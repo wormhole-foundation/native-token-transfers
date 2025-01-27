@@ -4,6 +4,11 @@ pragma solidity >=0.8.8 <0.9.0;
 import "wormhole-solidity-sdk/Utils.sol";
 import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
 
+import "example-messaging-endpoint/evm/src/interfaces/IAdapterRegistry.sol";
+import "example-messaging-endpoint/evm/src/interfaces/IEndpointAdmin.sol";
+import "example-messaging-endpoint/evm/src/interfaces/IEndpointIntegrator.sol";
+import "example-messaging-executor/evm/src/interfaces/IExecutor.sol";
+
 import "../libraries/external/OwnableUpgradeable.sol";
 import "../libraries/external/ReentrancyGuardUpgradeable.sol";
 import "../libraries/TransceiverStructs.sol";
@@ -11,14 +16,10 @@ import "../libraries/TransceiverHelpers.sol";
 import "../libraries/PausableOwnable.sol";
 import "../libraries/Implementation.sol";
 
-import "../interfaces/ITransceiver.sol";
 import "../interfaces/IManagerBase.sol";
-
-import "./TransceiverRegistry.sol";
 
 abstract contract ManagerBase is
     IManagerBase,
-    TransceiverRegistry,
     PausableOwnable,
     ReentrancyGuardUpgradeable,
     Implementation
@@ -40,9 +41,17 @@ abstract contract ManagerBase is
     /// This chain ID is formatted based on standardized chain IDs, e.g. Ethereum mainnet is 1, Sepolia is 11155111, etc.
     uint256 immutable evmChainId;
 
+    // The modular messaging endpoint used for sending and receiving attestations.
+    IEndpointIntegrator public immutable endpoint;
+
+    // The executor used for publishing message payloads.
+    IExecutor public immutable executor;
+
     // =============== Setup =================================================================
 
-    constructor(address _token, Mode _mode, uint16 _chainId) {
+    constructor(address _endpoint, address _executor, address _token, Mode _mode, uint16 _chainId) {
+        endpoint = IEndpointIntegrator(_endpoint);
+        executor = IExecutor(_executor);
         token = _token;
         mode = _mode;
         chainId = _chainId;
@@ -53,13 +62,9 @@ abstract contract ManagerBase is
 
     function _migrate() internal virtual override {
         _checkThresholdInvariants();
-        _checkTransceiversInvariants();
     }
 
     // =============== Storage ==============================================================
-
-    bytes32 private constant MESSAGE_ATTESTATIONS_SLOT =
-        bytes32(uint256(keccak256("ntt.messageAttestations")) - 1);
 
     bytes32 private constant MESSAGE_SEQUENCE_SLOT =
         bytes32(uint256(keccak256("ntt.messageSequence")) - 1);
@@ -68,19 +73,12 @@ abstract contract ManagerBase is
 
     // =============== Storage Getters/Setters ==============================================
 
-    function _getThresholdStorage() private pure returns (_Threshold storage $) {
-        uint256 slot = uint256(THRESHOLD_SLOT);
-        assembly ("memory-safe") {
-            $.slot := slot
-        }
-    }
-
-    function _getMessageAttestationsStorage()
-        internal
+    function _getThresholdStorage()
+        private
         pure
-        returns (mapping(bytes32 => AttestationInfo) storage $)
+        returns (mapping(uint16 => _Threshold) storage $)
     {
-        uint256 slot = uint256(MESSAGE_ATTESTATIONS_SLOT);
+        uint256 slot = uint256(THRESHOLD_SLOT);
         assembly ("memory-safe") {
             $.slot := slot
         }
@@ -99,166 +97,11 @@ abstract contract ManagerBase is
     function quoteDeliveryPrice(
         uint16 recipientChain,
         bytes memory transceiverInstructions
-    ) public view returns (uint256[] memory, uint256) {
-        address[] memory enabledTransceivers = _getEnabledTransceiversStorage();
-
-        TransceiverStructs.TransceiverInstruction[] memory instructions = TransceiverStructs
-            .parseTransceiverInstructions(transceiverInstructions, enabledTransceivers.length);
-
-        return _quoteDeliveryPrice(recipientChain, instructions, enabledTransceivers);
+    ) public view returns (uint256) {
+        return endpoint.quoteDeliveryPrice(recipientChain, transceiverInstructions);
     }
 
     // =============== Internal Logic ===========================================================
-
-    function _quoteDeliveryPrice(
-        uint16 recipientChain,
-        TransceiverStructs.TransceiverInstruction[] memory transceiverInstructions,
-        address[] memory enabledTransceivers
-    ) internal view returns (uint256[] memory, uint256) {
-        uint256 numEnabledTransceivers = enabledTransceivers.length;
-        mapping(address => TransceiverInfo) storage transceiverInfos = _getTransceiverInfosStorage();
-
-        uint256[] memory priceQuotes = new uint256[](numEnabledTransceivers);
-        uint256 totalPriceQuote = 0;
-        for (uint256 i = 0; i < numEnabledTransceivers; i++) {
-            address transceiverAddr = enabledTransceivers[i];
-            uint8 registeredTransceiverIndex = transceiverInfos[transceiverAddr].index;
-            uint256 transceiverPriceQuote = ITransceiver(transceiverAddr).quoteDeliveryPrice(
-                recipientChain, transceiverInstructions[registeredTransceiverIndex]
-            );
-            priceQuotes[i] = transceiverPriceQuote;
-            totalPriceQuote += transceiverPriceQuote;
-        }
-        return (priceQuotes, totalPriceQuote);
-    }
-
-    function _recordTransceiverAttestation(
-        uint16 sourceChainId,
-        TransceiverStructs.NttManagerMessage memory payload
-    ) internal returns (bytes32) {
-        bytes32 nttManagerMessageHash =
-            TransceiverStructs.nttManagerMessageDigest(sourceChainId, payload);
-
-        // set the attested flag for this transceiver.
-        // NOTE: Attestation is idempotent (bitwise or 1), but we revert
-        // anyway to ensure that the client does not continue to initiate calls
-        // to receive the same message through the same transceiver.
-        if (
-            transceiverAttestedToMessage(
-                nttManagerMessageHash, _getTransceiverInfosStorage()[msg.sender].index
-            )
-        ) {
-            revert TransceiverAlreadyAttestedToMessage(nttManagerMessageHash);
-        }
-        _setTransceiverAttestedToMessage(nttManagerMessageHash, msg.sender);
-
-        return nttManagerMessageHash;
-    }
-
-    function _isMessageExecuted(
-        uint16 sourceChainId,
-        bytes32 sourceNttManagerAddress,
-        TransceiverStructs.NttManagerMessage memory message
-    ) internal returns (bytes32, bool) {
-        bytes32 digest = TransceiverStructs.nttManagerMessageDigest(sourceChainId, message);
-
-        if (!isMessageApproved(digest)) {
-            revert MessageNotApproved(digest);
-        }
-
-        bool msgAlreadyExecuted = _replayProtect(digest);
-        if (msgAlreadyExecuted) {
-            // end execution early to mitigate the possibility of race conditions from transceivers
-            // attempting to deliver the same message when (threshold < number of transceiver messages)
-            // notify client (off-chain process) so they don't attempt redundant msg delivery
-            emit MessageAlreadyExecuted(sourceNttManagerAddress, digest);
-            return (bytes32(0), msgAlreadyExecuted);
-        }
-
-        return (digest, msgAlreadyExecuted);
-    }
-
-    function _sendMessageToTransceivers(
-        uint16 recipientChain,
-        bytes32 refundAddress,
-        bytes32 peerAddress,
-        uint256[] memory priceQuotes,
-        TransceiverStructs.TransceiverInstruction[] memory transceiverInstructions,
-        address[] memory enabledTransceivers,
-        bytes memory nttManagerMessage
-    ) internal {
-        uint256 numEnabledTransceivers = enabledTransceivers.length;
-        mapping(address => TransceiverInfo) storage transceiverInfos = _getTransceiverInfosStorage();
-
-        if (peerAddress == bytes32(0)) {
-            revert PeerNotRegistered(recipientChain);
-        }
-
-        // push onto the stack again to avoid stack too deep error
-        bytes32 refundRecipient = refundAddress;
-
-        // call into transceiver contracts to send the message
-        for (uint256 i = 0; i < numEnabledTransceivers; i++) {
-            address transceiverAddr = enabledTransceivers[i];
-
-            // send it to the recipient nttManager based on the chain
-            ITransceiver(transceiverAddr).sendMessage{value: priceQuotes[i]}(
-                recipientChain,
-                transceiverInstructions[transceiverInfos[transceiverAddr].index],
-                nttManagerMessage,
-                peerAddress,
-                refundRecipient
-            );
-        }
-    }
-
-    function _prepareForTransfer(
-        uint16 recipientChain,
-        bytes memory transceiverInstructions
-    )
-        internal
-        returns (
-            address[] memory,
-            TransceiverStructs.TransceiverInstruction[] memory,
-            uint256[] memory,
-            uint256
-        )
-    {
-        // cache enabled transceivers to avoid multiple storage reads
-        address[] memory enabledTransceivers = _getEnabledTransceiversStorage();
-
-        TransceiverStructs.TransceiverInstruction[] memory instructions;
-
-        {
-            uint256 numRegisteredTransceivers = _getRegisteredTransceiversStorage().length;
-            uint256 numEnabledTransceivers = enabledTransceivers.length;
-
-            if (numEnabledTransceivers == 0) {
-                revert NoEnabledTransceivers();
-            }
-
-            instructions = TransceiverStructs.parseTransceiverInstructions(
-                transceiverInstructions, numRegisteredTransceivers
-            );
-        }
-
-        (uint256[] memory priceQuotes, uint256 totalPriceQuote) =
-            _quoteDeliveryPrice(recipientChain, instructions, enabledTransceivers);
-        {
-            // check up front that msg.value will cover the delivery price
-            if (msg.value < totalPriceQuote) {
-                revert DeliveryPaymentTooLow(totalPriceQuote, msg.value);
-            }
-
-            // refund user extra excess value from msg.value
-            uint256 excessValue = msg.value - totalPriceQuote;
-            if (excessValue > 0) {
-                _refundToSender(excessValue);
-            }
-        }
-
-        return (enabledTransceivers, instructions, priceQuotes, totalPriceQuote);
-    }
 
     function _refundToSender(
         uint256 refundAmount
@@ -280,16 +123,23 @@ abstract contract ManagerBase is
     }
 
     /// @inheritdoc IManagerBase
-    function getThreshold() public view returns (uint8) {
-        return _getThresholdStorage().num;
+    function getThreshold(
+        uint16 chain
+    ) public view returns (uint8) {
+        return _getThresholdStorage()[chain].num;
     }
 
     /// @inheritdoc IManagerBase
     function isMessageApproved(
-        bytes32 digest
+        uint16 srcChain,
+        UniversalAddress srcAddr,
+        uint64 sequence,
+        UniversalAddress dstAddr,
+        bytes32 payloadHash
     ) public view returns (bool) {
-        uint8 threshold = getThreshold();
-        return messageAttestations(digest) >= threshold && threshold > 0;
+        uint8 numAttested = messageAttestations(srcChain, srcAddr, sequence, dstAddr, payloadHash);
+        uint8 threshold = getThreshold(srcChain);
+        return (numAttested >= threshold);
     }
 
     /// @inheritdoc IManagerBase
@@ -299,22 +149,42 @@ abstract contract ManagerBase is
 
     /// @inheritdoc IManagerBase
     function isMessageExecuted(
-        bytes32 digest
+        uint16 srcChain,
+        UniversalAddress srcAddr,
+        uint64 sequence,
+        UniversalAddress dstAddr,
+        bytes32 payloadHash
     ) public view returns (bool) {
-        return _getMessageAttestationsStorage()[digest].executed;
+        (,,, bool executed) =
+            endpoint.getMessageStatus(srcChain, srcAddr, sequence, dstAddr, payloadHash);
+
+        return executed;
     }
 
     /// @inheritdoc IManagerBase
-    function transceiverAttestedToMessage(bytes32 digest, uint8 index) public view returns (bool) {
-        return
-            _getMessageAttestationsStorage()[digest].attestedTransceivers & uint64(1 << index) > 0;
+    function transceiverAttestedToMessage(
+        uint16 srcChain,
+        UniversalAddress srcAddr,
+        uint64 sequence,
+        UniversalAddress dstAddr,
+        bytes32 payloadHash,
+        uint8 index
+    ) public view returns (bool) {
+        (, uint128 attested,,) =
+            endpoint.getMessageStatus(srcChain, srcAddr, sequence, dstAddr, payloadHash);
+
+        return attested & uint64(1 << index) > 0;
     }
 
     /// @inheritdoc IManagerBase
     function messageAttestations(
-        bytes32 digest
+        uint16 srcChain,
+        UniversalAddress srcAddr,
+        uint64 sequence,
+        UniversalAddress dstAddr,
+        bytes32 payloadHash
     ) public view returns (uint8 count) {
-        return countSetBits(_getMessageAttestations(digest));
+        (,, count,) = endpoint.getMessageStatus(srcChain, srcAddr, sequence, dstAddr, payloadHash);
     }
 
     // =============== Admin ==============================================================
@@ -339,23 +209,30 @@ abstract contract ManagerBase is
     function transferOwnership(
         address newOwner
     ) public override onlyOwner {
+        // It's intentional (at this time) that we are not transferring the endpoint admin.
+        // The endpoint functions are all called by the NttManager, which means the admin
+        // must remain the NttManager.
         super.transferOwnership(newOwner);
-        // loop through all the registered transceivers and set the new owner of each transceiver to the newOwner
-        address[] storage _registeredTransceivers = _getRegisteredTransceiversStorage();
-        _checkRegisteredTransceiversInvariants();
-
-        for (uint256 i = 0; i < _registeredTransceivers.length; i++) {
-            ITransceiver(_registeredTransceivers[i]).transferTransceiverOwnership(newOwner);
-        }
     }
 
     /// @inheritdoc IManagerBase
     function setTransceiver(
         address transceiver
     ) external onlyOwner {
-        _setTransceiver(transceiver);
+        uint8 index = IEndpointAdmin(address(endpoint)).addAdapter(address(this), transceiver);
+        emit TransceiverAdded(transceiver, index);
+    }
 
-        _Threshold storage _threshold = _getThresholdStorage();
+    /// @inheritdoc IManagerBase
+    function enableSendTransceiver(uint16 chain, address transceiver) external {
+        IEndpointAdmin(address(endpoint)).enableSendAdapter(address(this), chain, transceiver);
+    }
+
+    /// @inheritdoc IManagerBase
+    function enableRecvTransceiver(uint16 chain, address transceiver) external {
+        IEndpointAdmin(address(endpoint)).enableRecvAdapter(address(this), chain, transceiver);
+
+        _Threshold storage _threshold = _getThresholdStorage()[chain];
         // We do not automatically increase the threshold here.
         // Automatically increasing the threshold can result in a scenario
         // where in-flight messages can't be redeemed.
@@ -373,91 +250,48 @@ abstract contract ManagerBase is
             _threshold.num = 1;
         }
 
-        emit TransceiverAdded(transceiver, _getNumTransceiversStorage().enabled, _threshold.num);
-
-        _checkThresholdInvariants();
+        _checkThresholdInvariantsForChain(chain);
     }
 
     /// @inheritdoc IManagerBase
-    function removeTransceiver(
-        address transceiver
-    ) external onlyOwner {
-        _removeTransceiver(transceiver);
+    function disableSendTransceiver(uint16 chain, address transceiver) external {
+        IEndpointAdmin(address(endpoint)).disableSendAdapter(address(this), chain, transceiver);
+    }
 
-        _Threshold storage _threshold = _getThresholdStorage();
-        uint8 numEnabledTransceivers = _getNumTransceiversStorage().enabled;
+    /// @inheritdoc IManagerBase
+    function disableRecvTransceiver(uint16 chain, address transceiver) external {
+        IEndpointAdmin(address(endpoint)).disableRecvAdapter(address(this), chain, transceiver);
 
-        if (numEnabledTransceivers < _threshold.num) {
-            _threshold.num = numEnabledTransceivers;
+        _Threshold storage _threshold = _getThresholdStorage()[chain];
+        uint8 numEnabled = IAdapterRegistry(address(endpoint)).getNumEnabledRecvAdaptersForChain(
+            address(this), chain
+        );
+
+        // TODO: Should we do this or just let _checkThresholdInvariantsForChain revert and make them reduce the threshold before disabling the chain?
+        if (_threshold.num > numEnabled) {
+            uint8 oldThreshold = _threshold.num;
+            _threshold.num = numEnabled;
+            emit ThresholdChanged(chainId, oldThreshold, numEnabled);
         }
 
-        emit TransceiverRemoved(transceiver, _threshold.num);
-
-        _checkThresholdInvariants();
+        _checkThresholdInvariantsForChain(chain);
     }
 
     /// @inheritdoc IManagerBase
-    function setThreshold(
-        uint8 threshold
-    ) external onlyOwner {
+    function setThreshold(uint16 chain, uint8 threshold) external onlyOwner {
         if (threshold == 0) {
             revert ZeroThreshold();
         }
 
-        _Threshold storage _threshold = _getThresholdStorage();
+        _Threshold storage _threshold = _getThresholdStorage()[chain];
         uint8 oldThreshold = _threshold.num;
 
         _threshold.num = threshold;
-        _checkThresholdInvariants();
-
-        emit ThresholdChanged(oldThreshold, threshold);
+        _checkThresholdInvariantsForChain(chain);
+        emit ThresholdChanged(chainId, oldThreshold, threshold);
     }
 
     // =============== Internal ==============================================================
-
-    function _setTransceiverAttestedToMessage(bytes32 digest, uint8 index) internal {
-        _getMessageAttestationsStorage()[digest].attestedTransceivers |= uint64(1 << index);
-    }
-
-    function _setTransceiverAttestedToMessage(bytes32 digest, address transceiver) internal {
-        _setTransceiverAttestedToMessage(digest, _getTransceiverInfosStorage()[transceiver].index);
-
-        emit MessageAttestedTo(
-            digest, transceiver, _getTransceiverInfosStorage()[transceiver].index
-        );
-    }
-
-    /// @dev Returns the bitmap of attestations from enabled transceivers for a given message.
-    function _getMessageAttestations(
-        bytes32 digest
-    ) internal view returns (uint64) {
-        uint64 enabledTransceiverBitmap = _getEnabledTransceiversBitmap();
-        return
-            _getMessageAttestationsStorage()[digest].attestedTransceivers & enabledTransceiverBitmap;
-    }
-
-    function _getEnabledTransceiverAttestedToMessage(
-        bytes32 digest,
-        uint8 index
-    ) internal view returns (bool) {
-        return _getMessageAttestations(digest) & uint64(1 << index) != 0;
-    }
-
-    // @dev Mark a message as executed.
-    // This function will retuns `true` if the message has already been executed.
-    function _replayProtect(
-        bytes32 digest
-    ) internal returns (bool) {
-        // check if this message has already been executed
-        if (isMessageExecuted(digest)) {
-            return true;
-        }
-
-        // mark this message as executed
-        _getMessageAttestationsStorage()[digest].executed = true;
-
-        return false;
-    }
 
     function _useMessageSequence() internal returns (uint64 currentSequence) {
         currentSequence = _getMessageSequenceStorage().num;
@@ -471,26 +305,37 @@ abstract contract ManagerBase is
         assert(this.token() == token);
         assert(this.mode() == mode);
         assert(this.chainId() == chainId);
-    }
-
-    function _checkRegisteredTransceiversInvariants() internal view {
-        if (_getRegisteredTransceiversStorage().length != _getNumTransceiversStorage().registered) {
-            revert RetrievedIncorrectRegisteredTransceivers(
-                _getRegisteredTransceiversStorage().length, _getNumTransceiversStorage().registered
-            );
-        }
+        assert(this.endpoint() == endpoint);
+        assert(this.executor() == executor);
     }
 
     function _checkThresholdInvariants() internal view {
-        uint8 threshold = _getThresholdStorage().num;
-        _NumTransceivers memory numTransceivers = _getNumTransceiversStorage();
+        uint16[] memory chains =
+            IAdapterRegistry(address(endpoint)).getChainsEnabledForRecv(address(this));
+        uint256 len = chains.length;
+        for (uint256 idx = 0; (idx < len);) {
+            _checkThresholdInvariantsForChain(chains[idx]);
+            unchecked {
+                ++idx;
+            }
+        }
+    }
+
+    /// @dev This can be called directly when we are only manipulating a single chain. Otherwise use _checkThresholdInvariants.
+    function _checkThresholdInvariantsForChain(
+        uint16 chain
+    ) internal view {
+        uint8 threshold = _getThresholdStorage()[chain].num;
+        uint8 numEnabled = IAdapterRegistry(address(endpoint)).getNumEnabledRecvAdaptersForChain(
+            address(this), chain
+        );
 
         // invariant: threshold <= enabledTransceivers.length
-        if (threshold > numTransceivers.enabled) {
-            revert ThresholdTooHigh(threshold, numTransceivers.enabled);
+        if (threshold > numEnabled) {
+            revert ThresholdTooHigh(threshold, numEnabled);
         }
 
-        if (numTransceivers.registered > 0) {
+        if (numEnabled > 0) {
             if (threshold == 0) {
                 revert ZeroThreshold();
             }
