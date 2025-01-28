@@ -229,11 +229,6 @@ export namespace NttRoute {
 }
 
 export namespace MultiTokenNttRoute {
-  export type TransceiverConfig = {
-    type: NttRoute.TransceiverType;
-    address: string;
-  };
-
   export type Config = {
     contracts: MultiTokenNtt.Contracts[];
   };
