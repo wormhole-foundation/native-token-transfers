@@ -2,4 +2,3 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { GmpManager } from "./GmpManager.js";
-export type { IGmpReceiver } from "./IGmpReceiver.js";

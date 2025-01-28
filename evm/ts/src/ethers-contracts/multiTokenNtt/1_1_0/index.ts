@@ -8,13 +8,5 @@
 //export * as factories from "./factories/index.js";
 export type { GmpManager } from "./GmpManager.sol/GmpManager.js";
 export { GmpManager__factory } from "./factories/GmpManager.sol/GmpManager__factory.js";
-export type { IGmpReceiver } from "./GmpManager.sol/IGmpReceiver.js";
-export { IGmpReceiver__factory } from "./factories/GmpManager.sol/IGmpReceiver__factory.js";
-export type { GmpMessenger } from "./MultiTokenNtt.sol/GmpMessenger.js";
-export { GmpMessenger__factory } from "./factories/MultiTokenNtt.sol/GmpMessenger__factory.js";
 export type { MultiTokenNtt } from "./MultiTokenNtt.sol/MultiTokenNtt.js";
 export { MultiTokenNtt__factory } from "./factories/MultiTokenNtt.sol/MultiTokenNtt__factory.js";
-export type { Peers } from "./MultiTokenNtt.sol/Peers.js";
-export { Peers__factory } from "./factories/MultiTokenNtt.sol/Peers__factory.js";
-export type { Structs } from "./MultiTokenNtt.sol/Structs.js";
-export { Structs__factory } from "./factories/MultiTokenNtt.sol/Structs__factory.js";
