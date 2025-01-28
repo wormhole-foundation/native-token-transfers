@@ -31,34 +31,22 @@ import {
   Ntt,
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import { ethers } from "ethers";
+import { ethers, type Provider } from "ethers";
 import { EvmNttWormholeTranceiver } from "./ntt.js";
-import {
-  GmpManager__factory,
-  GmpManager as GmpManagerAbi,
-  MultiTokenNtt__factory,
-  MultiTokenNtt as MultiTokenNttAbi,
-} from "./ethers-contracts/multiTokenNtt/index.js";
-import { _0_1_0 } from "./ethers-contracts/index.js";
 import { Wormhole } from "@wormhole-foundation/sdk-connect";
-
-// TODO: move this and properly support ABI version loading
-function loadAbiVersion(version: string) {
-  return {
-    MultiTokenNtt: MultiTokenNtt__factory,
-    GmpManager: GmpManager__factory,
-    NttTransceiver: _0_1_0.NttTransceiver,
-  };
-}
+import {
+  GmpManagerBindings,
+  loadAbiVersion,
+  MultiTokenNttManagerBindings,
+} from "./multiTokenNttBindings.js";
 
 export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   implements MultiTokenNtt<N, C>
 {
   readonly chainId: bigint;
 
-  // TODO: fetch the correct ABI
-  manager: MultiTokenNttAbi;
-  gmpManager: GmpManagerAbi;
+  manager: MultiTokenNttManagerBindings.NttManager;
+  gmpManager: GmpManagerBindings.GmpManager;
 
   xcvrs: EvmNttWormholeTranceiver<N, C>[];
   managerAddress: string;
@@ -66,10 +54,11 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   constructor(
     readonly network: N,
     readonly chain: C,
-    readonly provider: ethers.Provider,
+    readonly provider: Provider,
     readonly contracts: Contracts & { multiTokenNtt?: MultiTokenNtt.Contracts },
     readonly version: string = "1.0.0"
   ) {
+    console.log(`version ${version}`);
     if (!contracts.multiTokenNtt) throw new Error("No Ntt Contracts provided");
 
     this.chainId = nativeChainIds.networkChainToNativeChainId.get(
@@ -81,7 +70,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
     const abiBindings = loadAbiVersion(this.version);
 
-    this.manager = abiBindings.MultiTokenNtt.connect(
+    this.manager = abiBindings.NttManager.connect(
       contracts.multiTokenNtt.manager,
       this.provider
     );
@@ -133,12 +122,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   async getIsExecuted(
     attestation: MultiTokenNtt.Attestation
   ): Promise<boolean> {
-    //const payload =
-    //  attestation.payloadName === "WormholeTransfer"
-    //    ? attestation.payload
-    //    : attestation.payload["payload"];
     const isExecuted = await this.gmpManager.isMessageExecuted(
-      // Ntt.messageDigest(attestation.emitterChain, payload.["nttManagerPayload"])
       MultiTokenNtt.messageDigest(
         attestation.emitterChain,
         attestation.payload["payload"].nttManagerPayload
@@ -152,24 +136,15 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   async getIsTransferInboundQueued(
     attestation: MultiTokenNtt.Attestation
   ): Promise<boolean> {
-    //const payload =
-    //  attestation.payloadName === "WormholeTransfer"
-    //    ? attestation.payload
-    //    : attestation.payload["payload"];
     return (
       (await this.getInboundQueuedTransfer(
         attestation.emitterChain,
-        // payload["nttManagerPayload"]
         attestation.payload["payload"].nttManagerPayload
       )) !== null
     );
   }
 
   getIsApproved(attestation: MultiTokenNtt.Attestation): Promise<boolean> {
-    //const payload =
-    //  attestation.payloadName === "WormholeTransfer"
-    //    ? attestation.payload
-    //    : attestation.payload["payload"];
     return this.gmpManager.isMessageApproved(
       MultiTokenNtt.messageDigest(
         attestation.emitterChain,
@@ -179,7 +154,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   static async fromRpc<N extends Network>(
-    provider: ethers.Provider,
+    provider: Provider,
     config: ChainsConfig<N, EvmPlatformType>
   ): Promise<EvmMultiTokenNtt<N, EvmChains>> {
     const [network, chain] = await EvmPlatform.chainFromRpc(provider);
@@ -316,23 +291,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
-  // TODO: should this be some map of idx to transceiver?
   async *redeem(attestations: MultiTokenNtt.Attestation[]) {
-    //if (attestations.length !== this.xcvrs.length)
-    //  throw new Error(
-    //    "Not enough attestations for the registered Transceivers"
-    //  );
-
-    //for (const idx in this.xcvrs) {
-    //  const xcvr = this.xcvrs[idx]!;
-    //  const attestation = attestations[idx];
-    //  if (attestation?.payloadName !== "WormholeTransfer") {
-    //    // TODO: support standard relayer attestations
-    //    // which must be submitted to the delivery provider
-    //    throw new Error("Invalid attestation type for redeem");
-    //  }
-    //  yield* xcvr.receive(attestation);
-    //}
     throw new Error("Not implemented");
   }
 
@@ -538,40 +497,3 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 }
-
-//type EncodedTrimmedAmount = bigint; // uint72
-//
-//type TrimmedAmount = {
-//  amount: bigint;
-//  decimals: number;
-//};
-
-//function decodeTrimmedAmount(encoded: EncodedTrimmedAmount): TrimmedAmount {
-//  const decimals = Number(encoded & 0xffn);
-//  const amount = encoded >> 8n;
-//  return {
-//    amount,
-//    decimals,
-//  };
-//}
-//
-//function untrim(trimmed: TrimmedAmount, toDecimals: number): bigint {
-//  const { amount, decimals: fromDecimals } = trimmed;
-//  return scale(amount, fromDecimals, toDecimals);
-//}
-
-//function scale(
-//  amount: bigint,
-//  fromDecimals: number,
-//  toDecimals: number
-//): bigint {
-//  if (fromDecimals == toDecimals) {
-//    return amount;
-//  }
-//
-//  if (fromDecimals > toDecimals) {
-//    return amount / 10n ** BigInt(fromDecimals - toDecimals);
-//  } else {
-//    return amount * 10n ** BigInt(toDecimals - fromDecimals);
-//  }
-//}

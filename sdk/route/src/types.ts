@@ -252,6 +252,8 @@ export namespace MultiTokenNttRoute {
     options: MultiTokenNtt.TransferOptions;
     sourceContracts: MultiTokenNtt.Contracts;
     destinationContracts: MultiTokenNtt.Contracts;
+    sourceTokenId: TokenId;
+    destinationTokenId: TokenId;
   };
 
   export interface ValidatedParams
