@@ -218,6 +218,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "Avail",
+      "programId": "nttbhNaJput6dP8hXV6fuuhRHyvKYy2GJYAs64s176G",
+      "tokenAddress": "CANeF11aEY9XNGbJmnQwTPvnnXoPfGKpPyLxZr2zVd9W",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
