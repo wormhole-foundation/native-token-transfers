@@ -58,7 +58,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     readonly contracts: Contracts & { multiTokenNtt?: MultiTokenNtt.Contracts },
     readonly version: string = "1.0.0"
   ) {
-    console.log(`version ${version}`);
     if (!contracts.multiTokenNtt) throw new Error("No Ntt Contracts provided");
 
     this.chainId = nativeChainIds.networkChainToNativeChainId.get(
@@ -412,7 +411,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       chainId: toChainId(originalToken.chain),
       tokenAddress: originalToken.address.toUniversalAddress().toUint8Array(),
     });
-    console.log(`getLocalToken result: ${localToken}`);
 
     if (localToken === ethers.ZeroAddress) return null;
 
@@ -477,8 +475,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       salt,
       initCodeHash
     );
-
-    console.log(`calculateTokenAddress: ${localTokenAddress}`);
 
     return toNative(this.chain, localTokenAddress);
   }

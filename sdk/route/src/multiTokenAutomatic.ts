@@ -209,12 +209,6 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
         ? MultiTokenNttAutomaticRoute.SR_GAS_LIMIT_CREATE_TOKEN
         : MultiTokenNttAutomaticRoute.SR_GAS_LIMIT;
 
-    console.log(
-      `gasLimit: originalTokenId: ${originalToken.address.toString()}, toToken: ${
-        destinationToken?.address.toString() || null
-      }, gasLimit: ${gasLimit}`
-    );
-
     return gasLimit;
   }
 
