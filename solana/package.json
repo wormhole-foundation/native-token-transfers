@@ -57,10 +57,10 @@
     "@wormhole-foundation/sdk-definitions-ntt": "0.5.0"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^1.5.0",
-    "@wormhole-foundation/sdk-definitions": "^1.5.0",
-    "@wormhole-foundation/sdk-solana": "^1.5.0",
-    "@wormhole-foundation/sdk-solana-core": "^1.5.0"
+    "@wormhole-foundation/sdk-base": "^1.5.1",
+    "@wormhole-foundation/sdk-definitions": "^1.5.1",
+    "@wormhole-foundation/sdk-solana": "^1.5.1",
+    "@wormhole-foundation/sdk-solana-core": "^1.5.1"
   },
   "type": "module",
   "exports": {

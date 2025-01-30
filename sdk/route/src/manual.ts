@@ -67,11 +67,10 @@ export class NttManualRoute<N extends Network>
     return NttRoute.resolveSupportedChains(this.config, network);
   }
 
-  // TODO: remove this, just here to compile
-  static supportedSourceTokens(
+  static async supportedSourceTokens(
     fromChain: ChainContext<Network>
   ): Promise<TokenId[]> {
-    throw new Error("not implemented");
+    return NttRoute.resolveSourceTokens(this.config, fromChain);
   }
 
   static async supportedDestinationTokens<N extends Network>(
