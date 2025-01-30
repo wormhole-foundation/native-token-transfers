@@ -48,10 +48,10 @@
     "ethers": "^6.5.1"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^1.0.0",
-    "@wormhole-foundation/sdk-definitions": "^1.0.0",
-    "@wormhole-foundation/sdk-evm": "^1.0.0",
-    "@wormhole-foundation/sdk-evm-core": "^1.0.0"
+    "@wormhole-foundation/sdk-base": "^1.5.0",
+    "@wormhole-foundation/sdk-definitions": "^1.5.0",
+    "@wormhole-foundation/sdk-evm": "^1.5.0",
+    "@wormhole-foundation/sdk-evm-core": "^1.5.0"
   },
   "devDependencies": {
     "@typechain/ethers-v6": "^0.5.1",
