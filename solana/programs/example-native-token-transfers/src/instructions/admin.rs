@@ -276,8 +276,66 @@ pub struct SetTokenAuthority<'info> {
     /// CHECK: The constraints enforce this is valid mint authority
     pub token_authority: UncheckedAccount<'info>,
 
+    #[account(
+        constraint = multisig_token_authority.m == 1 
+            && multisig_token_authority.signers.contains(&token_authority.key())
+            @ NTTError::InvalidMultisig,
+    )]
+    pub multisig_token_authority: Option<InterfaceAccount<'info, SplMultisig>>,
+
     /// CHECK: This account will be the signer in the [claim_token_authority] instruction.
     pub new_authority: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetTokenAuthorityUnchecked<'info> {
+    pub common: SetTokenAuthority<'info>,
+
+    pub token_program: Interface<'info, token_interface::TokenInterface>,
+}
+
+pub fn set_token_authority_one_step_unchecked(
+    ctx: Context<SetTokenAuthorityUnchecked>,
+) -> Result<()> {
+    if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
+        solana_program::program::invoke_signed(
+        &spl_token_2022::instruction::set_authority(
+            &ctx.accounts.token_program.key(),
+            &ctx.accounts.common.mint.key(),
+            Some(&ctx.accounts.common.new_authority.key()),
+            spl_token_2022::instruction::AuthorityType::MintTokens,
+            &multisig_token_authority.key(),
+            &[&ctx.accounts.common.token_authority.key()],
+            )?,
+            &[
+                ctx.accounts.common.mint.to_account_info(),
+                ctx.accounts.common.new_authority.to_account_info(),
+                multisig_token_authority.to_account_info(),
+                ctx.accounts.common.token_authority.to_account_info()
+            ],
+            &[&[
+                crate::TOKEN_AUTHORITY_SEED,
+                &[ctx.bumps.common.token_authority],
+            ]]
+        )?;
+    } else {
+        token_interface::set_authority(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                token_interface::SetAuthority {
+                    account_or_mint: ctx.accounts.common.mint.to_account_info(),
+                    current_authority: ctx.accounts.common.token_authority.to_account_info(),
+                },
+                &[&[
+                    crate::TOKEN_AUTHORITY_SEED,
+                    &[ctx.bumps.common.token_authority],
+                ]],
+            ),
+            AuthorityType::MintTokens,
+            Some(ctx.accounts.common.new_authority.key()),
+        )?;
+    }
+    Ok(())
 }
 
 #[derive(Accounts)]
