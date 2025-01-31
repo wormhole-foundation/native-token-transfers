@@ -158,6 +158,10 @@ pub mod example_native_token_transfers {
         instructions::set_token_authority_one_step_unchecked(ctx)
     }
 
+    pub fn set_token_authority(ctx: Context<SetTokenAuthorityChecked>) -> Result<()> {
+        instructions::set_token_authority(ctx)
+    }
+
     pub fn revert_token_authority(ctx: Context<RevertTokenAuthority>) -> Result<()> {
         instructions::revert_token_authority(ctx)
     }
