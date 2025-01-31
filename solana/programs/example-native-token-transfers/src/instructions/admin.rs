@@ -341,7 +341,12 @@ pub fn set_token_authority_one_step_unchecked(
 #[derive(Accounts)]
 pub struct SetTokenAuthorityChecked<'info> {
     #[account(
-        constraint = common.token_authority.key() == common.mint.mint_authority.unwrap() @ NTTError::InvalidMintAuthority
+        constraint = 
+        (common.multisig_token_authority.is_some() && 
+        common.multisig_token_authority.clone().unwrap().key() == common.mint.mint_authority.unwrap()) ||
+        (common.multisig_token_authority.is_none() &&
+        common.token_authority.key() == common.mint.mint_authority.unwrap())
+        @ NTTError::InvalidMintAuthority
     )]
     pub common: SetTokenAuthority<'info>,
 
@@ -369,33 +374,6 @@ pub fn set_token_authority(ctx: Context<SetTokenAuthorityChecked>) -> Result<()>
             rent_payer: ctx.accounts.rent_payer.key(),
         });
     Ok(())
-}
-
-#[derive(Accounts)]
-pub struct SetTokenAuthorityUnchecked<'info> {
-    pub common: SetTokenAuthority<'info>,
-
-    pub token_program: Interface<'info, token_interface::TokenInterface>,
-}
-
-pub fn set_token_authority_one_step_unchecked(
-    ctx: Context<SetTokenAuthorityUnchecked>,
-) -> Result<()> {
-    token_interface::set_authority(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            token_interface::SetAuthority {
-                account_or_mint: ctx.accounts.common.mint.to_account_info(),
-                current_authority: ctx.accounts.common.token_authority.to_account_info(),
-            },
-            &[&[
-                crate::TOKEN_AUTHORITY_SEED,
-                &[ctx.bumps.common.token_authority],
-            ]],
-        ),
-        AuthorityType::MintTokens,
-        Some(ctx.accounts.common.new_authority.key()),
-    )
 }
 
 // * Claim token authority
