@@ -57,10 +57,13 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
   static NATIVE_GAS_DROPOFF_SUPPORTED: boolean = false;
 
   // Standard Relayer gas limits for transfers
-  // These default gas limits should be high enough to cover the gas usage of delivery or the delivery will fail.
-  static SR_GAS_LIMIT: bigint = 300_000n;
+  // The gas limit can vary depending on the complexity of the token contract and the specific EVM chain.
+  // A good upper bound for gas limits to accommodate most ERC-20 token transfers across multiple EVM chains
+  // should be used. This limit should cover the majority of tokens, including those with additional logic
+  // such as hooks or complex state changes.
+  static SR_GAS_LIMIT: bigint = 375_000n;
   // More gas is needed to create a token if it doesn't exist on the destination chain yet (unattested).
-  static SR_GAS_LIMIT_CREATE_TOKEN: bigint = 1_000_000n;
+  static SR_GAS_LIMIT_CREATE_TOKEN: bigint = 1_250_000n;
 
   // @ts-ignore
   // Since we set the config on the static class, access it with this param
