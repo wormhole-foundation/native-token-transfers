@@ -213,6 +213,49 @@ pub fn accept_token_authority(ctx: Context<AcceptTokenAuthority>) -> Result<()> 
 }
 
 #[derive(Accounts)]
+pub struct AcceptTokenAuthorityMultisig<'info> {
+    pub common: AcceptTokenAuthorityBase<'info>,
+
+    pub current_multisig_authority: InterfaceAccount<'info, SplMultisig>,
+}
+
+pub fn accept_token_authority_multisig<'info>(ctx: Context<'_, '_, '_, 'info, AcceptTokenAuthorityMultisig<'info>>) -> Result<()> {
+    let new_authority = if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
+        multisig_token_authority.to_account_info()
+    } else {
+        ctx.accounts.common.token_authority.to_account_info()
+    };
+    
+    let mut signer_pubkeys: Vec<&Pubkey> = Vec::new();
+    let mut account_infos = vec![
+        ctx.accounts.common.mint.to_account_info(),
+        new_authority.clone(),
+        ctx.accounts.current_multisig_authority.to_account_info(),
+    ];
+    
+    // handle additional signers
+    {
+        let num_additional_signers = ctx.accounts.current_multisig_authority.m as usize - 1;
+        let additional_signers = &ctx.remaining_accounts[..num_additional_signers];
+        signer_pubkeys.extend(additional_signers.iter().map(|x| x.key));
+        account_infos.extend_from_slice(additional_signers);
+    }
+    
+    solana_program::program::invoke(
+        &spl_token_2022::instruction::set_authority(
+            &ctx.accounts.common.token_program.key(),
+            &ctx.accounts.common.mint.key(),
+            Some(&new_authority.key()),
+            spl_token_2022::instruction::AuthorityType::MintTokens,
+            &ctx.accounts.current_multisig_authority.key(),
+            &signer_pubkeys,
+        )?,
+        account_infos.as_slice(),
+    )?;
+    Ok(())
+}
+
+#[derive(Accounts)]
 pub struct SetTokenAuthority<'info> {
     #[account(
         has_one = owner,
