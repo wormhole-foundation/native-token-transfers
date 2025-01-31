@@ -396,6 +396,13 @@ pub struct ClaimTokenAuthorityBase<'info> {
     /// CHECK: The seeds constraint enforces that this is the correct address
     pub token_authority: UncheckedAccount<'info>,
 
+    #[account(
+        constraint = multisig_token_authority.m == 1 
+            && multisig_token_authority.signers.contains(&token_authority.key())
+            @ NTTError::InvalidMultisig,
+    )]
+    pub multisig_token_authority: Option<InterfaceAccount<'info, SplMultisig>>,
+
     #[account(mut)]
     /// CHECK: the `pending_token_authority` constraint enforces that this is the correct address
     pub rent_payer: UncheckedAccount<'info>,
@@ -439,21 +446,111 @@ pub struct ClaimTokenAuthority<'info> {
 }
 
 pub fn claim_token_authority(ctx: Context<ClaimTokenAuthority>) -> Result<()> {
-    token_interface::set_authority(
-        CpiContext::new_with_signer(
-            ctx.accounts.common.token_program.to_account_info(),
-            token_interface::SetAuthority {
-                account_or_mint: ctx.accounts.common.mint.to_account_info(),
-                current_authority: ctx.accounts.common.token_authority.to_account_info(),
-            },
+    if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
+        solana_program::program::invoke_signed(
+        &spl_token_2022::instruction::set_authority(
+            &ctx.accounts.common.token_program.key(),
+            &ctx.accounts.common.mint.key(),
+            Some(&ctx.accounts.new_authority.key()),
+            spl_token_2022::instruction::AuthorityType::MintTokens,
+            &multisig_token_authority.key(),
+            &[&ctx.accounts.common.token_authority.key()],
+            )?,
+            &[
+                ctx.accounts.common.mint.to_account_info(),
+                ctx.accounts.new_authority.to_account_info(),
+                multisig_token_authority.to_account_info(),
+                ctx.accounts.common.token_authority.to_account_info()
+            ],
             &[&[
                 crate::TOKEN_AUTHORITY_SEED,
                 &[ctx.bumps.common.token_authority],
-            ]],
-        ),
-        AuthorityType::MintTokens,
-        Some(ctx.accounts.new_authority.key()),
-    )
+            ]]
+        )?;
+    } else {
+        token_interface::set_authority(
+            CpiContext::new_with_signer(
+                ctx.accounts.common.token_program.to_account_info(),
+                token_interface::SetAuthority {
+                    account_or_mint: ctx.accounts.common.mint.to_account_info(),
+                    current_authority: ctx.accounts.common.token_authority.to_account_info(),
+                },
+                &[&[
+                    crate::TOKEN_AUTHORITY_SEED,
+                    &[ctx.bumps.common.token_authority],
+                ]],
+            ),
+            AuthorityType::MintTokens,
+            Some(ctx.accounts.new_authority.key()),
+        )?;
+    }
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct ClaimTokenAuthorityToMultisig<'info> {
+    pub common: ClaimTokenAuthorityBase<'info>,
+
+    #[account(
+        address = common.pending_token_authority.pending_authority @ NTTError::InvalidPendingTokenAuthority
+    )]
+    /// CHECK: The remaining accounts are treated as required signers for the multisig to be validated
+    pub new_multisig_authority: InterfaceAccount<'info, SplMultisig>,
+}
+
+pub fn claim_token_authority_to_multisig(ctx: Context<ClaimTokenAuthorityToMultisig>) -> Result<()> {
+    // SPL Multisig cannot be a Signer so we simulate multisig signing using ctx.remaining_accounts as
+    // required signers to validate it
+    {   
+        let multisig = ctx.accounts.new_multisig_authority.to_account_info();
+        token_interface::spl_token_2022::processor::Processor::validate_owner(
+            &ctx.accounts.common.token_program.key(),
+            &multisig.key(),
+            &multisig,
+            multisig.data_len(),
+            &ctx.remaining_accounts,
+        )?;
+    }
+
+    if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
+        solana_program::program::invoke_signed(
+        &spl_token_2022::instruction::set_authority(
+            &ctx.accounts.common.token_program.key(),
+            &ctx.accounts.common.mint.key(),
+            Some(&ctx.accounts.new_multisig_authority.key()),
+            spl_token_2022::instruction::AuthorityType::MintTokens,
+            &multisig_token_authority.key(),
+            &[&ctx.accounts.common.token_authority.key()],
+            )?,
+            &[
+                ctx.accounts.common.mint.to_account_info(),
+                ctx.accounts.new_multisig_authority.to_account_info(),
+                multisig_token_authority.to_account_info(),
+                ctx.accounts.common.token_authority.to_account_info()
+            ],
+            &[&[
+                crate::TOKEN_AUTHORITY_SEED,
+                &[ctx.bumps.common.token_authority],
+            ]]
+        )?;
+    } else {
+        token_interface::set_authority(
+            CpiContext::new_with_signer(
+                ctx.accounts.common.token_program.to_account_info(),
+                token_interface::SetAuthority {
+                    account_or_mint: ctx.accounts.common.mint.to_account_info(),
+                    current_authority: ctx.accounts.common.token_authority.to_account_info(),
+                },
+                &[&[
+                    crate::TOKEN_AUTHORITY_SEED,
+                    &[ctx.bumps.common.token_authority],
+                ]],
+            ),
+            AuthorityType::MintTokens,
+            Some(ctx.accounts.new_multisig_authority.key()),
+        )?;
+    }
+    Ok(())
 }
 
 // * Set peers

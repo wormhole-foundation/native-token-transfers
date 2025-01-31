@@ -170,6 +170,12 @@ pub mod example_native_token_transfers {
         instructions::claim_token_authority(ctx)
     }
 
+    pub fn claim_token_authority_to_multisig(
+        ctx: Context<ClaimTokenAuthorityToMultisig>,
+    ) -> Result<()> {
+        instructions::claim_token_authority_to_multisig(ctx)
+    }
+
     pub fn set_paused(ctx: Context<SetPaused>, pause: bool) -> Result<()> {
         instructions::set_paused(ctx, pause)
     }
