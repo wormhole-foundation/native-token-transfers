@@ -146,8 +146,10 @@ pub mod example_native_token_transfers {
         instructions::accept_token_authority(ctx)
     }
 
-    pub fn set_token_authority(ctx: Context<SetTokenAuthorityChecked>) -> Result<()> {
-        instructions::set_token_authority(ctx)
+    pub fn accept_token_authority_multisig<'info>(
+        ctx: Context<'_, '_, '_, 'info, AcceptTokenAuthorityMultisig<'info>>,
+    ) -> Result<()> {
+        instructions::accept_token_authority_multisig(ctx)
     }
 
     pub fn set_token_authority_one_step_unchecked(

@@ -13,6 +13,7 @@ use crate::{
     pending_token_authority::PendingTokenAuthority,
     queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit, rate_limit::RateLimitState},
     registered_transceiver::RegisteredTransceiver,
+    spl_multisig::SplMultisig,
 };
 
 // * Transfer ownership
@@ -159,7 +160,7 @@ pub fn claim_ownership(ctx: Context<ClaimOwnership>) -> Result<()> {
 // * Set token authority
 
 #[derive(Accounts)]
-pub struct AcceptTokenAuthority<'info> {
+pub struct AcceptTokenAuthorityBase<'info> {
     #[account(
         has_one = mint,
         constraint = config.paused @ NTTError::NotPaused,
@@ -176,22 +177,38 @@ pub struct AcceptTokenAuthority<'info> {
     /// CHECK: The constraints enforce this is valid mint authority
     pub token_authority: UncheckedAccount<'info>,
 
-    pub current_authority: Signer<'info>,
+    #[account(
+        constraint = multisig_token_authority.m == 1 
+            && multisig_token_authority.signers.contains(&token_authority.key())
+            @ NTTError::InvalidMultisig,
+    )]
+    pub multisig_token_authority: Option<InterfaceAccount<'info, SplMultisig>>,
 
     pub token_program: Interface<'info, token_interface::TokenInterface>,
+}
+
+#[derive(Accounts)]
+pub struct AcceptTokenAuthority<'info> {
+    pub common: AcceptTokenAuthorityBase<'info>,
+
+    pub current_authority: Signer<'info>,
 }
 
 pub fn accept_token_authority(ctx: Context<AcceptTokenAuthority>) -> Result<()> {
     token_interface::set_authority(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.common.token_program.to_account_info(),
             token_interface::SetAuthority {
-                account_or_mint: ctx.accounts.mint.to_account_info(),
+                account_or_mint: ctx.accounts.common.mint.to_account_info(),
                 current_authority: ctx.accounts.current_authority.to_account_info(),
             },
         ),
         AuthorityType::MintTokens,
-        Some(ctx.accounts.token_authority.key()),
+        if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
+            Some(multisig_token_authority.key())
+        } else {
+        Some(ctx.accounts.common.token_authority.key())
+    },
     )
 }
 
