@@ -213,13 +213,13 @@ pub fn accept_token_authority(ctx: Context<AcceptTokenAuthority>) -> Result<()> 
 }
 
 #[derive(Accounts)]
-pub struct AcceptTokenAuthorityMultisig<'info> {
+pub struct AcceptTokenAuthorityFromMultisig<'info> {
     pub common: AcceptTokenAuthorityBase<'info>,
 
     pub current_multisig_authority: InterfaceAccount<'info, SplMultisig>,
 }
 
-pub fn accept_token_authority_multisig<'info>(ctx: Context<'_, '_, '_, 'info, AcceptTokenAuthorityMultisig<'info>>) -> Result<()> {
+pub fn accept_token_authority_from_multisig<'info>(ctx: Context<'_, '_, '_, 'info, AcceptTokenAuthorityFromMultisig<'info>>) -> Result<()> {
     let new_authority = if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
         multisig_token_authority.to_account_info()
     } else {
