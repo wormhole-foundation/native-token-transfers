@@ -232,13 +232,11 @@ pub fn accept_token_authority_from_multisig<'info>(ctx: Context<'_, '_, '_, 'inf
         new_authority.clone(),
         ctx.accounts.current_multisig_authority.to_account_info(),
     ];
-    
-    // handle additional signers
+
+    // pass ctx.remaining_accounts as required signers
     {
-        let num_additional_signers = ctx.accounts.current_multisig_authority.m as usize - 1;
-        let additional_signers = &ctx.remaining_accounts[..num_additional_signers];
-        signer_pubkeys.extend(additional_signers.iter().map(|x| x.key));
-        account_infos.extend_from_slice(additional_signers);
+        signer_pubkeys.extend(ctx.remaining_accounts.iter().map(|x| x.key));
+        account_infos.extend_from_slice(ctx.remaining_accounts);
     }
     
     solana_program::program::invoke(
