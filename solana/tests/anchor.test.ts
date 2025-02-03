@@ -85,7 +85,7 @@ const connection = new anchor.web3.Connection(
   "confirmed"
 );
 
-// Make sure we're using the exact same Connection obj for rpc
+// make sure we're using the exact same Connection obj for rpc
 const ctx: ChainContext<"Devnet", "Solana"> = w
   .getPlatform("Solana")
   .getChain("Solana", connection);
@@ -128,7 +128,6 @@ describe("example-native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
   let signer: Signer;
   let sender: AccountAddress<"Solana">;
-  let multisig: anchor.web3.PublicKey;
   let tokenAddress: string;
   let multisigTokenAuthority: anchor.web3.PublicKey;
 
@@ -201,7 +200,7 @@ describe("example-native-token-transfers", () => {
       );
 
       tokenAddress = mint.publicKey.toBase58();
-      // Create our contract client
+      // create our contract client
       ntt = new SolanaNtt(
         "Devnet",
         "Solana",
@@ -264,14 +263,14 @@ describe("example-native-token-transfers", () => {
         });
         await signSendWait(ctx, registerTxs, signer);
 
-        // Set Wormhole xcvr peer
+        // set Wormhole xcvr peer
         const setXcvrPeerTxs = ntt.setWormholeTransceiverPeer(
           remoteXcvr,
           sender
         );
         await signSendWait(ctx, setXcvrPeerTxs, signer);
 
-        // Set manager peer
+        // set manager peer
         const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1000000n, sender);
         await signSendWait(ctx, setPeerTxs, signer);
       } catch (e) {
@@ -308,7 +307,7 @@ describe("example-native-token-transfers", () => {
       ]);
     });
 
-    test("Can send tokens", async () => {
+    it("Can send tokens", async () => {
       const amount = 100000n;
       const sender = Wormhole.parseAddress("Solana", signer.address());
 
@@ -769,8 +768,8 @@ describe("example-native-token-transfers", () => {
       },
     };
 
-    describe("ABI Versions Test", function () {
-      test("It initializes from Rpc", async function () {
+    describe("ABI Versions Test", () => {
+      test("It initializes from Rpc", async () => {
         const ntt = await SolanaNtt.fromRpc(connection, {
           Solana: {
             ...ctx.config,
@@ -783,7 +782,7 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It initializes from constructor", async function () {
+      test("It initializes from constructor", async () => {
         const ntt = new SolanaNtt("Devnet", "Solana", connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrides["Solana"] },
@@ -791,7 +790,7 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It gets the correct version", async function () {
+      test("It gets the correct version", async () => {
         const version = await SolanaNtt.getVersion(
           connection,
           { ntt: overrides["Solana"] },
@@ -800,7 +799,7 @@ describe("example-native-token-transfers", () => {
         expect(version).toBe("3.0.0");
       });
 
-      test("It initializes using `emitterAccount` as transceiver address", async function () {
+      test("It initializes using `emitterAccount` as transceiver address", async () => {
         const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
           JSON.stringify(overrides["Solana"])
         );
@@ -815,7 +814,7 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It gets the correct transceiver type", async function () {
+      test("It gets the correct transceiver type", async () => {
         const ntt = new SolanaNtt("Devnet", "Solana", connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrides["Solana"] },
