@@ -892,24 +892,124 @@ export type ExampleNativeTokenTransfers = {
       "name": "acceptTokenAuthority",
       "accounts": [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
         },
         {
           "name": "currentAuthority",
           "isMut": false,
           "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "acceptTokenAuthorityFromMultisig",
+      "accounts": [
+        {
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "currentMultisigAuthority",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "setTokenAuthorityOneStepUnchecked",
+      "accounts": [
+        {
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "owner",
+              "isMut": false,
+              "isSigner": true
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "newAuthority",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
         },
         {
           "name": "tokenProgram",
@@ -946,6 +1046,12 @@ export type ExampleNativeTokenTransfers = {
               "isSigner": false
             },
             {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
               "name": "newAuthority",
               "isMut": false,
               "isSigner": false
@@ -964,47 +1070,6 @@ export type ExampleNativeTokenTransfers = {
         },
         {
           "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "setTokenAuthorityOneStepUnchecked",
-      "accounts": [
-        {
-          "name": "common",
-          "accounts": [
-            {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "owner",
-              "isMut": false,
-              "isSigner": true
-            },
-            {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "newAuthority",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        },
-        {
-          "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -1031,6 +1096,12 @@ export type ExampleNativeTokenTransfers = {
               "name": "tokenAuthority",
               "isMut": false,
               "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
             },
             {
               "name": "rentPayer",
@@ -1084,6 +1155,12 @@ export type ExampleNativeTokenTransfers = {
               "isSigner": false
             },
             {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
               "name": "rentPayer",
               "isMut": true,
               "isSigner": false
@@ -1109,6 +1186,63 @@ export type ExampleNativeTokenTransfers = {
           "name": "newAuthority",
           "isMut": false,
           "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimTokenAuthorityToMultisig",
+      "accounts": [
+        {
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "rentPayer",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "pendingTokenAuthority",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "systemProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "newMultisigAuthority",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -3350,24 +3484,124 @@ export const IDL: ExampleNativeTokenTransfers = {
       "name": "acceptTokenAuthority",
       "accounts": [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenAuthority",
-          "isMut": false,
-          "isSigner": false
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
         },
         {
           "name": "currentAuthority",
           "isMut": false,
           "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "acceptTokenAuthorityFromMultisig",
+      "accounts": [
+        {
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "currentMultisigAuthority",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "setTokenAuthorityOneStepUnchecked",
+      "accounts": [
+        {
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "owner",
+              "isMut": false,
+              "isSigner": true
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "newAuthority",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
         },
         {
           "name": "tokenProgram",
@@ -3404,6 +3638,12 @@ export const IDL: ExampleNativeTokenTransfers = {
               "isSigner": false
             },
             {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
               "name": "newAuthority",
               "isMut": false,
               "isSigner": false
@@ -3422,47 +3662,6 @@ export const IDL: ExampleNativeTokenTransfers = {
         },
         {
           "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "setTokenAuthorityOneStepUnchecked",
-      "accounts": [
-        {
-          "name": "common",
-          "accounts": [
-            {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "owner",
-              "isMut": false,
-              "isSigner": true
-            },
-            {
-              "name": "mint",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "tokenAuthority",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "newAuthority",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        },
-        {
-          "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -3489,6 +3688,12 @@ export const IDL: ExampleNativeTokenTransfers = {
               "name": "tokenAuthority",
               "isMut": false,
               "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
             },
             {
               "name": "rentPayer",
@@ -3542,6 +3747,12 @@ export const IDL: ExampleNativeTokenTransfers = {
               "isSigner": false
             },
             {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
               "name": "rentPayer",
               "isMut": true,
               "isSigner": false
@@ -3567,6 +3778,63 @@ export const IDL: ExampleNativeTokenTransfers = {
           "name": "newAuthority",
           "isMut": false,
           "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimTokenAuthorityToMultisig",
+      "accounts": [
+        {
+          "name": "common",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "mint",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenAuthority",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "multisigTokenAuthority",
+              "isMut": false,
+              "isSigner": false,
+              "isOptional": true
+            },
+            {
+              "name": "rentPayer",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "pendingTokenAuthority",
+              "isMut": true,
+              "isSigner": false
+            },
+            {
+              "name": "tokenProgram",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "systemProgram",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "newMultisigAuthority",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
