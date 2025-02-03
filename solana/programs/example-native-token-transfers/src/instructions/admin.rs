@@ -512,7 +512,7 @@ pub fn claim_token_authority_to_multisig(
             &multisig.key(),
             &multisig,
             multisig.data_len(),
-            &ctx.remaining_accounts,
+            ctx.remaining_accounts,
         )?;
     }
 
