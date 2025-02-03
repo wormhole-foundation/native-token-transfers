@@ -849,6 +849,7 @@ export namespace NTT {
     config: NttBindings.Config<IdlVersion>,
     args: {
       currentAuthority: PublicKey;
+      multisigTokenAuthority?: PublicKey;
     },
     pdas?: Pdas
   ) {
@@ -856,11 +857,74 @@ export namespace NTT {
     return program.methods
       .acceptTokenAuthority()
       .accountsStrict({
-        config: pdas.configAccount(),
-        mint: config.mint,
-        tokenProgram: config.tokenProgram,
-        tokenAuthority: pdas.tokenAuthority(),
+        common: {
+          config: pdas.configAccount(),
+          mint: config.mint,
+          tokenProgram: config.tokenProgram,
+          tokenAuthority: pdas.tokenAuthority(),
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+        },
         currentAuthority: args.currentAuthority,
+      })
+      .instruction();
+  }
+
+  export async function createAcceptTokenAuthorityFromMultisigInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    config: NttBindings.Config<IdlVersion>,
+    args: {
+      currentMultisigAuthority: PublicKey;
+      additionalSigners: PublicKey[];
+      multisigTokenAuthority?: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .acceptTokenAuthorityFromMultisig()
+      .accountsStrict({
+        common: {
+          config: pdas.configAccount(),
+          mint: config.mint,
+          tokenProgram: config.tokenProgram,
+          tokenAuthority: pdas.tokenAuthority(),
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+        },
+        currentMultisigAuthority: args.currentMultisigAuthority,
+      })
+      .remainingAccounts(
+        args.additionalSigners.map((pubkey) => ({
+          pubkey,
+          isSigner: true,
+          isWritable: false,
+        }))
+      )
+      .instruction();
+  }
+
+  export async function createSetTokenAuthorityOneStepUncheckedInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    config: NttBindings.Config<IdlVersion>,
+    args: {
+      owner: PublicKey;
+      newAuthority: PublicKey;
+      multisigTokenAuthority?: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .setTokenAuthorityOneStepUnchecked()
+      .accountsStrict({
+        common: {
+          config: pdas.configAccount(),
+          tokenAuthority: pdas.tokenAuthority(),
+          mint: config.mint,
+          owner: args.owner,
+          newAuthority: args.newAuthority,
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+        },
+        tokenProgram: config.tokenProgram,
       })
       .instruction();
   }
@@ -872,6 +936,7 @@ export namespace NTT {
       rentPayer: PublicKey;
       owner: PublicKey;
       newAuthority: PublicKey;
+      multisigTokenAuthority?: PublicKey;
     },
     pdas?: Pdas
   ) {
@@ -885,6 +950,7 @@ export namespace NTT {
           mint: config.mint,
           owner: args.owner,
           newAuthority: args.newAuthority,
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
         },
         rentPayer: args.rentPayer,
         pendingTokenAuthority: pdas.pendingTokenAuthority(),
@@ -899,6 +965,7 @@ export namespace NTT {
     args: {
       rentPayer: PublicKey;
       owner: PublicKey;
+      multisigTokenAuthority?: PublicKey;
     },
     pdas?: Pdas
   ) {
@@ -914,9 +981,76 @@ export namespace NTT {
           systemProgram: SystemProgram.programId,
           rentPayer: args.rentPayer,
           pendingTokenAuthority: pdas.pendingTokenAuthority(),
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
         },
         owner: args.owner,
       })
+      .instruction();
+  }
+
+  export async function createClaimTokenAuthorityInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    config: NttBindings.Config<IdlVersion>,
+    args: {
+      rentPayer: PublicKey;
+      newAuthority: PublicKey;
+      multisigTokenAuthority?: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .claimTokenAuthority()
+      .accountsStrict({
+        common: {
+          config: pdas.configAccount(),
+          mint: config.mint,
+          tokenAuthority: pdas.tokenAuthority(),
+          tokenProgram: config.tokenProgram,
+          systemProgram: SystemProgram.programId,
+          rentPayer: args.rentPayer,
+          pendingTokenAuthority: pdas.pendingTokenAuthority(),
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+        },
+        newAuthority: args.newAuthority,
+      })
+      .instruction();
+  }
+
+  export async function createClaimTokenAuthorityToMultisigInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    config: NttBindings.Config<IdlVersion>,
+    args: {
+      rentPayer: PublicKey;
+      newMultisigAuthority: PublicKey;
+      additionalSigners: PublicKey[];
+      multisigTokenAuthority?: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .claimTokenAuthorityToMultisig()
+      .accountsStrict({
+        common: {
+          config: pdas.configAccount(),
+          mint: config.mint,
+          tokenAuthority: pdas.tokenAuthority(),
+          tokenProgram: config.tokenProgram,
+          systemProgram: SystemProgram.programId,
+          rentPayer: args.rentPayer,
+          pendingTokenAuthority: pdas.pendingTokenAuthority(),
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+        },
+        newMultisigAuthority: args.newMultisigAuthority,
+      })
+      .remainingAccounts(
+        args.additionalSigners.map((pubkey) => ({
+          pubkey,
+          isSigner: true,
+          isWritable: false,
+        }))
+      )
       .instruction();
   }
 
