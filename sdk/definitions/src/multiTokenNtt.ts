@@ -12,6 +12,7 @@ import {
   EmptyPlatformMap,
   TokenAddress,
   TokenId,
+  UniversalAddress,
   UnsignedTransaction,
   VAA,
   keccak256,
@@ -50,6 +51,11 @@ export namespace MultiTokenNtt {
     // to the destination chain. Should be high enough to cover
     // the cost of the message delivery or delivery will fail.
     relayerGasLimit: bigint;
+  };
+
+  export type OriginalTokenId<C extends Chain = Chain> = {
+    chain: C;
+    address: UniversalAddress;
   };
 
   // TODO: what are the set of attestation types for Ntt?
@@ -130,21 +136,20 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   getTokenDecimals(token: TokenId): Promise<number>;
 
   /**
-   * getCurrentOutboundCapacity returns the current outbound capacity of the Ntt manager
+   * getCurrentOutboundCapacity returns the current outbound capacity of the token
    */
-  getCurrentOutboundCapacity(): Promise<bigint>;
+  getCurrentOutboundCapacity(token: TokenId): Promise<bigint>;
 
   /**
-   * getOutboundLimit returns the maximum outbound capacity of the Ntt manager
+   * getOutboundLimit returns the maximum outbound capacity of the token
    */
-  getOutboundLimit(): Promise<bigint>;
+  getOutboundLimit(token: TokenId): Promise<bigint>;
 
   /**
-   * getCurrentInboundCapacity returns the current inbound capacity of the Ntt manager
-   * @param fromChain the chain to check the inbound capacity for
+   * getCurrentInboundCapacity returns the current inbound capacity of the token from a given chain
    */
   getCurrentInboundCapacity(
-    originalToken: TokenId,
+    originalToken: MultiTokenNtt.OriginalTokenId,
     fromChain: Chain
   ): Promise<bigint>;
 
@@ -154,10 +159,12 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   getRateLimitDuration(): Promise<bigint>;
 
   /**
-   * getInboundLimit returns the maximum inbound capacity of the Ntt manager
-   * @param fromChain the chain to check the inbound limit for
+   * getInboundLimit returns the maximum inbound capacity of the token from a given chain
    */
-  getInboundLimit(fromChain: Chain): Promise<bigint>;
+  getInboundLimit(
+    originalToken: MultiTokenNtt.OriginalTokenId,
+    fromChain: Chain
+  ): Promise<bigint | null>;
 
   /**
    * getIsApproved returns whether an attestation is approved
@@ -205,12 +212,14 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
-  getOriginalToken(localToken: TokenId): Promise<TokenId>;
+  getOriginalToken(localToken: TokenId): Promise<MultiTokenNtt.OriginalTokenId>;
 
-  getLocalToken(originalToken: TokenId): Promise<TokenId | null>;
+  getLocalToken(
+    originalToken: MultiTokenNtt.OriginalTokenId
+  ): Promise<TokenId | null>;
 
   calculateLocalTokenAddress(
-    originalToken: TokenId,
+    originalToken: MultiTokenNtt.OriginalTokenId,
     tokenName: string,
     tokenSymbol: string,
     tokenDecimals: number

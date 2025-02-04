@@ -121,6 +121,7 @@ export interface MultiTokenNttInterface extends Interface {
       | "initialize"
       | "isPaused"
       | "migrate"
+      | "overrideLocalAsset"
       | "owner"
       | "pauser"
       | "rateLimitDuration"
@@ -129,6 +130,7 @@ export interface MultiTokenNttInterface extends Interface {
       | "setOutboundLimit"
       | "setPeer"
       | "tokenImplementation"
+      | "tokenProxyCreationCode"
       | "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)"
       | "transfer(address,uint256,uint16,uint256,bytes32)"
       | "transferETH(uint256,uint16,uint256,bytes32)"
@@ -224,6 +226,10 @@ export interface MultiTokenNttInterface extends Interface {
   ): string;
   encodeFunctionData(functionFragment: "isPaused", values?: undefined): string;
   encodeFunctionData(functionFragment: "migrate", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "overrideLocalAsset",
+    values: [TokenIdStruct, AddressLike]
+  ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(functionFragment: "pauser", values?: undefined): string;
   encodeFunctionData(
@@ -248,6 +254,10 @@ export interface MultiTokenNttInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "tokenImplementation",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "tokenProxyCreationCode",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -348,6 +358,10 @@ export interface MultiTokenNttInterface extends Interface {
   decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isPaused", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "migrate", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "overrideLocalAsset",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "pauser", data: BytesLike): Result;
   decodeFunctionResult(
@@ -369,6 +383,10 @@ export interface MultiTokenNttInterface extends Interface {
   decodeFunctionResult(functionFragment: "setPeer", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "tokenImplementation",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "tokenProxyCreationCode",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -764,6 +782,12 @@ export interface MultiTokenNtt extends BaseContract {
 
   migrate: TypedContractMethod<[], [void], "nonpayable">;
 
+  overrideLocalAsset: TypedContractMethod<
+    [token: TokenIdStruct, localToken: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
   owner: TypedContractMethod<[], [string], "view">;
 
   pauser: TypedContractMethod<[], [string], "view">;
@@ -795,6 +819,8 @@ export interface MultiTokenNtt extends BaseContract {
   >;
 
   tokenImplementation: TypedContractMethod<[], [string], "view">;
+
+  tokenProxyCreationCode: TypedContractMethod<[], [string], "view">;
 
   "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)": TypedContractMethod<
     [
@@ -960,6 +986,13 @@ export interface MultiTokenNtt extends BaseContract {
     nameOrSignature: "migrate"
   ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "overrideLocalAsset"
+  ): TypedContractMethod<
+    [token: TokenIdStruct, localToken: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
@@ -998,6 +1031,9 @@ export interface MultiTokenNtt extends BaseContract {
   >;
   getFunction(
     nameOrSignature: "tokenImplementation"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "tokenProxyCreationCode"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "transfer(address,uint256,uint16,uint256,bytes32,bytes32,bool,bytes)"

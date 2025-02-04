@@ -9,3 +9,5 @@ registerProtocol(_platform, "MultiTokenNtt", EvmMultiTokenNtt);
 
 export * as ethers_contracts from "./ethers-contracts/index.js";
 export * from "./ntt.js";
+export * from "./multiTokenNtt.js";
+export * from "./trimmedAmount.js";

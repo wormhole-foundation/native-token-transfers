@@ -23,6 +23,7 @@ import {
   isSameToken,
   isSourceFinalized,
   isSourceInitiated,
+  isUnattestedTokenId,
   nativeTokenId,
   routes,
   signSendWait,
@@ -30,6 +31,7 @@ import {
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "./types.js";
+import { MultiTokenNtt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 type Op = MultiTokenNttRoute.Options;
 type Tp = routes.TransferParams<Op>;
@@ -58,8 +60,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
 
   // Standard Relayer gas limits for transfers
   // The gas limit can vary depending on the complexity of the token contract and the specific EVM chain.
-  // A good upper bound for gas limits to accommodate most ERC-20 token transfers across multiple EVM chains
-  // should be used. This limit should cover the majority of tokens, including those with additional logic
+  // This limit should cover the majority of tokens, including those with additional logic
   // such as hooks or complex state changes.
   static SR_GAS_LIMIT: bigint = 375_000n;
   // More gas is needed to create a token if it doesn't exist on the destination chain yet (unattested).
@@ -191,26 +192,24 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       ),
     });
 
-    const toNtt = await request.toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
-        this.staticConfig,
-        request.toChain.chain
-      ),
-    });
-
     const sourceToken = isNative(request.source.id.address)
       ? await fromNtt.getWrappedNativeToken()
       : request.source.id;
 
     const originalToken = await fromNtt.getOriginalToken(sourceToken);
 
-    const destinationToken = await toNtt.getLocalToken(originalToken);
+    const destinationToken = await getDestinationTokenId(
+      sourceToken,
+      request.fromChain,
+      request.toChain,
+      this.staticConfig,
+      originalToken
+    );
 
     // More gas is needed to create the token on the destination chain
-    const gasLimit =
-      destinationToken === null
-        ? MultiTokenNttAutomaticRoute.SR_GAS_LIMIT_CREATE_TOKEN
-        : MultiTokenNttAutomaticRoute.SR_GAS_LIMIT;
+    const gasLimit = isUnattestedTokenId(destinationToken)
+      ? MultiTokenNttAutomaticRoute.SR_GAS_LIMIT_CREATE_TOKEN
+      : MultiTokenNttAutomaticRoute.SR_GAS_LIMIT;
 
     return gasLimit;
   }
@@ -254,40 +253,50 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       eta: finality.estimateFinalityTime(request.fromChain.chain),
     };
 
-    // TODO: rate limits
-    //const dstNtt = await toChain.getProtocol("MultiTokenNtt", {
-    //  multiTokenNtt: params.normalizedParams.destinationContracts,
-    //});
-    //const duration = await dstNtt.getRateLimitDuration();
-    //if (duration > 0n) {
-    //  // TODO: support native
-    //  if (isNative(request.source.id.address))
-    //    throw new Error("Native token not supported");
-    //  const tokenId = await ntt.getTokenId(
-    //    request.source.id.address.toNative(fromChain.chain)
-    //  );
-    //  const capacity = await dstNtt.getCurrentInboundCapacity(
-    //    tokenId,
-    //    fromChain.chain
-    //  );
-    //  const dstAmount = amount.parse(
-    //    params.amount,
-    //    request.destination.decimals
-    //  );
-    //  if (
-    //    MultiTokenNttRoute.isCapacityThresholdExceeded(
-    //      amount.units(dstAmount),
-    //      capacity
-    //    )
-    //  ) {
-    //    result.warnings = [
-    //      {
-    //        type: "DestinationCapacityWarning",
-    //        delayDurationSec: Number(duration),
-    //      },
-    //    ];
-    //  }
-    //}
+    const toNtt = await toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: params.normalizedParams.destinationContracts,
+    });
+
+    const duration = await toNtt.getRateLimitDuration();
+
+    if (duration > 0n) {
+      const sourceToken = isNative(request.source.id.address)
+        ? await fromNtt.getWrappedNativeToken()
+        : request.source.id;
+
+      const originalToken = await fromNtt.getOriginalToken(sourceToken);
+
+      const inboundLimit = await toNtt.getInboundLimit(
+        originalToken,
+        toChain.chain
+      );
+
+      if (inboundLimit !== null) {
+        const capacity = await toNtt.getCurrentInboundCapacity(
+          originalToken,
+          fromChain.chain
+        );
+
+        const dstAmount = amount.parse(
+          params.amount,
+          request.destination.decimals
+        );
+
+        if (
+          NttRoute.isCapacityThresholdExceeded(
+            amount.units(dstAmount),
+            capacity
+          )
+        ) {
+          result.warnings = [
+            {
+              type: "DestinationCapacityWarning",
+              delayDurationSec: Number(duration),
+            },
+          ];
+        }
+      }
+    }
 
     return result;
   }
@@ -360,10 +369,10 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
       trimmedAmount.decimals
     );
 
-    const originalTokenId = Wormhole.tokenId(
-      payload.data.token.token.chainId,
-      payload.data.token.token.tokenAddress.toString()
-    );
+    const originalTokenId: MultiTokenNtt.OriginalTokenId = {
+      chain: payload.data.token.token.chainId,
+      address: payload.data.token.token.tokenAddress,
+    };
 
     const fromNtt = await fromChain.getProtocol("MultiTokenNtt", {
       multiTokenNtt: sourceContracts,
@@ -541,7 +550,7 @@ async function getDestinationTokenId<N extends Network>(
   fromChain: ChainContext<N>,
   toChain: ChainContext<N>,
   config: MultiTokenNttRoute.Config,
-  originalToken?: TokenId
+  originalToken?: MultiTokenNtt.OriginalTokenId
 ): Promise<TokenId> {
   if (sourceToken.chain !== fromChain.chain) {
     throw new Error("Source token must be native to the source chain");

@@ -7,11 +7,9 @@ import { layoutItems } from "@wormhole-foundation/sdk-definitions";
 import { trimmedAmountItem } from "./amount.js";
 import { prefixItem } from "./prefix.js";
 
-// MultiTokenNtt layouts
-
 const tokenMetaLayout = [
-  { name: "name", ...layoutItems.universalAddressItem },
-  { name: "symbol", ...layoutItems.universalAddressItem },
+  { name: "name", ...layoutItems.fixedLengthStringItem(32) },
+  { name: "symbol", ...layoutItems.fixedLengthStringItem(32) },
   { name: "decimals", binary: "uint", size: 1 },
 ] as const satisfies Layout;
 
@@ -40,7 +38,6 @@ export const tokenInfoLayoutItem = {
   layout: tokenInfoLayout,
 } as const;
 
-// TODO: why is this different for multi-token transfers?
 export const multiTokenNativeTokenTransferLayout = [
   prefixItem([0x99, 0x4e, 0x54, 0x54]),
   { name: "trimmedAmount", ...trimmedAmountItem },
@@ -49,24 +46,6 @@ export const multiTokenNativeTokenTransferLayout = [
   { name: "to", ...layoutItems.universalAddressItem },
 ] as const satisfies Layout;
 
-/*
-    /// @dev Prefix for all GenericMesage payloads
-    ///      This is 0x99'G''M''P'
-    bytes4 constant GMP_PREFIX = 0x99474D50;
-
-    struct GenericMessage {
-        /// @notice target chain
-        uint16 toChain;
-        /// @notice contract to deliver the payload to
-        bytes32 callee;
-        /// @notice sender of the message
-        bytes32 sender;
-        /// @notice calldata to pass to the recipient contract
-        bytes data;
-    }
-*/
-
-// TODO: where does this belong?
 export const genericMessageLayout = <D extends CustomizableBytes>(data?: D) =>
   [
     prefixItem([0x99, 0x47, 0x4d, 0x50]),
