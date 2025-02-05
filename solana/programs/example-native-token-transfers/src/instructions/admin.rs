@@ -344,10 +344,10 @@ pub fn set_token_authority_one_step_unchecked(
 pub struct SetTokenAuthorityChecked<'info> {
     #[account(
         constraint =
-            (common.multisig_token_authority.is_some() &&
-            common.multisig_token_authority.clone().unwrap().key() == common.mint.mint_authority.unwrap()) ||
-            (common.multisig_token_authority.is_none() &&
-            common.token_authority.key() == common.mint.mint_authority.unwrap())
+            common.mint.mint_authority.unwrap() == common.multisig_token_authority.as_ref().map_or(
+                common.token_authority.key(),
+                |multisig_token_authority| multisig_token_authority.key()
+            )
             @ NTTError::InvalidMintAuthority
     )]
     pub common: SetTokenAuthority<'info>,
