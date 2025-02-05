@@ -204,11 +204,10 @@ pub fn accept_token_authority(ctx: Context<AcceptTokenAuthority>) -> Result<()> 
             },
         ),
         AuthorityType::MintTokens,
-        if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
-            Some(multisig_token_authority.key())
-        } else {
-            Some(ctx.accounts.common.token_authority.key())
-        },
+        Some(match &ctx.accounts.common.multisig_token_authority {
+            Some(multisig_token_authority) => multisig_token_authority.key(),
+            None => ctx.accounts.common.token_authority.key(),
+        }),
     )
 }
 
@@ -223,12 +222,10 @@ pub struct AcceptTokenAuthorityFromMultisig<'info> {
 pub fn accept_token_authority_from_multisig<'info>(
     ctx: Context<'_, '_, '_, 'info, AcceptTokenAuthorityFromMultisig<'info>>,
 ) -> Result<()> {
-    let new_authority =
-        if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
-            multisig_token_authority.to_account_info()
-        } else {
-            ctx.accounts.common.token_authority.to_account_info()
-        };
+    let new_authority = match &ctx.accounts.common.multisig_token_authority {
+        Some(multisig_token_authority) => multisig_token_authority.to_account_info(),
+        None => ctx.accounts.common.token_authority.to_account_info(),
+    };
 
     let mut signer_pubkeys: Vec<&Pubkey> = Vec::new();
     let mut account_infos = vec![
@@ -299,44 +296,47 @@ pub struct SetTokenAuthorityUnchecked<'info> {
 pub fn set_token_authority_one_step_unchecked(
     ctx: Context<SetTokenAuthorityUnchecked>,
 ) -> Result<()> {
-    if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
-        solana_program::program::invoke_signed(
-            &spl_token_2022::instruction::set_authority(
-                &ctx.accounts.token_program.key(),
-                &ctx.accounts.common.mint.key(),
-                Some(&ctx.accounts.common.new_authority.key()),
-                spl_token_2022::instruction::AuthorityType::MintTokens,
-                &multisig_token_authority.key(),
-                &[&ctx.accounts.common.token_authority.key()],
-            )?,
-            &[
-                ctx.accounts.common.mint.to_account_info(),
-                ctx.accounts.common.new_authority.to_account_info(),
-                multisig_token_authority.to_account_info(),
-                ctx.accounts.common.token_authority.to_account_info(),
-            ],
-            &[&[
-                crate::TOKEN_AUTHORITY_SEED,
-                &[ctx.bumps.common.token_authority],
-            ]],
-        )?;
-    } else {
-        token_interface::set_authority(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                token_interface::SetAuthority {
-                    account_or_mint: ctx.accounts.common.mint.to_account_info(),
-                    current_authority: ctx.accounts.common.token_authority.to_account_info(),
-                },
+    match &ctx.accounts.common.multisig_token_authority {
+        Some(multisig_token_authority) => {
+            solana_program::program::invoke_signed(
+                &spl_token_2022::instruction::set_authority(
+                    &ctx.accounts.token_program.key(),
+                    &ctx.accounts.common.mint.key(),
+                    Some(&ctx.accounts.common.new_authority.key()),
+                    spl_token_2022::instruction::AuthorityType::MintTokens,
+                    &multisig_token_authority.key(),
+                    &[&ctx.accounts.common.token_authority.key()],
+                )?,
+                &[
+                    ctx.accounts.common.mint.to_account_info(),
+                    ctx.accounts.common.new_authority.to_account_info(),
+                    multisig_token_authority.to_account_info(),
+                    ctx.accounts.common.token_authority.to_account_info(),
+                ],
                 &[&[
                     crate::TOKEN_AUTHORITY_SEED,
                     &[ctx.bumps.common.token_authority],
                 ]],
-            ),
-            AuthorityType::MintTokens,
-            Some(ctx.accounts.common.new_authority.key()),
-        )?;
-    }
+            )?;
+        }
+        None => {
+            token_interface::set_authority(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    token_interface::SetAuthority {
+                        account_or_mint: ctx.accounts.common.mint.to_account_info(),
+                        current_authority: ctx.accounts.common.token_authority.to_account_info(),
+                    },
+                    &[&[
+                        crate::TOKEN_AUTHORITY_SEED,
+                        &[ctx.bumps.common.token_authority],
+                    ]],
+                ),
+                AuthorityType::MintTokens,
+                Some(ctx.accounts.common.new_authority.key()),
+            )?;
+        }
+    };
     Ok(())
 }
 
@@ -448,44 +448,47 @@ pub struct ClaimTokenAuthority<'info> {
 }
 
 pub fn claim_token_authority(ctx: Context<ClaimTokenAuthority>) -> Result<()> {
-    if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
-        solana_program::program::invoke_signed(
-            &spl_token_2022::instruction::set_authority(
-                &ctx.accounts.common.token_program.key(),
-                &ctx.accounts.common.mint.key(),
-                Some(&ctx.accounts.new_authority.key()),
-                spl_token_2022::instruction::AuthorityType::MintTokens,
-                &multisig_token_authority.key(),
-                &[&ctx.accounts.common.token_authority.key()],
-            )?,
-            &[
-                ctx.accounts.common.mint.to_account_info(),
-                ctx.accounts.new_authority.to_account_info(),
-                multisig_token_authority.to_account_info(),
-                ctx.accounts.common.token_authority.to_account_info(),
-            ],
-            &[&[
-                crate::TOKEN_AUTHORITY_SEED,
-                &[ctx.bumps.common.token_authority],
-            ]],
-        )?;
-    } else {
-        token_interface::set_authority(
-            CpiContext::new_with_signer(
-                ctx.accounts.common.token_program.to_account_info(),
-                token_interface::SetAuthority {
-                    account_or_mint: ctx.accounts.common.mint.to_account_info(),
-                    current_authority: ctx.accounts.common.token_authority.to_account_info(),
-                },
+    match &ctx.accounts.common.multisig_token_authority {
+        Some(multisig_token_authority) => {
+            solana_program::program::invoke_signed(
+                &spl_token_2022::instruction::set_authority(
+                    &ctx.accounts.common.token_program.key(),
+                    &ctx.accounts.common.mint.key(),
+                    Some(&ctx.accounts.new_authority.key()),
+                    spl_token_2022::instruction::AuthorityType::MintTokens,
+                    &multisig_token_authority.key(),
+                    &[&ctx.accounts.common.token_authority.key()],
+                )?,
+                &[
+                    ctx.accounts.common.mint.to_account_info(),
+                    ctx.accounts.new_authority.to_account_info(),
+                    multisig_token_authority.to_account_info(),
+                    ctx.accounts.common.token_authority.to_account_info(),
+                ],
                 &[&[
                     crate::TOKEN_AUTHORITY_SEED,
                     &[ctx.bumps.common.token_authority],
                 ]],
-            ),
-            AuthorityType::MintTokens,
-            Some(ctx.accounts.new_authority.key()),
-        )?;
-    }
+            )?;
+        }
+        None => {
+            token_interface::set_authority(
+                CpiContext::new_with_signer(
+                    ctx.accounts.common.token_program.to_account_info(),
+                    token_interface::SetAuthority {
+                        account_or_mint: ctx.accounts.common.mint.to_account_info(),
+                        current_authority: ctx.accounts.common.token_authority.to_account_info(),
+                    },
+                    &[&[
+                        crate::TOKEN_AUTHORITY_SEED,
+                        &[ctx.bumps.common.token_authority],
+                    ]],
+                ),
+                AuthorityType::MintTokens,
+                Some(ctx.accounts.new_authority.key()),
+            )?;
+        }
+    };
     Ok(())
 }
 
@@ -516,44 +519,47 @@ pub fn claim_token_authority_to_multisig(
         )?;
     }
 
-    if let Some(multisig_token_authority) = &ctx.accounts.common.multisig_token_authority {
-        solana_program::program::invoke_signed(
-            &spl_token_2022::instruction::set_authority(
-                &ctx.accounts.common.token_program.key(),
-                &ctx.accounts.common.mint.key(),
-                Some(&ctx.accounts.new_multisig_authority.key()),
-                spl_token_2022::instruction::AuthorityType::MintTokens,
-                &multisig_token_authority.key(),
-                &[&ctx.accounts.common.token_authority.key()],
-            )?,
-            &[
-                ctx.accounts.common.mint.to_account_info(),
-                ctx.accounts.new_multisig_authority.to_account_info(),
-                multisig_token_authority.to_account_info(),
-                ctx.accounts.common.token_authority.to_account_info(),
-            ],
-            &[&[
-                crate::TOKEN_AUTHORITY_SEED,
-                &[ctx.bumps.common.token_authority],
-            ]],
-        )?;
-    } else {
-        token_interface::set_authority(
-            CpiContext::new_with_signer(
-                ctx.accounts.common.token_program.to_account_info(),
-                token_interface::SetAuthority {
-                    account_or_mint: ctx.accounts.common.mint.to_account_info(),
-                    current_authority: ctx.accounts.common.token_authority.to_account_info(),
-                },
+    match &ctx.accounts.common.multisig_token_authority {
+        Some(multisig_token_authority) => {
+            solana_program::program::invoke_signed(
+                &spl_token_2022::instruction::set_authority(
+                    &ctx.accounts.common.token_program.key(),
+                    &ctx.accounts.common.mint.key(),
+                    Some(&ctx.accounts.new_multisig_authority.key()),
+                    spl_token_2022::instruction::AuthorityType::MintTokens,
+                    &multisig_token_authority.key(),
+                    &[&ctx.accounts.common.token_authority.key()],
+                )?,
+                &[
+                    ctx.accounts.common.mint.to_account_info(),
+                    ctx.accounts.new_multisig_authority.to_account_info(),
+                    multisig_token_authority.to_account_info(),
+                    ctx.accounts.common.token_authority.to_account_info(),
+                ],
                 &[&[
                     crate::TOKEN_AUTHORITY_SEED,
                     &[ctx.bumps.common.token_authority],
                 ]],
-            ),
-            AuthorityType::MintTokens,
-            Some(ctx.accounts.new_multisig_authority.key()),
-        )?;
-    }
+            )?;
+        }
+        None => {
+            token_interface::set_authority(
+                CpiContext::new_with_signer(
+                    ctx.accounts.common.token_program.to_account_info(),
+                    token_interface::SetAuthority {
+                        account_or_mint: ctx.accounts.common.mint.to_account_info(),
+                        current_authority: ctx.accounts.common.token_authority.to_account_info(),
+                    },
+                    &[&[
+                        crate::TOKEN_AUTHORITY_SEED,
+                        &[ctx.bumps.common.token_authority],
+                    ]],
+                ),
+                AuthorityType::MintTokens,
+                Some(ctx.accounts.new_multisig_authority.key()),
+            )?;
+        }
+    };
     Ok(())
 }
 
