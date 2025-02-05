@@ -428,6 +428,7 @@ pub struct RevertTokenAuthority<'info> {
     pub common: ClaimTokenAuthorityBase<'info>,
 
     #[account(
+        // there is no custom error thrown as this is usually checked via `has_one` on the config
         address = common.config.owner
     )]
     pub owner: Signer<'info>,
