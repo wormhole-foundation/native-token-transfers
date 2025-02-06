@@ -234,6 +234,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "GoPlus",
+      "programId": "ntts1k5D5paWgPDmWVujZUGBQruMXFRSrjRydAweSKc",
+      "tokenAddress": "9Qh7srATukeENC1D1eNimWgdY34Wjs3g6MjBuLRNkWy4",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
