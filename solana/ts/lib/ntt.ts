@@ -874,7 +874,7 @@ export namespace NTT {
     config: NttBindings.Config<IdlVersion>,
     args: {
       currentMultisigAuthority: PublicKey;
-      additionalSigners: PublicKey[];
+      additionalSigners: readonly PublicKey[];
       multisigTokenAuthority?: PublicKey;
     },
     pdas?: Pdas
@@ -1023,7 +1023,7 @@ export namespace NTT {
     args: {
       rentPayer: PublicKey;
       newMultisigAuthority: PublicKey;
-      additionalSigners: PublicKey[];
+      additionalSigners: readonly PublicKey[];
       multisigTokenAuthority?: PublicKey;
     },
     pdas?: Pdas
