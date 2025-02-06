@@ -85,7 +85,7 @@ const connection = new anchor.web3.Connection(
   "confirmed"
 );
 
-// Make sure we're using the exact same Connection obj for rpc
+// make sure we're using the exact same Connection obj for rpc
 const ctx: ChainContext<"Devnet", "Solana"> = w
   .getPlatform("Solana")
   .getChain("Solana", connection);
@@ -128,8 +128,8 @@ describe("example-native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
   let signer: Signer;
   let sender: AccountAddress<"Solana">;
-  let multisig: anchor.web3.PublicKey;
   let tokenAddress: string;
+  let multisigTokenAuthority: anchor.web3.PublicKey;
 
   beforeAll(async () => {
     try {
@@ -200,7 +200,7 @@ describe("example-native-token-transfers", () => {
       );
 
       tokenAddress = mint.publicKey.toBase58();
-      // Create our contract client
+      // create our contract client
       ntt = new SolanaNtt(
         "Devnet",
         "Solana",
@@ -226,7 +226,7 @@ describe("example-native-token-transfers", () => {
   describe("Burning", () => {
     beforeAll(async () => {
       try {
-        multisig = await spl.createMultisig(
+        multisigTokenAuthority = await spl.createMultisig(
           connection,
           payer,
           [owner.publicKey, ntt.pdas.tokenAuthority()],
@@ -241,7 +241,7 @@ describe("example-native-token-transfers", () => {
           mint.publicKey,
           owner,
           spl.AuthorityType.MintTokens,
-          multisig,
+          multisigTokenAuthority,
           [],
           undefined,
           TOKEN_PROGRAM
@@ -252,7 +252,7 @@ describe("example-native-token-transfers", () => {
           mint: mint.publicKey,
           outboundLimit: 1000000n,
           mode: "burning",
-          multisig,
+          multisig: multisigTokenAuthority,
         });
         await signSendWait(ctx, initTxs, signer);
 
@@ -263,14 +263,14 @@ describe("example-native-token-transfers", () => {
         });
         await signSendWait(ctx, registerTxs, signer);
 
-        // Set Wormhole xcvr peer
+        // set Wormhole xcvr peer
         const setXcvrPeerTxs = ntt.setWormholeTransceiverPeer(
           remoteXcvr,
           sender
         );
         await signSendWait(ctx, setXcvrPeerTxs, signer);
 
-        // Set manager peer
+        // set manager peer
         const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1000000n, sender);
         await signSendWait(ctx, setPeerTxs, signer);
       } catch (e) {
@@ -307,7 +307,7 @@ describe("example-native-token-transfers", () => {
       ]);
     });
 
-    test("Can send tokens", async () => {
+    it("Can send tokens", async () => {
       const amount = 100000n;
       const sender = Wormhole.parseAddress("Solana", signer.address());
 
@@ -357,6 +357,327 @@ describe("example-native-token-transfers", () => {
       expect(balance.value.amount).toBe("9900000");
     });
 
+    describe("Can transfer mint authority to-and-from NTT manager", () => {
+      const newAuthority = anchor.web3.Keypair.generate();
+      let newMultisigAuthority: anchor.web3.PublicKey;
+
+      beforeAll(async () => {
+        newMultisigAuthority = await spl.createMultisig(
+          connection,
+          payer,
+          [owner.publicKey, newAuthority.publicKey],
+          2,
+          anchor.web3.Keypair.generate(),
+          undefined,
+          TOKEN_PROGRAM
+        );
+      });
+
+      it("Fails when contract is not paused", async () => {
+        try {
+          const transaction = new anchor.web3.Transaction().add(
+            await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
+                newAuthority: newAuthority.publicKey,
+                multisigTokenAuthority,
+              }
+            )
+          );
+          transaction.feePayer = payer.publicKey;
+          const { blockhash } = await connection.getLatestBlockhash();
+          transaction.recentBlockhash = blockhash;
+          await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+            payer,
+          ]);
+          // tx should fail so this expect should never be hit
+          expect(false).toBeTruthy();
+        } catch (e) {
+          expect(e).toBeInstanceOf(anchor.web3.SendTransactionError);
+          const parsedError = anchor.AnchorError.parse(
+            (e as anchor.web3.SendTransactionError).logs ?? []
+          );
+          expect(parsedError?.error.errorCode).toEqual({
+            code: "NotPaused",
+            number: 6024,
+          });
+        } finally {
+          const mintInfo = await spl.getMint(
+            connection,
+            mint.publicKey,
+            undefined,
+            TOKEN_PROGRAM
+          );
+          expect(mintInfo.mintAuthority).toEqual(multisigTokenAuthority);
+        }
+      });
+
+      test("Multisig(owner, TA) -> newAuthority", async () => {
+        // retry after pausing contract
+        const pauseTxs = await ntt.pause(new SolanaAddress(payer.publicKey));
+        await signSendWait(ctx, pauseTxs, signer);
+
+        const transaction = new anchor.web3.Transaction().add(
+          await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
+            ntt.program,
+            await ntt.getConfig(),
+            {
+              owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
+              newAuthority: newAuthority.publicKey,
+              multisigTokenAuthority,
+            }
+          )
+        );
+        transaction.feePayer = payer.publicKey;
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+          payer,
+        ]);
+
+        const mintInfo = await spl.getMint(
+          connection,
+          mint.publicKey,
+          undefined,
+          TOKEN_PROGRAM
+        );
+        expect(mintInfo.mintAuthority).toEqual(newAuthority.publicKey);
+      });
+
+      test("newAuthority -> TA", async () => {
+        const transaction = new anchor.web3.Transaction().add(
+          await NTT.createAcceptTokenAuthorityInstruction(
+            ntt.program,
+            await ntt.getConfig(),
+            {
+              currentAuthority: newAuthority.publicKey,
+            }
+          )
+        );
+        transaction.feePayer = payer.publicKey;
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+          payer,
+          newAuthority,
+        ]);
+
+        const mintInfo = await spl.getMint(
+          connection,
+          mint.publicKey,
+          undefined,
+          TOKEN_PROGRAM
+        );
+        expect(mintInfo.mintAuthority).toEqual(ntt.pdas.tokenAuthority());
+      });
+
+      test("TA -> Multisig(owner, newAuthority)", async () => {
+        // set token authority: TA -> newMultisigAuthority
+        const setTransaction = new anchor.web3.Transaction().add(
+          await NTT.createSetTokenAuthorityInstruction(
+            ntt.program,
+            await ntt.getConfig(),
+            {
+              rentPayer: new SolanaAddress(await ntt.getOwner()).unwrap(),
+              owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
+              newAuthority: newMultisigAuthority,
+            }
+          )
+        );
+        setTransaction.feePayer = payer.publicKey;
+        const { blockhash } = await connection.getLatestBlockhash();
+        setTransaction.recentBlockhash = blockhash;
+        await anchor.web3.sendAndConfirmTransaction(
+          connection,
+          setTransaction,
+          [payer]
+        );
+
+        // claim token authority: newMultisigAuthority <- TA
+        const claimTransaction = new anchor.web3.Transaction().add(
+          await NTT.createClaimTokenAuthorityToMultisigInstruction(
+            ntt.program,
+            await ntt.getConfig(),
+            {
+              rentPayer: new SolanaAddress(await ntt.getOwner()).unwrap(),
+              newMultisigAuthority,
+              additionalSigners: [newAuthority.publicKey, owner.publicKey],
+            }
+          )
+        );
+        claimTransaction.feePayer = payer.publicKey;
+        claimTransaction.recentBlockhash = blockhash;
+        await anchor.web3.sendAndConfirmTransaction(
+          connection,
+          claimTransaction,
+          [payer, newAuthority, owner]
+        );
+
+        const mintInfo = await spl.getMint(
+          connection,
+          mint.publicKey,
+          undefined,
+          TOKEN_PROGRAM
+        );
+        expect(mintInfo.mintAuthority).toEqual(newMultisigAuthority);
+      });
+
+      test("Multisig(owner, newAuthority) -> Multisig(owner, TA)", async () => {
+        const transaction = new anchor.web3.Transaction().add(
+          await NTT.createAcceptTokenAuthorityFromMultisigInstruction(
+            ntt.program,
+            await ntt.getConfig(),
+            {
+              currentMultisigAuthority: newMultisigAuthority,
+              additionalSigners: [newAuthority.publicKey, owner.publicKey],
+              multisigTokenAuthority,
+            }
+          )
+        );
+        transaction.feePayer = payer.publicKey;
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+          payer,
+          newAuthority,
+          owner,
+        ]);
+
+        const mintInfo = await spl.getMint(
+          connection,
+          mint.publicKey,
+          undefined,
+          TOKEN_PROGRAM
+        );
+        expect(mintInfo.mintAuthority).toEqual(multisigTokenAuthority);
+      });
+
+      it("Fails on claim after revert", async () => {
+        try {
+          // fund newAuthority for it to be rent payer
+          const signature = await connection.requestAirdrop(
+            newAuthority.publicKey,
+            anchor.web3.LAMPORTS_PER_SOL
+          );
+          const { blockhash, lastValidBlockHeight } =
+            await connection.getLatestBlockhash();
+          await connection.confirmTransaction({
+            blockhash,
+            lastValidBlockHeight,
+            signature,
+          });
+          let newAuthorityBalance = (
+            await connection.getAccountInfo(newAuthority.publicKey)
+          )?.lamports;
+          expect(newAuthorityBalance).toBe(anchor.web3.LAMPORTS_PER_SOL);
+
+          // set token authority: multisigTokenAuthority -> newAuthority
+          const setTransaction = new anchor.web3.Transaction().add(
+            await NTT.createSetTokenAuthorityInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                rentPayer: newAuthority.publicKey,
+                owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
+                newAuthority: newAuthority.publicKey,
+                multisigTokenAuthority,
+              }
+            )
+          );
+          setTransaction.feePayer = payer.publicKey;
+          setTransaction.recentBlockhash = blockhash;
+          await anchor.web3.sendAndConfirmTransaction(
+            connection,
+            setTransaction,
+            [payer, newAuthority]
+          );
+          newAuthorityBalance = (
+            await connection.getAccountInfo(newAuthority.publicKey)
+          )?.lamports;
+          const pendingTokenAuthorityRentExemptAmount =
+            await connection.getMinimumBalanceForRentExemption(
+              ntt.program.account.pendingTokenAuthority.size
+            );
+          expect(newAuthorityBalance).toBe(
+            anchor.web3.LAMPORTS_PER_SOL - pendingTokenAuthorityRentExemptAmount
+          );
+
+          // revert token authority: multisigTokenAuthority
+          const revertTransaction = new anchor.web3.Transaction().add(
+            await NTT.createRevertTokenAuthorityInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                rentPayer: newAuthority.publicKey,
+                owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
+                multisigTokenAuthority,
+              }
+            )
+          );
+          revertTransaction.feePayer = payer.publicKey;
+          revertTransaction.recentBlockhash = blockhash;
+          await anchor.web3.sendAndConfirmTransaction(
+            connection,
+            revertTransaction,
+            [payer]
+          );
+          newAuthorityBalance = (
+            await connection.getAccountInfo(newAuthority.publicKey)
+          )?.lamports;
+          expect(newAuthorityBalance).toBe(anchor.web3.LAMPORTS_PER_SOL);
+
+          // claim token authority: newAuthority <- multisigTokenAuthority
+          const claimTransaction = new anchor.web3.Transaction().add(
+            await NTT.createClaimTokenAuthorityInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                rentPayer: newAuthority.publicKey,
+                newAuthority: newAuthority.publicKey,
+                multisigTokenAuthority,
+              }
+            )
+          );
+          claimTransaction.feePayer = payer.publicKey;
+          claimTransaction.recentBlockhash = blockhash;
+          await anchor.web3.sendAndConfirmTransaction(
+            connection,
+            claimTransaction,
+            [payer, newAuthority]
+          );
+          // tx should fail so this expect should never be hit
+          expect(false).toBeTruthy();
+        } catch (e) {
+          expect(e).toBeInstanceOf(anchor.web3.SendTransactionError);
+          const parsedError = anchor.AnchorError.parse(
+            (e as anchor.web3.SendTransactionError).logs ?? []
+          );
+          expect(parsedError?.error.errorCode).toEqual({
+            code: "AccountNotInitialized",
+            number: 3012,
+          });
+        } finally {
+          const mintInfo = await spl.getMint(
+            connection,
+            mint.publicKey,
+            undefined,
+            TOKEN_PROGRAM
+          );
+          expect(mintInfo.mintAuthority).toEqual(multisigTokenAuthority);
+        }
+      });
+
+      afterAll(async () => {
+        // unpause
+        const unpauseTxs = await ntt.unpause(
+          new SolanaAddress(payer.publicKey)
+        );
+        await signSendWait(ctx, unpauseTxs, signer);
+      });
+    });
+
     it("Can receive tokens", async () => {
       const emitter = new testing.mocks.MockEmitter(
         remoteXcvr.address as UniversalAddress,
@@ -396,7 +717,7 @@ describe("example-native-token-transfers", () => {
       const published = emitter.publishMessage(0, serialized, 200);
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
-      const redeemTxs = ntt.redeem([vaa], sender, multisig);
+      const redeemTxs = ntt.redeem([vaa], sender, multisigTokenAuthority);
       try {
         await signSendWait(ctx, redeemTxs, signer);
       } catch (e) {
@@ -423,7 +744,7 @@ describe("example-native-token-transfers", () => {
         payer,
         mint.publicKey,
         dest.address,
-        multisig,
+        multisigTokenAuthority,
         1,
         [owner],
         undefined,
@@ -447,8 +768,8 @@ describe("example-native-token-transfers", () => {
       },
     };
 
-    describe("ABI Versions Test", function () {
-      test("It initializes from Rpc", async function () {
+    describe("ABI Versions Test", () => {
+      test("It initializes from Rpc", async () => {
         const ntt = await SolanaNtt.fromRpc(connection, {
           Solana: {
             ...ctx.config,
@@ -461,7 +782,7 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It initializes from constructor", async function () {
+      test("It initializes from constructor", async () => {
         const ntt = new SolanaNtt("Devnet", "Solana", connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrides["Solana"] },
@@ -469,7 +790,7 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It gets the correct version", async function () {
+      test("It gets the correct version", async () => {
         const version = await SolanaNtt.getVersion(
           connection,
           { ntt: overrides["Solana"] },
@@ -478,7 +799,7 @@ describe("example-native-token-transfers", () => {
         expect(version).toBe("3.0.0");
       });
 
-      test("It initializes using `emitterAccount` as transceiver address", async function () {
+      test("It initializes using `emitterAccount` as transceiver address", async () => {
         const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
           JSON.stringify(overrides["Solana"])
         );
@@ -493,7 +814,7 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It gets the correct transceiver type", async function () {
+      test("It gets the correct transceiver type", async () => {
         const ntt = new SolanaNtt("Devnet", "Solana", connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrides["Solana"] },
