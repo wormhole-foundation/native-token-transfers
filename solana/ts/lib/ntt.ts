@@ -1103,6 +1103,24 @@ export namespace NTT {
       .instruction();
   }
 
+  export async function createSetThresholdInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    args: {
+      owner: PublicKey;
+      threshold: number;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .setThreshold(args.threshold)
+      .accountsStrict({
+        owner: args.owner,
+        config: pdas.configAccount(),
+      })
+      .instruction();
+  }
+
   export async function createSetOutboundLimitInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     args: {
