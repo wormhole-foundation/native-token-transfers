@@ -3,6 +3,7 @@ use ntt_messages::chain_id::ChainId;
 
 use crate::{
     config::Config,
+    error::NTTError,
     peer::NttManagerPeer,
     queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit, rate_limit::RateLimitState},
     registered_transceiver::RegisteredTransceiver,
@@ -198,5 +199,27 @@ pub struct SetPaused<'info> {
 
 pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
     ctx.accounts.config.paused = paused;
+    Ok(())
+}
+
+// * Set Threshold
+#[derive(Accounts)]
+#[instruction(threshold: u8)]
+pub struct SetThreshold<'info> {
+    pub owner: Signer<'info>,
+
+    #[account(
+        mut,
+        has_one = owner,
+        constraint = threshold <= config.enabled_transceivers.len() @ NTTError::ThresholdTooHigh
+    )]
+    pub config: Account<'info, Config>,
+}
+
+pub fn set_threshold(ctx: Context<SetThreshold>, threshold: u8) -> Result<()> {
+    if threshold == 0 {
+        return Err(NTTError::ZeroThreshold.into());
+    }
+    ctx.accounts.config.threshold = threshold;
     Ok(())
 }

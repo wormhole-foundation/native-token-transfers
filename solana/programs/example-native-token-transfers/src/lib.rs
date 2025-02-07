@@ -206,6 +206,10 @@ pub mod example_native_token_transfers {
         instructions::mark_outbox_item_as_released(ctx)
     }
 
+    pub fn set_threshold(ctx: Context<SetThreshold>, threshold: u8) -> Result<()> {
+        instructions::set_threshold(ctx, threshold)
+    }
+
     // standalone transceiver stuff
 
     pub fn set_wormhole_peer(
