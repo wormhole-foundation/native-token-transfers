@@ -1305,6 +1305,27 @@
       "returns": "bool"
     },
     {
+      "name": "setThreshold",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "setWormholePeer",
       "accounts": [
         {
@@ -2453,6 +2474,11 @@
       "code": 6027,
       "name": "InvalidMultisig",
       "msg": "InvalidMultisig"
+    },
+    {
+      "code": 6028,
+      "name": "ThresholdTooHigh",
+      "msg": "ThresholdTooHigh"
     }
   ]
 }

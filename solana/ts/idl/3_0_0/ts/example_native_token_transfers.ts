@@ -1305,6 +1305,27 @@ export type ExampleNativeTokenTransfers = {
       "returns": "bool"
     },
     {
+      "name": "setThreshold",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "setWormholePeer",
       "accounts": [
         {
@@ -2453,6 +2474,11 @@ export type ExampleNativeTokenTransfers = {
       "code": 6027,
       "name": "InvalidMultisig",
       "msg": "InvalidMultisig"
+    },
+    {
+      "code": 6028,
+      "name": "ThresholdTooHigh",
+      "msg": "ThresholdTooHigh"
     }
   ]
 }
@@ -3763,6 +3789,27 @@ export const IDL: ExampleNativeTokenTransfers = {
       "returns": "bool"
     },
     {
+      "name": "setThreshold",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "setWormholePeer",
       "accounts": [
         {
@@ -4911,6 +4958,11 @@ export const IDL: ExampleNativeTokenTransfers = {
       "code": 6027,
       "name": "InvalidMultisig",
       "msg": "InvalidMultisig"
+    },
+    {
+      "code": 6028,
+      "name": "ThresholdTooHigh",
+      "msg": "ThresholdTooHigh"
     }
   ]
 }
