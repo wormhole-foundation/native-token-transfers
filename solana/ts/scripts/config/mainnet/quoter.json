@@ -242,6 +242,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "Powerledger",
+      "programId": "nttUkLVrPQiLjyH83XrK877L4bsHMJ5bhZN91BDoynL",
+      "tokenAddress": "PowerhfyX6JqFprXzy89fPBSKqmLj8Yzcvr3FkHrQHR",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
