@@ -124,6 +124,45 @@ pub fn register_transceiver(ctx: Context<RegisterTransceiver>) -> Result<()> {
     Ok(())
 }
 
+#[derive(Accounts)]
+pub struct DeregisterTransceiver<'info> {
+    #[account(
+        mut,
+        has_one = owner,
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(executable)]
+    /// CHECK: transceiver is meant to be a transceiver program. Arguably a `Program` constraint could be
+    /// used here that wraps the Transceiver account type.
+    pub transceiver: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
+        bump,
+        constraint = config.enabled_transceivers.get(registered_transceiver.id)? @ NTTError::DisabledTransceiver,
+    )]
+    pub registered_transceiver: Account<'info, RegisteredTransceiver>,
+}
+
+pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()> {
+    ctx.accounts
+        .config
+        .enabled_transceivers
+        .set(ctx.accounts.registered_transceiver.id, false)?;
+
+    // decrement threshold if too high
+    let num_enabled_transceivers = ctx.accounts.config.enabled_transceivers.len();
+    if num_enabled_transceivers < ctx.accounts.config.threshold {
+        // threshold should be at least 1
+        ctx.accounts.config.threshold = num_enabled_transceivers.max(1);
+    }
+    Ok(())
+}
+
 // * Limit rate adjustment
 
 #[derive(Accounts)]

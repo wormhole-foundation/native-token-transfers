@@ -188,6 +188,10 @@ pub mod example_native_token_transfers {
         instructions::register_transceiver(ctx)
     }
 
+    pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()> {
+        instructions::deregister_transceiver(ctx)
+    }
+
     pub fn set_outbound_limit(
         ctx: Context<SetOutboundLimit>,
         args: SetOutboundLimitArgs,
