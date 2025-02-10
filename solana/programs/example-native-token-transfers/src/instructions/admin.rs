@@ -469,6 +469,54 @@ pub fn register_transceiver(ctx: Context<RegisterTransceiver>) -> Result<()> {
     Ok(())
 }
 
+#[derive(Accounts)]
+pub struct DeregisterTransceiver<'info> {
+    #[account(
+        mut,
+        has_one = owner,
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(executable)]
+    /// CHECK: transceiver is meant to be a transceiver program. Arguably a `Program` constraint could be
+    /// used here that wraps the Transceiver account type.
+    pub transceiver: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
+        bump,
+        constraint = config.enabled_transceivers.get(registered_transceiver.id)? @ NTTError::DisabledTransceiver,
+        // TODO: ideally, the rent should be reclaimed by original fee payer and not the owner
+        close = owner,
+    )]
+    pub registered_transceiver: Account<'info, RegisteredTransceiver>,
+}
+
+pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()> {
+    ctx.accounts
+        .config
+        .enabled_transceivers
+        .set(ctx.accounts.registered_transceiver.id, false)?;
+
+    // update threshold if no longer valid
+    let num_enabled_transceivers = ctx
+        .accounts
+        .config
+        .enabled_transceivers
+        .len()
+        .try_into()
+        .expect("Bitmap length must not exceed the bounds of u8");
+    if num_enabled_transceivers < ctx.accounts.config.threshold {
+        ctx.accounts.config.threshold = num_enabled_transceivers;
+    }
+
+    Ok(())
+}
+
 // * Limit rate adjustment
 #[derive(Accounts)]
 pub struct SetOutboundLimit<'info> {
