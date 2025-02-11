@@ -759,6 +759,28 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       .instruction();
   }
 
+  async createDeregisterTransceiverIx(
+    ix: number,
+    owner: web3.PublicKey
+  ): Promise<web3.TransactionInstruction> {
+    const transceiver = await this.getTransceiver(ix);
+    if (!transceiver) {
+      throw new Error(`Transceiver not found`);
+    }
+    const transceiverProgramId = transceiver.programId;
+
+    return this.program.methods
+      .deregisterTransceiver()
+      .accountsStrict({
+        owner,
+        config: this.pdas.configAccount(),
+        transceiver: transceiverProgramId,
+        registeredTransceiver:
+          this.pdas.registeredTransceiver(transceiverProgramId),
+      })
+      .instruction();
+  }
+
   async *setWormholeTransceiverPeer(
     peer: ChainAddress,
     payer: AccountAddress<C>
