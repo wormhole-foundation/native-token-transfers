@@ -1,6 +1,6 @@
 # Solana
 
-## Prequisities
+## Prerequisites
 
 Ensure that you are using the correct version of the Solana and Anchor CLI tools by consulting `Anchor.toml`.
 
@@ -111,7 +111,7 @@ You can then modify [release_outbound](./programs/example-native-token-transfers
 
 ## Testing
 
-The test files are loacated in the `sdk/solana/__tests__/` directory
+The test files are located in the `sdk/solana/__tests__/` directory
 
 In order to run them, the Solana programs must be built and their IDL made available to the SDK.
 
