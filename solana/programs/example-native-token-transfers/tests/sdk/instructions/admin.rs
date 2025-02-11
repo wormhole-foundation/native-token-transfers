@@ -74,6 +74,28 @@ pub fn register_transceiver(ntt: &NTT, accounts: RegisterTransceiver) -> Instruc
     }
 }
 
+pub struct DeregisterTransceiver {
+    pub owner: Pubkey,
+    pub transceiver: Pubkey,
+}
+
+pub fn deregister_transceiver(ntt: &NTT, accounts: DeregisterTransceiver) -> Instruction {
+    let data = example_native_token_transfers::instruction::DeregisterTransceiver {};
+
+    let accounts = example_native_token_transfers::accounts::DeregisterTransceiver {
+        config: ntt.config(),
+        owner: accounts.owner,
+        transceiver: accounts.transceiver,
+        registered_transceiver: ntt.registered_transceiver(&accounts.transceiver),
+    };
+
+    Instruction {
+        program_id: ntt.program,
+        accounts: accounts.to_account_metas(None),
+        data: data.data(),
+    }
+}
+
 pub struct SetThreshold {
     pub owner: Pubkey,
 }
