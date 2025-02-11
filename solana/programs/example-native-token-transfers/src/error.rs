@@ -61,6 +61,8 @@ pub enum NTTError {
     IncorrectRentPayer,
     #[msg("InvalidMultisig")]
     InvalidMultisig,
+    #[msg("ThresholdTooHigh")]
+    ThresholdTooHigh,
 }
 
 impl From<ScalingError> for NTTError {

@@ -176,6 +176,10 @@ pub mod example_native_token_transfers {
         instructions::register_transceiver(ctx)
     }
 
+    pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()> {
+        instructions::deregister_transceiver(ctx)
+    }
+
     pub fn set_outbound_limit(
         ctx: Context<SetOutboundLimit>,
         args: SetOutboundLimitArgs,
@@ -192,6 +196,10 @@ pub mod example_native_token_transfers {
 
     pub fn mark_outbox_item_as_released(ctx: Context<MarkOutboxItemAsReleased>) -> Result<bool> {
         instructions::mark_outbox_item_as_released(ctx)
+    }
+
+    pub fn set_threshold(ctx: Context<SetThreshold>, threshold: u8) -> Result<()> {
+        instructions::set_threshold(ctx, threshold)
     }
 
     // standalone transceiver stuff

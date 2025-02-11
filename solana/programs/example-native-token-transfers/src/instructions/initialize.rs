@@ -155,7 +155,7 @@ fn initialize_config_and_rate_limit(
         pending_owner: None,
         paused: false,
         next_transceiver_id: 0,
-        // NOTE: can't be changed for now
+        // NOTE: can be changed via `set_threshold` ix
         threshold: 1,
         enabled_transceivers: Bitmap::new(),
         custody: common.custody.key(),
