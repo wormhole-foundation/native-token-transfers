@@ -46,6 +46,7 @@ wormhole-solana-utils.workspace = true
 
 [dev-dependencies]
 wormhole-governance = { path = "../wormhole-governance", features = ["no-entrypoint"] }
+ntt-transceiver = { path = "../ntt-transceiver", features = ["no-entrypoint"] }
 solana-program-test.workspace = true
 serde_json = "1.0.113"
 serde = "1.0.196"
