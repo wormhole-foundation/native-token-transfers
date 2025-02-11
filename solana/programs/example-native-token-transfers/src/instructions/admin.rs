@@ -422,7 +422,7 @@ pub fn set_peer(ctx: Context<SetPeer>, args: SetPeerArgs) -> Result<()> {
     Ok(())
 }
 
-// * Register transceivers
+// * Transceiver registration
 
 #[derive(Accounts)]
 pub struct RegisterTransceiver<'info> {
@@ -502,18 +502,13 @@ pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()>
         .enabled_transceivers
         .set(ctx.accounts.registered_transceiver.id, false)?;
 
-    // update threshold if no longer valid
-    let num_enabled_transceivers = ctx
-        .accounts
-        .config
-        .enabled_transceivers
-        .len()
-        .try_into()
+    // decrement threshold if too high
+    let num_enabled_transceivers = u8::try_from(ctx.accounts.config.enabled_transceivers.len())
         .expect("Bitmap length must not exceed the bounds of u8");
     if num_enabled_transceivers < ctx.accounts.config.threshold {
-        ctx.accounts.config.threshold = num_enabled_transceivers;
+        // threshold should be at least 1
+        ctx.accounts.config.threshold = num_enabled_transceivers.max(1);
     }
-
     Ok(())
 }
 
