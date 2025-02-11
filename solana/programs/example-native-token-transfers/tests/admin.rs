@@ -34,43 +34,55 @@ async fn assert_threshold(
 async fn test_reregister_all_transceivers() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
-    // register ntt_transceiver
-    register_transceiver(
-        &test_data.ntt,
-        RegisterTransceiver {
-            payer: ctx.payer.pubkey(),
-            owner: test_data.program_owner.pubkey(),
-            transceiver: ntt_transceiver::ID,
-        },
-    )
-    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
-    .await
-    .unwrap();
+    // Transceivers are expected to be executable which requires them to be added on setup
+    // Thus, we pass all available executable program IDs as dummy_transceivers
+    let dummy_transceivers = vec![
+        wormhole_anchor_sdk::wormhole::program::ID,
+        wormhole_governance::ID,
+    ];
+    let num_dummy_transceivers: u8 = dummy_transceivers.len().try_into().unwrap();
 
-    // set threshold to 2
+    // register dummy transceivers
+    for transceiver in &dummy_transceivers {
+        register_transceiver(
+            &test_data.ntt,
+            RegisterTransceiver {
+                payer: ctx.payer.pubkey(),
+                owner: test_data.program_owner.pubkey(),
+                transceiver: *transceiver,
+            },
+        )
+        .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+        .await
+        .unwrap();
+    }
+
+    // set threshold = 1 (for baked-in transceiver) + num_dummy_transceivers
     set_threshold(
         &test_data.ntt,
         SetThreshold {
             owner: test_data.program_owner.pubkey(),
         },
-        2,
+        1 + num_dummy_transceivers,
     )
     .submit_with_signers(&[&test_data.program_owner], &mut ctx)
     .await
     .unwrap();
 
-    // deregister ntt_transceiver
-    deregister_transceiver(
-        &test_data.ntt,
-        DeregisterTransceiver {
-            owner: test_data.program_owner.pubkey(),
-            transceiver: ntt_transceiver::ID,
-        },
-    )
-    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
-    .await
-    .unwrap();
-    assert_threshold(&mut ctx, &test_data, 1).await;
+    // deregister dummy transceivers
+    for (idx, transceiver) in dummy_transceivers.iter().enumerate() {
+        deregister_transceiver(
+            &test_data.ntt,
+            DeregisterTransceiver {
+                owner: test_data.program_owner.pubkey(),
+                transceiver: *transceiver,
+            },
+        )
+        .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+        .await
+        .unwrap();
+        assert_threshold(&mut ctx, &test_data, num_dummy_transceivers - idx as u8).await;
+    }
 
     // deregister baked-in transceiver
     deregister_transceiver(
@@ -85,19 +97,21 @@ async fn test_reregister_all_transceivers() {
     .unwrap();
     assert_threshold(&mut ctx, &test_data, 1).await;
 
-    // reregister ntt_transceiver
-    register_transceiver(
-        &test_data.ntt,
-        RegisterTransceiver {
-            payer: ctx.payer.pubkey(),
-            owner: test_data.program_owner.pubkey(),
-            transceiver: ntt_transceiver::ID,
-        },
-    )
-    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
-    .await
-    .unwrap();
-    assert_threshold(&mut ctx, &test_data, 1).await;
+    // reregister dummy transceiver
+    for transceiver in &dummy_transceivers {
+        register_transceiver(
+            &test_data.ntt,
+            RegisterTransceiver {
+                payer: ctx.payer.pubkey(),
+                owner: test_data.program_owner.pubkey(),
+                transceiver: *transceiver,
+            },
+        )
+        .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+        .await
+        .unwrap();
+        assert_threshold(&mut ctx, &test_data, 1).await;
+    }
 
     // reregister baked-in transceiver
     register_transceiver(
