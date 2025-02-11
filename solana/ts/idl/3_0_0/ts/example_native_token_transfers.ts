@@ -1217,6 +1217,35 @@ export type ExampleNativeTokenTransfers = {
       "args": []
     },
     {
+      "name": "deregisterTransceiver",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "transceiver",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "used here that wraps the Transceiver account type."
+          ]
+        },
+        {
+          "name": "registeredTransceiver",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "setOutboundLimit",
       "accounts": [
         {
@@ -3695,6 +3724,35 @@ export const IDL: ExampleNativeTokenTransfers = {
         {
           "name": "systemProgram",
           "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "deregisterTransceiver",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "transceiver",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "used here that wraps the Transceiver account type."
+          ]
+        },
+        {
+          "name": "registeredTransceiver",
+          "isMut": true,
           "isSigner": false
         }
       ],
