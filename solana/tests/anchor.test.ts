@@ -13,7 +13,6 @@ import {
   encoding,
   serialize,
   serializePayload,
-  signSendWait as ssw,
 } from "@wormhole-foundation/sdk";
 import * as testing from "@wormhole-foundation/sdk-definitions/testing";
 import {
@@ -22,15 +21,21 @@ import {
   getSolanaSignAndSendSigner,
 } from "@wormhole-foundation/sdk-solana";
 import { SolanaWormholeCore } from "@wormhole-foundation/sdk-solana-core";
-import * as fs from "fs";
 
-import { DummyTransferHook } from "../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
-import { getTransceiverProgram, IdlVersion, NTT } from "../ts/index.js";
-import { derivePda } from "../ts/lib/utils.js";
+import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
+import {
+  TestDummyTransferHook,
+  TestHelper,
+  TestMint,
+  assert,
+  signSendWait,
+} from "./utils/helpers.js";
 
-const solanaRootDir = `${__dirname}/../`;
-
+/**
+ * Test Config Constants
+ */
+const SOLANA_ROOT_DIR = `${__dirname}/../`;
 const VERSION: IdlVersion = "3.0.0";
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 const GUARDIAN_KEY =
@@ -41,84 +46,52 @@ const NTT_ADDRESS: anchor.web3.PublicKey =
 const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.NttTransceiver.programId;
 
-async function signSendWait(
-  chain: ChainContext<any, any, any>,
-  txs: AsyncGenerator<any>,
-  signer: Signer
-) {
-  try {
-    await ssw(chain, txs, signer);
-  } catch (e) {
-    console.error(e);
-  }
-}
+/**
+ * Test Helpers
+ */
+const $ = new TestHelper("confirmed", TOKEN_PROGRAM);
+const testDummyTransferHook = new TestDummyTransferHook(
+  anchor.workspace.DummyTransferHook,
+  TOKEN_PROGRAM,
+  spl.ASSOCIATED_TOKEN_PROGRAM_ID
+);
+let testMint: TestMint;
 
+/**
+ * Wallet Config
+ */
+const payer = $.keypair.read(`${SOLANA_ROOT_DIR}/keys/test.json`);
+const payerAddress = new SolanaAddress(payer.publicKey);
+
+/**
+ * Mint Config
+ */
+const mint = $.keypair.generate();
+const mintAuthority = $.keypair.generate();
+
+/**
+ * Contract Config
+ */
 const w = new Wormhole("Devnet", [SolanaPlatform], {
   chains: { Solana: { contracts: { coreBridge: CORE_BRIDGE_ADDRESS } } },
 });
-
-const remoteXcvr: ChainAddress = {
-  chain: "Ethereum",
-  address: new UniversalAddress(
-    encoding.bytes.encode("transceiver".padStart(32, "\0"))
-  ),
-};
-const remoteMgr: ChainAddress = {
-  chain: "Ethereum",
-  address: new UniversalAddress(
-    encoding.bytes.encode("nttManager".padStart(32, "\0"))
-  ),
-};
-
-const payerSecretKey = Uint8Array.from(
-  JSON.parse(
-    fs.readFileSync(`${solanaRootDir}/keys/test.json`, {
-      encoding: "utf-8",
-    })
-  )
-);
-const payer = anchor.web3.Keypair.fromSecretKey(payerSecretKey);
-
-const owner = anchor.web3.Keypair.generate();
-const connection = new anchor.web3.Connection(
-  "http://localhost:8899",
-  "confirmed"
-);
-
-// make sure we're using the exact same Connection obj for rpc
 const ctx: ChainContext<"Devnet", "Solana"> = w
   .getPlatform("Solana")
-  .getChain("Solana", connection);
-
-let tokenAccount: anchor.web3.PublicKey;
-
-const mint = anchor.web3.Keypair.generate();
-
-const dummyTransferHook = anchor.workspace
-  .DummyTransferHook as anchor.Program<DummyTransferHook>;
-
-const [extraAccountMetaListPDA] = anchor.web3.PublicKey.findProgramAddressSync(
-  [Buffer.from("extra-account-metas"), mint.publicKey.toBuffer()],
-  dummyTransferHook.programId
-);
-
-const [counterPDA] = anchor.web3.PublicKey.findProgramAddressSync(
-  [Buffer.from("counter")],
-  dummyTransferHook.programId
-);
-
-async function counterValue(): Promise<anchor.BN> {
-  const counter = await dummyTransferHook.account.counter.fetch(counterPDA);
-  return counter.count;
-}
-
-const coreBridge = new SolanaWormholeCore("Devnet", "Solana", connection, {
+  .getChain("Solana", $.connection); // make sure we're using the exact same Connection object for rpc
+const coreBridge = new SolanaWormholeCore("Devnet", "Solana", $.connection, {
   coreBridge: CORE_BRIDGE_ADDRESS,
 });
-
+const remoteMgr: ChainAddress = $.chainAddress.generateFromValue(
+  "Ethereum",
+  "nttManager"
+);
+const remoteXcvr: ChainAddress = $.chainAddress.generateFromValue(
+  "Ethereum",
+  "transceiver"
+);
 const nttTransceivers = {
   wormhole: getTransceiverProgram(
-    connection,
+    $.connection,
     WH_TRANSCEIVER_ADDRESS.toBase58(),
     VERSION
   ),
@@ -128,194 +101,116 @@ describe("example-native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
   let signer: Signer;
   let sender: AccountAddress<"Solana">;
-  let tokenAddress: string;
-  let multisigTokenAuthority: anchor.web3.PublicKey;
+  let tokenAccount: anchor.web3.PublicKey;
 
   beforeAll(async () => {
-    try {
-      signer = await getSolanaSignAndSendSigner(connection, payer, {
-        //debug: true,
-      });
-      sender = Wormhole.parseAddress("Solana", signer.address());
+    signer = await getSolanaSignAndSendSigner($.connection, payer, {
+      //debug: true,
+    });
+    sender = Wormhole.parseAddress("Solana", signer.address());
 
-      const extensions = [spl.ExtensionType.TransferHook];
-      const mintLen = spl.getMintLen(extensions);
-      const lamports = await connection.getMinimumBalanceForRentExemption(
-        mintLen
-      );
+    testMint = await TestMint.createWithTokenExtensions(
+      $.connection,
+      payer,
+      mint,
+      mintAuthority,
+      9,
+      TOKEN_PROGRAM,
+      spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+      {
+        extensions: [spl.ExtensionType.TransferHook],
+        preMintInitIxs: [
+          spl.createInitializeTransferHookInstruction(
+            mint.publicKey,
+            mintAuthority.publicKey,
+            testDummyTransferHook.program.programId,
+            TOKEN_PROGRAM
+          ),
+        ],
+      }
+    );
 
-      const transaction = new anchor.web3.Transaction().add(
-        anchor.web3.SystemProgram.createAccount({
-          fromPubkey: payer.publicKey,
-          newAccountPubkey: mint.publicKey,
-          space: mintLen,
-          lamports,
-          programId: TOKEN_PROGRAM,
-        }),
-        spl.createInitializeTransferHookInstruction(
-          mint.publicKey,
-          owner.publicKey,
-          dummyTransferHook.programId,
-          TOKEN_PROGRAM
-        ),
-        spl.createInitializeMintInstruction(
-          mint.publicKey,
-          9,
-          owner.publicKey,
-          null,
-          TOKEN_PROGRAM
-        )
-      );
+    tokenAccount = await testMint.mint(
+      payer,
+      payer.publicKey,
+      10_000_000n,
+      mintAuthority
+    );
 
-      const { blockhash } = await connection.getLatestBlockhash();
-
-      transaction.feePayer = payer.publicKey;
-      transaction.recentBlockhash = blockhash;
-
-      await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
-        payer,
-        mint,
-      ]);
-
-      tokenAccount = await spl.createAssociatedTokenAccount(
-        connection,
-        payer,
-        mint.publicKey,
-        payer.publicKey,
-        undefined,
-        TOKEN_PROGRAM,
-        spl.ASSOCIATED_TOKEN_PROGRAM_ID
-      );
-
-      await spl.mintTo(
-        connection,
-        payer,
-        mint.publicKey,
-        tokenAccount,
-        owner,
-        10_000_000n,
-        undefined,
-        undefined,
-        TOKEN_PROGRAM
-      );
-
-      tokenAddress = mint.publicKey.toBase58();
-      // create our contract client
-      ntt = new SolanaNtt(
-        "Devnet",
-        "Solana",
-        connection,
-        {
-          ...ctx.config.contracts,
-          ntt: {
-            token: tokenAddress,
-            manager: NTT_ADDRESS.toBase58(),
-            transceiver: {
-              wormhole: nttTransceivers["wormhole"].programId.toBase58(),
-            },
+    // create our contract client
+    ntt = new SolanaNtt(
+      "Devnet",
+      "Solana",
+      $.connection,
+      {
+        ...ctx.config.contracts,
+        ntt: {
+          token: testMint.address.toBase58(),
+          manager: NTT_ADDRESS.toBase58(),
+          transceiver: {
+            wormhole: nttTransceivers["wormhole"].programId.toBase58(),
           },
         },
-        VERSION
-      );
-    } catch (e) {
-      console.error("Failed to setup solana token: ", e);
-      throw e;
-    }
+      },
+      VERSION
+    );
   });
 
   describe("Burning", () => {
+    let multisigTokenAuthority: anchor.web3.PublicKey;
+
     beforeAll(async () => {
-      try {
-        multisigTokenAuthority = await spl.createMultisig(
-          connection,
-          payer,
-          [owner.publicKey, ntt.pdas.tokenAuthority()],
-          1,
-          anchor.web3.Keypair.generate(),
-          undefined,
-          TOKEN_PROGRAM
-        );
-        await spl.setAuthority(
-          connection,
-          payer,
-          mint.publicKey,
-          owner,
-          spl.AuthorityType.MintTokens,
-          multisigTokenAuthority,
-          [],
-          undefined,
-          TOKEN_PROGRAM
-        );
+      // set multisigTokenAuthority as mint authority
+      multisigTokenAuthority = await $.multisig.create(payer, 1, [
+        mintAuthority.publicKey,
+        ntt.pdas.tokenAuthority(),
+      ]);
+      await testMint.setMintAuthority(
+        payer,
+        multisigTokenAuthority,
+        mintAuthority
+      );
 
-        // init
-        const initTxs = ntt.initialize(sender, {
-          mint: mint.publicKey,
-          outboundLimit: 1000000n,
-          mode: "burning",
-          multisig: multisigTokenAuthority,
-        });
-        await signSendWait(ctx, initTxs, signer);
+      // init
+      const initTxs = ntt.initialize(sender, {
+        mint: testMint.address,
+        outboundLimit: 1_000_000n,
+        mode: "burning",
+        multisig: multisigTokenAuthority,
+      });
+      await signSendWait(ctx, initTxs, signer);
 
-        // register
-        const registerTxs = ntt.registerWormholeTransceiver({
-          payer: new SolanaAddress(payer.publicKey),
-          owner: new SolanaAddress(payer.publicKey),
-        });
-        await signSendWait(ctx, registerTxs, signer);
+      // register Wormhole xcvr
+      const registerTxs = ntt.registerWormholeTransceiver({
+        payer: payerAddress,
+        owner: payerAddress,
+      });
+      await signSendWait(ctx, registerTxs, signer);
 
-        // set Wormhole xcvr peer
-        const setXcvrPeerTxs = ntt.setWormholeTransceiverPeer(
-          remoteXcvr,
-          sender
-        );
-        await signSendWait(ctx, setXcvrPeerTxs, signer);
+      // set Wormhole xcvr peer
+      const setXcvrPeerTxs = ntt.setWormholeTransceiverPeer(remoteXcvr, sender);
+      await signSendWait(ctx, setXcvrPeerTxs, signer);
 
-        // set manager peer
-        const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1000000n, sender);
-        await signSendWait(ctx, setPeerTxs, signer);
-      } catch (e) {
-        console.error("Failed to setup peer: ", e);
-        throw e;
-      }
+      // set manager peer
+      const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1_000_000n, sender);
+      await signSendWait(ctx, setPeerTxs, signer);
     });
 
     it("Create ExtraAccountMetaList Account", async () => {
-      const initializeExtraAccountMetaListInstruction =
-        await dummyTransferHook.methods
-          .initializeExtraAccountMetaList()
-          .accountsStrict({
-            payer: payer.publicKey,
-            mint: mint.publicKey,
-            counter: counterPDA,
-            extraAccountMetaList: extraAccountMetaListPDA,
-            tokenProgram: TOKEN_PROGRAM,
-            associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-            systemProgram: anchor.web3.SystemProgram.programId,
-          })
-          .instruction();
-
-      const transaction = new anchor.web3.Transaction().add(
-        initializeExtraAccountMetaListInstruction
-      );
-      transaction.feePayer = payer.publicKey;
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-
-      transaction.sign(payer);
-      await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+      await testDummyTransferHook.extraAccountMetaList.initialize(
+        $.connection,
         payer,
-      ]);
+        testMint.address
+      );
     });
 
     it("Can send tokens", async () => {
-      const amount = 100000n;
-      const sender = Wormhole.parseAddress("Solana", signer.address());
-
+      const amount = 100_000n;
       const receiver = testing.utils.makeUniversalChainAddress("Ethereum");
 
       // TODO: keep or remove the `outboxItem` param?
       // added as a way to keep tests the same but it technically breaks the Ntt interface
-      const outboxItem = anchor.web3.Keypair.generate();
+      const outboxItem = $.keypair.generate();
       const xferTxs = ntt.transfer(
         sender,
         amount,
@@ -333,11 +228,11 @@ describe("example-native-token-transfers", () => {
         Object.keys(nttTransceivers).length
       );
 
-      const wormholeMessage = derivePda(
-        ["message", outboxItem.publicKey.toBytes()],
-        nttTransceivers["wormhole"].programId
+      const wormholeXcvr = await ntt.getWormholeTransceiver();
+      expect(wormholeXcvr).toBeTruthy();
+      const wormholeMessage = wormholeXcvr!.pdas.wormholeMessageAccount(
+        outboxItem.publicKey
       );
-
       const unsignedVaa = await coreBridge.parsePostMessageAccount(
         wormholeMessage
       );
@@ -350,330 +245,223 @@ describe("example-native-token-transfers", () => {
       // assert that amount is what we expect
       expect(
         transceiverMessage.nttManagerPayload.payload.trimmedAmount
-      ).toMatchObject({ amount: 10000n, decimals: 8 });
+      ).toMatchObject({ amount: 10_000n, decimals: 8 });
 
       // get from balance
-      const balance = await connection.getTokenAccountBalance(tokenAccount);
-      expect(balance.value.amount).toBe("9900000");
+      await assert.tokenBalance($.connection, tokenAccount).equal(9_900_000);
     });
 
     describe("Can transfer mint authority to-and-from NTT manager", () => {
-      const newAuthority = anchor.web3.Keypair.generate();
+      const newAuthority = $.keypair.generate();
       let newMultisigAuthority: anchor.web3.PublicKey;
+      const nttOwner = payer.publicKey;
 
       beforeAll(async () => {
-        newMultisigAuthority = await spl.createMultisig(
-          connection,
-          payer,
-          [owner.publicKey, newAuthority.publicKey],
-          2,
-          anchor.web3.Keypair.generate(),
-          undefined,
-          TOKEN_PROGRAM
-        );
+        newMultisigAuthority = await $.multisig.create(payer, 2, [
+          mintAuthority.publicKey,
+          newAuthority.publicKey,
+        ]);
       });
 
       it("Fails when contract is not paused", async () => {
-        try {
-          const transaction = new anchor.web3.Transaction().add(
-            await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
-              ntt.program,
-              await ntt.getConfig(),
-              {
-                owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
-                newAuthority: newAuthority.publicKey,
-                multisigTokenAuthority,
-              }
+        await assert
+          .promise(
+            $.sendAndConfirm(
+              await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
+                ntt.program,
+                await ntt.getConfig(),
+                {
+                  owner: nttOwner,
+                  newAuthority: newAuthority.publicKey,
+                  multisigTokenAuthority,
+                }
+              ),
+              payer
             )
-          );
-          transaction.feePayer = payer.publicKey;
-          const { blockhash } = await connection.getLatestBlockhash();
-          transaction.recentBlockhash = blockhash;
-          await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
-            payer,
-          ]);
-          // tx should fail so this expect should never be hit
-          expect(false).toBeTruthy();
-        } catch (e) {
-          expect(e).toBeInstanceOf(anchor.web3.SendTransactionError);
-          const parsedError = anchor.AnchorError.parse(
-            (e as anchor.web3.SendTransactionError).logs ?? []
-          );
-          expect(parsedError?.error.errorCode).toEqual({
+          )
+          .failsWithAnchorError(anchor.web3.SendTransactionError, {
             code: "NotPaused",
             number: 6024,
           });
-        } finally {
-          const mintInfo = await spl.getMint(
-            connection,
-            mint.publicKey,
-            undefined,
-            TOKEN_PROGRAM
-          );
-          expect(mintInfo.mintAuthority).toEqual(multisigTokenAuthority);
-        }
+
+        await assert.testMintAuthority(testMint).equal(multisigTokenAuthority);
       });
 
       test("Multisig(owner, TA) -> newAuthority", async () => {
         // retry after pausing contract
-        const pauseTxs = await ntt.pause(new SolanaAddress(payer.publicKey));
+        const pauseTxs = ntt.pause(payerAddress);
         await signSendWait(ctx, pauseTxs, signer);
 
-        const transaction = new anchor.web3.Transaction().add(
+        await $.sendAndConfirm(
           await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
             ntt.program,
             await ntt.getConfig(),
             {
-              owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
+              owner: nttOwner,
               newAuthority: newAuthority.publicKey,
               multisigTokenAuthority,
             }
-          )
+          ),
+          payer
         );
-        transaction.feePayer = payer.publicKey;
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
-          payer,
-        ]);
 
-        const mintInfo = await spl.getMint(
-          connection,
-          mint.publicKey,
-          undefined,
-          TOKEN_PROGRAM
-        );
-        expect(mintInfo.mintAuthority).toEqual(newAuthority.publicKey);
+        await assert.testMintAuthority(testMint).equal(newAuthority.publicKey);
       });
 
       test("newAuthority -> TA", async () => {
-        const transaction = new anchor.web3.Transaction().add(
+        await $.sendAndConfirm(
           await NTT.createAcceptTokenAuthorityInstruction(
             ntt.program,
             await ntt.getConfig(),
             {
               currentAuthority: newAuthority.publicKey,
             }
-          )
-        );
-        transaction.feePayer = payer.publicKey;
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+          ),
           payer,
-          newAuthority,
-        ]);
-
-        const mintInfo = await spl.getMint(
-          connection,
-          mint.publicKey,
-          undefined,
-          TOKEN_PROGRAM
+          newAuthority
         );
-        expect(mintInfo.mintAuthority).toEqual(ntt.pdas.tokenAuthority());
+
+        await assert
+          .testMintAuthority(testMint)
+          .equal(ntt.pdas.tokenAuthority());
       });
 
       test("TA -> Multisig(owner, newAuthority)", async () => {
         // set token authority: TA -> newMultisigAuthority
-        const setTransaction = new anchor.web3.Transaction().add(
+        await $.sendAndConfirm(
           await NTT.createSetTokenAuthorityInstruction(
             ntt.program,
             await ntt.getConfig(),
             {
-              rentPayer: new SolanaAddress(await ntt.getOwner()).unwrap(),
-              owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
+              rentPayer: nttOwner,
+              owner: nttOwner,
               newAuthority: newMultisigAuthority,
             }
-          )
-        );
-        setTransaction.feePayer = payer.publicKey;
-        const { blockhash } = await connection.getLatestBlockhash();
-        setTransaction.recentBlockhash = blockhash;
-        await anchor.web3.sendAndConfirmTransaction(
-          connection,
-          setTransaction,
-          [payer]
+          ),
+          payer
         );
 
         // claim token authority: newMultisigAuthority <- TA
-        const claimTransaction = new anchor.web3.Transaction().add(
+        await $.sendAndConfirm(
           await NTT.createClaimTokenAuthorityToMultisigInstruction(
             ntt.program,
             await ntt.getConfig(),
             {
-              rentPayer: new SolanaAddress(await ntt.getOwner()).unwrap(),
+              rentPayer: nttOwner,
               newMultisigAuthority,
-              additionalSigners: [newAuthority.publicKey, owner.publicKey],
+              additionalSigners: [
+                newAuthority.publicKey,
+                mintAuthority.publicKey,
+              ],
             }
-          )
-        );
-        claimTransaction.feePayer = payer.publicKey;
-        claimTransaction.recentBlockhash = blockhash;
-        await anchor.web3.sendAndConfirmTransaction(
-          connection,
-          claimTransaction,
-          [payer, newAuthority, owner]
+          ),
+          payer,
+          newAuthority,
+          mintAuthority
         );
 
-        const mintInfo = await spl.getMint(
-          connection,
-          mint.publicKey,
-          undefined,
-          TOKEN_PROGRAM
-        );
-        expect(mintInfo.mintAuthority).toEqual(newMultisigAuthority);
+        await assert.testMintAuthority(testMint).equal(newMultisigAuthority);
       });
 
       test("Multisig(owner, newAuthority) -> Multisig(owner, TA)", async () => {
-        const transaction = new anchor.web3.Transaction().add(
+        await $.sendAndConfirm(
           await NTT.createAcceptTokenAuthorityFromMultisigInstruction(
             ntt.program,
             await ntt.getConfig(),
             {
               currentMultisigAuthority: newMultisigAuthority,
-              additionalSigners: [newAuthority.publicKey, owner.publicKey],
+              additionalSigners: [
+                newAuthority.publicKey,
+                mintAuthority.publicKey,
+              ],
               multisigTokenAuthority,
             }
-          )
-        );
-        transaction.feePayer = payer.publicKey;
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        await anchor.web3.sendAndConfirmTransaction(connection, transaction, [
+          ),
           payer,
           newAuthority,
-          owner,
-        ]);
-
-        const mintInfo = await spl.getMint(
-          connection,
-          mint.publicKey,
-          undefined,
-          TOKEN_PROGRAM
+          mintAuthority
         );
-        expect(mintInfo.mintAuthority).toEqual(multisigTokenAuthority);
+
+        await assert.testMintAuthority(testMint).equal(multisigTokenAuthority);
       });
 
       it("Fails on claim after revert", async () => {
-        try {
-          // fund newAuthority for it to be rent payer
-          const signature = await connection.requestAirdrop(
-            newAuthority.publicKey,
-            anchor.web3.LAMPORTS_PER_SOL
-          );
-          const { blockhash, lastValidBlockHeight } =
-            await connection.getLatestBlockhash();
-          await connection.confirmTransaction({
-            blockhash,
-            lastValidBlockHeight,
-            signature,
-          });
-          let newAuthorityBalance = (
-            await connection.getAccountInfo(newAuthority.publicKey)
-          )?.lamports;
-          expect(newAuthorityBalance).toBe(anchor.web3.LAMPORTS_PER_SOL);
+        // fund newAuthority for it to be rent payer
+        await $.airdrop(newAuthority.publicKey, anchor.web3.LAMPORTS_PER_SOL);
+        await assert
+          .nativeBalance($.connection, newAuthority.publicKey)
+          .equal(anchor.web3.LAMPORTS_PER_SOL);
 
-          // set token authority: multisigTokenAuthority -> newAuthority
-          const setTransaction = new anchor.web3.Transaction().add(
-            await NTT.createSetTokenAuthorityInstruction(
-              ntt.program,
-              await ntt.getConfig(),
-              {
-                rentPayer: newAuthority.publicKey,
-                owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
-                newAuthority: newAuthority.publicKey,
-                multisigTokenAuthority,
-              }
-            )
+        // set token authority: multisigTokenAuthority -> newAuthority
+        await $.sendAndConfirm(
+          await NTT.createSetTokenAuthorityInstruction(
+            ntt.program,
+            await ntt.getConfig(),
+            {
+              rentPayer: newAuthority.publicKey,
+              owner: nttOwner,
+              newAuthority: newAuthority.publicKey,
+              multisigTokenAuthority,
+            }
+          ),
+          payer,
+          newAuthority
+        );
+        const pendingTokenAuthorityRentExemptAmount =
+          await $.connection.getMinimumBalanceForRentExemption(
+            ntt.program.account.pendingTokenAuthority.size
           );
-          setTransaction.feePayer = payer.publicKey;
-          setTransaction.recentBlockhash = blockhash;
-          await anchor.web3.sendAndConfirmTransaction(
-            connection,
-            setTransaction,
-            [payer, newAuthority]
-          );
-          newAuthorityBalance = (
-            await connection.getAccountInfo(newAuthority.publicKey)
-          )?.lamports;
-          const pendingTokenAuthorityRentExemptAmount =
-            await connection.getMinimumBalanceForRentExemption(
-              ntt.program.account.pendingTokenAuthority.size
-            );
-          expect(newAuthorityBalance).toBe(
+        await assert
+          .nativeBalance($.connection, newAuthority.publicKey)
+          .equal(
             anchor.web3.LAMPORTS_PER_SOL - pendingTokenAuthorityRentExemptAmount
           );
 
-          // revert token authority: multisigTokenAuthority
-          const revertTransaction = new anchor.web3.Transaction().add(
-            await NTT.createRevertTokenAuthorityInstruction(
-              ntt.program,
-              await ntt.getConfig(),
-              {
-                rentPayer: newAuthority.publicKey,
-                owner: new SolanaAddress(await ntt.getOwner()).unwrap(),
-                multisigTokenAuthority,
-              }
-            )
-          );
-          revertTransaction.feePayer = payer.publicKey;
-          revertTransaction.recentBlockhash = blockhash;
-          await anchor.web3.sendAndConfirmTransaction(
-            connection,
-            revertTransaction,
-            [payer]
-          );
-          newAuthorityBalance = (
-            await connection.getAccountInfo(newAuthority.publicKey)
-          )?.lamports;
-          expect(newAuthorityBalance).toBe(anchor.web3.LAMPORTS_PER_SOL);
+        // revert token authority: multisigTokenAuthority
+        await $.sendAndConfirm(
+          await NTT.createRevertTokenAuthorityInstruction(
+            ntt.program,
+            await ntt.getConfig(),
+            {
+              rentPayer: newAuthority.publicKey,
+              owner: nttOwner,
+              multisigTokenAuthority,
+            }
+          ),
+          payer
+        );
+        await assert
+          .nativeBalance($.connection, newAuthority.publicKey)
+          .equal(anchor.web3.LAMPORTS_PER_SOL);
 
-          // claim token authority: newAuthority <- multisigTokenAuthority
-          const claimTransaction = new anchor.web3.Transaction().add(
-            await NTT.createClaimTokenAuthorityInstruction(
-              ntt.program,
-              await ntt.getConfig(),
-              {
-                rentPayer: newAuthority.publicKey,
-                newAuthority: newAuthority.publicKey,
-                multisigTokenAuthority,
-              }
+        // claim token authority: newAuthority <- multisigTokenAuthority
+        await assert
+          .promise(
+            $.sendAndConfirm(
+              await NTT.createClaimTokenAuthorityInstruction(
+                ntt.program,
+                await ntt.getConfig(),
+                {
+                  rentPayer: newAuthority.publicKey,
+                  newAuthority: newAuthority.publicKey,
+                  multisigTokenAuthority,
+                }
+              ),
+              payer,
+              newAuthority
             )
-          );
-          claimTransaction.feePayer = payer.publicKey;
-          claimTransaction.recentBlockhash = blockhash;
-          await anchor.web3.sendAndConfirmTransaction(
-            connection,
-            claimTransaction,
-            [payer, newAuthority]
-          );
-          // tx should fail so this expect should never be hit
-          expect(false).toBeTruthy();
-        } catch (e) {
-          expect(e).toBeInstanceOf(anchor.web3.SendTransactionError);
-          const parsedError = anchor.AnchorError.parse(
-            (e as anchor.web3.SendTransactionError).logs ?? []
-          );
-          expect(parsedError?.error.errorCode).toEqual({
+          )
+          .failsWithAnchorError(anchor.web3.SendTransactionError, {
             code: "AccountNotInitialized",
             number: 3012,
           });
-        } finally {
-          const mintInfo = await spl.getMint(
-            connection,
-            mint.publicKey,
-            undefined,
-            TOKEN_PROGRAM
-          );
-          expect(mintInfo.mintAuthority).toEqual(multisigTokenAuthority);
-        }
+
+        await assert.testMintAuthority(testMint).equal(multisigTokenAuthority);
       });
 
       afterAll(async () => {
         // unpause
-        const unpauseTxs = await ntt.unpause(
-          new SolanaAddress(payer.publicKey)
-        );
+        const unpauseTxs = ntt.unpause(payerAddress);
         await signSendWait(ctx, unpauseTxs, signer);
       });
     });
@@ -686,7 +474,6 @@ describe("example-native-token-transfers", () => {
       );
 
       const guardians = new testing.mocks.MockGuardians(0, [GUARDIAN_KEY]);
-      const sender = Wormhole.parseAddress("Solana", signer.address());
 
       const sendingTransceiverMessage = {
         sourceNttManager: remoteMgr.address as UniversalAddress,
@@ -698,7 +485,7 @@ describe("example-native-token-transfers", () => {
           sender: new UniversalAddress("FACE".padStart(64, "0")),
           payload: {
             trimmedAmount: {
-              amount: 10000n,
+              amount: 10_000n,
               decimals: 8,
             },
             sourceToken: new UniversalAddress("FAFA".padStart(64, "0")),
@@ -718,40 +505,20 @@ describe("example-native-token-transfers", () => {
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
       const redeemTxs = ntt.redeem([vaa], sender, multisigTokenAuthority);
-      try {
-        await signSendWait(ctx, redeemTxs, signer);
-      } catch (e) {
-        console.error(e);
-        throw e;
-      }
+      await signSendWait(ctx, redeemTxs, signer);
 
-      expect((await counterValue()).toString()).toEqual("2");
+      assert.bn(await testDummyTransferHook.counter.value()).equal(2);
     });
 
     it("Can mint independently", async () => {
-      const dest = await spl.getOrCreateAssociatedTokenAccount(
-        connection,
+      const temp = await testMint.mint(
         payer,
-        mint.publicKey,
-        anchor.web3.Keypair.generate().publicKey,
-        false,
-        undefined,
-        undefined,
-        TOKEN_PROGRAM
-      );
-      await spl.mintTo(
-        connection,
-        payer,
-        mint.publicKey,
-        dest.address,
-        multisigTokenAuthority,
+        $.keypair.generate().publicKey,
         1,
-        [owner],
-        undefined,
-        TOKEN_PROGRAM
+        multisigTokenAuthority,
+        mintAuthority
       );
-      const balance = await connection.getTokenAccountBalance(dest.address);
-      expect(balance.value.amount.toString()).toBe("1");
+      await assert.tokenBalance($.connection, temp).equal(1);
     });
   });
 
@@ -760,7 +527,7 @@ describe("example-native-token-transfers", () => {
     const ctx = wh.getChain("Solana");
     const overrides = {
       Solana: {
-        token: tokenAddress,
+        token: mint.publicKey.toBase58(),
         manager: NTT_ADDRESS.toBase58(),
         transceiver: {
           wormhole: nttTransceivers["wormhole"].programId.toBase58(),
@@ -770,7 +537,7 @@ describe("example-native-token-transfers", () => {
 
     describe("ABI Versions Test", () => {
       test("It initializes from Rpc", async () => {
-        const ntt = await SolanaNtt.fromRpc(connection, {
+        const ntt = await SolanaNtt.fromRpc($.connection, {
           Solana: {
             ...ctx.config,
             contracts: {
@@ -783,7 +550,7 @@ describe("example-native-token-transfers", () => {
       });
 
       test("It initializes from constructor", async () => {
-        const ntt = new SolanaNtt("Devnet", "Solana", connection, {
+        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrides["Solana"] },
         });
@@ -792,9 +559,9 @@ describe("example-native-token-transfers", () => {
 
       test("It gets the correct version", async () => {
         const version = await SolanaNtt.getVersion(
-          connection,
+          $.connection,
           { ntt: overrides["Solana"] },
-          new SolanaAddress(payer.publicKey.toBase58())
+          payerAddress
         );
         expect(version).toBe("3.0.0");
       });
@@ -807,7 +574,7 @@ describe("example-native-token-transfers", () => {
           .emitterAccount()
           .toBase58();
 
-        const ntt = new SolanaNtt("Devnet", "Solana", connection, {
+        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrideEmitter },
         });
@@ -815,13 +582,14 @@ describe("example-native-token-transfers", () => {
       });
 
       test("It gets the correct transceiver type", async () => {
-        const ntt = new SolanaNtt("Devnet", "Solana", connection, {
+        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrides["Solana"] },
         });
         const whTransceiver = await ntt.getWormholeTransceiver();
+        expect(whTransceiver).toBeTruthy();
         const transceiverType = await whTransceiver!.getTransceiverType(
-          new SolanaAddress(payer.publicKey.toBase58())
+          payerAddress
         );
         expect(transceiverType).toBe("wormhole");
       });
