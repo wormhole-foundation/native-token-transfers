@@ -160,6 +160,7 @@ module ntt::ntt_tests {
             &coin_meta,
             ntt_scenario::peer_chain_id(), // recipient_chain
             recipient,
+            option::none(),
             false // should_queue
         );
 
@@ -194,7 +195,7 @@ module ntt::ntt_tests {
 
         // Verify message contents
         let (message_id, _, transfer) = message.destruct();
-        let (trimmed_amount, _, recipient_addr, to_chain) = transfer.destruct();
+        let (trimmed_amount, _, recipient_addr, to_chain, _payload) = transfer.destruct();
         assert!(trimmed_amount.untrim(ntt_scenario::decimals()) == TEST_AMOUNT - TEST_DUST);
         assert!(to_chain == ntt_scenario::peer_chain_id());
         assert!(recipient_addr.to_bytes() == recipient);
@@ -233,7 +234,8 @@ module ntt::ntt_tests {
                 ),
                 external_address::from_id(object::id(&coin_meta)),
                 recipient_addr,
-                ntt_scenario::peer_chain_id()
+                ntt_scenario::peer_chain_id(),
+                option::none()
             )
         ));
 
@@ -266,6 +268,7 @@ module ntt::ntt_tests {
             &coin_meta,
             ntt_scenario::peer_chain_id(), // recipient_chain
             recipient,
+            option::none(),
             false // should_queue
         );
 
@@ -324,7 +327,8 @@ module ntt::ntt_tests {
                 ),
                 external_address::from_id(object::id(&coin_meta)),
                 external_address::from_address(user_b),
-                ntt_scenario::chain_id() // TODO: test with wrong target chain id
+                ntt_scenario::chain_id(), // TODO: test with wrong target chain id
+                option::none()
             )
         );
 
@@ -410,7 +414,8 @@ module ntt::ntt_tests {
                 ),
                 external_address::from_id(object::id(&coin_meta)),
                 external_address::from_address(user_b),
-                ntt_scenario::chain_id()
+                ntt_scenario::chain_id(),
+                option::none()
             )
         );
 
@@ -471,7 +476,8 @@ module ntt::ntt_tests {
                 ),
                 external_address::from_id(object::id(&coin_meta)),
                 external_address::from_address(user_b),
-                ntt_scenario::chain_id()
+                ntt_scenario::chain_id(),
+                option::none()
             )
         );
 
@@ -551,7 +557,8 @@ module ntt::ntt_tests {
                 ),
                 external_address::from_id(object::id(&coin_meta)),
                 external_address::from_address(user_b),
-                ntt_scenario::chain_id() + 1 // NOTE: wrong destination chain
+                ntt_scenario::chain_id() + 1, // NOTE: wrong destination chain
+                option::none()
             )
         );
 
@@ -602,7 +609,8 @@ module ntt::ntt_tests {
                 ),
                 external_address::from_id(object::id(&coin_meta)),
                 external_address::from_address(user_b),
-                ntt_scenario::chain_id()
+                ntt_scenario::chain_id(),
+                option::none()
             )
         );
 
