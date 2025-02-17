@@ -8,7 +8,7 @@ module ntt_common::transceiver_message_data {
     const EIncorrectPayloadLength: vector<u8>
         = b"incorrect payload length";
 
-    public struct TransceiverMessageData<A> has drop {
+    public struct TransceiverMessageData<A> has drop, copy {
         source_ntt_manager_address: ExternalAddress,
         recipient_ntt_manager_address: ExternalAddress,
         ntt_manager_payload: NttManagerMessage<A>,
@@ -71,6 +71,7 @@ module ntt_common::transceiver_message_data {
 
         buf.append(source_ntt_manager_address.to_bytes());
         buf.append(recipient_ntt_manager_address.to_bytes());
+        bytes::push_u16_be(&mut buf, ntt_manager_payload.to_bytes().length() as u16);
         buf.append(ntt_manager_payload.to_bytes());
 
         buf
@@ -107,7 +108,7 @@ module ntt_common::transceiver_message {
     const EIncorrectPrefix: vector<u8>
         = b"incorrect prefix";
 
-    public struct PrefixOf<phantom E> has drop {
+    public struct PrefixOf<phantom E> has drop, copy {
         prefix: Bytes4
     }
 
@@ -115,7 +116,7 @@ module ntt_common::transceiver_message {
         PrefixOf { prefix }
     }
 
-    public struct TransceiverMessage<phantom E, A> has drop {
+    public struct TransceiverMessage<phantom E, A> has drop, copy {
         message_data: TransceiverMessageData<A>,
         transceiver_payload: vector<u8>
     }
@@ -260,5 +261,8 @@ module ntt_common::transceiver_message_tests {
         );
 
         assert!(message == expected);
+
+        // roundtrip
+        assert!(transceiver_message::map!(expected, |x| native_token_transfer::to_bytes(x)).to_bytes(wh_prefix) == data);
     }
 }
