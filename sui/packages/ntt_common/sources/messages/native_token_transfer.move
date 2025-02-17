@@ -18,20 +18,22 @@ module ntt_common::native_token_transfer {
         source_token: ExternalAddress,
         to: ExternalAddress,
         to_chain: u16,
-        // TODO: custom payload
+        payload: Option<vector<u8>>,
     }
 
     public fun new(
         amount: TrimmedAmount,
         source_token: ExternalAddress,
         to: ExternalAddress,
-        to_chain: u16
+        to_chain: u16,
+        payload: Option<vector<u8>>,
     ): NativeTokenTransfer {
         NativeTokenTransfer {
             amount,
             source_token,
             to,
-            to_chain
+            to_chain,
+            payload
         }
     }
 
@@ -41,6 +43,12 @@ module ntt_common::native_token_transfer {
         message.to_chain
     }
 
+    public fun borrow_payload(
+        message: &NativeTokenTransfer
+    ): &Option<vector<u8>> {
+        &message.payload
+    }
+
     public fun destruct(
         message: NativeTokenTransfer
     ): (
@@ -48,14 +56,16 @@ module ntt_common::native_token_transfer {
         ExternalAddress,
         ExternalAddress,
         u16,
+        Option<vector<u8>>
     ) {
         let NativeTokenTransfer {
             amount,
             source_token,
             to,
-            to_chain
+            to_chain,
+            payload
         } = message;
-        (amount, source_token, to, to_chain)
+        (amount, source_token, to, to_chain, payload)
     }
 
     public fun to_bytes(
@@ -65,7 +75,8 @@ module ntt_common::native_token_transfer {
             amount,
             source_token,
             to,
-            to_chain
+            to_chain,
+            payload
         } = message;
 
         let mut buf = vector::empty<u8>();
@@ -75,6 +86,11 @@ module ntt_common::native_token_transfer {
         buf.append(source_token.to_bytes());
         buf.append(to.to_bytes());
         bytes::push_u16_be(&mut buf, to_chain);
+        if (payload.is_some()) {
+            let payload = payload.destroy_some();
+            bytes::push_u16_be(&mut buf, payload.length() as u16);
+            buf.append(payload);
+        };
 
         buf
     }
@@ -89,11 +105,20 @@ module ntt_common::native_token_transfer {
         let to = external_address::take_bytes(cur);
         let to_chain = bytes::take_u16_be(cur);
 
+        let payload = if (!cur.is_empty()) {
+            let len = bytes::take_u16_be(cur);
+            let payload = bytes::take_bytes(cur, len as u64);
+            option::some(payload)
+        } else {
+            option::none()
+        };
+
         NativeTokenTransfer {
             amount,
             source_token,
             to,
-            to_chain
+            to_chain,
+            payload
         }
     }
 

@@ -113,7 +113,8 @@ module ntt::ntt_scenario {
             trimmed_amount,
             source_token,
             recipient_addr,
-            CHAIN_ID
+            CHAIN_ID,
+            option::none()
         );
 
         let sender = external_address::new(bytes32::from_bytes(x"0000000000000000000000000000000000000000000000000000000000000003"));
