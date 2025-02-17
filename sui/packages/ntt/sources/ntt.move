@@ -31,6 +31,7 @@ module ntt::ntt {
         trimmed_amount: TrimmedAmount,
         recipient_chain: u16,
         recipient: ExternalAddress,
+        payload: Option<vector<u8>>,
         recipient_manager: ExternalAddress,
         should_queue: bool,
     }
@@ -43,6 +44,7 @@ module ntt::ntt {
         trimmed_amount: TrimmedAmount,
         recipient_chain: u16,
         recipient: ExternalAddress,
+        payload: Option<vector<u8>>,
         recipient_manager: ExternalAddress,
         should_queue: bool
     ): TransferTicket<CoinType> {
@@ -52,6 +54,7 @@ module ntt::ntt {
             trimmed_amount,
             recipient_chain,
             recipient,
+            payload,
             recipient_manager,
             should_queue
         }
@@ -64,6 +67,7 @@ module ntt::ntt {
         coin_meta: &CoinMetadata<CoinType>,
         recipient_chain: u16,
         recipient: vector<u8>,
+        payload: Option<vector<u8>>,
         should_queue: bool,
     ): (
         TransferTicket<CoinType>,
@@ -82,6 +86,7 @@ module ntt::ntt {
             trimmed_amount,
             recipient_chain,
             recipient: external_address::new(bytes32::new(recipient)),
+            payload,
             recipient_manager,
             should_queue,
         };
@@ -124,6 +129,7 @@ module ntt::ntt {
             trimmed_amount,
             recipient_chain,
             recipient,
+            payload,
             recipient_manager,
             should_queue
         } = ticket;
@@ -166,7 +172,8 @@ module ntt::ntt {
                         trimmed_amount,
                         token_address,
                         recipient,
-                        recipient_chain
+                        recipient_chain,
+                        payload
                     )
                 )
             )
@@ -195,7 +202,7 @@ module ntt::ntt {
         state.vote<Transceiver, _>(chain_id, ntt_manager_message);
 
         let (_id, _sender, payload) = ntt_manager_message.destruct();
-        let (trimmed_amount, _source_token, _recipient, to_chain) = payload.destruct();
+        let (trimmed_amount, _source_token, _recipient, to_chain, _payload) = payload.destruct();
         assert!(to_chain == state.get_chain_id(), EWrongDestinationChain);
 
         let amount = trimmed_amount.untrim(coin_meta.get_decimals());
@@ -227,8 +234,28 @@ module ntt::ntt {
         inbox_item.release_after(release_timestamp)
     }
 
-    public fun release_with_auth<CoinType, Auth>(
+    #[allow(lint(coin_field))]
+    public struct ReleaseWithAuthTicket<phantom CoinType> {
+        coins: Coin<CoinType>,
+        payload: Option<vector<u8>>,
+        recipient: address
+    }
+
+    public fun destroy_release_with_auth_ticket<CoinType, Auth>(
         auth: &Auth,
+        ticket: ReleaseWithAuthTicket<CoinType>
+    ): (Coin<CoinType>, Option<vector<u8>>) {
+        let ReleaseWithAuthTicket {
+            coins,
+            payload,
+            recipient,
+        } = ticket;
+        assert!(recipient == ntt_common::contract_auth::assert_auth_type(auth));
+
+        (coins, payload)
+    }
+
+    public fun release_with_auth<CoinType>(
         state: &mut State<CoinType>,
         version_gated: VersionGated,
         chain_id: u16,
@@ -236,8 +263,8 @@ module ntt::ntt {
         coin_meta: &CoinMetadata<CoinType>,
         clock: &Clock,
         ctx: &mut TxContext
-    ): Coin<CoinType> {
-        let (recipient, coins) = release_impl(
+    ): ReleaseWithAuthTicket<CoinType> {
+        let (recipient, coins, payload) = release_impl(
             state,
             version_gated,
             chain_id,
@@ -246,8 +273,34 @@ module ntt::ntt {
             clock,
             ctx
         );
-        assert!(recipient == ntt_common::contract_auth::assert_auth_type(auth));
-        coins
+
+        ReleaseWithAuthTicket {
+            coins,
+            payload,
+            recipient,
+        }
+    }
+
+    public fun release_with_tx_sender<CoinType>(
+        state: &mut State<CoinType>,
+        version_gated: VersionGated,
+        chain_id: u16,
+        message: NttManagerMessage<NativeTokenTransfer>,
+        coin_meta: &CoinMetadata<CoinType>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): (Coin<CoinType>, Option<vector<u8>>) {
+        let (recipient, coins, payload) = release_impl(
+            state,
+            version_gated,
+            chain_id,
+            message,
+            coin_meta,
+            clock,
+            ctx
+        );
+        assert!(recipient == ctx.sender());
+        (coins, payload)
     }
 
     public fun release<CoinType>(
@@ -259,7 +312,7 @@ module ntt::ntt {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        let (recipient, coins) = release_impl(
+        let (recipient, coins, payload) = release_impl(
             state,
             version_gated,
             from_chain_id,
@@ -268,6 +321,11 @@ module ntt::ntt {
             clock,
             ctx
         );
+
+        // NOTE: if the message has a payload, we must release_with_auth or release_with_tx_sender.
+        // Otherwise, someone could frontrun the release tx and the recipient
+        // would not be notified of the payload.
+        assert!(payload.is_none());
         transfer::public_transfer(coins, recipient)
     }
 
@@ -279,7 +337,7 @@ module ntt::ntt {
         coin_meta: &CoinMetadata<CoinType>,
         clock: &Clock,
         ctx: &mut TxContext
-    ): (address, Coin<CoinType>) {
+    ): (address, Coin<CoinType>, Option<vector<u8>>) {
 
         version_gated.check_version(state);
 
@@ -294,11 +352,11 @@ module ntt::ntt {
 
         // TODO: to_chain is verified when inserting into the inbox in `redeem`.
         // should we verify it here too?
-        let (trimmed_amount, _source_token, recipient, _to_chain) = payload.destruct();
+        let (trimmed_amount, _source_token, recipient, _to_chain, payload) = payload.destruct();
 
         let amount = trimmed_amount.untrim(coin_meta.get_decimals());
 
-        (recipient.to_address(), mint_or_unlock(state, amount, ctx))
+        (recipient.to_address(), mint_or_unlock(state, amount, ctx), payload)
     }
 
     fun mint_or_unlock<CoinType>(
