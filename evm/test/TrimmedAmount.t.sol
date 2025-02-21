@@ -67,6 +67,7 @@ contract TrimmingTest is Test {
         }
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testAddOperatorDecimalsNotEqualRevert() public {
         uint8 decimals = 18;
         uint8 decimalsOther = 3;
@@ -134,6 +135,7 @@ contract TrimmingTest is Test {
         }
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testSubOperatorOverflow() public {
         uint8[2] memory decimals = [18, 3];
 
@@ -263,6 +265,7 @@ contract TrimmingTest is Test {
         assertEq(expectedTrimmedSub.getDecimals(), trimmedSub.getDecimals());
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testFuzz_SubOperatorWillOverflow(
         uint8 decimals,
         uint256 amtLeft,
