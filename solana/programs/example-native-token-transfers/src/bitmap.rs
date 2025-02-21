@@ -48,8 +48,11 @@ impl Bitmap {
             .expect("Bitmap length must not exceed the bounds of u8")
     }
 
-    pub fn len(self) -> usize {
-        BM::<128>::from_value(self.map).len()
+    pub fn len(self) -> u8 {
+        BM::<128>::from_value(self.map)
+            .len()
+            .try_into()
+            .expect("Bitmap length must not exceed the bounds of u8")
     }
 
     pub fn is_empty(self) -> bool {
