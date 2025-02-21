@@ -437,13 +437,16 @@ pub struct RegisterTransceiver<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    #[account(executable)]
+    #[account(
+        executable,
+        constraint = transceiver.key() != Pubkey::default() @ NTTError::InvalidTransceiverProgram
+    )]
     /// CHECK: transceiver is meant to be a transceiver program. Arguably a `Program` constraint could be
     /// used here that wraps the Transceiver account type.
     pub transceiver: UncheckedAccount<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         space = 8 + RegisteredTransceiver::INIT_SPACE,
         payer = payer,
         seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
@@ -455,17 +458,23 @@ pub struct RegisterTransceiver<'info> {
 }
 
 pub fn register_transceiver(ctx: Context<RegisterTransceiver>) -> Result<()> {
-    let id = ctx.accounts.config.next_transceiver_id;
-    ctx.accounts.config.next_transceiver_id += 1;
-    ctx.accounts
-        .registered_transceiver
-        .set_inner(RegisteredTransceiver {
-            bump: ctx.bumps.registered_transceiver,
-            id,
-            transceiver_address: ctx.accounts.transceiver.key(),
-        });
+    // initialize registered transceiver with new id on init
+    if ctx.accounts.registered_transceiver.transceiver_address == Pubkey::default() {
+        let id = ctx.accounts.config.next_transceiver_id;
+        ctx.accounts.config.next_transceiver_id += 1;
+        ctx.accounts
+            .registered_transceiver
+            .set_inner(RegisteredTransceiver {
+                bump: ctx.bumps.registered_transceiver,
+                id,
+                transceiver_address: ctx.accounts.transceiver.key(),
+            });
+    }
 
-    ctx.accounts.config.enabled_transceivers.set(id, true)?;
+    ctx.accounts
+        .config
+        .enabled_transceivers
+        .set(ctx.accounts.registered_transceiver.id, true)?;
     Ok(())
 }
 
@@ -486,12 +495,9 @@ pub struct DeregisterTransceiver<'info> {
     pub transceiver: UncheckedAccount<'info>,
 
     #[account(
-        mut,
         seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
         bump,
         constraint = config.enabled_transceivers.get(registered_transceiver.id)? @ NTTError::DisabledTransceiver,
-        // TODO: ideally, the rent should be reclaimed by original fee payer and not the owner
-        close = owner,
     )]
     pub registered_transceiver: Account<'info, RegisteredTransceiver>,
 }
@@ -503,8 +509,7 @@ pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()>
         .set(ctx.accounts.registered_transceiver.id, false)?;
 
     // decrement threshold if too high
-    let num_enabled_transceivers = u8::try_from(ctx.accounts.config.enabled_transceivers.len())
-        .expect("Bitmap length must not exceed the bounds of u8");
+    let num_enabled_transceivers = ctx.accounts.config.enabled_transceivers.len();
     if num_enabled_transceivers < ctx.accounts.config.threshold {
         // threshold should be at least 1
         ctx.accounts.config.threshold = num_enabled_transceivers.max(1);
@@ -597,7 +602,7 @@ pub struct SetThreshold<'info> {
     #[account(
         mut,
         has_one = owner,
-        constraint = threshold <= u8::try_from(config.enabled_transceivers.len()).unwrap() @ NTTError::ThresholdTooHigh
+        constraint = threshold <= config.enabled_transceivers.len() @ NTTError::ThresholdTooHigh
     )]
     pub config: Account<'info, Config>,
 }
