@@ -1239,7 +1239,7 @@ export type ExampleNativeTokenTransfers = {
         },
         {
           "name": "registeredTransceiver",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -2508,6 +2508,11 @@ export type ExampleNativeTokenTransfers = {
       "code": 6028,
       "name": "ThresholdTooHigh",
       "msg": "ThresholdTooHigh"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidTransceiverProgram",
+      "msg": "InvalidTransceiverProgram"
     }
   ]
 }
@@ -3752,7 +3757,7 @@ export const IDL: ExampleNativeTokenTransfers = {
         },
         {
           "name": "registeredTransceiver",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -5021,6 +5026,11 @@ export const IDL: ExampleNativeTokenTransfers = {
       "code": 6028,
       "name": "ThresholdTooHigh",
       "msg": "ThresholdTooHigh"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidTransceiverProgram",
+      "msg": "InvalidTransceiverProgram"
     }
   ]
 }

@@ -1239,7 +1239,7 @@
         },
         {
           "name": "registeredTransceiver",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -2508,6 +2508,11 @@
       "code": 6028,
       "name": "ThresholdTooHigh",
       "msg": "ThresholdTooHigh"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidTransceiverProgram",
+      "msg": "InvalidTransceiverProgram"
     }
   ]
 }
