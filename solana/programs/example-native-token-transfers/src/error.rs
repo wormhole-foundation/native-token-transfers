@@ -63,6 +63,8 @@ pub enum NTTError {
     InvalidMultisig,
     #[msg("ThresholdTooHigh")]
     ThresholdTooHigh,
+    #[msg("InvalidTransceiverProgram")]
+    InvalidTransceiverProgram,
 }
 
 impl From<ScalingError> for NTTError {

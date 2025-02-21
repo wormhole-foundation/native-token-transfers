@@ -77,7 +77,7 @@ pub fn set_peer(ctx: Context<SetPeer>, args: SetPeerArgs) -> Result<()> {
     Ok(())
 }
 
-// * Register transceivers
+// * Transceiver registration
 
 #[derive(Accounts)]
 pub struct RegisterTransceiver<'info> {
@@ -92,13 +92,16 @@ pub struct RegisterTransceiver<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    #[account(executable)]
+    #[account(
+        executable,
+        constraint = transceiver.key() != Pubkey::default() @ NTTError::InvalidTransceiverProgram
+    )]
     /// CHECK: transceiver is meant to be a transceiver program. Arguably a `Program` constraint could be
     /// used here that wraps the Transceiver account type.
     pub transceiver: UncheckedAccount<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         space = 8 + RegisteredTransceiver::INIT_SPACE,
         payer = payer,
         seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
@@ -110,17 +113,23 @@ pub struct RegisterTransceiver<'info> {
 }
 
 pub fn register_transceiver(ctx: Context<RegisterTransceiver>) -> Result<()> {
-    let id = ctx.accounts.config.next_transceiver_id;
-    ctx.accounts.config.next_transceiver_id += 1;
-    ctx.accounts
-        .registered_transceiver
-        .set_inner(RegisteredTransceiver {
-            bump: ctx.bumps.registered_transceiver,
-            id,
-            transceiver_address: ctx.accounts.transceiver.key(),
-        });
+    // initialize registered transceiver with new id on init
+    if ctx.accounts.registered_transceiver.transceiver_address == Pubkey::default() {
+        let id = ctx.accounts.config.next_transceiver_id;
+        ctx.accounts.config.next_transceiver_id += 1;
+        ctx.accounts
+            .registered_transceiver
+            .set_inner(RegisteredTransceiver {
+                bump: ctx.bumps.registered_transceiver,
+                id,
+                transceiver_address: ctx.accounts.transceiver.key(),
+            });
+    }
 
-    ctx.accounts.config.enabled_transceivers.set(id, true)?;
+    ctx.accounts
+        .config
+        .enabled_transceivers
+        .set(ctx.accounts.registered_transceiver.id, true)?;
     Ok(())
 }
 
@@ -242,6 +251,7 @@ pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
 }
 
 // * Set Threshold
+
 #[derive(Accounts)]
 #[instruction(threshold: u8)]
 pub struct SetThreshold<'info> {
