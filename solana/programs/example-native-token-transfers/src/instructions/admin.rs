@@ -422,7 +422,7 @@ pub fn set_peer(ctx: Context<SetPeer>, args: SetPeerArgs) -> Result<()> {
     Ok(())
 }
 
-// * Register transceivers
+// * Transceiver registration
 
 #[derive(Accounts)]
 pub struct RegisterTransceiver<'info> {
@@ -437,13 +437,16 @@ pub struct RegisterTransceiver<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    #[account(executable)]
+    #[account(
+        executable,
+        constraint = transceiver.key() != Pubkey::default() @ NTTError::InvalidTransceiverProgram
+    )]
     /// CHECK: transceiver is meant to be a transceiver program. Arguably a `Program` constraint could be
     /// used here that wraps the Transceiver account type.
     pub transceiver: UncheckedAccount<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         space = 8 + RegisteredTransceiver::INIT_SPACE,
         payer = payer,
         seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
@@ -455,17 +458,62 @@ pub struct RegisterTransceiver<'info> {
 }
 
 pub fn register_transceiver(ctx: Context<RegisterTransceiver>) -> Result<()> {
-    let id = ctx.accounts.config.next_transceiver_id;
-    ctx.accounts.config.next_transceiver_id += 1;
-    ctx.accounts
-        .registered_transceiver
-        .set_inner(RegisteredTransceiver {
-            bump: ctx.bumps.registered_transceiver,
-            id,
-            transceiver_address: ctx.accounts.transceiver.key(),
-        });
+    // initialize registered transceiver with new id on init
+    if ctx.accounts.registered_transceiver.transceiver_address == Pubkey::default() {
+        let id = ctx.accounts.config.next_transceiver_id;
+        ctx.accounts.config.next_transceiver_id += 1;
+        ctx.accounts
+            .registered_transceiver
+            .set_inner(RegisteredTransceiver {
+                bump: ctx.bumps.registered_transceiver,
+                id,
+                transceiver_address: ctx.accounts.transceiver.key(),
+            });
+    }
 
-    ctx.accounts.config.enabled_transceivers.set(id, true)?;
+    ctx.accounts
+        .config
+        .enabled_transceivers
+        .set(ctx.accounts.registered_transceiver.id, true)?;
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct DeregisterTransceiver<'info> {
+    #[account(
+        mut,
+        has_one = owner,
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(executable)]
+    /// CHECK: transceiver is meant to be a transceiver program. Arguably a `Program` constraint could be
+    /// used here that wraps the Transceiver account type.
+    pub transceiver: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
+        bump,
+        constraint = config.enabled_transceivers.get(registered_transceiver.id)? @ NTTError::DisabledTransceiver,
+    )]
+    pub registered_transceiver: Account<'info, RegisteredTransceiver>,
+}
+
+pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()> {
+    ctx.accounts
+        .config
+        .enabled_transceivers
+        .set(ctx.accounts.registered_transceiver.id, false)?;
+
+    // decrement threshold if too high
+    let num_enabled_transceivers = ctx.accounts.config.enabled_transceivers.len();
+    if num_enabled_transceivers < ctx.accounts.config.threshold {
+        // threshold should be at least 1
+        ctx.accounts.config.threshold = num_enabled_transceivers.max(1);
+    }
     Ok(())
 }
 
@@ -542,5 +590,27 @@ pub struct SetPaused<'info> {
 
 pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
     ctx.accounts.config.paused = paused;
+    Ok(())
+}
+
+// * Set Threshold
+#[derive(Accounts)]
+#[instruction(threshold: u8)]
+pub struct SetThreshold<'info> {
+    pub owner: Signer<'info>,
+
+    #[account(
+        mut,
+        has_one = owner,
+        constraint = threshold <= config.enabled_transceivers.len() @ NTTError::ThresholdTooHigh
+    )]
+    pub config: Account<'info, Config>,
+}
+
+pub fn set_threshold(ctx: Context<SetThreshold>, threshold: u8) -> Result<()> {
+    if threshold == 0 {
+        return Err(NTTError::ZeroThreshold.into());
+    }
+    ctx.accounts.config.threshold = threshold;
     Ok(())
 }
