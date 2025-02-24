@@ -1351,6 +1351,35 @@ export type ExampleNativeTokenTransfers = {
       "args": []
     },
     {
+      "name": "deregisterTransceiver",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "transceiver",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "used here that wraps the Transceiver account type."
+          ]
+        },
+        {
+          "name": "registeredTransceiver",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "setOutboundLimit",
       "accounts": [
         {
@@ -1437,6 +1466,27 @@ export type ExampleNativeTokenTransfers = {
       ],
       "args": [],
       "returns": "bool"
+    },
+    {
+      "name": "setThreshold",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "setWormholePeer",
@@ -2587,6 +2637,16 @@ export type ExampleNativeTokenTransfers = {
       "code": 6027,
       "name": "InvalidMultisig",
       "msg": "InvalidMultisig"
+    },
+    {
+      "code": 6028,
+      "name": "ThresholdTooHigh",
+      "msg": "ThresholdTooHigh"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidTransceiverProgram",
+      "msg": "InvalidTransceiverProgram"
     }
   ]
 }
@@ -3943,6 +4003,35 @@ export const IDL: ExampleNativeTokenTransfers = {
       "args": []
     },
     {
+      "name": "deregisterTransceiver",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "transceiver",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "used here that wraps the Transceiver account type."
+          ]
+        },
+        {
+          "name": "registeredTransceiver",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "setOutboundLimit",
       "accounts": [
         {
@@ -4029,6 +4118,27 @@ export const IDL: ExampleNativeTokenTransfers = {
       ],
       "args": [],
       "returns": "bool"
+    },
+    {
+      "name": "setThreshold",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "setWormholePeer",
@@ -5179,6 +5289,16 @@ export const IDL: ExampleNativeTokenTransfers = {
       "code": 6027,
       "name": "InvalidMultisig",
       "msg": "InvalidMultisig"
+    },
+    {
+      "code": 6028,
+      "name": "ThresholdTooHigh",
+      "msg": "ThresholdTooHigh"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidTransceiverProgram",
+      "msg": "InvalidTransceiverProgram"
     }
   ]
 }
