@@ -1,21 +1,5 @@
 # Solana
 
-## Prequisities
-
-Ensure that you are using the correct version of the Solana and Anchor CLI tools by consulting `Anchor.toml`.
-
-```toml
-[toolchain]
-anchor_version = "0.29.0"   # CLI
-solana_version = "1.18.10"
-```
-
-You will also need to install the toolchain listed in `rust-toolchain`. You can verify this by running:
-
-```sh
-rustup show
-```
-
 ## Design Overview
 
 ### Message Lifecycle (Solana)
@@ -109,51 +93,54 @@ The additional payload field should then have your custom struct available every
 
 You can then modify [release_outbound](./programs/example-native-token-transfers/src/transceivers/wormhole/instructions/release_outbound.rs) and [redeem](./programs/example-native-token-transfers/src/instructions/redeem.rs) to generate and process the additional payload.
 
-## Testing
+## Prerequisities
 
-The test files are loacated in the `sdk/solana/__tests__/` directory
+### Installation
 
-In order to run them, the Solana programs must be built and their IDL made available to the SDK.
+Ensure that you are using the correct version of the Solana and Anchor CLI tools by consulting `Anchor.toml`.
 
-To ensure the SDK has the generated IDL, run the tests with the make command:
+```toml
+[toolchain]
+anchor_version = "0.29.0"   # CLI
+solana_version = "1.18.10"
+```
+
+Install the toolchain listed in `rust-toolchain`. You can verify this by running:
+
+```sh
+rustup show
+```
+
+Install [`jq`](https://jqlang.github.io/jq/) and [`tsx`](https://www.npmjs.com/package/tsx) globally as they are required by build scripts.
+
+### Build
+
+Run the following command to install necessary dependencies and to build the programs:
+
+```sh
+make build
+```
+
+### Test
+
+Run the following command to generate the IDL and run the full Solana test-suite:
 
 ```sh
 make test
 ```
 
-### Troubleshooting
+The test-suite includes cargo unit tests and Anchor integration tests
 
-<details>
-<summary><code>make: *** No rule to make target `test'.  Stop.</code></summary>
+### Format
 
-- Ensure `Makefile` has target `test`
-</details>
+Run the following command to check for lint errors:
 
-<details>
-<summary><code>tsx: command not found</code></summary>
+```sh
+make lint
+```
 
-- Screenshot:
-  <img src="images/tsx-command-not-found.png" alt="tsx command not found screenshot">
-- Update `Makefile` ([line #29](https://github.com/wormhole-foundation/example-native-token-transfers/blob/main/solana/Makefile#L29)) from:
+Run the following command to fix lint errors:
 
-  ```sh
-  tsx scripts/regenerateIdl.ts $$jsonfile > $$tsfile; \
-  ```
-
-  to:
-
-  ```sh
-  npx tsx scripts/regenerateIdl.ts $$jsonfile > $$tsfile; \
-  ```
-
-  </details>
-
-  <details>
-  <summary><code>Lifecycle script `build:esm` failed with error</code></summary>
-
-  - Screenshot:
-    <img src="images/lifecycle-script.png" alt="lifecycle script screenshot">
-  - This occurs due to Typescript files failing compilation.
-  - [`patch-idl` script](https://github.com/wormhole-foundation/example-native-token-transfers/blob/main/solana/scripts/patch-idl) requires [`jq`](https://jqlang.github.io/jq/) to be installed. Install `jq` and retry.
-
-  </details>
+```sh
+make fix-lint
+```
