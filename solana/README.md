@@ -25,14 +25,14 @@ The program checks rate limits via the `consume_or_delay` function during the tr
 
 If the transfer amount fits within the current capacity:
 
-- Reduce the current capacity
-- Refill the inbound capacity for the destination chain
+- Reduce the current capacity.
+- Refill the inbound capacity for the destination chain.
 - Add the transfer to the outbox with `release_timestamp` set to the current timestamp, so it can be released immediately.
 
 If the transfer amount does not fit within the current capacity:
 
-- If `shouldQueue = true`, add the transfer to the outbox with `release_timestamp` set to the current timestamp plus the configured `RATE_LIMIT_DURATION`.
-- If `shouldQueue = false`, revert with a `TransferExceedsRateLimit` error
+- If `should_queue = true`, add the transfer to the outbox with `release_timestamp` set to the current timestamp plus the configured `RATE_LIMIT_DURATION`.
+- If `should_queue = false`, revert with a `TransferExceedsRateLimit` error.
 
 3. **Send**
 
@@ -60,7 +60,7 @@ The following will be produced in the program logs:
 Program log: Instruction: ReceiveMessage
 ```
 
-[`redeem`] checks the inbound rate limit and places the message in an Inbox. Logic works the same as the outbound rate limit we mentioned previously.
+[`redeem`] checks the inbound rate limit and places the message in an Inbox. The logic works the same as the outbound rate limit we mentioned previously.
 
 The following will be produced in the program logs:
 
@@ -116,7 +116,7 @@ To initialize NTT, use the [`initialize_multisig`] instruction instead.
 
 In `burning` mode, to release the inbound transfer and the mint tokens to the recipient, use the [`release_inbound_mint_multisig`] instruction instead.
 
-## Prerequisities
+## Prerequisites
 
 ### Installation
 
@@ -152,7 +152,7 @@ Run the following command to generate the IDL and run the full Solana test-suite
 make test
 ```
 
-The test-suite includes cargo unit tests and Anchor integration tests
+The test-suite includes cargo unit tests and Anchor integration tests.
 
 ### Format
 
