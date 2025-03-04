@@ -1,9 +1,9 @@
 .DEFAULT_GOAL = build
 .PHONY: build cargo-build anchor-build prod-build test cargo-test anchor-test idl sdk clean node_modules lint cargo-lint anchor-lint fix-lint
 
-#find and convert version line:
-#  turn `const VERSION: &str = "major.minor.patch";` into `major_minor_patch`
-#use make functions to minimize dependence on shell
+# Find and convert version line:
+#  Turn `const VERSION: &str = "major.minor.patch";` into `major_minor_patch`
+# Use make functions to minimize dependence on shell
 VERSION = $(subst .,_,$(subst ;,,$(subst ",,$(lastword \
   $(shell grep "const VERSION" programs/example-native-token-transfers/src/lib.rs) \
 ))))
@@ -18,7 +18,7 @@ build: cargo-build anchor-build
 cargo-build:
 	BPF_OUT_DIR="$(pwd)/target/deploy" cargo build-sbf
 
-# after building, remove the generics from the idl file. This is necessary as of anchor 0.29.0,
+# After building, remove the generics from the idl file. This is necessary as of anchor 0.29.0,
 # because the javascript library does not support generics yet, and just panics
 anchor-build:
 	anchor build --arch sbf
