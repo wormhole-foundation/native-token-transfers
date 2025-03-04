@@ -93,6 +93,29 @@ The additional payload field should then have your custom struct available every
 
 You can then modify [release_outbound](./programs/example-native-token-transfers/src/transceivers/wormhole/instructions/release_outbound.rs) and [redeem](./programs/example-native-token-transfers/src/instructions/redeem.rs) to generate and process the additional payload.
 
+## SPL Multisig Support
+
+Using [SPL Multisig](https://docs.rs/spl-token/latest/spl_token/state/struct.Multisig.html), you can enable multiple minters on Solana. For example, this allows NTT to burn/mint tokens without being the only authority to do so, i.e. the asset issuer can also retain mint authority.
+
+1. **Create valid SPL Multisig**
+
+The SPL Multisig should meet the following criteria to qualify as a valid mint authority for NTT:
+
+- Number of signers required ([m](https://docs.rs/spl-token/latest/spl_token/state/struct.Multisig.html#structfield.m)) should be `1`
+- One of the [signers](https://docs.rs/spl-token/latest/spl_token/state/struct.Multisig.html#structfield.signers) must be the `token_authority` PDA
+
+2. **Set valid SPL Multisig as mint authority**
+
+You can set the created multisig as the mint authority via the [`accept_token_authority`] instruction.
+
+> If the current mint authority is also an SPL Multisig, use the [`accept_token_authority_from_multisig`] instruction instead.
+
+3. **Use [`*_multisig`] instruction variants**
+
+To initialize NTT, use the [`initialize_multisig`] instruction instead.
+
+In `burning` mode, to release the inbound transfer and the mint tokens to the recipient, use the [`release_inbound_mint_multisig`] instruction instead.
+
 ## Prerequisities
 
 ### Installation
