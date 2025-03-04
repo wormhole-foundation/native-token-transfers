@@ -1,21 +1,5 @@
 # Solana
 
-## Prequisities
-
-Ensure that you are using the correct version of the Solana and Anchor CLI tools by consulting `Anchor.toml`.
-
-```toml
-[toolchain]
-anchor_version = "0.29.0"   # CLI
-solana_version = "1.18.10"
-```
-
-You will also need to install the toolchain listed in `rust-toolchain`. You can verify this by running:
-
-```sh
-rustup show
-```
-
 ## Design Overview
 
 ### Message Lifecycle (Solana)
@@ -41,14 +25,14 @@ The program checks rate limits via the `consume_or_delay` function during the tr
 
 If the transfer amount fits within the current capacity:
 
-- Reduce the current capacity
-- Refill the inbound capacity for the destination chain
+- Reduce the current capacity.
+- Refill the inbound capacity for the destination chain.
 - Add the transfer to the outbox with `release_timestamp` set to the current timestamp, so it can be released immediately.
 
 If the transfer amount does not fit within the current capacity:
 
-- If `shouldQueue = true`, add the transfer to the outbox with `release_timestamp` set to the current timestamp plus the configured `RATE_LIMIT_DURATION`.
-- If `shouldQueue = false`, revert with a `TransferExceedsRateLimit` error
+- If `should_queue = true`, add the transfer to the outbox with `release_timestamp` set to the current timestamp plus the configured `RATE_LIMIT_DURATION`.
+- If `should_queue = false`, revert with a `TransferExceedsRateLimit` error.
 
 3. **Send**
 
@@ -76,7 +60,7 @@ The following will be produced in the program logs:
 Program log: Instruction: ReceiveMessage
 ```
 
-[`redeem`] checks the inbound rate limit and places the message in an Inbox. Logic works the same as the outbound rate limit we mentioned previously.
+[`redeem`] checks the inbound rate limit and places the message in an Inbox. The logic works the same as the outbound rate limit we mentioned previously.
 
 The following will be produced in the program logs:
 
@@ -109,51 +93,77 @@ The additional payload field should then have your custom struct available every
 
 You can then modify [release_outbound](./programs/example-native-token-transfers/src/transceivers/wormhole/instructions/release_outbound.rs) and [redeem](./programs/example-native-token-transfers/src/instructions/redeem.rs) to generate and process the additional payload.
 
-## Testing
+## SPL Multisig Support
 
-The test files are loacated in the `sdk/solana/__tests__/` directory
+Using [SPL Multisig](https://docs.rs/spl-token/latest/spl_token/state/struct.Multisig.html), you can enable multiple minters on Solana. For example, this allows NTT to burn/mint tokens without being the only authority to do so, i.e. the asset issuer can also retain mint authority.
 
-In order to run them, the Solana programs must be built and their IDL made available to the SDK.
+1. **Create valid SPL Multisig**
 
-To ensure the SDK has the generated IDL, run the tests with the make command:
+The SPL Multisig should meet the following criteria to qualify as a valid mint authority for NTT:
+
+- Number of signers required ([m](https://docs.rs/spl-token/latest/spl_token/state/struct.Multisig.html#structfield.m)) should be `1`
+- One of the [signers](https://docs.rs/spl-token/latest/spl_token/state/struct.Multisig.html#structfield.signers) must be the `token_authority` PDA
+
+2. **Set valid SPL Multisig as mint authority**
+
+You can set the created multisig as the mint authority via the [`accept_token_authority`] instruction.
+
+> If the current mint authority is also an SPL Multisig, use the [`accept_token_authority_from_multisig`] instruction instead.
+
+3. **Use [`*_multisig`] instruction variants**
+
+To initialize NTT, use the [`initialize_multisig`] instruction instead.
+
+In `burning` mode, to release the inbound transfer and the mint tokens to the recipient, use the [`release_inbound_mint_multisig`] instruction instead.
+
+## Prerequisites
+
+### Installation
+
+Ensure that you are using the correct version of the Solana and Anchor CLI tools by consulting `Anchor.toml`.
+
+```toml
+[toolchain]
+anchor_version = "0.29.0"   # CLI
+solana_version = "1.18.10"
+```
+
+Install the toolchain listed in `rust-toolchain`. You can verify this by running:
+
+```sh
+rustup show
+```
+
+Install [`jq`](https://jqlang.github.io/jq/) and [`tsx`](https://www.npmjs.com/package/tsx) globally as they are required by build scripts.
+
+### Build
+
+Run the following command to install necessary dependencies and to build the programs:
+
+```sh
+make build
+```
+
+### Test
+
+Run the following command to generate the IDL and run the full Solana test-suite:
 
 ```sh
 make test
 ```
 
-### Troubleshooting
+The test-suite includes cargo unit tests and Anchor integration tests.
 
-<details>
-<summary><code>make: *** No rule to make target `test'.  Stop.</code></summary>
+### Format
 
-- Ensure `Makefile` has target `test`
-</details>
+Run the following command to check for lint errors:
 
-<details>
-<summary><code>tsx: command not found</code></summary>
+```sh
+make lint
+```
 
-- Screenshot:
-  <img src="images/tsx-command-not-found.png" alt="tsx command not found screenshot">
-- Update `Makefile` ([line #29](https://github.com/wormhole-foundation/example-native-token-transfers/blob/main/solana/Makefile#L29)) from:
+Run the following command to fix lint errors:
 
-  ```sh
-  tsx scripts/regenerateIdl.ts $$jsonfile > $$tsfile; \
-  ```
-
-  to:
-
-  ```sh
-  npx tsx scripts/regenerateIdl.ts $$jsonfile > $$tsfile; \
-  ```
-
-  </details>
-
-  <details>
-  <summary><code>Lifecycle script `build:esm` failed with error</code></summary>
-
-  - Screenshot:
-    <img src="images/lifecycle-script.png" alt="lifecycle script screenshot">
-  - This occurs due to Typescript files failing compilation.
-  - [`patch-idl` script](https://github.com/wormhole-foundation/example-native-token-transfers/blob/main/solana/scripts/patch-idl) requires [`jq`](https://jqlang.github.io/jq/) to be installed. Install `jq` and retry.
-
-  </details>
+```sh
+make fix-lint
+```

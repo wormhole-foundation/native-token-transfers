@@ -4,7 +4,7 @@
 
 The Transceiver is intended to offer a protocol-agnostic interface for sending and receiving cross-chain messages. For Native Token Transfers, this entails initiating attestation generation on the source chain, verifying the resulting attestation on the destination chain, and delivering the message to the associated `NttManager`.
 
-In the provided implementations ([EVM](/evm/src/Transceiver/Transceiver.sol)/[SVM](/solana/programs/example-native-token-transfers/src/transceivers/wormhole/)), Transceiver are intended to have a many-to-one or one-to-one relationship with Managers.
+In the provided implementations ([EVM](/evm/src/Transceiver/Transceiver.sol)/[SVM](/solana/programs/ntt-transceiver/src/wormhole/)), Transceivers are intended to have a many-to-one relationship with Managers.
 
 ## Message Specification
 

@@ -166,7 +166,7 @@ Install Foundry tools(https://book.getfoundry.sh/getting-started/installation), 
 Run the following command to install necessary dependencies and to build the smart contracts:
 
 ```shell
-$  make build-evm
+$ make build
 ```
 
 ### Test
@@ -174,17 +174,23 @@ $  make build-evm
 To run the full evm test-suite run the following command:
 
 ```shell
-$  make test-evm
+$ make test
 ```
 
 The test-suite includes unit tests, along with property-based fuzz tests, and integration-tests.
 
 ### Format
 
-To format the files run this command from the root directory.
+To check for format errors run the following command:
 
 ```shell
-$ make fix-fmt
+$ make lint
+```
+
+To format the files run the following command:
+
+```shell
+$ make fix-lint
 ```
 
 ### Gas Snapshots
