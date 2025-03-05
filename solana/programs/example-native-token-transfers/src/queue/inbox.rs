@@ -35,17 +35,15 @@ impl InboxItem {
     pub const SEED_PREFIX: &'static [u8] = b"inbox_item";
 
     /// Attempt to release the transfer.
-    /// If the inbox item status is [`ReleaseStatus::ReleaseAfter`], this function returns true if the current timestamp
-    /// is newer than the one stored in the release status. If the timestamp is in the future,
-    /// returns false.
+    ///
+    /// * If the inbox item status is [`ReleaseStatus::ReleaseAfter`], this function returns true if the current timestamp
+    /// is newer than the one stored in the release status. If the timestamp is in the future, returns false.
+    /// * If the inbox item status is [`ReleaseStatus::NotApproved`], this function returns false.
     ///
     /// # Errors
     ///
-    /// Returns errors when the item cannot be released, i.e. when its status is not
-    /// `ReleaseAfter`:
-    /// - returns [`NTTError::TransferNotApproved`] if [`ReleaseStatus::NotApproved`]
-    /// - returns [`NTTError::TransferAlreadyRedeemed`] if [`ReleaseStatus::Released`]. This is
-    /// important to prevent a single transfer from being redeemed multiple times, which would
+    /// Returns [`NTTError::TransferAlreadyRedeemed`] if the inbox item status is [`ReleaseStatus::Released`].
+    /// This is important to prevent a single transfer from being redeemed multiple times, which would
     /// result in minting arbitrary amounts of the token.
     pub fn try_release(&mut self) -> Result<bool> {
         let now = current_timestamp();
