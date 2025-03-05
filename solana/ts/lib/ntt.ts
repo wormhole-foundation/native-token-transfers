@@ -267,7 +267,7 @@ export namespace NTT {
         rateLimit: pdas.outboxRateLimitAccount(),
         tokenProgram: args.tokenProgram,
         tokenAuthority: pdas.tokenAuthority(),
-        // NOTE: SPL Multisig token authority is only support for versions >= 3.x.x
+        // NOTE: SPL Multisig token authority is only supported for versions >= 3.x.x
         ...(major >= 3 && {
           multisigTokenAuthority: args.multisigTokenAuthority ?? null,
         }),
@@ -592,7 +592,7 @@ export namespace NTT {
           tokenProgram: config.tokenProgram,
           custody: await custodyAccountAddress(pdas, config),
         },
-        // NOTE: SPL Multisig token authority is only support for versions >= 3.x.x
+        // NOTE: SPL Multisig token authority is only supported for versions >= 3.x.x
         ...(major >= 3 && {
           multisigTokenAuthority,
         }),
