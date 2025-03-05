@@ -109,13 +109,6 @@ pub mod example_native_token_transfers {
         instructions::release_inbound_mint(ctx, args)
     }
 
-    pub fn release_inbound_mint_multisig<'info>(
-        ctx: Context<'_, '_, '_, 'info, ReleaseInboundMintMultisig<'info>>,
-        args: ReleaseInboundArgs,
-    ) -> Result<()> {
-        instructions::release_inbound_mint_multisig(ctx, args)
-    }
-
     pub fn release_inbound_unlock<'info>(
         ctx: Context<'_, '_, '_, 'info, ReleaseInboundUnlock<'info>>,
         args: ReleaseInboundArgs,
