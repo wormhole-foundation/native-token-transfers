@@ -176,7 +176,7 @@ describe("example-native-token-transfers", () => {
         mint: testMint.address,
         outboundLimit: 1_000_000n,
         mode: "burning",
-        multisig: multisigTokenAuthority,
+        multisigTokenAuthority,
       });
       await signSendWait(ctx, initTxs, signer);
 
