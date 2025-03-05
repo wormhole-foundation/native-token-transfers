@@ -1009,7 +1009,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
             nttMessage.payload.recipientAddress.toUint8Array()
           ),
           chain: emitterChain,
-          revertOnDelay: false,
+          // NOTE: this acts as `revertOnDelay` for versions < 3.x.x
+          revertWhenNotReady: false,
         };
         let releaseIx =
           config.mode.locking != null
@@ -1181,7 +1182,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         transceiverMessage.payload.recipientAddress.toUint8Array()
       ),
       chain: fromChain,
-      revertOnDelay: false,
+      // NOTE: this acts as `revertOnDelay` for versions < 3.x.x
+      revertWhenNotReady: false,
     };
 
     tx.add(
