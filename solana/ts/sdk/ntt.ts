@@ -954,11 +954,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     }
   }
 
-  async *redeem(
-    attestations: Ntt.Attestation[],
-    payer: AccountAddress<C>,
-    multisigTokenAuthority?: PublicKey
-  ) {
+  async *redeem(attestations: Ntt.Attestation[], payer: AccountAddress<C>) {
     const config = await this.getConfig();
     if (config.paused) throw new Error("Contract is paused");
 
@@ -1022,7 +1018,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
               })
             : NTT.createReleaseInboundMintInstruction(this.program, config, {
                 ...releaseArgs,
-                multisigTokenAuthority,
               });
 
         const tx = new Transaction();
