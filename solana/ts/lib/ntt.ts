@@ -547,7 +547,7 @@ export namespace NTT {
       payer: PublicKey;
       chain: Chain;
       nttMessage: Ntt.Message;
-      revertOnDelay: boolean;
+      revertWhenNotReady: boolean;
       recipient?: PublicKey;
     },
     pdas?: Pdas
@@ -574,7 +574,10 @@ export namespace NTT {
 
     const transferIx = await program.methods
       .releaseInboundMint({
-        revertOnDelay: args.revertOnDelay,
+        // NOTE: `revertOnDelay` is used for versions < 3.x.x
+        // For versions >= 3.x.x, `revertWhenNotReady` is used instead
+        revertOnDelay: args.revertWhenNotReady,
+        revertWhenNotReady: args.revertWhenNotReady,
       })
       .accounts({
         common: {
@@ -637,7 +640,7 @@ export namespace NTT {
       payer: PublicKey;
       chain: Chain;
       nttMessage: Ntt.Message;
-      revertOnDelay: boolean;
+      revertWhenNotReady: boolean;
       recipient?: PublicKey;
     },
     pdas?: Pdas
@@ -652,7 +655,10 @@ export namespace NTT {
 
     const transferIx = await program.methods
       .releaseInboundUnlock({
-        revertOnDelay: args.revertOnDelay,
+        // NOTE: `revertOnDelay` is used for versions < 3.x.x
+        // For versions >= 3.x.x, `revertWhenNotReady` is used instead
+        revertOnDelay: args.revertWhenNotReady,
+        revertWhenNotReady: args.revertWhenNotReady,
       })
       .accountsStrict({
         common: {
