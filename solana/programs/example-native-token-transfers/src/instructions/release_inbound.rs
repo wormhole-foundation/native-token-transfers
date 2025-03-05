@@ -54,7 +54,7 @@ pub struct ReleaseInbound<'info> {
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ReleaseInboundArgs {
-    pub revert_on_delay: bool,
+    pub revert_when_not_ready: bool,
 }
 
 // Burn/mint
@@ -65,11 +65,18 @@ pub struct ReleaseInboundMint<'info> {
         constraint = common.config.mode == Mode::Burning @ NTTError::InvalidMode,
     )]
     common: ReleaseInbound<'info>,
+
+    #[account(
+        constraint = multisig_token_authority.m == 1
+            && multisig_token_authority.signers.contains(&common.token_authority.key())
+            @ NTTError::InvalidMultisig,
+    )]
+    pub multisig_token_authority: Option<InterfaceAccount<'info, SplMultisig>>,
 }
 
 /// Release an inbound transfer and mint the tokens to the recipient.
-/// When `revert_on_error` is true, the transaction will revert if the
-/// release timestamp has not been reached. When `revert_on_error` is false, the
+/// When `revert_when_not_ready` is true, the transaction will revert if the
+/// release timestamp has not been reached. When `revert_when_not_ready` is false, the
 /// transaction succeeds, but the minting is not performed.
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`] in a transaction, so that the minting
@@ -78,7 +85,10 @@ pub fn release_inbound_mint<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundMint<'info>>,
     args: ReleaseInboundArgs,
 ) -> Result<()> {
-    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+    let inbox_item = release_inbox_item(
+        &mut ctx.accounts.common.inbox_item,
+        args.revert_when_not_ready,
+    )?;
     if inbox_item.is_none() {
         return Ok(());
     }
@@ -106,18 +116,25 @@ pub fn release_inbound_mint<'info>(
     ]];
 
     // Step 1: mint tokens to the custody account
-    token_interface::mint_to(
-        CpiContext::new_with_signer(
+    match &ctx.accounts.multisig_token_authority {
+        Some(multisig_token_authority) => mint_to_custody_from_multisig_token_authority(
             ctx.accounts.common.token_program.to_account_info(),
-            token_interface::MintTo {
-                mint: ctx.accounts.common.mint.to_account_info(),
-                to: ctx.accounts.common.custody.to_account_info(),
-                authority: ctx.accounts.common.token_authority.to_account_info(),
-            },
+            ctx.accounts.common.mint.to_account_info(),
+            ctx.accounts.common.custody.to_account_info(),
+            multisig_token_authority.to_account_info(),
+            ctx.accounts.common.token_authority.to_account_info(),
             token_authority_sig,
-        ),
-        inbox_item.amount,
-    )?;
+            inbox_item.amount,
+        )?,
+        None => mint_to_custody_from_token_authority(
+            ctx.accounts.common.token_program.to_account_info(),
+            ctx.accounts.common.mint.to_account_info(),
+            ctx.accounts.common.custody.to_account_info(),
+            ctx.accounts.common.token_authority.to_account_info(),
+            token_authority_sig,
+            inbox_item.amount,
+        )?,
+    };
 
     // Step 2: transfer the tokens from the custody account to the recipient
     onchain::invoke_transfer_checked(
@@ -134,82 +151,49 @@ pub fn release_inbound_mint<'info>(
     Ok(())
 }
 
-#[derive(Accounts)]
-pub struct ReleaseInboundMintMultisig<'info> {
-    #[account(
-        constraint = common.config.mode == Mode::Burning @ NTTError::InvalidMode,
-    )]
-    common: ReleaseInbound<'info>,
-
-    #[account(
-        constraint =
-         multisig.m == 1 && multisig.signers.contains(&common.token_authority.key())
-            @ NTTError::InvalidMultisig,
-    )]
-    pub multisig: InterfaceAccount<'info, SplMultisig>,
+fn mint_to_custody_from_token_authority<'info>(
+    token_program: AccountInfo<'info>,
+    mint: AccountInfo<'info>,
+    custody: AccountInfo<'info>,
+    token_authority: AccountInfo<'info>,
+    token_authority_signer_seeds: &[&[&[u8]]],
+    amount: u64,
+) -> Result<()> {
+    token_interface::mint_to(
+        CpiContext::new_with_signer(
+            token_program,
+            token_interface::MintTo {
+                mint,
+                to: custody,
+                authority: token_authority,
+            },
+            token_authority_signer_seeds,
+        ),
+        amount,
+    )?;
+    Ok(())
 }
 
-pub fn release_inbound_mint_multisig<'info>(
-    ctx: Context<'_, '_, '_, 'info, ReleaseInboundMintMultisig<'info>>,
-    args: ReleaseInboundArgs,
+fn mint_to_custody_from_multisig_token_authority<'info>(
+    token_program: AccountInfo<'info>,
+    mint: AccountInfo<'info>,
+    custody: AccountInfo<'info>,
+    multisig_token_authority: AccountInfo<'info>,
+    token_authority: AccountInfo<'info>,
+    token_authority_signer_seeds: &[&[&[u8]]],
+    amount: u64,
 ) -> Result<()> {
-    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
-    if inbox_item.is_none() {
-        return Ok(());
-    }
-    let inbox_item = inbox_item.unwrap();
-    assert!(inbox_item.release_status == ReleaseStatus::Released);
-
-    // NOTE: minting tokens is a two-step process:
-    // 1. Mint tokens to the custody account
-    // 2. Transfer the tokens from the custody account to the recipient
-    //
-    // This is done to ensure that if the token has a transfer hook defined, it
-    // will be called after the tokens are minted.
-    // Unfortunately the Token2022 program doesn't trigger transfer hooks when
-    // minting tokens, so we have to do it "manually" via a transfer.
-    //
-    // If we didn't do this, transfer hooks could be bypassed by transferring
-    // the tokens out through NTT first, then back in to the intended recipient.
-    //
-    // The [`transfer_burn`] function operates in a similar way
-    // (transfer to custody from sender, *then* burn).
-
-    let token_authority_sig: &[&[&[u8]]] = &[&[
-        crate::TOKEN_AUTHORITY_SEED,
-        &[ctx.bumps.common.token_authority],
-    ]];
-
-    // Step 1: mint tokens to the custody account
     solana_program::program::invoke_signed(
         &spl_token_2022::instruction::mint_to(
-            &ctx.accounts.common.token_program.key(),
-            &ctx.accounts.common.mint.key(),
-            &ctx.accounts.common.custody.key(),
-            &ctx.accounts.multisig.key(),
-            &[&ctx.accounts.common.token_authority.key()],
-            inbox_item.amount,
+            &token_program.key(),
+            &mint.key(),
+            &custody.key(),
+            &multisig_token_authority.key(),
+            &[&token_authority.key()],
+            amount,
         )?,
-        &[
-            ctx.accounts.common.custody.to_account_info(),
-            ctx.accounts.common.mint.to_account_info(),
-            ctx.accounts.common.token_authority.to_account_info(),
-            ctx.accounts.multisig.to_account_info(),
-        ],
-        token_authority_sig,
-    )?;
-
-    // Step 2: transfer the tokens from the custody account to the recipient
-    onchain::invoke_transfer_checked(
-        &ctx.accounts.common.token_program.key(),
-        ctx.accounts.common.custody.to_account_info(),
-        ctx.accounts.common.mint.to_account_info(),
-        ctx.accounts.common.recipient.to_account_info(),
-        ctx.accounts.common.token_authority.to_account_info(),
-        ctx.remaining_accounts,
-        inbox_item.amount,
-        ctx.accounts.common.mint.decimals,
-        token_authority_sig,
+        &[custody, mint, token_authority, multisig_token_authority],
+        token_authority_signer_seeds,
     )?;
     Ok(())
 }
@@ -225,8 +209,8 @@ pub struct ReleaseInboundUnlock<'info> {
 }
 
 /// Release an inbound transfer and unlock the tokens to the recipient.
-/// When `revert_on_error` is true, the transaction will revert if the
-/// release timestamp has not been reached. When `revert_on_error` is false, the
+/// When `revert_when_not_ready` is true, the transaction will revert if the
+/// release timestamp has not been reached. When `revert_when_not_ready` is false, the
 /// transaction succeeds, but the unlocking is not performed.
 /// Setting this flag to `false` is useful when bundling this instruction
 /// together with [`crate::instructions::redeem`], so that the unlocking
@@ -235,7 +219,10 @@ pub fn release_inbound_unlock<'info>(
     ctx: Context<'_, '_, '_, 'info, ReleaseInboundUnlock<'info>>,
     args: ReleaseInboundArgs,
 ) -> Result<()> {
-    let inbox_item = release_inbox_item(&mut ctx.accounts.common.inbox_item, args.revert_on_delay)?;
+    let inbox_item = release_inbox_item(
+        &mut ctx.accounts.common.inbox_item,
+        args.revert_when_not_ready,
+    )?;
     if inbox_item.is_none() {
         return Ok(());
     }
@@ -258,14 +245,21 @@ pub fn release_inbound_unlock<'info>(
     )?;
     Ok(())
 }
+
 fn release_inbox_item(
     inbox_item: &mut InboxItem,
-    revert_on_delay: bool,
+    revert_when_not_ready: bool,
 ) -> Result<Option<&mut InboxItem>> {
     if inbox_item.try_release()? {
         Ok(Some(inbox_item))
-    } else if revert_on_delay {
-        Err(NTTError::CantReleaseYet.into())
+    } else if revert_when_not_ready {
+        match inbox_item.release_status {
+            ReleaseStatus::NotApproved => Err(NTTError::TransferNotApproved.into()),
+            ReleaseStatus::ReleaseAfter(_) => Err(NTTError::CantReleaseYet.into()),
+            // Unreachable: if released, [`InboxItem::try_release`] will return an Error immediately
+            // rather than Ok(bool).
+            ReleaseStatus::Released => Err(NTTError::TransferAlreadyRedeemed.into()),
+        }
     } else {
         Ok(None)
     }

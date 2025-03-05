@@ -176,7 +176,7 @@ describe("example-native-token-transfers", () => {
         mint: testMint.address,
         outboundLimit: 1_000_000n,
         mode: "burning",
-        multisig: multisigTokenAuthority,
+        multisigTokenAuthority,
       });
       await signSendWait(ctx, initTxs, signer);
 
@@ -504,7 +504,7 @@ describe("example-native-token-transfers", () => {
       const published = emitter.publishMessage(0, serialized, 200);
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
-      const redeemTxs = ntt.redeem([vaa], sender, multisigTokenAuthority);
+      const redeemTxs = ntt.redeem([vaa], sender);
       await signSendWait(ctx, redeemTxs, signer);
 
       assert.bn(await testDummyTransferHook.counter.value()).equal(2);

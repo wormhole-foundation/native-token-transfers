@@ -244,9 +244,11 @@ export namespace NTT {
       outboundLimit: bigint;
       tokenProgram: PublicKey;
       mode: "burning" | "locking";
+      multisigTokenAuthority?: PublicKey;
     },
     pdas?: Pdas
   ) {
+    const [major, , ,] = parseVersion(program.idl.version);
     const mode: any =
       args.mode === "burning" ? { burning: {} } : { locking: {} };
     const chainId = toChainId(args.chain);
@@ -256,7 +258,7 @@ export namespace NTT {
     const limit = new BN(args.outboundLimit.toString());
     return program.methods
       .initialize({ chainId, limit: limit, mode })
-      .accountsStrict({
+      .accounts({
         payer: args.payer,
         deployer: args.owner,
         programData: programDataAddress(program.programId),
@@ -265,6 +267,10 @@ export namespace NTT {
         rateLimit: pdas.outboxRateLimitAccount(),
         tokenProgram: args.tokenProgram,
         tokenAuthority: pdas.tokenAuthority(),
+        // NOTE: SPL Multisig token authority is only supported for versions >= 3.x.x
+        ...(major >= 3 && {
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+        }),
         custody: await NTT.custodyAccountAddress(
           pdas,
           args.mint,
@@ -273,53 +279,6 @@ export namespace NTT {
         bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
         associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
-      })
-      .instruction();
-  }
-
-  export async function createInitializeMultisigInstruction(
-    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
-    args: {
-      payer: PublicKey;
-      owner: PublicKey;
-      chain: Chain;
-      mint: PublicKey;
-      outboundLimit: bigint;
-      tokenProgram: PublicKey;
-      mode: "burning" | "locking";
-      multisig: PublicKey;
-    },
-    pdas?: Pdas
-  ) {
-    const mode: any =
-      args.mode === "burning" ? { burning: {} } : { locking: {} };
-    const chainId = toChainId(args.chain);
-
-    pdas = pdas ?? NTT.pdas(program.programId);
-
-    const limit = new BN(args.outboundLimit.toString());
-    return await program.methods
-      .initializeMultisig({ chainId, limit: limit, mode })
-      .accountsStrict({
-        common: {
-          payer: args.payer,
-          deployer: args.owner,
-          programData: programDataAddress(program.programId),
-          config: pdas.configAccount(),
-          mint: args.mint,
-          rateLimit: pdas.outboxRateLimitAccount(),
-          tokenAuthority: pdas.tokenAuthority(),
-          custody: await NTT.custodyAccountAddress(
-            pdas,
-            args.mint,
-            args.tokenProgram
-          ),
-          tokenProgram: args.tokenProgram,
-          associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
-          bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        },
-        multisig: args.multisig,
       })
       .instruction();
   }
@@ -588,12 +547,25 @@ export namespace NTT {
       payer: PublicKey;
       chain: Chain;
       nttMessage: Ntt.Message;
-      revertOnDelay: boolean;
+      revertWhenNotReady: boolean;
       recipient?: PublicKey;
     },
     pdas?: Pdas
   ): Promise<TransactionInstruction> {
+    const [major, , ,] = parseVersion(program.idl.version);
+
     pdas = pdas ?? NTT.pdas(program.programId);
+
+    const mintInfo = await splToken.getMint(
+      program.provider.connection,
+      config.mint,
+      undefined,
+      config.tokenProgram
+    );
+    let multisigTokenAuthority: PublicKey | null = null;
+    if (!mintInfo.mintAuthority?.equals(pdas.tokenAuthority())) {
+      multisigTokenAuthority = mintInfo.mintAuthority;
+    }
 
     const recipientAddress =
       args.recipient ??
@@ -602,9 +574,12 @@ export namespace NTT {
 
     const transferIx = await program.methods
       .releaseInboundMint({
-        revertOnDelay: args.revertOnDelay,
+        // NOTE: `revertOnDelay` is used for versions < 3.x.x
+        // For versions >= 3.x.x, `revertWhenNotReady` is used instead
+        revertOnDelay: args.revertWhenNotReady,
+        revertWhenNotReady: args.revertWhenNotReady,
       })
-      .accountsStrict({
+      .accounts({
         common: {
           payer: args.payer,
           config: { config: pdas.configAccount() },
@@ -620,101 +595,14 @@ export namespace NTT {
           tokenProgram: config.tokenProgram,
           custody: await custodyAccountAddress(pdas, config),
         },
+        // NOTE: SPL Multisig token authority is only supported for versions >= 3.x.x
+        ...(major >= 3 && {
+          multisigTokenAuthority,
+        }),
       })
       .instruction();
 
-    const mintInfo = await splToken.getMint(
-      program.provider.connection,
-      config.mint,
-      undefined,
-      config.tokenProgram
-    );
     const transferHook = splToken.getTransferHook(mintInfo);
-
-    if (transferHook) {
-      const source = await custodyAccountAddress(pdas, config);
-      const mint = config.mint;
-      const destination = getAssociatedTokenAddressSync(
-        mint,
-        recipientAddress,
-        true,
-        config.tokenProgram
-      );
-      const owner = pdas.tokenAuthority();
-      await addExtraAccountMetasForExecute(
-        program.provider.connection,
-        transferIx,
-        transferHook.programId,
-        source,
-        mint,
-        destination,
-        owner,
-        // TODO(csongor): compute the amount that's passed into transfer.
-        // Leaving this 0 is fine unless the transfer hook accounts addresses
-        // depend on the amount (which is unlikely).
-        // If this turns out to be the case, the amount to put here is the
-        // untrimmed amount after removing dust.
-        0
-      );
-    }
-
-    return transferIx;
-  }
-
-  // TODO: document that if recipient is provided, then the instruction can be
-  // created before the inbox item is created (i.e. they can be put in the same tx)
-  export async function createReleaseInboundMintMultisigInstruction(
-    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
-    config: NttBindings.Config<IdlVersion>,
-    args: {
-      payer: PublicKey;
-      chain: Chain;
-      nttMessage: Ntt.Message;
-      revertOnDelay: boolean;
-      multisig: PublicKey;
-      recipient?: PublicKey;
-    },
-    pdas?: Pdas
-  ): Promise<TransactionInstruction> {
-    pdas = pdas ?? NTT.pdas(program.programId);
-
-    const recipientAddress =
-      args.recipient ??
-      (await getInboxItem(program, args.chain, args.nttMessage))
-        .recipientAddress;
-
-    const transferIx = await program.methods
-      .releaseInboundMintMultisig({
-        revertOnDelay: args.revertOnDelay,
-      })
-      .accountsStrict({
-        common: {
-          payer: args.payer,
-          config: { config: pdas.configAccount() },
-          inboxItem: pdas.inboxItemAccount(args.chain, args.nttMessage),
-          recipient: getAssociatedTokenAddressSync(
-            config.mint,
-            recipientAddress,
-            true,
-            config.tokenProgram
-          ),
-          mint: config.mint,
-          tokenAuthority: pdas.tokenAuthority(),
-          tokenProgram: config.tokenProgram,
-          custody: await custodyAccountAddress(pdas, config),
-        },
-        multisig: args.multisig,
-      })
-      .instruction();
-
-    const mintInfo = await splToken.getMint(
-      program.provider.connection,
-      config.mint,
-      undefined,
-      config.tokenProgram
-    );
-    const transferHook = splToken.getTransferHook(mintInfo);
-
     if (transferHook) {
       const source = await custodyAccountAddress(pdas, config);
       const mint = config.mint;
@@ -752,7 +640,7 @@ export namespace NTT {
       payer: PublicKey;
       chain: Chain;
       nttMessage: Ntt.Message;
-      revertOnDelay: boolean;
+      revertWhenNotReady: boolean;
       recipient?: PublicKey;
     },
     pdas?: Pdas
@@ -767,7 +655,10 @@ export namespace NTT {
 
     const transferIx = await program.methods
       .releaseInboundUnlock({
-        revertOnDelay: args.revertOnDelay,
+        // NOTE: `revertOnDelay` is used for versions < 3.x.x
+        // For versions >= 3.x.x, `revertWhenNotReady` is used instead
+        revertOnDelay: args.revertWhenNotReady,
+        revertWhenNotReady: args.revertWhenNotReady,
       })
       .accountsStrict({
         common: {

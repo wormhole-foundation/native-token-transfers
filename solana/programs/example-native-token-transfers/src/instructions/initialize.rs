@@ -8,12 +8,14 @@ use crate::messages::Hack;
 
 use crate::{
     bitmap::Bitmap,
+    config::Config,
     error::NTTError,
     queue::{outbox::OutboxRateLimit, rate_limit::RateLimitState},
     spl_multisig::SplMultisig,
 };
 
 #[derive(Accounts)]
+#[instruction(args: InitializeArgs)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -30,15 +32,20 @@ pub struct Initialize<'info> {
 
     #[account(
         init,
-        space = 8 + crate::config::Config::INIT_SPACE,
+        space = 8 + Config::INIT_SPACE,
         payer = payer,
-        seeds = [crate::config::Config::SEED_PREFIX],
+        seeds = [Config::SEED_PREFIX],
         bump
     )]
-    pub config: Box<Account<'info, crate::config::Config>>,
+    pub config: Box<Account<'info, Config>>,
 
-    // NOTE: this account is unconstrained and is the responsibility of the
-    // handler to constrain it
+    #[account(
+        constraint = args.mode == Mode::Locking
+            || mint.mint_authority.unwrap() == multisig_token_authority.as_ref().map_or(
+                token_authority.key(),
+                |multisig_token_authority| multisig_token_authority.key()
+            ) @ NTTError::InvalidMintAuthority
+    )]
     pub mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     #[account(
@@ -61,6 +68,13 @@ pub struct Initialize<'info> {
     /// TODO: Using `UncheckedAccount` here leads to "Access violation in stack frame ...".
     /// Could refactor code to use `Box<_>` to reduce stack size.
     pub token_authority: AccountInfo<'info>,
+
+    #[account(
+        constraint = multisig_token_authority.m == 1
+            && multisig_token_authority.signers.contains(&token_authority.key())
+            @ NTTError::InvalidMultisig,
+    )]
+    pub multisig_token_authority: Option<Box<InterfaceAccount<'info, SplMultisig>>>,
 
     #[account(
         init_if_needed,
@@ -92,46 +106,9 @@ pub struct InitializeArgs {
 }
 
 pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
-    // NOTE: this check was moved into the function body to reuse the `Initialize` struct
-    // in the multisig variant while preserving ABI
-    if args.mode == Mode::Burning
-        && ctx.accounts.mint.mint_authority.unwrap() != ctx.accounts.token_authority.key()
-    {
-        return Err(NTTError::InvalidMintAuthority.into());
-    }
-
     initialize_config_and_rate_limit(
         ctx.accounts,
         ctx.bumps.config,
-        args.chain_id,
-        args.limit,
-        args.mode,
-    )
-}
-
-#[derive(Accounts)]
-#[instruction(args: InitializeArgs)]
-pub struct InitializeMultisig<'info> {
-    #[account(
-        constraint =
-            args.mode == Mode::Locking
-            || common.mint.mint_authority.unwrap() == multisig.key()
-            @ NTTError::InvalidMintAuthority,
-    )]
-    pub common: Initialize<'info>,
-
-    #[account(
-        constraint =
-            multisig.m == 1 && multisig.signers.contains(&common.token_authority.key())
-            @ NTTError::InvalidMultisig,
-    )]
-    pub multisig: InterfaceAccount<'info, SplMultisig>,
-}
-
-pub fn initialize_multisig(ctx: Context<InitializeMultisig>, args: InitializeArgs) -> Result<()> {
-    initialize_config_and_rate_limit(
-        &mut ctx.accounts.common,
-        ctx.bumps.common.config,
         args.chain_id,
         args.limit,
         args.mode,
