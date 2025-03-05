@@ -549,13 +549,23 @@ export namespace NTT {
       nttMessage: Ntt.Message;
       revertOnDelay: boolean;
       recipient?: PublicKey;
-      multisigTokenAuthority?: PublicKey;
     },
     pdas?: Pdas
   ): Promise<TransactionInstruction> {
     const [major, , ,] = parseVersion(program.idl.version);
 
     pdas = pdas ?? NTT.pdas(program.programId);
+
+    const mintInfo = await splToken.getMint(
+      program.provider.connection,
+      config.mint,
+      undefined,
+      config.tokenProgram
+    );
+    let multisigTokenAuthority: PublicKey | null = null;
+    if (!mintInfo.mintAuthority?.equals(pdas.tokenAuthority())) {
+      multisigTokenAuthority = mintInfo.mintAuthority;
+    }
 
     const recipientAddress =
       args.recipient ??
@@ -584,19 +594,12 @@ export namespace NTT {
         },
         // NOTE: SPL Multisig token authority is only support for versions >= 3.x.x
         ...(major >= 3 && {
-          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+          multisigTokenAuthority,
         }),
       })
       .instruction();
 
-    const mintInfo = await splToken.getMint(
-      program.provider.connection,
-      config.mint,
-      undefined,
-      config.tokenProgram
-    );
     const transferHook = splToken.getTransferHook(mintInfo);
-
     if (transferHook) {
       const source = await custodyAccountAddress(pdas, config);
       const mint = config.mint;
