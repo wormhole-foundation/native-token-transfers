@@ -349,10 +349,10 @@ fn claim_from_token_authority<'info>(
 ) -> Result<()> {
     token_interface::set_authority(
         CpiContext::new_with_signer(
-            token_program.to_account_info(),
+            token_program,
             token_interface::SetAuthority {
-                account_or_mint: mint.to_account_info(),
-                current_authority: token_authority.to_account_info(),
+                account_or_mint: mint,
+                current_authority: token_authority,
             },
             &[&[crate::TOKEN_AUTHORITY_SEED, &[token_authority_bump]]],
         ),
