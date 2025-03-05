@@ -2129,7 +2129,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "revertOnDelay",
+            "name": "revertWhenNotReady",
             "type": "bool"
           }
         ]

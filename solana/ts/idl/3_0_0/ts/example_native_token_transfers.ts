@@ -2129,7 +2129,7 @@ export type ExampleNativeTokenTransfers = {
         "kind": "struct",
         "fields": [
           {
-            "name": "revertOnDelay",
+            "name": "revertWhenNotReady",
             "type": "bool"
           }
         ]
@@ -4624,7 +4624,7 @@ export const IDL: ExampleNativeTokenTransfers = {
         "kind": "struct",
         "fields": [
           {
-            "name": "revertOnDelay",
+            "name": "revertWhenNotReady",
             "type": "bool"
           }
         ]
