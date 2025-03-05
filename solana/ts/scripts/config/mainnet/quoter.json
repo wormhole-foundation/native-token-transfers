@@ -258,6 +258,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "Lingo",
+      "programId": "nTTQspEC1JoEUJVFTcgZSatgcv4PNT8UYtCtyaUSKcX",
+      "tokenAddress": "GWZGj6AM4pkWxQW6bifE6JChSRf2hEQFWFkYC4REaL7H",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
