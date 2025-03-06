@@ -46,7 +46,7 @@ If the rate-limiter is disabled, the inbound and outbound rate-limits can be set
 _Events_
 
 ```solidity
-/// @notice Emitted whenn an outbound transfer is queued.
+/// @notice Emitted when an outbound transfer is queued.
 /// @dev Topic0
 ///      0x69add1952a6a6b9cb86f04d05f0cb605cbb469a50ae916139d34495a9991481f.
 /// @param queueSequence The location of the transfer in the queue.
