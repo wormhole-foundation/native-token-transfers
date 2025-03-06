@@ -10,6 +10,7 @@ pub struct Initialize {
     pub payer: Pubkey,
     pub deployer: Pubkey,
     pub mint: Pubkey,
+    pub multisig_token_authority: Option<Pubkey>,
 }
 
 pub fn initialize(ntt: &NTT, accounts: Initialize, args: InitializeArgs) -> Instruction {
@@ -33,6 +34,7 @@ pub fn initialize_with_token_program_id(
         mint: accounts.mint,
         rate_limit: ntt.outbox_rate_limit(),
         token_authority: ntt.token_authority(),
+        multisig_token_authority: accounts.multisig_token_authority,
         custody: ntt.custody_with_token_program_id(&accounts.mint, token_program_id),
         token_program: *token_program_id,
         associated_token_program: AssociatedToken::id(),

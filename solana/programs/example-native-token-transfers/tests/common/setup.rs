@@ -179,6 +179,7 @@ pub async fn setup_ntt_with_token_program_id(
             payer: ctx.payer.pubkey(),
             deployer: test_data.program_owner.pubkey(),
             mint: test_data.mint,
+            multisig_token_authority: None,
         },
         InitializeArgs {
             // TODO: use sdk
