@@ -48,7 +48,7 @@ pub struct Initialize<'info> {
         seeds = [OutboxRateLimit::SEED_PREFIX],
         bump,
     )]
-    pub rate_limit: Account<'info, OutboxRateLimit>,
+    pub rate_limit: Box<Account<'info, OutboxRateLimit>>,
 
     #[account(
         seeds = [crate::TOKEN_AUTHORITY_SEED],
@@ -60,7 +60,7 @@ pub struct Initialize<'info> {
     ///
     /// TODO: Using `UncheckedAccount` here leads to "Access violation in stack frame ...".
     /// Could refactor code to use `Box<_>` to reduce stack size.
-    pub token_authority: AccountInfo<'info>,
+    pub token_authority: UncheckedAccount<'info>,
 
     #[account(
         init_if_needed,
