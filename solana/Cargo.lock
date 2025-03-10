@@ -2502,6 +2502,7 @@ version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "cfg-if",
  "example-native-token-transfers",
  "hex",
  "ntt-messages",
@@ -6398,12 +6399,12 @@ dependencies = [
 [[package]]
 name = "wormhole-anchor-sdk"
 version = "0.29.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4470d5c9ac1072a8b15e2361dfa4f919849f1c41a6004941f6df49d628a797f0"
+source = "git+https://github.com/wormholelabs-xyz/wormhole-scaffolding?branch=solana/anchor-0.29.0#2b4598732a417dc8bd658dedbdd234839b662321"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
  "cfg-if",
+ "wormhole-io",
 ]
 
 [[package]]
