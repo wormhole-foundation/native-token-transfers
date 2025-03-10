@@ -14,12 +14,16 @@ no-idl = []
 idl-build = [
   "anchor-lang/idl-build",
   "anchor-spl/idl-build",
-  "example-native-token-transfers/idl-build"
+  "example-native-token-transfers/idl-build",
+  "wormhole-anchor-sdk/mainnet" # TODO: is this kosher? builds idl without passing on our feature flags
 ]
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
-default = []
+default = [ "wormhole-transceiver" ]
+wormhole-transceiver = []
+transceiver-type-from-env = []
 
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env" ]
 mainnet = [ "wormhole-anchor-sdk/mainnet" ]
 solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
 tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
@@ -33,6 +37,7 @@ ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "has
 anchor-lang.workspace = true
 anchor-spl.workspace = true
 solana-program.workspace = true
+cfg-if = "1.0.0"
 
 wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true
