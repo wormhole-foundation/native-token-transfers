@@ -5,9 +5,20 @@ pub mod wormhole;
 
 use wormhole::instructions::*;
 
+#[macro_use]
+extern crate cfg_if;
+
 declare_id!("Ee6jpX9oq2EsGuqGb6iZZxvtcpmMGZk8SAUbnQy4jcHR");
 
-pub const TRANSCEIVER_TYPE: &str = "wormhole";
+cfg_if! {
+    if #[cfg(feature = "wormhole-transceiver")] {
+        pub const TRANSCEIVER_TYPE: &str = "wormhole";
+    } else if #[cfg(feature = "transceiver-type-from-env")] {
+        pub const TRANSCEIVER_TYPE: &str = env!("TRANSCEIVER_TYPE");
+    } else {
+        compile_error!("No transceiver type specified");
+    }
+}
 
 #[program]
 pub mod ntt_transceiver {

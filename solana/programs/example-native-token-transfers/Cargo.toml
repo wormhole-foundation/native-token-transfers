@@ -9,19 +9,20 @@ crate-type = ["cdylib", "lib"]
 name = "example_native_token_transfers"
 
 [features]
-default = ["mainnet"]
+default = []
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 idl-build = [
   "anchor-lang/idl-build",
-  "anchor-spl/idl-build"
+  "anchor-spl/idl-build",
 ]
 # cargo-test-sbf will pass this along
 test-sbf = []
 # networks
 mainnet = [ "wormhole-anchor-sdk/mainnet" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env" ]
 solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
 tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
 tilt-devnet2 = [ "tilt-devnet" ]
