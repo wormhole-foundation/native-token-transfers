@@ -4,8 +4,9 @@ module ntt::state {
     use sui::balance::Balance;
     use sui::clock::Clock;
     use wormhole::bytes32::{Self, Bytes32};
+    use wormhole::external_address::ExternalAddress;
     use ntt::mode::Mode;
-    use ntt::peer::Peer;
+    use ntt::peer::{Self, Peer};
     use ntt_common::bitmap::Bitmap;
     use ntt::outbox::{Self, Outbox};
     use ntt::inbox::{Self, Inbox, InboxItem};
@@ -202,9 +203,28 @@ module ntt::state {
         _: &AdminCap,
         state: &mut State<T>,
         chain: u16,
-        peer: Peer
+        address: ExternalAddress,
+        token_decimals: u8,
+        inbound_limit: u64,
+        clock: &Clock
     ) {
-        state.peers.add(chain, peer)
+        if (state.peers.contains(chain)) {
+            let existing_peer = state.peers.borrow_mut(chain);
+            existing_peer.set_address(address);
+            existing_peer.set_token_decimals(token_decimals);
+            existing_peer.borrow_inbound_rate_limit_mut().set_limit(inbound_limit, clock);
+        } else {
+            state.peers.add(chain, peer::new(address, token_decimals, inbound_limit))
+        }
+    }
+
+    public fun set_outbound_rate_limit<T>(
+        _: &AdminCap,
+        state: &mut State<T>,
+        limit: u64,
+        clock: &Clock
+    ) {
+        state.outbox.borrow_rate_limit_mut().set_limit(limit, clock)
     }
 
     public fun set_threshold<T>(

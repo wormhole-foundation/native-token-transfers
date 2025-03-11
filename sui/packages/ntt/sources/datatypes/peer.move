@@ -19,6 +19,14 @@ module ntt::peer {
         }
     }
 
+    public fun set_address(peer: &mut Peer, address: ExternalAddress) {
+        peer.address = address;
+    }
+
+    public fun set_token_decimals(peer: &mut Peer, token_decimals: u8) {
+        peer.token_decimals = token_decimals;
+    }
+
     public fun borrow_address(peer: &Peer): &ExternalAddress {
         &peer.address
     }

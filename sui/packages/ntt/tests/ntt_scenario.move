@@ -9,7 +9,6 @@ module ntt::ntt_scenario {
     use wormhole::bytes32;
     use ntt::state::{Self, State, AdminCap};
     use ntt::mode;
-    use ntt::peer;
     use ntt_common::trimmed_amount;
     use ntt_common::native_token_transfer::{Self, NativeTokenTransfer};
     use ntt_common::ntt_manager_message::{Self, NttManagerMessage};
@@ -80,16 +79,15 @@ module ntt::ntt_scenario {
         state::register_transceiver<ntt::test_transceiver_a::Auth, _>(&mut state, &admin_cap);
         state::register_transceiver<ntt::test_transceiver_b::Auth, _>(&mut state, &admin_cap);
 
+        // Create clock for rate limiting
+        let clock = take_clock(scenario);
+
         // Set up a test peer
         let peer_address = peer_manager_address();
-        let peer = peer::new(peer_address, DECIMALS, RATE_LIMIT);
-        state::set_peer(&admin_cap, &mut state, PEER_CHAIN_ID, peer);
+        state::set_peer(&admin_cap, &mut state, PEER_CHAIN_ID, peer_address, DECIMALS, RATE_LIMIT, &clock);
 
         // Set threshold
         state::set_threshold(&admin_cap, &mut state, THRESHOLD);
-
-        // Create clock for rate limiting
-        let clock = take_clock(scenario);
 
         // Transfer objects to shared storage
         transfer::public_share_object(state);
