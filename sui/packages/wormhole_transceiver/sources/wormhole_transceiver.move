@@ -9,10 +9,10 @@ module wormhole_transceiver::wormhole_transceiver {
     use ntt_common::transceiver_message::{Self, PrefixOf};
     use ntt_common::transceiver_message_data;
 
-    public struct WormholeTransceiverAuth has drop {}
+    public struct Auth has drop {}
 
-    public fun prefix(): PrefixOf<WormholeTransceiverAuth> {
-        transceiver_message::prefix(&WormholeTransceiverAuth {}, ntt_common::bytes4::new(x"9945FF10"))
+    public fun prefix(): PrefixOf<Auth> {
+        transceiver_message::prefix(&Auth {}, ntt_common::bytes4::new(x"9945FF10"))
     }
 
     public struct State {
@@ -22,10 +22,10 @@ module wormhole_transceiver::wormhole_transceiver {
 
     public fun release_outbound(
         state: &mut State,
-        message: OutboundMessage<WormholeTransceiverAuth>,
+        message: OutboundMessage<Auth>,
     ): Option<MessageTicket> {
         let (ntt_manager_message, source_ntt_manager, recipient_ntt_manager)
-            = message.unwrap_outbound_message(&WormholeTransceiverAuth {});
+            = message.unwrap_outbound_message(&Auth {});
 
         let transceiver_message = transceiver_message::new(
             transceiver_message_data::new(
@@ -48,7 +48,7 @@ module wormhole_transceiver::wormhole_transceiver {
     public fun validate_message(
         state: &State,
         vaa: VAA,
-    ): ValidatedTransceiverMessage<WormholeTransceiverAuth, vector<u8>> {
+    ): ValidatedTransceiverMessage<Auth, vector<u8>> {
         let (emitter_chain, emitter_address, payload)
             = vaa::take_emitter_info_and_payload(vaa);
 
@@ -59,7 +59,7 @@ module wormhole_transceiver::wormhole_transceiver {
         let (message_data, _) = transceiver_message.destruct();
 
         validated_transceiver_message::new(
-            &WormholeTransceiverAuth {},
+            &Auth {},
             emitter_chain,
             message_data,
         )
@@ -80,4 +80,12 @@ module wormhole_transceiver::wormhole_transceiver {
         state.peers.add(chain, peer)
     }
 
+}
+
+#[test_only]
+module wormhole_transceiver::tests {
+    #[test]
+    public fun test_auth_type() {
+        assert!(ntt_common::contract_auth::is_auth_type<wormhole_transceiver::wormhole_transceiver::Auth>(), 0);
+    }
 }
