@@ -25,8 +25,6 @@ import {
   translateError,
   type IdlAccounts,
   Program,
-  AnchorProvider,
-  Wallet,
 } from "@coral-xyz/anchor";
 import { associatedAddress } from "@coral-xyz/anchor/dist/cjs/utils/token";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
@@ -259,10 +257,9 @@ export class NTT {
 
     // the return buffer is in base64 and it encodes the string with a 32 bit
     // little endian length prefix.
-    const buffer = Buffer.from(
-      txSimulation.value.returnData?.data[0],
-      "base64"
-    );
+    const returnData = txSimulation.value.returnData?.data[0];
+    if (returnData === undefined) throw new Error("Didn't get any data when querying version");
+    const buffer = Buffer.from(returnData, "base64");
     const len = buffer.readUInt32LE(0);
     return buffer.slice(4, len + 4).toString();
   }
