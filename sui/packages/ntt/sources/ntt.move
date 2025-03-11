@@ -234,75 +234,6 @@ module ntt::ntt {
         inbox_item.release_after(release_timestamp)
     }
 
-    #[allow(lint(coin_field))]
-    public struct ReleaseWithAuthTicket<phantom CoinType> {
-        coins: Coin<CoinType>,
-        payload: Option<vector<u8>>,
-        recipient: address
-    }
-
-    public fun destroy_release_with_auth_ticket<CoinType, Auth>(
-        auth: &Auth,
-        ticket: ReleaseWithAuthTicket<CoinType>
-    ): (Coin<CoinType>, Option<vector<u8>>) {
-        let ReleaseWithAuthTicket {
-            coins,
-            payload,
-            recipient,
-        } = ticket;
-        assert!(recipient == ntt_common::contract_auth::assert_auth_type(auth));
-
-        (coins, payload)
-    }
-
-    public fun release_with_auth<CoinType>(
-        state: &mut State<CoinType>,
-        version_gated: VersionGated,
-        chain_id: u16,
-        message: NttManagerMessage<NativeTokenTransfer>,
-        coin_meta: &CoinMetadata<CoinType>,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ): ReleaseWithAuthTicket<CoinType> {
-        let (recipient, coins, payload) = release_impl(
-            state,
-            version_gated,
-            chain_id,
-            message,
-            coin_meta,
-            clock,
-            ctx
-        );
-
-        ReleaseWithAuthTicket {
-            coins,
-            payload,
-            recipient,
-        }
-    }
-
-    public fun release_with_tx_sender<CoinType>(
-        state: &mut State<CoinType>,
-        version_gated: VersionGated,
-        chain_id: u16,
-        message: NttManagerMessage<NativeTokenTransfer>,
-        coin_meta: &CoinMetadata<CoinType>,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ): (Coin<CoinType>, Option<vector<u8>>) {
-        let (recipient, coins, payload) = release_impl(
-            state,
-            version_gated,
-            chain_id,
-            message,
-            coin_meta,
-            clock,
-            ctx
-        );
-        assert!(recipient == ctx.sender());
-        (coins, payload)
-    }
-
     public fun release<CoinType>(
         state: &mut State<CoinType>,
         version_gated: VersionGated,
@@ -312,7 +243,9 @@ module ntt::ntt {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        let (recipient, coins, payload) = release_impl(
+        // NOTE: payload handling must be done by modifying the implementation
+        // here. the default NTT implementation simply ignores the payload
+        let (recipient, coins, _payload) = release_impl(
             state,
             version_gated,
             from_chain_id,
@@ -322,10 +255,6 @@ module ntt::ntt {
             ctx
         );
 
-        // NOTE: if the message has a payload, we must release_with_auth or release_with_tx_sender.
-        // Otherwise, someone could frontrun the release tx and the recipient
-        // would not be notified of the payload.
-        assert!(payload.is_none());
         transfer::public_transfer(coins, recipient)
     }
 
