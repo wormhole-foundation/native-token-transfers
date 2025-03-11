@@ -32,11 +32,13 @@ import { ledgerSignAndSend } from './helpers';
   //   TOKEN_PROGRAM_ID, // might also be TOKEN_2022_PROGRAM_ID
   // );
 
-  // await ledgerSignAndSend([setAuthorityInstruction], [])
+  // let tx = await ledgerSignAndSend([setAuthorityInstruction], [])
+  // await connection.confirmTransaction(tx);
 
   // console.log(`Authority set to ${nttManagerPk.toBase58()}`);
   
-  console.log("Manager Emitter Address:", await ntt.emitterAccountAddress().toBase58());
+  const emitterAddress = ntt.emitterAccountAddress().toBase58();
+  console.log("Manager Emitter Address:", emitterAddress);
 
   const initializeNttIx = await ntt.createInitializeInstruction({
     payer: signerPk,
@@ -47,7 +49,8 @@ import { ledgerSignAndSend } from './helpers';
     mode: config.mode,
   });
 
-  await ledgerSignAndSend([initializeNttIx], []);
+  let tx = await ledgerSignAndSend([initializeNttIx], []);
+  await connection.confirmTransaction(tx);
 
   console.log("NTT initialized succesfully!");
 
@@ -62,13 +65,11 @@ import { ledgerSignAndSend } from './helpers';
     transceiver: new PublicKey(ntt.program.programId),
   });
 
-  const signature = await ledgerSignAndSend(registerTransceiverIxs, [wormholeMessageKeys]);
-
-  await connection.confirmTransaction(signature);
+  tx = await ledgerSignAndSend(registerTransceiverIxs, [wormholeMessageKeys]);
+  await connection.confirmTransaction(tx);
   
   console.log(`Transceiver program registered: ${ntt.program.programId}`);
 
-  const emitterAddress = await ntt.emitterAccountAddress();
-  console.log(`Emitter account address: ${emitterAddress.toBase58()}`);
+  console.log(`Emitter account address: ${emitterAddress}`);
 })();
 

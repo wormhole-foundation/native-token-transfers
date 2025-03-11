@@ -1,7 +1,4 @@
-
-
-import { PublicKey,  } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
 
 import { connection, getSigner, getProgramAddresses } from "./env";
 import { NTT } from "../sdk";
@@ -32,10 +29,10 @@ import { NTTGovernance } from "../sdk/governance";
 
   console.log(`Transferring NTT Program ${nttProgramId} ownership to ${governancePda.toBase58()} derived from(${governanceProgramId}).`);
 
-  const signature = await ledgerSignAndSend([transferOwnershipIx], []);
+  const tx = await ledgerSignAndSend([transferOwnershipIx], []);
 
-  console.log("Waiting for confirmation... Signature: ", signature);
-  await connection.confirmTransaction(signature);
+  console.log("Waiting for confirmation... Signature: ", tx.signature);
+  await connection.confirmTransaction(tx);
   console.log("Success.");
 })();
 

@@ -1,14 +1,8 @@
-import { Chain } from "@wormhole-foundation/sdk-base";
 import { NttQuoter } from "../sdk";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 
-import { connection, getEnv, getProgramAddresses, getQuoterConfiguration } from "./env";
+import { connection, getProgramAddresses, getQuoterConfiguration } from "./env";
 import { ledgerSignAndSend } from "./helpers";
-
-interface InitConfig {
-  feeRecipient: string;
-  nttQuoterProgramId: string;
-}
 
 async function run() {
   const programs = getProgramAddresses();
@@ -22,10 +16,10 @@ async function run() {
 
   const initInstruction = await quoter.createInitializeInstruction(feeRecipient);
 
-  const signature = await ledgerSignAndSend([initInstruction], []);
-  console.log("Transaction sent. Signature: ", signature);
-  await connection.confirmTransaction(signature);
-  console.log("Sucess. Signature: ", signature);
+  const tx = await ledgerSignAndSend([initInstruction], []);
+  console.log("Transaction sent. Signature: ", tx.signature);
+  await connection.confirmTransaction(tx);
+  console.log("Sucess. Signature: ", tx.signature);
 }
 
 run();

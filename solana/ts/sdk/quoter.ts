@@ -55,6 +55,10 @@ export class NttQuoter {
       throw new Error(`Chain ${chain} is not registered.`);
     }
 
+    if (nttData === null) {
+      throw new Error(`NTT manager ${nttProgramId.toBase58()} is not registered.`);
+    }
+
     if (requestedGasDropoffEth > chainData.maxGasDropoffEth)
       throw new Error("Requested gas dropoff exceeds allowed maximum");
 

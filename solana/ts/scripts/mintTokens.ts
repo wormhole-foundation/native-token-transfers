@@ -40,14 +40,15 @@ type MintTokensConfig = {
   );
 
   try {
-    await connection.confirmTransaction(await ledgerSignAndSend([createATAIx], []));
+    const tx = await ledgerSignAndSend([createATAIx], []);
+    await connection.confirmTransaction(tx);
     console.log("ATA created successfully.");
   } catch (err) {
     console.error("Failed to create ATA");
     throw err;
   }
 
-  const mintToIx = await createMintToInstruction(
+  const mintToIx = createMintToInstruction(
     mint,
     ataAddress,
     signerPk,
@@ -55,7 +56,8 @@ type MintTokensConfig = {
   );
 
   try {
-    await ledgerSignAndSend([mintToIx], []);
+    const tx = await ledgerSignAndSend([mintToIx], []);
+    await connection.confirmTransaction(tx);
     console.log("Tokens minted successfully.");
   } catch (error) {
     console.error("Failed to mint tokens");

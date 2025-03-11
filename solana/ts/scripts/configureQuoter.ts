@@ -4,7 +4,6 @@ import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 
 import { connection, getSigner, QuoterPeerQuote, getQuoterConfiguration, getProgramAddresses } from "./env";
 import { ledgerSignAndSend } from "./helpers";
-import { inspect } from 'util';
 
 async function run() {
   const signer = await getSigner();
@@ -47,9 +46,9 @@ async function run() {
 
   try {
     if (configurationInstructions.length){
-      const signature = await ledgerSignAndSend(configurationInstructions, []);
-      console.log("Global config success. Tx=", signature);
-      await connection.confirmTransaction(signature);
+      const tx = await ledgerSignAndSend(configurationInstructions, []);
+      console.log("Global config success. Tx=", tx.signature);
+      await connection.confirmTransaction(tx);
     }
   } catch (error) {
     console.error("Failed to configure quoter contract:", error);
@@ -94,10 +93,10 @@ async function configurePeer(quoter: NttQuoter, chain: Chain, peer: QuoterPeerQu
     return;
   }
   
-  const signature = await ledgerSignAndSend(instructions, []);
+  const tx = await ledgerSignAndSend(instructions, []);
 
-  console.log("Chain config success. Tx=", signature);
-  await connection.confirmTransaction(signature);
+  console.log("Chain config success. Tx=", tx.signature);
+  await connection.confirmTransaction(tx);
 }
 
 run();

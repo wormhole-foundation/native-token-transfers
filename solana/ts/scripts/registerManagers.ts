@@ -1,4 +1,3 @@
-import { inspect } from "util";
 import { NttQuoter } from "../sdk";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 
@@ -54,10 +53,9 @@ async function run() {
     }
 
     try {
-      
-      const signature = await ledgerSignAndSend(instructions, []);
-      await connection.confirmTransaction(signature, "confirmed");
-      console.log(`Tx id: ${signature}`);
+      const tx = await ledgerSignAndSend(instructions, []);
+      await connection.confirmTransaction(tx, "confirmed");
+      console.log(`Tx id: ${tx.signature}`);
       console.log("Success.");
     } catch (error) {
       console.error(

@@ -1,12 +1,8 @@
-
-
-import { PublicKey,  } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
 
 import { connection, getSigner, getProgramAddresses } from "./env";
 import { NTT } from "../sdk";
 import { ledgerSignAndSend } from "./helpers";
-import { NTTGovernance } from "../sdk/governance";
 
 (async () => {
   const { nttProgramId, wormholeProgramId } = getProgramAddresses();
@@ -25,9 +21,9 @@ import { NTTGovernance } from "../sdk/governance";
 
   console.log(`Account ${signerPk.toBase58()} is claiming ownership of NTT Program ${nttProgramId}.`);
 
-  const signature = await ledgerSignAndSend([claimOwnershipIx], []);
+  const tx = await ledgerSignAndSend([claimOwnershipIx], []);
 
-  await connection.confirmTransaction(signature);
+  await connection.confirmTransaction(tx);
   console.log("Success.");
 })();
 
