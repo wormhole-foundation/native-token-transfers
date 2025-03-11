@@ -1,5 +1,5 @@
 module wormhole_transceiver::wormhole_transceiver {
-    use sui::table::Table;
+    use sui::table::{Self, Table};
     use wormhole::vaa::{Self, VAA};
     use wormhole::emitter::EmitterCap;
     use wormhole::external_address::ExternalAddress;
@@ -15,9 +15,41 @@ module wormhole_transceiver::wormhole_transceiver {
         transceiver_message::prefix(&Auth {}, ntt_common::bytes4::new(x"9945FF10"))
     }
 
-    public struct State {
+    public struct State has key, store {
+        id: UID,
         peers: Table<u16, ExternalAddress>,
         emitter_cap: EmitterCap,
+    }
+
+    public(package) fun new(
+        wormhole_state: &wormhole::state::State,
+        ctx: &mut TxContext
+    ): State {
+        State {
+            id: object::new(ctx),
+            peers: table::new(ctx),
+            emitter_cap: wormhole::emitter::new(wormhole_state, ctx),
+        }
+    }
+
+    public struct DeployerCap has key, store {
+        id: UID
+    }
+
+    fun init(ctx: &mut TxContext) {
+        let deployer = DeployerCap { id: object::new(ctx) };
+        transfer::transfer(deployer, ctx.sender());
+    }
+
+    #[allow(lint(share_owned))]
+    public fun complete(deployer: DeployerCap, wormhole_state: &wormhole::state::State, ctx: &mut TxContext): AdminCap {
+        let DeployerCap { id } = deployer;
+        object::delete(id);
+
+        let state = new(wormhole_state, ctx);
+        transfer::public_share_object(state);
+
+        AdminCap { id: object::new(ctx) }
     }
 
     public fun release_outbound(
@@ -67,7 +99,7 @@ module wormhole_transceiver::wormhole_transceiver {
 
     ////// Admin stuff
 
-    public struct AdminCap has key {
+    public struct AdminCap has key, store {
         id: UID
     }
 
