@@ -109,6 +109,9 @@ module wormhole_transceiver::wormhole_transceiver {
         chain: u16,
         peer: ExternalAddress
     ) {
+        if (state.peers.contains(chain)) {
+            state.peers.remove(chain);
+        };
         state.peers.add(chain, peer)
     }
 
