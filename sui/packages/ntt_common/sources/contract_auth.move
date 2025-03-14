@@ -38,7 +38,7 @@ module ntt_common::contract_auth {
     const EInvalidAuthType: vector<u8> =
         b"Invalid auth type";
 
-    fun get_auth_address<Auth>(): Option<address> {
+    public fun get_auth_address<Auth>(): Option<address> {
         let fqt = type_name::get<Auth>();
 
         let address_hex = fqt.get_address().into_bytes();

@@ -20,6 +20,9 @@ subdir = "sui/wormhole"
 [dependencies.NttCommon]
 local = "../ntt_common"
 
+[dependencies.Ntt]
+local = "../ntt"
+
 [addresses]
 wormhole_transceiver = "0x0"
 
