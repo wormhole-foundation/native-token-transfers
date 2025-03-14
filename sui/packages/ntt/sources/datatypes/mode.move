@@ -5,7 +5,7 @@ module ntt::mode {
     const EInvalidMode: vector<u8> =
         b"Invalid mode byte in serialized state.";
 
-    public enum Mode has copy, store {
+    public enum Mode has copy, store, drop {
         Locking,
         Burning
     }
