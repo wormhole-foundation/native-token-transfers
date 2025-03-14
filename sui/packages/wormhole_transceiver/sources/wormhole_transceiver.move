@@ -8,6 +8,8 @@ module wormhole_transceiver::wormhole_transceiver {
     use ntt_common::validated_transceiver_message::{Self, ValidatedTransceiverMessage};
     use ntt_common::transceiver_message::{Self, PrefixOf};
     use ntt_common::transceiver_message_data;
+    use ntt::state::{State as ManagerState};
+    use sui::coin::{CoinMetadata};
 
     public struct Auth has drop {}
 
@@ -28,7 +30,7 @@ module wormhole_transceiver::wormhole_transceiver {
         State {
             id: object::new(ctx),
             peers: table::new(ctx),
-            emitter_cap: wormhole::emitter::new(wormhole_state, ctx),
+            emitter_cap: wormhole::emitter::new(wormhole_state, ctx), // Creates a new emitter cap for WH core. Acts as the *peer* on the other side.
         }
     }
 
@@ -36,15 +38,16 @@ module wormhole_transceiver::wormhole_transceiver {
         id: UID
     }
 
-    fun init(ctx: &mut TxContext) {
+    // Only callable by the 'creator' of the module.
+    fun init(ctx: &mut TxContext) { // Made on creation of module
         let deployer = DeployerCap { id: object::new(ctx) };
-        transfer::transfer(deployer, ctx.sender());
+        transfer::transfer(deployer, tx_context::sender(ctx));
     }
 
     #[allow(lint(share_owned))]
     public fun complete(deployer: DeployerCap, wormhole_state: &wormhole::state::State, ctx: &mut TxContext): AdminCap {
         let DeployerCap { id } = deployer;
-        object::delete(id);
+        object::delete(id); // Deletion means that nothing can redeploy this again...
 
         let state = new(wormhole_state, ctx);
         transfer::public_share_object(state);
@@ -56,6 +59,7 @@ module wormhole_transceiver::wormhole_transceiver {
         state: &mut State,
         message: OutboundMessage<Auth>,
     ): Option<MessageTicket> {
+
         let (ntt_manager_message, source_ntt_manager, recipient_ntt_manager)
             = message.unwrap_outbound_message(&Auth {});
 
@@ -79,7 +83,7 @@ module wormhole_transceiver::wormhole_transceiver {
 
     public fun validate_message(
         state: &State,
-        vaa: VAA,
+        vaa: VAA, 
     ): ValidatedTransceiverMessage<Auth, vector<u8>> {
         let (emitter_chain, emitter_address, payload)
             = vaa::take_emitter_info_and_payload(vaa);
@@ -112,13 +116,54 @@ module wormhole_transceiver::wormhole_transceiver {
         if (state.peers.contains(chain)) {
             state.peers.remove(chain);
         };
-        state.peers.add(chain, peer)
+        state.peers.add(chain, peer);
     }
 
-}
+    public fun set_peer_with_accountant(_ : &AdminCap, state: &mut State, chain: u16, peer: ExternalAddress): Option<MessageTicket>{
+        
+        // Cannot replace WH peers because of complexities with the accountant
+        assert!(!state.peers.contains(chain));
 
-#[test_only]
-module wormhole_transceiver::tests {
+        broadcast_peer(chain, peer, state)
+    }
+
+    /*
+    TransceiverInit on EVM 
+    BroadCastId on Solana
+    */
+    public fun broadcast_id<CoinType, Auth>(_: &AdminCap, coin_meta: &CoinMetadata<CoinType>, state: &mut State, manager_state: &ManagerState<CoinType>): Option<MessageTicket> {
+        // MessageTicket cannot be dropped. Means that the WH message is forced to be emitted, since only the `publish_message` call can get rid of it.
+
+        let mut manager_address_opt: Option<address> = ntt_common::contract_auth::get_auth_address<Auth>(); 
+        let manager_address = option::extract(&mut manager_address_opt);
+
+        let external_address_manager_address = wormhole::external_address::from_address(manager_address);
+
+        let transceiver_info_struct = wormhole_transceiver::transceiver_structs::new_transceiver_info(external_address_manager_address, *manager_state.borrow_mode(),  wormhole::external_address::from_id(object::id(coin_meta)), coin_meta.get_decimals());
+
+        let message_ticket = wormhole::publish_message::prepare_message(
+            &mut state.emitter_cap,
+            0,
+            transceiver_info_struct.transceiver_info_to_bytes(),
+        );
+        option::some(message_ticket)
+    }
+
+    /*
+    Broadcast Peer in Solana 
+    Transceiver Registration in EVM 
+    */
+    fun broadcast_peer(chain_id: u16, peer_address: ExternalAddress, state: &mut State): Option<MessageTicket>{
+
+        let transceiver_registration_struct = wormhole_transceiver::transceiver_structs::new_transceiver_registration(chain_id, peer_address);
+        let message_ticket = wormhole::publish_message::prepare_message(
+            &mut state.emitter_cap,
+            0,
+            transceiver_registration_struct.transceiver_registration_to_bytes(),
+        );
+        option::some(message_ticket) 
+    }
+
     #[test]
     public fun test_auth_type() {
         assert!(ntt_common::contract_auth::is_auth_type<wormhole_transceiver::wormhole_transceiver::Auth>(), 0);
