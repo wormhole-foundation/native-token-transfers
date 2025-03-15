@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
@@ -16,7 +15,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs from "fs";
 import readline from "readline";
-import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toUniversal, type AccountAddress, type Chain, type ChainAddress, type ConfigOverrides, type Network, type Platform } from "@wormhole-foundation/sdk";
+import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toUniversal, type AccountAddress, type Chain, type ChainAddress, type WormholeConfigOverrides, type Network, type Platform } from "@wormhole-foundation/sdk";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-definitions-ntt";
@@ -39,7 +38,7 @@ import { ethers } from "ethers";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
-const overrides: ConfigOverrides<Network> = (function () {
+const overrides: WormholeConfigOverrides<Network> = (function () {
     // read overrides.json file if exists
     if (fs.existsSync("overrides.json")) {
         console.error(chalk.yellow("Using overrides.json"));
@@ -196,7 +195,7 @@ async function withCustomEvmDeployerScript<A>(pwd: string, then: () => Promise<A
     }
 }
 
-yargs(hideBin(process.argv))
+export const YARGSCommand = yargs(hideBin(process.argv))
     .wrap(Math.min(process.stdout.columns || 120, 160)) // Use terminal width, but no more than 160 characters
     .scriptName("ntt")
     .version((() => {
@@ -889,7 +888,6 @@ yargs(hideBin(process.argv))
     .help()
     .strict()
     .demandCommand()
-    .parse();
 
 // Implicit configuration that's missing from a contract deployment. These are
 // implicit in the sense that they don't need to be explicitly set in the
@@ -1699,7 +1697,7 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
 async function pullChainConfig<N extends Network, C extends Chain>(
     network: N,
     manager: ChainAddress<C>,
-    overrides?: ConfigOverrides<N>
+    overrides?: WormholeConfigOverrides<N>
 ): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
     const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
     const ch = wh.getChain(manager.chain);

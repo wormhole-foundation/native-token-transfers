@@ -11,7 +11,7 @@
     "typescript": "^5.0.0"
   },
   "bin": {
-    "ntt": "src/index.ts"
+    "ntt": "src/bin.ts"
   },
   "dependencies": {
     "chalk": "^5.3.0",
