@@ -266,6 +266,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "ZeUSD",
+      "programId": "nTTdCamfWnZ3zGAG3bKpqu64X88WjSFLVnW6deigxbL",
+      "tokenAddress": "EVSMG8w3xZjf37nAH8yMkX8Uubw1JAKSHaZza2mVQqR2",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
