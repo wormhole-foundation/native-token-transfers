@@ -41,7 +41,6 @@ module wormhole_transceiver::transceiver_structs {
         buf
     }
 
-
     public(package) fun new_transceiver_registration(transceiver_chain_id: u16, transceiver_address: ExternalAddress): WormholeTransceiverRegistration{
         WormholeTransceiverRegistration {
             transceiver_chain_id: transceiver_chain_id,
