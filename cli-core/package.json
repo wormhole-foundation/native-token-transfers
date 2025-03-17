@@ -1,0 +1,40 @@
+{
+  "name": "@wormhole-foundation/ntt-cli-core",
+  "version": "1.1.0",
+  "module": "./dist/index.js",
+  "type": "module",
+  "devDependencies": {
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/yargs": "^17.0.32",
+    "chalk": "^5.3.0",
+    "rollup": "^4.35.0",
+    "rollup-plugin-string-import": "^1.2.5",
+    "yargs": "^17.7.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "overrides": {
+    "rollup-plugin-string-import": {
+      "rollup": "^4.35.0"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "import": "./dist/index.js",
+    "require": "./dist/index.cjs"
+  },
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "dependencies": {
+    "@solana/spl-token": "^0.4.13",
+    "@wormhole-foundation/sdk-definitions-ntt": "*",
+    "@wormhole-foundation/sdk-evm-ntt": "*",
+    "@wormhole-foundation/sdk-solana-ntt": "*"
+  }
+}
