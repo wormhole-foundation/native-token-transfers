@@ -37,5 +37,8 @@
     "sdk/examples",
     "cli",
     "cli-core"
-  ]
+  ],
+  "dependencies": {
+    "bigint-buffer": "^1.1.5"
+  }
 }
