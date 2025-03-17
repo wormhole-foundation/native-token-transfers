@@ -129,11 +129,33 @@ module wormhole_transceiver::wormhole_transceiver {
     }
 
     /*
+    Broadcast Peer in Solana 
+    Transceiver Registration in EVM 
+
+    NTT Accountant must know which transceivers registered each other as peers.
+    */
+    fun broadcast_peer(chain_id: u16, peer_address: ExternalAddress, state: &mut State): Option<MessageTicket>{
+
+        let transceiver_registration_struct = wormhole_transceiver::wormhole_transceiver_registration::new(chain_id, peer_address);
+        let message_ticket = wormhole::publish_message::prepare_message(
+            &mut state.emitter_cap,
+            0,
+            transceiver_registration_struct.to_bytes(),
+        );
+        option::some(message_ticket) 
+    }
+
+    /*
     TransceiverInit on EVM 
     BroadCastId on Solana
+
+    Deployment of a new transceiver and notice to the NTT accountant.
+    Added as a separate function instead of in `init/complete` because
+    we want to keep these functions simple and dependency free. Additionally, the deployer of NTT may not want
+    the NTT accountant to begin with but does want it in the future.
+    If wanted in the future, an admin would call this function to allow the NTT accountant to work.
     */
     public fun broadcast_id<CoinType, Auth>(_: &AdminCap, coin_meta: &CoinMetadata<CoinType>, state: &mut State, manager_state: &ManagerState<CoinType>): Option<MessageTicket> {
-        // MessageTicket cannot be dropped. Means that the WH message is forced to be emitted, since only the `publish_message` call can get rid of it.
 
         let mut manager_address_opt: Option<address> = ntt_common::contract_auth::get_auth_address<Auth>(); 
         let manager_address = option::extract(&mut manager_address_opt);
@@ -148,21 +170,6 @@ module wormhole_transceiver::wormhole_transceiver {
             transceiver_info_struct.to_bytes(),
         );
         option::some(message_ticket)
-    }
-
-    /*
-    Broadcast Peer in Solana 
-    Transceiver Registration in EVM 
-    */
-    fun broadcast_peer(chain_id: u16, peer_address: ExternalAddress, state: &mut State): Option<MessageTicket>{
-
-        let transceiver_registration_struct = wormhole_transceiver::wormhole_transceiver_registration::new(chain_id, peer_address);
-        let message_ticket = wormhole::publish_message::prepare_message(
-            &mut state.emitter_cap,
-            0,
-            transceiver_registration_struct.to_bytes(),
-        );
-        option::some(message_ticket) 
     }
 
     #[test]
