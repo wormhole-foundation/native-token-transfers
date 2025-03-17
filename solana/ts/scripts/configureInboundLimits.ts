@@ -1,4 +1,3 @@
-
 import { BN } from '@coral-xyz/anchor'
 import { PublicKey } from "@solana/web3.js";
 import { coalesceChainName } from "@certusone/wormhole-sdk";
@@ -18,7 +17,7 @@ import { ledgerSignAndSend } from './helpers';
   const signerPk = new PublicKey(await signer.getAddress());
 
   for (const deployment of getEvmNttDeployments()) {
-    const { chainId, transceiverAddress, managerAddress, tokenDecimals, limit } = deployment;
+    const { chainId, limit } = deployment;
     const chainName = coalesceChainName(deployment.chainId);
     const log = (...args) => console.log(`[${chainId}] `, ...args);
 
@@ -36,9 +35,9 @@ import { ledgerSignAndSend } from './helpers';
     log(`Configuring inbound limit to: ${limit}`);
 
     try {
-      const txSignature = await ledgerSignAndSend([ix], []);
-      log(`Transaction ${txSignature} sent.`);
-      await connection.confirmTransaction(txSignature);
+      const tx = await ledgerSignAndSend([ix], []);
+      log(`Transaction ${tx.signature} sent.`);
+      await connection.confirmTransaction(tx);
     } catch (error) {
       console.error(`Failed to configure chain ${chainId}. Error: ${error.toString()}`);
       continue;

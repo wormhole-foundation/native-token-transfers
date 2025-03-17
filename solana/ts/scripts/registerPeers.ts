@@ -3,7 +3,7 @@ import { BN } from '@coral-xyz/anchor'
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { ChainName, coalesceChainName, tryNativeToHexString } from "@certusone/wormhole-sdk";
 
-import { connection, getEnv, getEvmNttDeployments, getProgramAddresses, getSigner } from "./env";
+import { connection, getEvmNttDeployments, getProgramAddresses, getSigner } from "./env";
 import { NTT } from "../sdk";
 import { ledgerSignAndSend } from './helpers';
 
@@ -52,9 +52,9 @@ import { ledgerSignAndSend } from './helpers';
     log(`Configuring manager peer address for ${chainId}: ${normalizedManagerAddress}`);
 
     try {
-      const txSignature = await ledgerSignAndSend([...setTransceiverIxs, setPeerIx], [wormholeMessage]);
-      log(`Transaction ${txSignature} sent.`);
-      await connection.confirmTransaction(txSignature);
+      const tx = await ledgerSignAndSend([...setTransceiverIxs, setPeerIx], [wormholeMessage]);
+      log(`Transaction ${tx.signature} sent.`);
+      await connection.confirmTransaction(tx);
     } catch (error) {
       console.error(`Failed to configure chain ${chainId}. Error: ${error.toString()}`);
       continue;

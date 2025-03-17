@@ -1,6 +1,6 @@
-import { inspect } from "util";
 import { NttQuoter } from "../sdk";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { inspect } from "util";
 
 import { connection, getSigner, getQuoterConfiguration, getProgramAddresses } from "./env";
 import { ledgerSignAndSend } from "./helpers";
@@ -56,10 +56,10 @@ async function run() {
     }
 
     try {
-      
-      const signature = await ledgerSignAndSend(instructions, []);
-      await connection.confirmTransaction(signature, "confirmed");
-      console.log(`Tx id: ${signature}`);
+      const tx = await ledgerSignAndSend(instructions, []);
+      const receipt = await connection.confirmTransaction(tx, "confirmed");
+      console.log(`Tx id: ${tx.signature}`);
+      if (receipt.value.err !== null) throw new Error(`Register tx failed. Reason: ${inspect(receipt.value.err)}`);
       console.log("Success.");
     } catch (error) {
       console.error(

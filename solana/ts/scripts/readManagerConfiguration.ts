@@ -1,11 +1,5 @@
-
-import { BN } from '@coral-xyz/anchor'
-import { PublicKey } from "@solana/web3.js";
-import { coalesceChainName } from "@certusone/wormhole-sdk";
-
-import { connection, getEvmNttDeployments, getSigner, getProgramAddresses } from "./env";
+import { connection, getProgramAddresses } from "./env";
 import { NTT } from "../sdk";
-import { ledgerSignAndSend } from './helpers';
 
 (async () => {
   const programs = getProgramAddresses();
@@ -13,9 +7,6 @@ import { ledgerSignAndSend } from './helpers';
     nttId: programs.nttProgramId as any,
     wormholeId: programs.wormholeProgramId as any,
   });
-
-  const signer = await getSigner();
-  const signerPk = new PublicKey(await signer.getAddress());
 
   // console.log("outbox rate limit account:", await ntt.outboxRateLimitAccountAddress());
   console.log("mintAccountAddress", (await ntt.mintAccountAddress()).toString());

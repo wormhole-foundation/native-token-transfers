@@ -54,11 +54,11 @@ import { NTTGovernance } from "../sdk/governance";
 
   console.log(`Account ${signerPk.toBase58()} is claiming ownership of NTT Program ${nttProgramId}.`);
 
-  const signature = await ledgerSignAndSend([governanceIx], []);
+  const tx = await ledgerSignAndSend([governanceIx], []);
 
-  console.log("Waiting for confirmation... Signature: ", signature);
+  console.log("Waiting for confirmation... Signature: ", tx.signature);
 
-  await connection.confirmTransaction(signature);
+  await connection.confirmTransaction(tx);
 
   console.log("success.");
 })();

@@ -3,7 +3,6 @@ import {
   SystemProgram,
   Keypair,
   PublicKey,
-  Transaction,
 } from "@solana/web3.js";
 
 import { connection, getSigner } from "./env";
@@ -39,8 +38,8 @@ console.log("Creating mint account with keypair:", mintKeypair.publicKey.toBase5
     TOKEN_PROGRAM_ID,
   );
 
-  const signature = await ledgerSignAndSend([createAccountIx, initMintIx], [mintKeypair]);
-  await connection.confirmTransaction(signature);
+  const tx = await ledgerSignAndSend([createAccountIx, initMintIx], [mintKeypair]);
+  await connection.confirmTransaction(tx);
   console.log("Success. Mint address:", mintKeypair.publicKey.toBase58());
 })();
 

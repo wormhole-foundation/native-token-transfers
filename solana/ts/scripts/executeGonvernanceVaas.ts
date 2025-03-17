@@ -68,11 +68,11 @@ if (!governanceVaasFileName) {
 
   console.log(`Executing governance instructions.`, instructions);
 
-  const signature = await ledgerSignAndSend(instructions, []);
+  const tx = await ledgerSignAndSend(instructions, []);
 
-  console.log("Waiting for confirmation... Signature: ", signature);
+  console.log("Waiting for confirmation... Signature: ", tx.signature);
 
-  await connection.confirmTransaction(signature);
+  await connection.confirmTransaction(tx);
 
   console.log("success.");
 })();
