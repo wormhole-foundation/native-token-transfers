@@ -107,22 +107,23 @@ module wormhole_transceiver::wormhole_transceiver {
         id: UID
     }
 
-    public fun set_peer(
-        _: &AdminCap,
-        state: &mut State,
-        chain: u16,
-        peer: ExternalAddress
-    ) {
-        if (state.peers.contains(chain)) {
-            state.peers.remove(chain);
-        };
-        state.peers.add(chain, peer);
-    }
+    // public fun set_peer(
+    //     _: &AdminCap,
+    //     state: &mut State,
+    //     chain: u16,
+    //     peer: ExternalAddress
+    // ) {
+    //     if (state.peers.contains(chain)) {
+    //         state.peers.remove(chain);
+    //     };
+    //     state.peers.add(chain, peer);
+    // }
 
-    public fun set_peer_with_accountant(_ : &AdminCap, state: &mut State, chain: u16, peer: ExternalAddress): Option<MessageTicket>{
+    public fun set_peer(_ : &AdminCap, state: &mut State, chain: u16, peer: ExternalAddress): Option<MessageTicket>{
         
-        // Cannot replace WH peers because of complexities with the accountant
+        // Cannot replace WH peers because of complexities with the accountant, according to EVM implementation.
         assert!(!state.peers.contains(chain));
+        state.peers.add(chain, peer);
 
         broadcast_peer(chain, peer, state)
     }
