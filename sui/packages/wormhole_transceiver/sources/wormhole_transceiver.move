@@ -140,12 +140,12 @@ module wormhole_transceiver::wormhole_transceiver {
 
         let external_address_manager_address = wormhole::external_address::from_address(manager_address);
 
-        let transceiver_info_struct = wormhole_transceiver::transceiver_structs::new_transceiver_info(external_address_manager_address, *manager_state.borrow_mode(),  wormhole::external_address::from_id(object::id(coin_meta)), coin_meta.get_decimals());
+        let transceiver_info_struct = wormhole_transceiver::wormhole_transceiver_info::new(external_address_manager_address, *manager_state.borrow_mode(),  wormhole::external_address::from_id(object::id(coin_meta)), coin_meta.get_decimals());
 
         let message_ticket = wormhole::publish_message::prepare_message(
             &mut state.emitter_cap,
             0,
-            transceiver_info_struct.transceiver_info_to_bytes(),
+            transceiver_info_struct.to_bytes(),
         );
         option::some(message_ticket)
     }
@@ -156,11 +156,11 @@ module wormhole_transceiver::wormhole_transceiver {
     */
     fun broadcast_peer(chain_id: u16, peer_address: ExternalAddress, state: &mut State): Option<MessageTicket>{
 
-        let transceiver_registration_struct = wormhole_transceiver::transceiver_structs::new_transceiver_registration(chain_id, peer_address);
+        let transceiver_registration_struct = wormhole_transceiver::wormhole_transceiver_registration::new(chain_id, peer_address);
         let message_ticket = wormhole::publish_message::prepare_message(
             &mut state.emitter_cap,
             0,
-            transceiver_registration_struct.transceiver_registration_to_bytes(),
+            transceiver_registration_struct.to_bytes(),
         );
         option::some(message_ticket) 
     }
