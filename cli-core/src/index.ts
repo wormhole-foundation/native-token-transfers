@@ -2,7 +2,7 @@ import "./side-effects"; // doesn't quite work for silencing the bigint error me
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import { encoding } from '@wormhole-foundation/sdk-connect';
-import { execSync } from "child_process";
+import { execSync, spawn } from "child_process";
 
 import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with { type: "file" };
 import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with { type: "file" };
@@ -1349,20 +1349,26 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
             // build the program
             // TODO: build with docker
             checkAnchorVersion();
-            const proc = Bun.spawn(
+            const proc = spawn(
                 ["anchor",
                     "build",
                     "-p", "example_native_token_transfers",
                     "--", "--no-default-features", "--features", cargoNetworkFeature(ch.network)
-                ], {
+                ].join(" "), {
                 cwd: `${pwd}/solana`
             });
 
             // const _out = await new Response(proc.stdout).text();
-
-            await proc.exited;
-            if (proc.exitCode !== 0) {
-                process.exit(proc.exitCode ?? 1);
+            const buildProcExitCode = await new Promise<number | null>( (resolve) => {
+                proc.on('exit', (code) => {
+                    resolve(code);
+                })
+                proc.on('close', (code) => {
+                    resolve(code);
+                })
+            })
+            if (buildProcExitCode !== 0) {
+                process.exit(buildProcExitCode?? 1);
             }
 
             binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
@@ -1395,14 +1401,20 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
             deployCommand.push("--with-compute-unit-price", priorityFee.toString());
         }
 
-        const deployProc = Bun.spawn(deployCommand);
+        const deployProc = spawn(deployCommand.join(" "));
 
         const out = await new Response(deployProc.stdout).text();
+        const deployProcExitCode = await new Promise<number | null>( (resolve) => {
+            deployProc.on('exit', (code) => {
+                resolve(code);
+            })
+            deployProc.on('close', (code) => {
+                resolve(code);
+            })
+        })
 
-        await deployProc.exited;
-
-        if (deployProc.exitCode !== 0) {
-            process.exit(deployProc.exitCode ?? 1);
+        if (deployProcExitCode !== 0) {
+            process.exit(deployProcExitCode ?? 1);
         }
 
         // success. remove buffer.json
@@ -1705,7 +1717,7 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     const nativeManagerAddress = canonicalAddress(manager);
 
     const { ntt, addresses }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts>; } =
-        await nttFromManager<N, C>(ch, nativeManagerAddress);
+    await nttFromManager<N, C>(ch, nativeManagerAddress);
 
     const mode = await ntt.getMode();
     const outboundLimit = await ntt.getOutboundLimit();
