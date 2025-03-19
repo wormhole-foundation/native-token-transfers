@@ -97,26 +97,29 @@ module ntt::ntt {
     public fun transfer_tx_sender<CoinType>(
         state: &mut State<CoinType>,
         version_gated: VersionGated,
+        coin_meta: &CoinMetadata<CoinType>,
         ticket: TransferTicket<CoinType>,
         clock: &Clock,
         ctx: &TxContext
     ): OutboxKey {
-        transfer_impl(state, version_gated, ticket, clock, ctx.sender())
+        transfer_impl(state, version_gated, coin_meta, ticket, clock, ctx.sender())
     }
 
     public fun transfer_with_auth<CoinType, Auth>(
         auth: &Auth,
         state: &mut State<CoinType>,
         version_gated: VersionGated,
+        coin_meta: &CoinMetadata<CoinType>,
         ticket: TransferTicket<CoinType>,
         clock: &Clock,
     ): OutboxKey {
-        transfer_impl(state, version_gated, ticket, clock, ntt_common::contract_auth::assert_auth_type(auth))
+        transfer_impl(state, version_gated, coin_meta, ticket, clock, ntt_common::contract_auth::assert_auth_type(auth))
     }
 
     fun transfer_impl<CoinType>(
         state: &mut State<CoinType>,
         version_gated: VersionGated,
+        coin_meta: &CoinMetadata<CoinType>,
         ticket: TransferTicket<CoinType>,
         clock: &Clock,
         sender: address
@@ -143,7 +146,7 @@ module ntt::ntt {
         let consumed_or_delayed
             = state.borrow_outbox_mut()
                    .borrow_rate_limit_mut()
-                   .consume_or_delay(clock, trimmed_amount.amount());
+                   .consume_or_delay(clock, trimmed_amount.untrim(coin_meta.get_decimals()));
 
         let release_timestamp = if (consumed_or_delayed.is_delayed()) {
             let release_timestamp = consumed_or_delayed.delayed_until();
