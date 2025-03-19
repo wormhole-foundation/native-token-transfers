@@ -177,6 +177,7 @@ module ntt::ntt_tests {
         let outbox_key = ntt::transfer_tx_sender(
             &mut state,
             upgrades::new_version_gated(),
+            &coin_meta,
             ticket,
             &clock,
             scenario.ctx()
@@ -276,6 +277,7 @@ module ntt::ntt_tests {
         let outbox_key = ntt::transfer_tx_sender(
             &mut state,
             upgrades::new_version_gated(),
+            &coin_meta,
             ticket,
             &clock,
             scenario.ctx()
