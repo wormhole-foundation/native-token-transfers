@@ -10,7 +10,9 @@ import {
   ChainAddress,
   ChainsConfig,
   Contracts,
+  TokenAddress,
   canonicalAddress,
+  isNative,
   serialize,
   toUniversal,
   universalAddress,
@@ -472,6 +474,19 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       options
     );
 
+    if (options.wrapNative) {
+      // TODO: the contract should handle this for us
+      const wrappedNative = new Contract(this.tokenAddress, [
+        "function deposit() public payable",
+      ]);
+
+      const txReq = await wrappedNative
+        .getFunction("deposit")
+        .populateTransaction({ value: amount });
+
+      yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Deposit");
+    }
+
     //TODO check for ERC-2612 (permit) support on token?
     const tokenContract = EvmPlatform.getTokenImplementation(
       this.provider,
@@ -487,6 +502,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
         this.managerAddress,
         amount
       );
+
       yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Approve");
     }
 

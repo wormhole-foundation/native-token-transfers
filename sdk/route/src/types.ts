@@ -10,6 +10,8 @@ import {
   TransferReceipt as _TransferReceipt,
   amount,
   canonicalAddress,
+  isNative,
+  nativeTokenId,
   routes,
 } from "@wormhole-foundation/sdk-connect";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
@@ -31,6 +33,7 @@ export namespace NttRoute {
     manager: string;
     transceiver: TransceiverConfig[];
     quoter?: string;
+    isWrappedGasToken?: boolean;
   };
 
   export type Config = {
@@ -107,15 +110,22 @@ export namespace NttRoute {
     config: Config,
     fromChain: ChainContext<Network>
   ): TokenId[] {
-    const srcTokens = Object.entries(config.tokens)
-      .map(([, configs]) => {
+    const srcTokens = Object.entries(config.tokens).reduce<TokenId[]>(
+      (acc, [, configs]) => {
         const tokenConf = configs.find(
           (config) => config.chain === fromChain.chain
         );
-        if (!tokenConf) return null;
-        return Wormhole.tokenId(fromChain.chain, tokenConf!.token);
-      })
-      .filter((x) => !!x) as TokenId[];
+        if (tokenConf) {
+          acc.push(Wormhole.tokenId(fromChain.chain, tokenConf.token));
+
+          if (tokenConf.isWrappedGasToken) {
+            acc.push(nativeTokenId(fromChain.chain));
+          }
+        }
+        return acc;
+      },
+      []
+    );
 
     // TODO: dedupe?  //return routes.uniqueTokens(srcTokens);
     return srcTokens;
@@ -132,8 +142,9 @@ export namespace NttRoute {
         const match = configs.find(
           (config) =>
             config.chain === fromChain.chain &&
-            config.token.toLowerCase() ===
-              canonicalAddress(sourceToken).toLowerCase()
+            (config.token.toLowerCase() ===
+              canonicalAddress(sourceToken).toLowerCase() ||
+              (isNative(sourceToken.address) && config.isWrappedGasToken))
         );
         if (!match) return;
 
@@ -147,28 +158,56 @@ export namespace NttRoute {
 
   export function resolveNttContracts(
     config: Config,
-    token: TokenId
-  ): Ntt.Contracts {
+    srcToken: TokenId,
+    dstToken: TokenId
+  ): { srcContracts: Ntt.Contracts; dstContracts: Ntt.Contracts } {
     const cfg = Object.values(config.tokens);
-    const address = canonicalAddress(token);
+    const srcAddress = canonicalAddress(srcToken);
+    const dstAddress = canonicalAddress(dstToken);
+
     for (const tokens of cfg) {
-      const found = tokens.find(
+      const srcFound = tokens.find(
         (tc) =>
-          tc.token.toLowerCase() === address.toLowerCase() &&
-          tc.chain === token.chain
+          tc.chain === srcToken.chain &&
+          (tc.token.toLowerCase() === srcAddress.toLowerCase() ||
+            (isNative(srcToken.address) && tc.isWrappedGasToken))
       );
-      if (found)
-        return {
-          token: found.token,
-          manager: found.manager,
-          transceiver: {
-            wormhole: found.transceiver.find((v) => v.type === "wormhole")!
-              .address,
-          },
-          quoter: found.quoter,
-        };
+
+      if (srcFound) {
+        const dstFound = tokens.find(
+          (tc) =>
+            tc.chain === dstToken.chain &&
+            (tc.token.toLowerCase() === dstAddress.toLowerCase() ||
+              (isNative(dstToken.address) && tc.isWrappedGasToken))
+        );
+
+        if (dstFound) {
+          return {
+            srcContracts: {
+              token: srcFound.token,
+              manager: srcFound.manager,
+              transceiver: {
+                wormhole: srcFound.transceiver.find(
+                  (v) => v.type === "wormhole"
+                )!.address,
+              },
+              quoter: srcFound.quoter,
+            },
+            dstContracts: {
+              token: dstFound.token,
+              manager: dstFound.manager,
+              transceiver: {
+                wormhole: dstFound.transceiver.find(
+                  (v) => v.type === "wormhole"
+                )!.address,
+              },
+            },
+          };
+        }
+      }
     }
-    throw new Error("Cannot find Ntt contracts in config for: " + address);
+
+    throw new Error("Cannot find Ntt contracts in config for: " + srcAddress);
   }
 
   export function resolveDestinationNttContracts<C extends Chain>(

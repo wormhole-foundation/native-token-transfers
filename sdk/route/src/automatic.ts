@@ -19,6 +19,7 @@ import {
   finality,
   isAttested,
   isDestinationQueued,
+  isNative,
   isRedeemed,
   isSourceFinalized,
   isSourceInitiated,
@@ -98,13 +99,14 @@ export class NttAutomaticRoute<N extends Network>
   }
 
   async isAvailable(request: routes.RouteTransferRequest<N>): Promise<boolean> {
-    const nttContracts = NttRoute.resolveNttContracts(
+    const { srcContracts } = NttRoute.resolveNttContracts(
       this.staticConfig,
-      request.source.id
+      request.source.id,
+      request.destination.id
     );
 
     const ntt = await request.fromChain.getProtocol("Ntt", {
-      ntt: nttContracts,
+      ntt: srcContracts,
     });
 
     return ntt.isRelayingAvailable(request.toChain.chain);
@@ -121,6 +123,8 @@ export class NttAutomaticRoute<N extends Network>
       request.toChain.config.nativeTokenDecimals
     );
 
+    const wrapNative = isNative(request.source.id.address);
+
     const parsedAmount = amount.parse(params.amount, request.source.decimals);
     // The trimmedAmount may differ from the parsedAmount if the parsedAmount includes dust
     const trimmedAmount = NttRoute.trimAmount(
@@ -128,22 +132,23 @@ export class NttAutomaticRoute<N extends Network>
       request.destination.decimals
     );
 
+    const { srcContracts, dstContracts } = NttRoute.resolveNttContracts(
+      this.staticConfig,
+      request.source.id,
+      request.destination.id
+    );
+
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
         amount: trimmedAmount,
-        sourceContracts: NttRoute.resolveNttContracts(
-          this.staticConfig,
-          request.source.id
-        ),
-        destinationContracts: NttRoute.resolveNttContracts(
-          this.staticConfig,
-          request.destination.id
-        ),
+        sourceContracts: srcContracts,
+        destinationContracts: dstContracts,
         options: {
           queue: false,
           automatic: true,
           gasDropoff: amount.units(gasDropoff),
+          wrapNative,
         },
       },
       options,

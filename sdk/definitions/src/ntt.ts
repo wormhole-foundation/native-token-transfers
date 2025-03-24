@@ -58,6 +58,8 @@ export namespace Ntt {
     automatic?: boolean;
     /** How much native gas on the destination to send along with the transfer */
     gasDropoff?: bigint;
+    /** Whether or not the token needs to be wrapped, only relevant for gas token transfers */
+    wrapNative?: boolean;
   };
 
   // TODO: what are the set of attestation types for Ntt?
@@ -154,7 +156,7 @@ export namespace Ntt {
  * Ntt is the interface for the Ntt
  *
  * The Ntt is responsible for managing the coordination between the token contract and
- * the transceiver(s). It is also responsible for managing the capacity of inbound or outbount transfers.
+ * the transceiver(s). It is also responsible for managing the capacity of inbound or outbound transfers.
  *
  * @typeparam N the network
  * @typeparam C the chain

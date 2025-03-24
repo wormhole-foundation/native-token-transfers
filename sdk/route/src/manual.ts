@@ -23,6 +23,7 @@ import {
   routes,
   signSendWait,
   finality,
+  isNative,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "./types.js";
@@ -116,22 +117,25 @@ export class NttManualRoute<N extends Network>
       )
     );
 
+    const wrapNative = isNative(request.source.id.address);
+
+    const { srcContracts, dstContracts } = NttRoute.resolveNttContracts(
+      this.staticConfig,
+      request.source.id,
+      request.destination.id
+    );
+
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
         amount: trimmedAmount,
-        sourceContracts: NttRoute.resolveNttContracts(
-          this.staticConfig,
-          request.source.id
-        ),
-        destinationContracts: NttRoute.resolveNttContracts(
-          this.staticConfig,
-          request.destination.id
-        ),
+        sourceContracts: srcContracts,
+        destinationContracts: dstContracts,
         options: {
           queue: false,
           automatic: false,
           gasDropoff,
+          wrapNative,
         },
       },
       options,
