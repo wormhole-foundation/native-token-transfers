@@ -58,7 +58,7 @@ module wormhole_transceiver::wormhole_transceiver {
     public fun release_outbound(
         state: &mut State,
         message: OutboundMessage<Auth>,
-    ): Option<MessageTicket> {
+    ): MessageTicket {
 
         let (ntt_manager_message, source_ntt_manager, recipient_ntt_manager)
             = message.unwrap_outbound_message(&Auth {});
@@ -78,7 +78,7 @@ module wormhole_transceiver::wormhole_transceiver {
             0,
             transceiver_message_encoded,
         );
-        option::some(message_ticket)
+        message_ticket
     }
 
     public fun validate_message(
@@ -119,7 +119,7 @@ module wormhole_transceiver::wormhole_transceiver {
     //     state.peers.add(chain, peer);
     // }
 
-    public fun set_peer(_ : &AdminCap, state: &mut State, chain: u16, peer: ExternalAddress): Option<MessageTicket>{
+    public fun set_peer(_ : &AdminCap, state: &mut State, chain: u16, peer: ExternalAddress): MessageTicket{
         
         // Cannot replace WH peers because of complexities with the accountant, according to EVM implementation.
         assert!(!state.peers.contains(chain));
@@ -134,7 +134,7 @@ module wormhole_transceiver::wormhole_transceiver {
 
     NTT Accountant must know which transceivers registered each other as peers.
     */
-    fun broadcast_peer(chain_id: u16, peer_address: ExternalAddress, state: &mut State): Option<MessageTicket>{
+    fun broadcast_peer(chain_id: u16, peer_address: ExternalAddress, state: &mut State): MessageTicket{
 
         let transceiver_registration_struct = wormhole_transceiver::wormhole_transceiver_registration::new(chain_id, peer_address);
         let message_ticket = wormhole::publish_message::prepare_message(
@@ -142,7 +142,7 @@ module wormhole_transceiver::wormhole_transceiver {
             0,
             transceiver_registration_struct.to_bytes(),
         );
-        option::some(message_ticket) 
+        message_ticket
     }
 
     /*
@@ -155,7 +155,7 @@ module wormhole_transceiver::wormhole_transceiver {
     the NTT accountant to begin with but does want it in the future.
     If wanted in the future, an admin would call this function to allow the NTT accountant to work.
     */
-    public fun broadcast_id<CoinType, Auth>(_: &AdminCap, coin_meta: &CoinMetadata<CoinType>, state: &mut State, manager_state: &ManagerState<CoinType>): Option<MessageTicket> {
+    public fun broadcast_id<CoinType, Auth>(_: &AdminCap, coin_meta: &CoinMetadata<CoinType>, state: &mut State, manager_state: &ManagerState<CoinType>): MessageTicket {
 
         let mut manager_address_opt: Option<address> = ntt_common::contract_auth::get_auth_address<Auth>(); 
         let manager_address = option::extract(&mut manager_address_opt);
@@ -169,7 +169,7 @@ module wormhole_transceiver::wormhole_transceiver {
             0,
             transceiver_info_struct.to_bytes(),
         );
-        option::some(message_ticket)
+        message_ticket
     }
 
     #[test]
