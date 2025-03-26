@@ -274,6 +274,22 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "WrappedPOL",
+      "programId": "nTT1Pzu8fDkwYAyZ4B55qN1aS7iPQN9eB3Q7cR9mXrs",
+      "tokenAddress": "AzuQ9o7mjzfJk72xRgzSCfrs1XWkhYyaGcudSu62qwg",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
+    {
+      "name": "Blast",
+      "programId": "NTTRncfCa7rmT15TY5g1GR887YaebsXS5UndprWW11c",
+      "tokenAddress": "HUGDquup2qWiXrSJPS2yyyYHcy7MWx7cft9LR4DhSyhW",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
