@@ -418,7 +418,15 @@
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
-    }
+    },
+    {
+      "name": "AVAX",
+      "programId": "ntTW3X39Vo1G7YdnAt62TYexBoFMfBzcJozXvmdNKtv",
+      "tokenAddress": "yNBMYD9LMrmGpWbAFbJv5UkkqSvKEupvSGSZxSz7wN5",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
   ],
   "peerQuotes": {
     "Ethereum": {
