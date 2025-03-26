@@ -282,6 +282,14 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "Blast",
+      "programId": "NTTRncfCa7rmT15TY5g1GR887YaebsXS5UndprWW11c",
+      "tokenAddress": "HUGDquup2qWiXrSJPS2yyyYHcy7MWx7cft9LR4DhSyhW",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
