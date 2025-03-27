@@ -699,7 +699,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4114279215a005bc675e386011e594e1d9b800918cea18fcadadcce864a2046b"
 dependencies = [
  "borsh-derive 0.10.3",
- "hashbrown 0.13.2",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -1070,6 +1070,16 @@ checksum = "e89f72f65e8501878b8a004d5a1afb780987e2ce2b4532c562e367a72c57499f"
 dependencies = [
  "log",
  "web-sys",
+]
+
+[[package]]
+name = "const-crypto"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c06f1eb05f06cf2e380fdded278fbf056a38974299d77960555a311dcf91a52"
+dependencies = [
+ "keccak-const",
+ "sha2-const-stable",
 ]
 
 [[package]]
@@ -2198,6 +2208,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "keccak-const"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57d8d8ce877200136358e0bbff3a77965875db3af755a11e1fa6b1b3e2df13ea"
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2509,7 +2525,9 @@ dependencies = [
  "solana-program",
  "wormhole-anchor-sdk",
  "wormhole-io",
+ "wormhole-post-message-shim-interface",
  "wormhole-sdk",
+ "wormhole-svm-definitions",
 ]
 
 [[package]]
@@ -3682,6 +3700,12 @@ dependencies = [
  "cpufeatures",
  "digest 0.10.7",
 ]
+
+[[package]]
+name = "sha2-const-stable"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f179d4e11094a893b82fff208f74d448a7512f99f5a0acbd5c679b705f83ed9"
 
 [[package]]
 name = "sha3"
@@ -6426,6 +6450,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b021a14ea7bcef9517ed9f81d4466c4a663dd90e726c5724707a976fa83ad8f3"
 
 [[package]]
+name = "wormhole-post-message-shim-interface"
+version = "0.0.0"
+source = "git+https://github.com/wormholelabs-xyz/wormhole?branch=svm-shims-fr-env-addr#085a45eefb279b42f17d5b880fce7b96f092290f"
+dependencies = [
+ "anchor-lang",
+]
+
+[[package]]
 name = "wormhole-raw-vaas"
 version = "0.2.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6452,6 +6484,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eae4412bb88773852fe58215601cda7d8f7f0204a700526f25a9ece951715774"
 dependencies = [
  "anchor-lang",
+ "solana-program",
+]
+
+[[package]]
+name = "wormhole-svm-definitions"
+version = "0.1.0"
+source = "git+https://github.com/wormholelabs-xyz/wormhole?branch=svm-shims-fr-env-addr#085a45eefb279b42f17d5b880fce7b96f092290f"
+dependencies = [
+ "cfg-if",
+ "const-crypto",
+ "sha2-const-stable",
  "solana-program",
 ]
 
