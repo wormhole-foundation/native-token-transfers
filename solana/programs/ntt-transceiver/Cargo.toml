@@ -23,11 +23,11 @@ default = [ "wormhole-transceiver" ]
 wormhole-transceiver = []
 transceiver-type-from-env = []
 
-bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env" ]
 mainnet = [ "wormhole-anchor-sdk/mainnet" ]
-solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
-tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
-tilt-devnet2 = [ "tilt-devnet" ]
+solana-devnet = [ "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet" ]
+tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet" ]
+tilt-devnet2 = [ "tilt-devnet", "wormhole-svm-definitions/localnet" ]
 
 [lints]
 workspace = true
@@ -37,6 +37,8 @@ ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "has
 anchor-lang.workspace = true
 anchor-spl.workspace = true
 solana-program.workspace = true
+wormhole-post-message-shim-interface = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr", features = ["no-entrypoint", "cpi"] }
+wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr"}
 cfg-if = "1.0.0"
 
 wormhole-anchor-sdk.workspace = true
