@@ -1,6 +1,5 @@
 import { Program, web3 } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
-import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import {
   AddressLookupTableAccount,
   Connection,
@@ -9,6 +8,7 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
@@ -827,6 +827,57 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const fromAuthority = payerAddress;
     const from = await this.getTokenAccount(fromAuthority);
 
+    if (options.wrapNative) {
+      if (this.tokenAddress !== splToken.NATIVE_MINT.toBase58()) {
+        throw new Error("Configured token must be native mint for wrapping");
+      }
+
+      const associatedTokenAccount = splToken.getAssociatedTokenAddressSync(
+        splToken.NATIVE_MINT,
+        payerAddress
+      );
+
+      const accountExists = await this.connection.getAccountInfo(
+        associatedTokenAccount
+      );
+
+      const instructions: TransactionInstruction[] = [
+        // Create the associated token account if it doesn't exist
+        ...(accountExists
+          ? []
+          : [
+              splToken.createAssociatedTokenAccountInstruction(
+                payerAddress,
+                associatedTokenAccount,
+                payerAddress,
+                splToken.NATIVE_MINT
+              ),
+            ]),
+
+        SystemProgram.transfer({
+          fromPubkey: payerAddress,
+          toPubkey: associatedTokenAccount,
+          lamports: amount,
+        }),
+
+        // Sync the native token account
+        splToken.createSyncNativeInstruction(associatedTokenAccount),
+      ];
+
+      const { blockhash } = await this.connection.getLatestBlockhash();
+
+      const messageV0 = new TransactionMessage({
+        payerKey: payerAddress,
+        instructions,
+        recentBlockhash: blockhash,
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // NOTE: wrap native is handled separately due to tx size error
+      yield this.createUnsignedTx({ transaction }, "Ntt.WrapNative");
+    }
+
     const transferArgs = NTT.transferArgs(amount, destination, options.queue);
 
     const txArgs = {
@@ -941,7 +992,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const acctInfo = await this.connection.getAccountInfo(ata);
     if (acctInfo === null) {
       const transaction = new Transaction().add(
-        createAssociatedTokenAccountInstruction(
+        splToken.createAssociatedTokenAccountInstruction(
           senderAddress,
           ata,
           senderAddress,
