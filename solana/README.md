@@ -124,8 +124,8 @@ Ensure that you are using the correct version of the Solana and Anchor CLI tools
 
 ```toml
 [toolchain]
-anchor_version = "0.29.0"   # CLI
-solana_version = "1.18.10"
+anchor_version = "0.29.0"
+solana_version = "1.18.26"
 ```
 
 Install the toolchain listed in `rust-toolchain`. You can verify this by running:

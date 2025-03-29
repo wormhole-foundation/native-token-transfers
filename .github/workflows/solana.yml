@@ -99,7 +99,7 @@ jobs:
       - uses: metadaoproject/setup-anchor@v2
         with:
           node-version: "20.11.0"
-          solana-cli-version: "1.18.10"
+          solana-cli-version: "1.18.26"
           anchor-version: "0.29.0"
       - name: Cache node_modules
         uses: actions/cache@v3
