@@ -91,10 +91,6 @@ contract DeployWormholeNttBase is ParseNttConfig {
             INttManager(nttManager).setOutboundLimit(outboundLimit);
             console2.log("Outbound rate limit set on NttManager: ", outboundLimit);
         }
-
-        // Hardcoded to one since these scripts handle Wormhole-only deployments.
-        INttManager(nttManager).setThreshold(1);
-        console2.log("Threshold set on NttManager: %d", uint256(1));
     }
 
     function _readEnvVariables() internal view returns (DeploymentParams memory params) {
