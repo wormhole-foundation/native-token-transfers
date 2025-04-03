@@ -1,7 +1,10 @@
 use crate::wormhole::accounts::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface;
-use example_native_token_transfers::config::*;
+use example_native_token_transfers::{
+    config::*,
+    wormhole_accounts::{anchor_reexports::*, *},
+};
 use ntt_messages::transceivers::wormhole::WormholeTransceiverInfo;
 
 #[derive(Accounts)]
@@ -17,17 +20,8 @@ pub struct BroadcastId<'info> {
     pub mint: InterfaceAccount<'info, token_interface::Mint>,
 
     /// CHECK: initialized and written to by wormhole core bridge
-    #[account(mut, seeds = [&emitter.key.to_bytes()], bump, seeds::program = wormhole_svm_definitions::solana::POST_MESSAGE_SHIM_PROGRAM_ID)]
+    #[account(mut, seeds = [&wormhole.emitter.key.to_bytes()], bump, seeds::program = wormhole_svm_definitions::solana::POST_MESSAGE_SHIM_PROGRAM_ID)]
     pub wormhole_message: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [b"emitter"],
-        bump
-    )]
-    /// CHECK: The only valid sender is the [`wormhole::PostMessage::emitter`]
-    /// enforced by the [`CpiContext`] call in [`post_message`].
-    /// The seeds constraint ensures that this is the correct address
-    pub emitter: UncheckedAccount<'info>,
 
     pub wormhole: WormholeAccounts<'info>,
 }
@@ -46,8 +40,7 @@ pub fn broadcast_id(ctx: Context<BroadcastId>) -> Result<()> {
         &accs.wormhole,
         accs.payer.to_account_info(),
         accs.wormhole_message.to_account_info(),
-        accs.emitter.to_account_info(),
-        ctx.bumps.emitter,
+        ctx.bumps.wormhole.emitter,
         &message,
     )?;
 
