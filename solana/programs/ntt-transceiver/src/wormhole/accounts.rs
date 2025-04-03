@@ -1,37 +1,8 @@
 use anchor_lang::prelude::*;
+use example_native_token_transfers::wormhole_accounts::{pay_wormhole_fee, WormholeAccounts};
 use wormhole_anchor_sdk::wormhole;
 use wormhole_io::TypePrefixedPayload;
-use wormhole_post_message_shim_interface::{program::WormholePostMessageShim, Finality};
-
-// TODO: should we add emitter in here too?
-#[derive(Accounts)]
-pub struct WormholeAccounts<'info> {
-    // wormhole stuff
-    #[account(mut)]
-    /// CHECK: address will be checked by the wormhole core bridge
-    pub bridge: Account<'info, wormhole::BridgeData>,
-
-    #[account(mut)]
-    /// CHECK: account will be checked by the wormhole core bridge
-    pub fee_collector: UncheckedAccount<'info>,
-
-    #[account(mut)]
-    /// CHECK: account will be checked and maybe initialized by the wormhole core bridge
-    pub sequence: UncheckedAccount<'info>,
-
-    pub program: Program<'info, wormhole::program::Wormhole>,
-
-    pub system_program: Program<'info, System>,
-
-    pub post_message_shim: Program<'info, WormholePostMessageShim>,
-
-    /// CHECK: Shim event authority
-    pub wormhole_post_message_shim_ea: UncheckedAccount<'info>,
-
-    // legacy
-    pub clock: Sysvar<'info, Clock>,
-    pub rent: Sysvar<'info, Rent>,
-}
+use wormhole_post_message_shim_interface::Finality;
 
 /// SECURITY: Owner checks are disabled. Each of [`WormholeAccounts::bridge`], [`WormholeAccounts::fee_collector`],
 /// and [`WormholeAccounts::sequence`] must be checked by the Wormhole core bridge.
@@ -41,7 +12,6 @@ pub fn post_message<'info, A: TypePrefixedPayload>(
     wormhole: &WormholeAccounts<'info>,
     payer: AccountInfo<'info>,
     message: AccountInfo<'info>,
-    emitter: AccountInfo<'info>,
     emitter_bump: u8,
     payload: &A,
 ) -> Result<()> {
@@ -56,7 +26,7 @@ pub fn post_message<'info, A: TypePrefixedPayload>(
                 payer,
                 bridge: wormhole.bridge.to_account_info(),
                 message,
-                emitter,
+                emitter: wormhole.emitter.to_account_info(),
                 sequence: wormhole.sequence.to_account_info(),
                 fee_collector: wormhole.fee_collector.to_account_info(),
                 clock: wormhole.clock.to_account_info(),
