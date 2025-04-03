@@ -8,6 +8,7 @@ use example_native_token_transfers::{
     queue::outbox::OutboxItem,
     registered_transceiver::RegisteredTransceiver,
     transfer::Payload,
+    wormhole_accounts::{anchor_reexports::*, *},
 };
 use ntt_messages::{
     ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage, transceiver::TransceiverMessage,
@@ -36,14 +37,6 @@ pub struct ReleaseOutbound<'info> {
     #[account(mut, seeds = [&emitter.key.to_bytes()], bump, seeds::program = wormhole_svm_definitions::solana::POST_MESSAGE_SHIM_PROGRAM_ID)]
     /// CHECK: initialized and written to by wormhole core bridge (empty, with the shim)
     pub wormhole_message: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [b"emitter"],
-        bump
-    )]
-    // TODO: do we want to put anything in here?
-    /// CHECK: wormhole uses this as the emitter address
-    pub emitter: UncheckedAccount<'info>,
 
     pub wormhole: WormholeAccounts<'info>,
 
@@ -123,8 +116,7 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
         &accs.wormhole,
         accs.payer.to_account_info(),
         accs.wormhole_message.to_account_info(),
-        accs.emitter.to_account_info(),
-        ctx.bumps.emitter,
+        ctx.bumps.wormhole.emitter,
         &message,
     )?;
 

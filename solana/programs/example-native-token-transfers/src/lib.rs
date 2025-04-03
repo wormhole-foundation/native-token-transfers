@@ -22,10 +22,8 @@ pub mod pending_token_authority;
 pub mod queue;
 pub mod registered_transceiver;
 pub mod spl_multisig;
-pub mod transceivers;
 pub mod transfer;
-
-use transceivers::wormhole::instructions::*;
+pub mod wormhole_accounts;
 
 use instructions::*;
 
@@ -198,37 +196,6 @@ pub mod example_native_token_transfers {
 
     pub fn set_threshold(ctx: Context<SetThreshold>, threshold: u8) -> Result<()> {
         instructions::set_threshold(ctx, threshold)
-    }
-
-    // standalone transceiver stuff
-
-    pub fn set_wormhole_peer(
-        ctx: Context<SetTransceiverPeer>,
-        args: SetTransceiverPeerArgs,
-    ) -> Result<()> {
-        transceivers::wormhole::instructions::set_transceiver_peer(ctx, args)
-    }
-
-    pub fn receive_wormhole_message(ctx: Context<ReceiveMessage>) -> Result<()> {
-        transceivers::wormhole::instructions::receive_message(ctx)
-    }
-
-    pub fn release_wormhole_outbound(
-        ctx: Context<ReleaseOutbound>,
-        args: ReleaseOutboundArgs,
-    ) -> Result<()> {
-        transceivers::wormhole::instructions::release_outbound(ctx, args)
-    }
-
-    pub fn broadcast_wormhole_id(ctx: Context<BroadcastId>) -> Result<()> {
-        transceivers::wormhole::instructions::broadcast_id(ctx)
-    }
-
-    pub fn broadcast_wormhole_peer(
-        ctx: Context<BroadcastPeer>,
-        args: BroadcastPeerArgs,
-    ) -> Result<()> {
-        transceivers::wormhole::instructions::broadcast_peer(ctx, args)
     }
 }
 
