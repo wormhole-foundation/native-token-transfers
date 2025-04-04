@@ -430,7 +430,8 @@ export class SolanaNttWormholeTransceiver<
         config: this.manager.pdas.configAccount(),
         mint: config.mint,
         wormholeMessage,
-        emitter: whAccs.wormholeEmitter,
+        // NOTE: emitter is not part of wormhole accounts for versions < 3.x.x
+        ...(major < 3 && { emitter: whAccs.wormholeEmitter }),
         wormhole: {
           bridge: whAccs.wormholeBridge,
           feeCollector: whAccs.wormholeFeeCollector,
@@ -472,7 +473,8 @@ export class SolanaNttWormholeTransceiver<
         config: this.manager.pdas.configAccount(),
         peer: this.pdas.transceiverPeerAccount(chain),
         wormholeMessage,
-        emitter: whAccs.wormholeEmitter,
+        // NOTE: emitter is not part of wormhole accounts for versions < 3.x.x
+        ...(major < 3 && { emitter: whAccs.wormholeEmitter }),
         wormhole: {
           bridge: whAccs.wormholeBridge,
           feeCollector: whAccs.wormholeFeeCollector,
@@ -513,7 +515,8 @@ export class SolanaNttWormholeTransceiver<
         config: { config: this.manager.pdas.configAccount() },
         outboxItem,
         wormholeMessage,
-        emitter: whAccs.wormholeEmitter,
+        // NOTE: emitter is not part of wormhole accounts for versions < 3.x.x
+        ...(major < 3 && { emitter: whAccs.wormholeEmitter }),
         transceiver: this.manager.pdas.registeredTransceiver(
           this.program.programId
         ),
