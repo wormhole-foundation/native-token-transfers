@@ -1,6 +1,17 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
+use crate::{
+    common::{
+        query::GetAccountDataAnchor,
+        setup::{setup, TestData},
+        submit::Submittable,
+    },
+    sdk::instructions::admin::{
+        deregister_transceiver, register_transceiver, set_threshold, DeregisterTransceiver,
+        RegisterTransceiver, SetThreshold,
+    },
+};
 use anchor_lang::{prelude::Pubkey, system_program::System, Id};
 use example_native_token_transfers::{
     config::Config, error::NTTError, registered_transceiver::RegisteredTransceiver,
@@ -8,15 +19,6 @@ use example_native_token_transfers::{
 use ntt_messages::mode::Mode;
 use solana_program_test::*;
 use solana_sdk::{instruction::InstructionError, signer::Signer, transaction::TransactionError};
-
-use crate::{
-    common::{query::GetAccountDataAnchor, setup::setup, submit::Submittable},
-    sdk::accounts::{good_ntt, NTTAccounts},
-    sdk::instructions::admin::{
-        deregister_transceiver, register_transceiver, set_threshold, DeregisterTransceiver,
-        RegisterTransceiver, SetThreshold,
-    },
-};
 
 pub mod common;
 pub mod sdk;
@@ -73,6 +75,7 @@ async fn test_reregister_all_transceivers() {
     // Transceivers are expected to be executable which requires them to be added on setup
     // Thus, we pass all available executable program IDs as dummy_transceivers
     let dummy_transceivers = vec![
+        example_native_token_transfers::ID,
         wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
         wormhole_governance::ID,
     ];
@@ -121,12 +124,12 @@ async fn test_reregister_all_transceivers() {
         assert_threshold(&mut ctx, num_dummy_transceivers - idx as u8).await;
     }
 
-    // deregister baked-in transceiver
+    // deregister standalone transceiver
     deregister_transceiver(
         &good_ntt,
         DeregisterTransceiver {
             owner: test_data.program_owner.pubkey(),
-            transceiver: example_native_token_transfers::ID,
+            transceiver: ntt_transceiver::ID,
         },
     )
     .submit_with_signers(&[&test_data.program_owner], &mut ctx)
@@ -151,19 +154,19 @@ async fn test_reregister_all_transceivers() {
         assert_threshold(&mut ctx, 1).await;
     }
 
-    // reregister baked-in transceiver
+    // reregister standalone transceiver
     register_transceiver(
         &good_ntt,
         RegisterTransceiver {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
-            transceiver: example_native_token_transfers::ID,
+            transceiver: ntt_transceiver::ID,
         },
     )
     .submit_with_signers(&[&test_data.program_owner], &mut ctx)
     .await
     .unwrap();
-    assert_transceiver_id(&mut ctx, &example_native_token_transfers::ID, 0).await;
+    assert_transceiver_id(&mut ctx, &ntt_transceiver::ID, 0).await;
     assert_threshold(&mut ctx, 1).await;
 }
 
