@@ -1,23 +1,25 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
-use common::setup::OTHER_CHAIN;
-use ntt_messages::chain_id::ChainId;
-use ntt_messages::mode::Mode;
-use ntt_messages::transceivers::wormhole::{
-    WormholeTransceiverInfo, WormholeTransceiverRegistration,
+use crate::{
+    common::{
+        query::GetAccountDataAnchor,
+        setup::{setup, OTHER_CHAIN, OTHER_TRANSCEIVER},
+        submit::Submittable,
+    },
+    sdk::transceivers::wormhole::instructions::{
+        broadcast_id::{broadcast_id, BroadcastId},
+        broadcast_peer::{broadcast_peer, BroadcastPeer},
+    },
+};
+use ntt_messages::{
+    chain_id::ChainId,
+    mode::Mode,
+    transceivers::wormhole::{WormholeTransceiverInfo, WormholeTransceiverRegistration},
 };
 use solana_program_test::*;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use wormhole_anchor_sdk::wormhole::PostedVaa;
-
-use crate::common::query::GetAccountDataAnchor;
-use crate::common::setup::{setup, OTHER_TRANSCEIVER};
-use crate::sdk::transceivers::wormhole::instructions::broadcast_id::{broadcast_id, BroadcastId};
-use crate::{
-    common::submit::Submittable,
-    sdk::transceivers::wormhole::instructions::broadcast_peer::{broadcast_peer, BroadcastPeer},
-};
 
 pub mod common;
 pub mod sdk;
@@ -30,6 +32,7 @@ async fn test_broadcast_peer() {
 
     broadcast_peer(
         &test_data.ntt,
+        &test_data.ntt_transceiver,
         BroadcastPeer {
             payer: ctx.payer.pubkey(),
             wormhole_message: wh_message.pubkey(),
@@ -61,6 +64,7 @@ async fn test_broadcast_id() {
 
     broadcast_id(
         &test_data.ntt,
+        &test_data.ntt_transceiver,
         BroadcastId {
             payer: ctx.payer.pubkey(),
             wormhole_message: wh_message.pubkey(),

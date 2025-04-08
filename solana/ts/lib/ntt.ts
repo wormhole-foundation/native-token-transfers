@@ -315,7 +315,6 @@ export namespace NTT {
       args.wormholeId.toString()
     );
 
-    // TODO: add `whAccs.emitter`, `whTransceiver`, and transceiverEmitter PDA account to LUT
     const entries = {
       config: pdas.configAccount(),
       custody: config.custody,
@@ -331,6 +330,11 @@ export namespace NTT {
         systemProgram: SystemProgram.programId,
         clock: web3.SYSVAR_CLOCK_PUBKEY,
         rent: web3.SYSVAR_RENT_PUBKEY,
+        // NOTE: transceivers accounts are added for versions >= 3.x.x
+        ...(major >= 3 && {
+          transceiver: whTransceiver,
+          emitter: whAccs.wormholeEmitter,
+        }),
       },
     };
 

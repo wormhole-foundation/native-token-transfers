@@ -26,7 +26,7 @@ use anchor_lang::prelude::*;
 use solana_address_lookup_table_program;
 use solana_program::program::{invoke, invoke_signed};
 
-use crate::{config::Config, queue::outbox::OutboxRateLimit, transceivers::wormhole::accounts::*};
+use crate::{config::Config, queue::outbox::OutboxRateLimit, wormhole_accounts::*};
 
 #[account]
 #[derive(InitSpace)]

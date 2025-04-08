@@ -1,7 +1,7 @@
 [package]
 name = "ntt-transceiver"
 version = "3.0.0"
-description = "Created with Anchor"
+description = "Example implementation of wormhole transceiver"
 edition = "2021"
 
 [lib]
