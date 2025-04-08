@@ -1,8 +1,24 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
+use crate::{
+    common::{
+        query::GetAccountDataAnchor,
+        setup::{setup, TestData, OTHER_CHAIN, OTHER_MANAGER, OTHER_TRANSCEIVER, THIS_CHAIN},
+        submit::Submittable,
+        utils::{make_transfer_message, post_vaa_helper},
+    },
+    sdk::{
+        accounts::{good_ntt, NTTAccounts},
+        instructions::{
+            post_vaa::post_vaa,
+            redeem::{redeem, Redeem},
+            transfer::{approve_token_authority, transfer, Transfer},
+        },
+        transceivers::wormhole::instructions::receive_message::{receive_message, ReceiveMessage},
+    },
+};
 use anchor_lang::prelude::*;
-use common::setup::{TestData, OTHER_CHAIN};
 use example_native_token_transfers::{
     instructions::{RedeemArgs, TransferArgs},
     queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit},
@@ -11,32 +27,10 @@ use example_native_token_transfers::{
 use ntt_messages::{
     chain_id::ChainId, mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
 };
-use sdk::{
-    accounts::{good_ntt, NTTAccounts},
-    transceivers::wormhole::instructions::receive_message::ReceiveMessage,
-};
+use solana_program::instruction::InstructionError;
 use solana_program_test::*;
-use solana_sdk::{signature::Keypair, signer::Signer};
-use wormhole_sdk::Address;
-
-use crate::{
-    common::{
-        query::GetAccountDataAnchor,
-        setup::{setup, OTHER_TRANSCEIVER},
-        utils::make_transfer_message,
-    },
-    sdk::{
-        instructions::{
-            redeem::{redeem, Redeem},
-            transfer::Transfer,
-        },
-        transceivers::wormhole::instructions::receive_message::receive_message,
-    },
-};
-use crate::{
-    common::{submit::Submittable, utils::post_vaa_helper},
-    sdk::instructions::transfer::{approve_token_authority, transfer},
-};
+use solana_sdk::{signature::Keypair, signer::Signer, transaction::TransactionError};
+use wormhole_sdk::{Address, Vaa};
 
 pub mod common;
 pub mod sdk;
@@ -76,8 +70,10 @@ fn init_redeem_accs(
     Redeem {
         payer: ctx.payer.pubkey(),
         peer: good_ntt.peer(chain_id),
-        transceiver: good_ntt.program(),
-        transceiver_message: good_ntt.transceiver_message(chain_id, ntt_manager_message.id),
+        transceiver: test_data.ntt_transceiver.program,
+        transceiver_message: test_data
+            .ntt_transceiver
+            .transceiver_message(chain_id, ntt_manager_message.id),
         inbox_item: good_ntt.inbox_item(chain_id, ntt_manager_message),
         inbox_rate_limit: good_ntt.inbox_rate_limit(chain_id),
         mint: test_data.mint,
@@ -92,7 +88,7 @@ fn init_receive_message_accs(
 ) -> ReceiveMessage {
     ReceiveMessage {
         payer: ctx.payer.pubkey(),
-        peer: good_ntt.transceiver_peer(chain_id),
+        peer: test_data.ntt_transceiver.transceiver_peer(chain_id),
         vaa,
         chain_id,
         id,
@@ -146,6 +142,7 @@ async fn test_cancel() {
 
     receive_message(
         &good_ntt,
+        &test_data.ntt_transceiver,
         init_receive_message_accs(&mut ctx, vaa0, OTHER_CHAIN, [0u8; 32]),
     )
     .submit(&mut ctx)
@@ -202,6 +199,7 @@ async fn test_cancel() {
 
     receive_message(
         &good_ntt,
+        &test_data.ntt_transceiver,
         init_receive_message_accs(&mut ctx, vaa1, OTHER_CHAIN, [1u8; 32]),
     )
     .submit(&mut ctx)

@@ -1,48 +1,22 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
-use anchor_lang::prelude::{Clock, ErrorCode, Pubkey};
-use anchor_spl::token::{Mint, TokenAccount};
-use common::setup::{TestData, OTHER_CHAIN};
-use example_native_token_transfers::{
-    bitmap::Bitmap,
-    error::NTTError,
-    instructions::{SetOutboundLimitArgs, TransferArgs},
-    queue::outbox::{OutboxItem, OutboxRateLimit},
-    transceivers::wormhole::ReleaseOutboundArgs,
-    transfer::Payload,
-};
-use ntt_messages::{
-    chain_id::ChainId, mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
-    transceiver::TransceiverMessage, transceivers::wormhole::WormholeTransceiver,
-    trimmed_amount::TrimmedAmount,
-};
-use sdk::accounts::NTT;
-use solana_program_test::*;
-use solana_sdk::{
-    instruction::InstructionError, signature::Keypair, signer::Signer,
-    transaction::TransactionError,
-};
-use wormhole_anchor_sdk::wormhole::PostedVaa;
-
 use crate::{
     common::{
         query::GetAccountDataAnchor,
-        setup::{ANOTHER_CHAIN, OUTBOUND_LIMIT, UNREGISTERED_CHAIN},
+        setup::{
+            setup, setup_with_transfer_fee, TestData, ANOTHER_CHAIN, OTHER_CHAIN, OTHER_MANAGER,
+            OUTBOUND_LIMIT, UNREGISTERED_CHAIN,
+        },
+        submit::Submittable,
     },
     sdk::{
         accounts::{good_ntt, NTTAccounts},
-        instructions::transfer::Transfer,
-    },
-};
-use crate::{
-    common::{setup::OTHER_MANAGER, submit::Submittable},
-    sdk::{
         instructions::{
-            admin::{set_outbound_limit, set_paused, SetOutboundLimit, SetPaused},
+            admin::{set_paused, SetPaused},
             transfer::{
                 approve_token_authority, approve_token_authority_with_token_program_id, transfer,
-                transfer_with_token_program_id,
+                transfer_with_token_program_id, Transfer,
             },
         },
         transceivers::wormhole::instructions::release_outbound::{
@@ -50,11 +24,36 @@ use crate::{
         },
     },
 };
+use anchor_lang::prelude::{Clock, ErrorCode, Pubkey};
+use anchor_spl::token::{Mint, TokenAccount};
+use example_native_token_transfers::{
+    bitmap::Bitmap,
+    error::NTTError,
+    instructions::{SetOutboundLimitArgs, TransferArgs},
+    queue::outbox::{OutboxItem, OutboxRateLimit},
+    transfer::Payload,
+};
+use ntt_messages::{
+    chain_id::ChainId, mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
+    transceiver::TransceiverMessage, transceivers::wormhole::WormholeTransceiver,
+    trimmed_amount::TrimmedAmount,
+};
+use solana_program_test::*;
+use solana_sdk::{
+    instruction::InstructionError, signature::Keypair, signer::Signer,
+    transaction::TransactionError,
+};
+use wormhole_anchor_sdk::wormhole::PostedVaa;
 
 pub mod common;
 pub mod sdk;
 
-use crate::common::setup::{setup, setup_with_transfer_fee};
+// TODO: some more tests
+// - unregistered peer can't transfer
+// - can't transfer to unregistered peer
+// - can't transfer more than balance
+// - wrong inbox accounts
+// - paused contracts
 
 /// Helper function for setting up transfer accounts and args.
 /// It sets the accounts up properly, so for negative testing we just modify the
@@ -165,6 +164,7 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
 
     release_outbound(
         &good_ntt,
+        &test_data.ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -189,7 +189,9 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
         outbox_item_account_after,
     );
 
-    let wh_message = good_ntt.wormhole_message(&outbox_item.pubkey());
+    let wh_message = test_data
+        .ntt_transceiver
+        .wormhole_message(&outbox_item.pubkey());
 
     // NOTE: technically this is not a PostedVAA but a PostedMessage, but the
     // sdk does not export that type, so we parse it as a PostedVAA instead.
@@ -914,6 +916,7 @@ async fn test_cant_release_queued() {
     // check that 'revert_on_delay = true' returns correct error
     let err = release_outbound(
         &good_ntt,
+        &test_data.ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -937,6 +940,7 @@ async fn test_cant_release_queued() {
     // check that 'revert_on_delay = false' succeeds but does not release
     release_outbound(
         &good_ntt,
+        &test_data.ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -952,7 +956,9 @@ async fn test_cant_release_queued() {
     assert_queued(&mut ctx, outbox_item.pubkey()).await;
 
     // just to be safe, let's make sure the wormhole message account wasn't initialised
-    let wh_message = good_ntt.wormhole_message(&outbox_item.pubkey());
+    let wh_message = test_data
+        .ntt_transceiver
+        .wormhole_message(&outbox_item.pubkey());
     assert!(ctx
         .banks_client
         .get_account(wh_message)
@@ -992,6 +998,7 @@ async fn test_cant_release_twice() {
 
     release_outbound(
         &good_ntt,
+        &test_data.ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -1007,6 +1014,7 @@ async fn test_cant_release_twice() {
     // make sure we can't release again
     let err = release_outbound(
         &good_ntt,
+        &test_data.ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
