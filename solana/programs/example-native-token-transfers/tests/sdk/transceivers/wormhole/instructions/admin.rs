@@ -1,8 +1,7 @@
+use crate::sdk::accounts::{NTTTransceiver, NTT};
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
-use example_native_token_transfers::transceivers::wormhole::SetTransceiverPeerArgs;
+use ntt_transceiver::wormhole::instructions::SetTransceiverPeerArgs;
 use solana_sdk::instruction::Instruction;
-
-use crate::sdk::accounts::NTT;
 
 pub struct SetTransceiverPeer {
     pub payer: Pubkey,
@@ -11,22 +10,23 @@ pub struct SetTransceiverPeer {
 
 pub fn set_transceiver_peer(
     ntt: &NTT,
+    ntt_transceiver: &NTTTransceiver,
     accounts: SetTransceiverPeer,
     args: SetTransceiverPeerArgs,
 ) -> Instruction {
     let chain_id = args.chain_id.id;
-    let data = example_native_token_transfers::instruction::SetWormholePeer { args };
+    let data = ntt_transceiver::instruction::SetWormholePeer { args };
 
-    let accounts = example_native_token_transfers::accounts::SetTransceiverPeer {
+    let accounts = ntt_transceiver::accounts::SetTransceiverPeer {
         config: ntt.config(),
         owner: accounts.owner,
         payer: accounts.payer,
-        peer: ntt.transceiver_peer(chain_id),
+        peer: ntt_transceiver.transceiver_peer(chain_id),
         system_program: System::id(),
     };
 
     Instruction {
-        program_id: example_native_token_transfers::ID,
+        program_id: ntt_transceiver::ID,
         accounts: accounts.to_account_metas(None),
         data: data.data(),
     }
