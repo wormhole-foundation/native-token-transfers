@@ -1,12 +1,22 @@
-use std::path::PathBuf;
-
+use crate::{
+    common::{
+        account_json_utils::{add_account_unchecked, AccountLoadable},
+        submit::Submittable,
+    },
+    sdk::{
+        accounts::{good_ntt, Governance, NTTAccounts, NTTTransceiver},
+        instructions::{
+            admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
+            initialize::{initialize_with_token_program_id, Initialize},
+        },
+        transceivers::wormhole::instructions::admin::{set_transceiver_peer, SetTransceiverPeer},
+    },
+};
 use anchor_lang::prelude::{Error, Id, Pubkey};
 use anchor_spl::token::{Mint, Token};
-use example_native_token_transfers::{
-    instructions::{InitializeArgs, SetPeerArgs},
-    transceivers::wormhole::SetTransceiverPeerArgs,
-};
+use example_native_token_transfers::instructions::{InitializeArgs, SetPeerArgs};
 use ntt_messages::{chain_id::ChainId, mode::Mode};
+use ntt_transceiver::wormhole::instructions::SetTransceiverPeerArgs;
 use solana_program::{bpf_loader_upgradeable::UpgradeableLoaderState, rent::Rent};
 use solana_program_runtime::log_collector::log::{trace, warn};
 use solana_program_test::{find_file, read_file, ProgramTest, ProgramTestContext};
@@ -15,21 +25,8 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use spl_associated_token_account::get_associated_token_address_with_program_id;
+use std::path::PathBuf;
 use wormhole_anchor_sdk::wormhole::{BridgeData, FeeCollector};
-
-use crate::sdk::{
-    accounts::{good_ntt, Governance, NTTAccounts},
-    instructions::{
-        admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
-        initialize::{initialize_with_token_program_id, Initialize},
-    },
-    transceivers::wormhole::instructions::admin::{set_transceiver_peer, SetTransceiverPeer},
-};
-
-use super::{
-    account_json_utils::{add_account_unchecked, AccountLoadable},
-    submit::Submittable,
-};
 
 // TODO: maybe make these configurable? I think it's fine like this:
 // the mint amount is more than the limits, so we can test the rate limits
@@ -48,6 +45,7 @@ pub const ANOTHER_CHAIN: u16 = 3;
 pub const UNREGISTERED_CHAIN: u16 = u16::MAX;
 
 pub struct TestData {
+    pub ntt_transceiver: NTTTransceiver,
     pub governance: Governance,
     pub program_owner: Keypair,
     pub mint_authority: Keypair,
@@ -115,6 +113,13 @@ pub async fn setup_programs(program_owner: Pubkey) -> Result<ProgramTest, Error>
         &mut program_test,
         "example_native_token_transfers",
         example_native_token_transfers::ID,
+        Some(program_owner),
+    );
+
+    add_program_upgradeable(
+        &mut program_test,
+        "ntt_transceiver",
+        ntt_transceiver::ID,
         Some(program_owner),
     );
 
@@ -204,7 +209,7 @@ pub async fn setup_ntt_with_token_program_id(
         RegisterTransceiver {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
-            transceiver: example_native_token_transfers::ID, // standalone ntt_manager&transceiver
+            transceiver: ntt_transceiver::ID, // standalone transceiver
         },
     )
     .submit_with_signers(&[&test_data.program_owner], ctx)
@@ -213,6 +218,7 @@ pub async fn setup_ntt_with_token_program_id(
 
     set_transceiver_peer(
         &good_ntt,
+        &test_data.ntt_transceiver,
         SetTransceiverPeer {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -341,6 +347,9 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     .unwrap();
 
     TestData {
+        ntt_transceiver: NTTTransceiver {
+            program: ntt_transceiver::ID,
+        },
         governance: Governance {
             program: wormhole_governance::ID,
         },
@@ -441,6 +450,9 @@ pub async fn setup_accounts_with_transfer_fee(
     .unwrap();
 
     TestData {
+        ntt_transceiver: NTTTransceiver {
+            program: ntt_transceiver::ID,
+        },
         governance: Governance {
             program: wormhole_governance::ID,
         },
