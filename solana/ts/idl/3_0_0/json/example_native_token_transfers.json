@@ -219,7 +219,13 @@
     },
     {
       "name": "version",
-      "accounts": [],
+      "accounts": [
+        {
+          "name": "dummy",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
       "args": [],
       "returns": "string"
     },
