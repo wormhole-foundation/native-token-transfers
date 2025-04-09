@@ -49,8 +49,8 @@
     "test": "jest --config ./jest.config.ts"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^1.0.0",
-    "@wormhole-foundation/sdk-definitions": "^1.0.0"
+    "@wormhole-foundation/sdk-base": "^1.14.2",
+    "@wormhole-foundation/sdk-definitions": "^1.14.2"
   },
   "type": "module"
 }
