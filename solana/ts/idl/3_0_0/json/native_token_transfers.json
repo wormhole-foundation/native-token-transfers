@@ -1,6 +1,6 @@
 {
   "version": "3.0.0",
-  "name": "example_native_token_transfers",
+  "name": "native_token_transfers",
   "instructions": [
     {
       "name": "initialize",

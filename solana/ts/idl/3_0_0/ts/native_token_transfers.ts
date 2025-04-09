@@ -1,6 +1,6 @@
-export type ExampleNativeTokenTransfers = {
+export type NativeTokenTransfers = {
   "version": "3.0.0",
-  "name": "example_native_token_transfers",
+  "name": "native_token_transfers",
   "instructions": [
     {
       "name": "initialize",
@@ -2493,9 +2493,9 @@ export type ExampleNativeTokenTransfers = {
     }
   ]
 }
-export const IDL: ExampleNativeTokenTransfers = {
+export const IDL: NativeTokenTransfers = {
   "version": "3.0.0",
-  "name": "example_native_token_transfers",
+  "name": "native_token_transfers",
   "instructions": [
     {
       "name": "initialize",
