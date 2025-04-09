@@ -97,7 +97,7 @@ const nttTransceivers = {
   ),
 };
 
-describe("example-native-token-transfers", () => {
+describe("native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
   let signer: Signer;
   let sender: AccountAddress<"Solana">;
