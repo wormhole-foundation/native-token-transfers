@@ -1,19 +1,13 @@
 use anchor_lang::prelude::*;
-use native_token_transfers::{
-    config::{anchor_reexports::*, *},
-    error::NTTError,
-    instructions::OUTBOX_ITEM_SIGNER_SEED,
-    program::NativeTokenTransfers,
-    queue::outbox::OutboxItem,
-    registered_transceiver::RegisteredTransceiver,
-    transfer::Payload,
-};
 use ntt_messages::{
     ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage, transceiver::TransceiverMessage,
     transceivers::wormhole::WormholeTransceiver,
 };
 
-use crate::wormhole::accounts::*;
+use crate::{
+    config::*, error::NTTError, queue::outbox::OutboxItem, registered_transceiver::*,
+    transceivers::wormhole::accounts::*, transfer::Payload,
+};
 
 #[derive(Accounts)]
 pub struct ReleaseOutbound<'info> {
@@ -51,38 +45,6 @@ pub struct ReleaseOutbound<'info> {
     pub emitter: UncheckedAccount<'info>,
 
     pub wormhole: WormholeAccounts<'info>,
-
-    // NOTE: we put `manager` and `outbox_item_signer` at the end so that the generated
-    // IDL does not clash with the baked-in transceiver IDL in the manager
-    pub manager: Program<'info, NativeTokenTransfers>,
-
-    #[account(
-        seeds = [OUTBOX_ITEM_SIGNER_SEED],
-        bump
-    )]
-    /// CHECK: this PDA is used to sign the CPI into NTT manager program
-    pub outbox_item_signer: UncheckedAccount<'info>,
-}
-
-impl<'info> ReleaseOutbound<'info> {
-    pub fn mark_outbox_item_as_released(&self, bump_seed: u8) -> Result<bool> {
-        let result = native_token_transfers::cpi::mark_outbox_item_as_released(
-            CpiContext::new_with_signer(
-                self.manager.to_account_info(),
-                native_token_transfers::cpi::accounts::MarkOutboxItemAsReleased {
-                    signer: self.outbox_item_signer.to_account_info(),
-                    config: native_token_transfers::cpi::accounts::NotPausedConfig {
-                        config: self.config.config.to_account_info(),
-                    },
-                    outbox_item: self.outbox_item.to_account_info(),
-                    transceiver: self.transceiver.to_account_info(),
-                },
-                // signer seeds
-                &[&[OUTBOX_ITEM_SIGNER_SEED, &[bump_seed]]],
-            ),
-        )?;
-        Ok(result.get())
-    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -92,7 +54,7 @@ pub struct ReleaseOutboundArgs {
 
 pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs) -> Result<()> {
     let accs = ctx.accounts;
-    let released = accs.mark_outbox_item_as_released(ctx.bumps.outbox_item_signer)?;
+    let released = accs.outbox_item.try_release(accs.transceiver.id)?;
 
     if !released {
         if args.revert_on_delay {
@@ -102,9 +64,7 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
         }
     }
 
-    accs.outbox_item.reload()?;
     assert!(accs.outbox_item.released.get(accs.transceiver.id)?);
-
     let message: TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>> =
         TransceiverMessage::new(
             // TODO: should we just put the ntt id here statically?

@@ -1,8 +1,9 @@
-use crate::wormhole::accounts::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface;
-use example_native_token_transfers::config::*;
+use native_token_transfers::config::*;
 use ntt_messages::transceivers::wormhole::WormholeTransceiverInfo;
+
+use crate::wormhole::accounts::*;
 
 #[derive(Accounts)]
 pub struct BroadcastId<'info> {

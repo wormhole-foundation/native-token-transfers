@@ -1,7 +1,8 @@
-use crate::{peer::TransceiverPeer, wormhole::accounts::*};
 use anchor_lang::prelude::*;
-use example_native_token_transfers::config::*;
+use native_token_transfers::config::*;
 use ntt_messages::{chain_id::ChainId, transceivers::wormhole::WormholeTransceiverRegistration};
+
+use crate::{peer::TransceiverPeer, wormhole::accounts::*};
 
 #[derive(Accounts)]
 #[instruction(args: BroadcastPeerArgs)]
