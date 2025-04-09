@@ -10,14 +10,16 @@ use solana_program_test::*;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use wormhole_anchor_sdk::wormhole::PostedVaa;
 
-use crate::common::{
-    query::GetAccountDataAnchor,
+use crate::{
+    common::{
+        query::GetAccountDataAnchor,
+        setup::{setup, OTHER_CHAIN, OTHER_TRANSCEIVER},
+        submit::Submittable,
+    },
     sdk::transceivers::wormhole::instructions::{
         broadcast_id::{broadcast_id, BroadcastId},
         broadcast_peer::{broadcast_peer, BroadcastPeer},
     },
-    setup::{setup, OTHER_CHAIN, OTHER_TRANSCEIVER},
-    submit::Submittable,
 };
 
 pub mod common;
