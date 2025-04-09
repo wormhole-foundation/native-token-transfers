@@ -5,7 +5,7 @@
 #  Turn `const VERSION: &str = "major.minor.patch";` into `major_minor_patch`
 # Use make functions to minimize dependence on shell
 VERSION = $(subst .,_,$(subst ;,,$(subst ",,$(lastword \
-  $(shell grep "const VERSION" programs/example-native-token-transfers/src/lib.rs) \
+  $(shell grep "const VERSION" programs/native-token-transfers/src/lib.rs) \
 ))))
 
 

@@ -8,5 +8,5 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-./patch-idl ../target/idl/example_native_token_transfers.json
+./patch-idl ../target/idl/native_token_transfers.json
 yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts

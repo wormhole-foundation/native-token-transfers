@@ -1,6 +1,5 @@
-use crate::{messages::ValidatedTransceiverMessage, peer::TransceiverPeer};
 use anchor_lang::prelude::*;
-use example_native_token_transfers::{
+use native_token_transfers::{
     config::{anchor_reexports::*, *},
     error::NTTError,
     transfer::Payload,
@@ -12,6 +11,8 @@ use ntt_messages::{
     transceivers::wormhole::WormholeTransceiver,
 };
 use wormhole_anchor_sdk::wormhole::PostedVaa;
+
+use crate::{messages::ValidatedTransceiverMessage, peer::TransceiverPeer};
 
 #[derive(Accounts)]
 pub struct ReceiveMessage<'info> {

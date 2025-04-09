@@ -42,7 +42,7 @@ const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
 const CORE_BRIDGE_ADDRESS = contracts.coreBridge("Mainnet", "Solana");
 const NTT_ADDRESS: anchor.web3.PublicKey =
-  anchor.workspace.ExampleNativeTokenTransfers.programId;
+  anchor.workspace.NativeTokenTransfers.programId;
 const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.NttTransceiver.programId;
 
@@ -97,7 +97,7 @@ const nttTransceivers = {
   ),
 };
 
-describe("example-native-token-transfers", () => {
+describe("native-token-transfers", () => {
   let ntt: SolanaNtt<"Devnet", "Solana">;
   let signer: Signer;
   let sender: AccountAddress<"Solana">;

@@ -27,7 +27,7 @@ export namespace NttBindings {
     ? _1_0_0.RawExampleNativeTokenTransfers
     : V extends "2.0.0"
     ? _2_0_0.RawExampleNativeTokenTransfers
-    : _3_0_0.RawExampleNativeTokenTransfers;
+    : _3_0_0.RawNativeTokenTransfers;
 
   export type Quoter<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawNttQuoter

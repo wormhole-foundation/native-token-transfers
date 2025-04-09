@@ -1,10 +1,9 @@
-use crate::wormhole::accounts::*;
 use anchor_lang::prelude::*;
-use example_native_token_transfers::{
+use native_token_transfers::{
     config::{anchor_reexports::*, *},
     error::NTTError,
     instructions::OUTBOX_ITEM_SIGNER_SEED,
-    program::ExampleNativeTokenTransfers,
+    program::NativeTokenTransfers,
     queue::outbox::OutboxItem,
     registered_transceiver::RegisteredTransceiver,
     transfer::Payload,
@@ -13,6 +12,8 @@ use ntt_messages::{
     ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage, transceiver::TransceiverMessage,
     transceivers::wormhole::WormholeTransceiver,
 };
+
+use crate::wormhole::accounts::*;
 
 #[derive(Accounts)]
 pub struct ReleaseOutbound<'info> {
@@ -53,7 +54,7 @@ pub struct ReleaseOutbound<'info> {
 
     // NOTE: we put `manager` and `outbox_item_signer` at the end so that the generated
     // IDL does not clash with the baked-in transceiver IDL in the manager
-    pub manager: Program<'info, ExampleNativeTokenTransfers>,
+    pub manager: Program<'info, NativeTokenTransfers>,
 
     #[account(
         seeds = [OUTBOX_ITEM_SIGNER_SEED],
@@ -65,12 +66,12 @@ pub struct ReleaseOutbound<'info> {
 
 impl<'info> ReleaseOutbound<'info> {
     pub fn mark_outbox_item_as_released(&self, bump_seed: u8) -> Result<bool> {
-        let result = example_native_token_transfers::cpi::mark_outbox_item_as_released(
+        let result = native_token_transfers::cpi::mark_outbox_item_as_released(
             CpiContext::new_with_signer(
                 self.manager.to_account_info(),
-                example_native_token_transfers::cpi::accounts::MarkOutboxItemAsReleased {
+                native_token_transfers::cpi::accounts::MarkOutboxItemAsReleased {
                     signer: self.outbox_item_signer.to_account_info(),
-                    config: example_native_token_transfers::cpi::accounts::NotPausedConfig {
+                    config: native_token_transfers::cpi::accounts::NotPausedConfig {
                         config: self.config.config.to_account_info(),
                     },
                     outbox_item: self.outbox_item.to_account_info(),

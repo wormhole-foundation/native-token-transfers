@@ -2,14 +2,14 @@ use anchor_lang::{
     prelude::*,
     system_program::{self, Transfer},
 };
-use example_native_token_transfers::queue::outbox::OutboxItem;
+use native_token_transfers::queue::outbox::OutboxItem;
 use solana_program::{native_token::LAMPORTS_PER_SOL, sysvar};
+use std::result::Result as StdResult;
 
 use crate::{
     error::NttQuoterError,
     state::{Instance, RegisteredChain, RegisteredNtt, RelayRequest},
 };
-use std::result::Result as StdResult;
 
 //TODO eventually drop the released constraint and instead implement release by relayer
 fn check_release_constraint_and_fetch_chain_id(

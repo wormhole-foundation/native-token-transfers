@@ -1,7 +1,8 @@
-use crate::peer::TransceiverPeer;
 use anchor_lang::prelude::*;
-use example_native_token_transfers::config::Config;
+use native_token_transfers::config::Config;
 use ntt_messages::chain_id::ChainId;
+
+use crate::peer::TransceiverPeer;
 
 #[derive(Accounts)]
 #[instruction(args: SetTransceiverPeerArgs)]

@@ -14,7 +14,7 @@ no-idl = []
 idl-build = [
   "anchor-lang/idl-build",
   "anchor-spl/idl-build",
-  "example-native-token-transfers/idl-build"
+  "native-token-transfers/idl-build"
 ]
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
@@ -38,7 +38,7 @@ wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true
 wormhole-sdk.workspace = true
 
-example-native-token-transfers = { path = "../example-native-token-transfers", features = ["no-entrypoint", "cpi"] }
+native-token-transfers = { path = "../native-token-transfers", features = ["no-entrypoint", "cpi"] }
 
 [dev-dependencies]
 hex.workspace = true

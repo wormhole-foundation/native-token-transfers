@@ -257,7 +257,7 @@ yargs(hideBin(process.argv))
                 if (argv["repo"]) {
                     repoArg = `--repo ${argv["repo"]}`;
                 }
-                const installScript = "https://raw.githubusercontent.com/wormhole-foundation/example-native-token-transfers/main/cli/install.sh";
+                const installScript = "https://raw.githubusercontent.com/wormhole-foundation/native-token-transfers/main/cli/install.sh";
                 // save it to "$HOME/.ntt-cli/install.sh"
                 const nttDir = `${process.env.HOME}/.ntt-cli`;
                 const installer = `${nttDir}/install.sh`;
@@ -285,7 +285,7 @@ yargs(hideBin(process.argv))
                 process.exit(1);
             }
             const path = argv["path"];
-            await $`git clone -b main https://github.com/wormhole-foundation/example-native-token-transfers.git ${path}`;
+            await $`git clone -b main https://github.com/wormhole-foundation/native-token-transfers.git ${path}`;
         })
     .command("add-chain <chain>",
         "add a chain to the deployment file",
@@ -1226,12 +1226,12 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
         process.exit(1);
     }
 
-    // grep example_native_token_transfers = ".*"
+    // grep native_token_transfers = ".*"
     // in solana/Anchor.toml
     // TODO: what if they rename the program?
-    const existingProgramId = fs.readFileSync(`${pwd}/solana/Anchor.toml`).toString().match(/example_native_token_transfers = "(.*)"/)?.[1];
+    const existingProgramId = fs.readFileSync(`${pwd}/solana/Anchor.toml`).toString().match(/native_token_transfers = "(.*)"/)?.[1];
     if (!existingProgramId) {
-        console.error("Program ID not found in Anchor.toml (looked for example_native_token_transfers = \"(.*)\")");
+        console.error("Program ID not found in Anchor.toml (looked for native_token_transfers = \"(.*)\")");
         process.exit(1);
     }
 
@@ -1274,7 +1274,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
         }
 
         const anchorTomlPath = `${pwd}/solana/Anchor.toml`;
-        const libRsPath = `${pwd}/solana/programs/example-native-token-transfers/src/lib.rs`;
+        const libRsPath = `${pwd}/solana/programs/native-token-transfers/src/lib.rs`;
 
         const anchorToml = fs.readFileSync(anchorTomlPath).toString();
         const newAnchorToml = anchorToml.replace(existingProgramId, providedProgramId);
@@ -1354,7 +1354,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
             const proc = Bun.spawn(
                 ["anchor",
                     "build",
-                    "-p", "example_native_token_transfers",
+                    "-p", "native_token_transfers",
                     "--", "--no-default-features", "--features", cargoNetworkFeature(ch.network)
                 ], {
                 cwd: `${pwd}/solana`
@@ -1367,7 +1367,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
                 process.exit(proc.exitCode ?? 1);
             }
 
-            binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
+            binary = `${pwd}/solana/target/deploy/native_token_transfers.so`;
         }
 
 
