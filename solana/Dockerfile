@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/opt/solana/deps/target,id=build_anchor_ntt_target
     --mount=type=cache,target=.anchor,id=anchor_cache \
     anchor build --arch sbf -- --no-default-features --features tilt-devnet
 
-RUN cp ./target/sbf-solana-solana/release/example_native_token_transfers.so /opt/solana/deps/example_native_token_transfers.so
+RUN cp ./target/sbf-solana-solana/release/native_token_transfers.so /opt/solana/deps/native_token_transfers.so
 RUN cp ./target/sbf-solana-solana/release/wormhole_governance.so /opt/solana/deps/wormhole_governance.so
 
 RUN --mount=type=cache,target=/opt/solana/deps/target,id=build_anchor_ntt_target \
@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/opt/solana/deps/target,id=build_anchor_ntt_target
     --mount=type=cache,target=.anchor,id=anchor_cache \
     anchor build --arch sbf -- --no-default-features --features tilt-devnet2
 
-RUN cp ./target/sbf-solana-solana/release/example_native_token_transfers.so /opt/solana/deps/example_native_token_transfers_2.so
+RUN cp ./target/sbf-solana-solana/release/native_token_transfers.so /opt/solana/deps/native_token_transfers_2.so
 
 COPY solana/tilt /opt/solana/deps
 
@@ -41,7 +41,7 @@ COPY solana/tsconfig.anchor.json tsconfig.anchor.json
 COPY solana/Makefile Makefile
 COPY solana/scripts scripts
 
-RUN make target/idl/example_native_token_transfers.json
+RUN make target/idl/native_token_transfers.json
 
 FROM scratch as export
 

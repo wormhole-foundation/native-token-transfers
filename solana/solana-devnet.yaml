@@ -52,11 +52,11 @@ spec:
             - /opt/solana/deps/guardian_set.json
             - --upgradeable-program
             - NTTManager111111111111111111111111111111111
-            - /opt/solana/deps/example_native_token_transfers.so
+            - /opt/solana/deps/native_token_transfers.so
             - 7HrnXGAzG6mV93Lumk7yfyrNk2bpstq8YyesqojLj8mG
             - --upgradeable-program
             - NTTManager222222222222222222222222222222222
-            - /opt/solana/deps/example_native_token_transfers_2.so
+            - /opt/solana/deps/native_token_transfers_2.so
             - 6sbzC1eH4FTujJXWj51eQe25cYvr4xfXbJ1vAj7j2k5J
             - -q
           ports:
