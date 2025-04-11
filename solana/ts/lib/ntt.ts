@@ -291,6 +291,7 @@ export namespace NTT {
     whTransceiver: PublicKey,
     args: {
       payer: PublicKey;
+      owner: PublicKey;
       wormholeId: PublicKey;
     },
     pdas?: Pdas
@@ -371,6 +372,7 @@ export namespace NTT {
       .initializeLut(new BN(slot))
       .accountsStrict({
         payer: args.payer,
+        owner: args.owner,
         authority: pdas.lutAuthority(),
         lutAddress,
         lut: pdas.lutAccount(),
