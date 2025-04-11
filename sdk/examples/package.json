@@ -32,7 +32,7 @@
     "tsx": "^4.7.2"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk": "^1.0.0",
+    "@wormhole-foundation/sdk": "^1.14.2",
     "@wormhole-foundation/sdk-definitions-ntt": "0.5.0",
     "@wormhole-foundation/sdk-evm-ntt": "0.5.0",
     "@wormhole-foundation/sdk-solana-ntt": "0.5.0",

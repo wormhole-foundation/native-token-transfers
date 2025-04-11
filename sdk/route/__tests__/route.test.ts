@@ -11,8 +11,8 @@ import "@wormhole-foundation/sdk-solana-ntt";
 
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
-import { nttAutomaticRoute } from "../src/automatic.js";
-import { nttManualRoute } from "../src/manual.js";
+import { nttAutomaticRoute, NttAutomaticRoute } from "../src/automatic.js";
+import { nttManualRoute, NttManualRoute } from "../src/manual.js";
 import { NttRoute } from "../src/types.js";
 
 const SOL_TOKEN = "EetppHswYvV1jjRWoQKC1hejdeBDHR9NNzNtCyRQfrrQ";
@@ -62,7 +62,7 @@ describe("Manual Route Tests", function () {
   const fromChain = wh.getChain("Solana");
   const toChain = wh.getChain("Sepolia");
 
-  let rt: routes.RouteConstructor;
+  let rt: typeof NttManualRoute;
   it("Should create a Route Constructor given ntt config", function () {
     rt = nttManualRoute(conf);
     expect(rt).toBeTruthy();
@@ -160,7 +160,7 @@ describe("Automatic Route Tests", function () {
   const fromChain = wh.getChain("Solana");
   const toChain = wh.getChain("Sepolia");
 
-  let rt: routes.RouteConstructor;
+  let rt: typeof NttAutomaticRoute;
   it("Should create a Route Constructor given ntt config", function () {
     rt = nttAutomaticRoute(conf);
     expect(rt).toBeTruthy();

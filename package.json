@@ -21,7 +21,7 @@
     "@solana/web3.js": "^1.95.8",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.2",
-    "@wormhole-foundation/sdk": "^1.0.0",
+    "@wormhole-foundation/sdk": "^1.14.2",
     "@wormhole-foundation/wormchain-sdk": "^0.0.1",
     "ethers": "^6.5.1",
     "ts-jest": "^29.1.2",
