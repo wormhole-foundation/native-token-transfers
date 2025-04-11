@@ -47,8 +47,7 @@
   "dependencies": {
     "@wormhole-foundation/sdk-definitions-ntt": "0.5.0",
     "@wormhole-foundation/sdk-solana-ntt": "0.5.0",
-    "@wormhole-foundation/sdk-evm-ntt": "0.5.0",
-    "@wormhole-foundation/sdk-connect": "^1.14.2"
+    "@wormhole-foundation/sdk-evm-ntt": "0.5.0"
   },
   "peerDependencies": {
     "@wormhole-foundation/sdk-connect": "^1.0.0"
