@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 ghcr.io/foundry-rs/foundry@sha256:8b843eb65cc7b155303b316f65d27173c862b37719dc095ef3a2ef27ce8d3c00 as builder
+FROM --platform=linux/amd64 ghcr.io/foundry-rs/foundry@sha256:ee6dd5a073585b40b49a7da83140e2bc7d4a0283de1d7d7dc4cea709c85e1933 as builder
 
 WORKDIR /app
 COPY foundry.toml foundry.toml
