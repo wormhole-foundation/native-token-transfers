@@ -105,6 +105,11 @@ export type ExampleNativeTokenTransfers = {
           "isSigner": true
         },
         {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": false
@@ -1203,7 +1208,7 @@ export type ExampleNativeTokenTransfers = {
         },
         {
           "name": "owner",
-          "isMut": true,
+          "isMut": false,
           "isSigner": true
         },
         {
@@ -2600,6 +2605,11 @@ export const IDL: ExampleNativeTokenTransfers = {
           "isSigner": true
         },
         {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": false
@@ -3698,7 +3708,7 @@ export const IDL: ExampleNativeTokenTransfers = {
         },
         {
           "name": "owner",
-          "isMut": true,
+          "isMut": false,
           "isSigner": true
         },
         {

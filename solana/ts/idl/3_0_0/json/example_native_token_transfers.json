@@ -105,6 +105,11 @@
           "isSigner": true
         },
         {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": false
@@ -1203,7 +1208,7 @@
         },
         {
           "name": "owner",
-          "isMut": true,
+          "isMut": false,
           "isSigner": true
         },
         {
