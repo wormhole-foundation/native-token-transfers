@@ -5,7 +5,9 @@
 //! client could just manage its own ad-hoc lookup table.
 //! Nevertheless, we provide this instruction to make it easier for the client
 //! to query the lookup table from a deterministic address, and for integrators
-//! to be able to fetch the accounts from the LUT in a standardised way.
+//! to be able to fetch the accounts from the LUT in a standardised way. However,
+//! since an attacker could permissionlessly backrun the lookup table, we make it
+//! permissioned
 //!
 //! This way, the client sdk can abstract away the lookup table logic in a
 //! maintanable way.
@@ -19,8 +21,6 @@
 //! sorted), and in the worst case would require ~16k checks. So we keep things
 //! simple, and just create a new LUT each time. This operation won't be called
 //! often, so the extra allocation is justifiable.
-//!
-//! Because of all the above, this instruction can be called permissionlessly.
 
 use anchor_lang::prelude::*;
 use solana_address_lookup_table_program;
@@ -40,6 +40,8 @@ pub struct LUT {
 pub struct InitializeLUT<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
+
+    pub owner: Signer<'info>,
 
     #[account(
         seeds = [b"lut_authority"],
@@ -73,6 +75,7 @@ pub struct InitializeLUT<'info> {
     pub system_program: Program<'info, System>,
 
     /// These are the entries that will populate the LUT.
+    #[account(constraint = entries.config.owner == owner.key())]
     pub entries: Entries<'info>,
 }
 
