@@ -7,7 +7,7 @@
 //! to query the lookup table from a deterministic address, and for integrators
 //! to be able to fetch the accounts from the LUT in a standardised way. However,
 //! since an attacker could permissionlessly backrun the lookup table, we make it
-//! permissioned
+//! permissioned.
 //!
 //! This way, the client sdk can abstract away the lookup table logic in a
 //! maintanable way.
