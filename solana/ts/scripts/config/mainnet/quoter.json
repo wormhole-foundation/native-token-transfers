@@ -292,6 +292,14 @@
       "isSupported": true
     },
     {
+      "name": "TracyAI",
+      "programId": "nttJq45pyjVKAUcieL9zrU9nsc4Q7czQFcyvvg2nmcH",
+      "tokenAddress": "C1nzFL2DD3Wqc3dzRbsrpb6tiZ6dbYsXubjVtzyHvirt",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
+    {
       "name": "AVAX",
       "programId": "ntTW3X39Vo1G7YdnAt62TYexBoFMfBzcJozXvmdNKtv",
       "tokenAddress": "yNBMYD9LMrmGpWbAFbJv5UkkqSvKEupvSGSZxSz7wN5",
