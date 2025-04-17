@@ -149,7 +149,6 @@ pub struct DeregisterTransceiver<'info> {
     )]
     pub config: Account<'info, Config>,
 
-    #[account(mut)]
     pub owner: Signer<'info>,
 
     #[account(executable)]
