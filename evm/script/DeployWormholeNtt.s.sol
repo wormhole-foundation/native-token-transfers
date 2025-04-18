@@ -80,7 +80,7 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
 
         // Deploy NttManager.
         address manager = deployNttManager(params);
-        
+
         // Deploy Wormhole Transceiver.
         address transceiver = deployWormholeTransceiver(params, manager);
 

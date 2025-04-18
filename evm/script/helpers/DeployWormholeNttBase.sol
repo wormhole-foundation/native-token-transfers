@@ -78,7 +78,7 @@ contract DeployWormholeNttBase is ParseNttConfig {
         IWormhole wh = IWormhole(params.wormholeCoreBridge);
         uint256 messageFee = wh.messageFee();
         // wh transceiver sends a WH_TRANSCEIVER_INIT_PREFIX message
-        transceiverProxy.initialize{ value: messageFee }();
+        transceiverProxy.initialize{value: messageFee}();
 
         console2.log("WormholeTransceiver:", address(transceiverProxy));
 
