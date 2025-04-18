@@ -205,7 +205,7 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
     );
     vaas.push(serialize(vaa));
   }
-
+  
   // Submit all registrations at once
   await submitAccountantVAAs(vaas, accountantPrivateKey);
 }
@@ -240,6 +240,7 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
 
   console.log("Calling transfer on: ", sourceCtx.context.chain);
   const srcNtt = await getNtt(sourceCtx);
+
   const transferTxs = srcNtt.transfer(sender.address, srcAmt, receiver, {
     queue: false,
     automatic: useRelayer,
@@ -259,6 +260,8 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
     await getManagerAndUserBalance(sourceCtx);
   const [managerBalanceAfterRecv, userBalanceAfterRecv] =
     await getManagerAndUserBalance(destinationCtx);
+
+
 
   checkBalances(
     sourceCtx.mode,
@@ -459,7 +462,10 @@ async function deployEvm(ctx: Ctx): Promise<Ctx> {
   console.log("Initialize the manager");
   await tryAndWaitThrice(() => manager.initialize());
   console.log("Initialize the transceiver");
-  await tryAndWaitThrice(() => transceiver.initialize());
+  const coreFee = await (await ctx.context.getWormholeCore()).getMessageFee()
+  await tryAndWaitThrice(() => transceiver.initialize({
+    value: coreFee
+  }));
 
   // Setup the initial calls, like transceivers for the manager
   console.log("Set transceiver for manager");
@@ -726,6 +732,26 @@ async function tryAndWaitThrice(
     }
   }
   return null;
+}
+
+export async function setMessageFee(chains: Chain[], fee: bigint) {
+  console.log(`Setting message fee for ${chains} to ${fee}`)
+  for (const chain of chains) {
+    const chainCtx = wh.getChain(chain)
+    const core = await chainCtx.getWormholeCore()
+    const coreAddress = chainCtx.config.contracts.coreBridge
+    const existingFee = await core.getMessageFee()
+    console.log(`Existing core bridge fee for ${chain}: ${existingFee}`)
+    const rpc = await chainCtx.getRpc()
+    await rpc.send("anvil_setStorageAt", [
+      coreAddress,
+      7, // messageFee storage slot
+      ethers.zeroPadValue(ethers.toBeHex(fee), 32)
+    ]);
+  
+    const newFee = await core.getMessageFee()
+    console.log(`New core bridge fee for ${chain}: ${newFee}`)
+  }
 }
 
 export async function testHub(

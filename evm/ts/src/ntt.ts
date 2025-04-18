@@ -80,11 +80,20 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
   async *setPeer<P extends Chain>(
     peer: ChainAddress<P>
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
+    const coreBridge = new Contract(this.manager.contracts.coreBridge!, [
+        "function messageFee() public view returns (uint256)",
+      ],
+      this.manager.provider
+    )
+    const messageFee = await coreBridge.getFunction("messageFee").staticCall()
     const tx = await this.transceiver.setWormholePeer.populateTransaction(
       toChainId(peer.chain),
       universalAddress(peer)
     );
-    yield this.manager.createUnsignedTx(tx, "WormholeTransceiver.registerPeer");
+    yield this.manager.createUnsignedTx({
+      ...tx,
+      value: messageFee
+    }, "WormholeTransceiver.registerPeer");
   }
 
   async getPauser(): Promise<AccountAddress<C> | null> {
