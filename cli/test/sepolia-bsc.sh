@@ -8,17 +8,51 @@ set -euox pipefail
 
 BSC_PORT=8545
 SEPOLIA_PORT=8546
+BSC_RPC_URL=https://bsc-testnet-rpc.publicnode.com
+SEPOLIA_RPC_URL=wss://ethereum-sepolia-rpc.publicnode.com
+SEPOLIA_FORK_RPC_URL=http://127.0.0.1:$SEPOLIA_PORT
+BSC_FORK_RPC_URL=http://127.0.0.1:$BSC_PORT
+SEPOLIA_CORE_BRIDGE=0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78
+BSC_CORE_BRIDGE=0x68605AD7b15c732a30b1BbC62BE8F2A509D74b4D
 
-anvil --silent --rpc-url https://bsc-testnet-rpc.publicnode.com -p "$BSC_PORT" &
+anvil --silent --rpc-url $BSC_RPC_URL -p "$BSC_PORT" &
 pid1=$!
-anvil --silent --rpc-url wss://ethereum-sepolia-rpc.publicnode.com -p "$SEPOLIA_PORT" &
+anvil --silent --rpc-url $SEPOLIA_RPC_URL -p "$SEPOLIA_PORT" &
 pid2=$!
-
 # check both processes are running
 if ! kill -0 $pid1 || ! kill -0 $pid2; then
   echo "Failed to start the servers"
   exit 1
 fi
+
+# wait for RPC endpoints to be ready
+wait_for_rpc() {
+  local url=$1
+  local max_attempts=30
+  local attempt=1
+  
+  echo "Waiting for RPC endpoint $url to be ready..."
+  while [ $attempt -le $max_attempts ]; do
+    if curl -s -X POST "$url" \
+      -H "Content-Type: application/json" \
+      --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null 2>&1; then
+      echo "RPC endpoint $url is ready"
+      return 0
+    fi
+    echo "Attempt $attempt/$max_attempts: RPC not ready yet, waiting..."
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+  echo "RPC endpoint $url failed to become ready after $max_attempts attempts"
+  return 1
+}
+
+wait_for_rpc "$SEPOLIA_FORK_RPC_URL" || exit 1
+wait_for_rpc "$BSC_FORK_RPC_URL" || exit 1
+
+# setting core bridge fee to 0.001 (7 = `messageFee` storage slot)
+curl "$SEPOLIA_FORK_RPC_URL" -H "Content-Type: application/json" --data "{\"jsonrpc\":\"2.0\",\"method\":\"anvil_setStorageAt\",\"params\":[\"$SEPOLIA_CORE_BRIDGE\", 7 ,\"0x00000000000000000000000000000000000000000000000000038D7EA4C68000\"],\"id\":1}"
+curl "$BSC_FORK_RPC_URL" -H "Content-Type: application/json" --data "{\"jsonrpc\":\"2.0\",\"method\":\"anvil_setStorageAt\",\"params\":[\"$BSC_CORE_BRIDGE\", 7 ,\"0x00000000000000000000000000000000000000000000000000038D7EA4C68000\"],\"id\":1}"
 
 # create tmp directory
 dir=$(mktemp -d)
@@ -44,10 +78,10 @@ cat <<EOF > overrides.json
 {
   "chains": {
     "Bsc": {
-      "rpc": "http://127.0.0.1:$BSC_PORT"
+      "rpc": "$BSC_FORK_RPC_URL"
     },
     "Sepolia": {
-      "rpc": "http://127.0.0.1:$SEPOLIA_PORT"
+      "rpc": "$SEPOLIA_FORK_RPC_URL"
     }
   }
 }

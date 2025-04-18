@@ -2,7 +2,8 @@ import { web3 } from "@coral-xyz/anchor";
 import { chainToPlatform } from "@wormhole-foundation/sdk-connect";
 
 import { registerRelayers } from "./accountant.js";
-import { Ctx, testHub } from "./utils.js";
+import { Ctx, setMessageFee, testHub } from "./utils.js";
+import { ethers } from "ethers";
 
 // Note: Currently, in order for this to run, the evm bindings with extra contracts must be build
 // To do that, at the root, run `npm run generate:test`
@@ -62,6 +63,11 @@ const makeGetNativeSigner =
 describe("Hub and Spoke Tests", function () {
   beforeAll(async () => {
     await registerRelayers(ACCT_MNEMONIC);
+    await setMessageFee(["Ethereum", "Bsc"], ethers.parseEther("0.001"));
+  });
+
+  afterAll(async () => {
+    await setMessageFee(["Ethereum", "Bsc"], 0n);
   });
 
   test("Test Solana and Ethereum Hubs", async () => {

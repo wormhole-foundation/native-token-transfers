@@ -12,6 +12,10 @@ import {WormholeTransceiver} from
     "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+interface IWormhole {
+    function messageFee() external view returns (uint256);
+}
+
 contract DeployWormholeNttBase is ParseNttConfig {
     struct DeploymentParams {
         address token;
@@ -71,7 +75,10 @@ contract DeployWormholeNttBase is ParseNttConfig {
         WormholeTransceiver transceiverProxy =
             WormholeTransceiver(address(new ERC1967Proxy(address(implementation), "")));
 
-        transceiverProxy.initialize();
+        IWormhole wh = IWormhole(params.wormholeCoreBridge);
+        uint256 messageFee = wh.messageFee();
+        // wh transceiver sends a WH_TRANSCEIVER_INIT_PREFIX message
+        transceiverProxy.initialize{value: messageFee}();
 
         console2.log("WormholeTransceiver:", address(transceiverProxy));
 

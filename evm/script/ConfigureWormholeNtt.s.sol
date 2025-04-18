@@ -10,6 +10,8 @@ import "../src/interfaces/IOwnableUpgradeable.sol";
 
 import {ParseNttConfig} from "./helpers/ParseNttConfig.sol";
 import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import {WormholeTransceiverState} from
+    "../src/Transceiver/WormholeTransceiver/WormholeTransceiverState.sol";
 
 contract ConfigureWormholeNtt is ParseNttConfig {
     using stdJson for string;
@@ -42,9 +44,10 @@ contract ConfigureWormholeNtt is ParseNttConfig {
                     wormholeTransceiver.setIsSpecialRelayingEnabled(targetConfig.chainId, true);
                     console2.log("Special relaying enabled for chain", targetConfig.chainId);
                 }
-
+                uint256 messageFee =
+                    WormholeTransceiverState(address(wormholeTransceiver)).wormhole().messageFee();
                 // Set peer.
-                wormholeTransceiver.setWormholePeer(
+                wormholeTransceiver.setWormholePeer{value: messageFee}(
                     targetConfig.chainId, targetConfig.wormholeTransceiver
                 );
                 console2.log("Wormhole peer set for chain", targetConfig.chainId);
