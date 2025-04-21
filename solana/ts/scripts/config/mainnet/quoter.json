@@ -151,7 +151,7 @@
       "name": "Libertai",
       "programId": "ntTziNUdVjNJKZXCFbSZxfmjigyBouS8YLtAp8R2Fwa",
       "tokenAddress": "mntpN8z1d29f3MWhMD7VqZFpeYmbD88MgwS3Bkz8y7u",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -159,7 +159,7 @@
       "name": "LitLab Games",
       "programId": "NTt198zrFsZkvfFH5juBK98frhDNooPtd5PGefd7vNb",
       "tokenAddress": "GEBUHM7o5T1Ws2rAWjRijtYeh9XFxKrD3B4b9HV7dxLz",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -167,7 +167,7 @@
       "name": "ValleyDAO",
       "programId": "nttgQT42hdZ1vNryzXwu2DzCVnxdDrAYyZnYs51gSSd",
       "tokenAddress": "growFDf9teg9gwVTTY3DgpPXU31qBrnbSQCqtY2vkR8",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -175,7 +175,7 @@
       "name": "Houdini Swap",
       "programId": "NTtMFrtV9uzEW9skftVkA7EsR6dUhPtpMNK9J2aCnpG",
       "tokenAddress": "App2Sp9pgmQG7yD6uVaygULxALf4TpfALgnhHEkJimih",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -183,7 +183,7 @@
       "name": "Bio Protocol",
       "programId": "ntt11hdA4n1PupHhLyT1fsjg4YF9agVz3CTuzLRQs1H",
       "tokenAddress": "bioJ9JTqW62MLz7UKHU69gtKhPpGi1BQhccj2kmSvUJ",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -191,7 +191,7 @@
       "name": "Portal",
       "programId": "nTTMrDU5CfFATK4ixizF8EK1GJaFwi35PjmNpK4Qp3e",
       "tokenAddress": "BCC71Yn1f9Tn4p2QVKqhDWQaoHvQj6Qr8QK2m6desRHe",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": false
     },
@@ -199,7 +199,7 @@
       "name": "Portal",
       "programId": "NTT3DKsRKTj7DKnLGM9PskA3qwt5Eeha5hoxkjf6PH6",
       "tokenAddress": "6QP4vqsnDQC1s53ZbtxEjVA8Xecz5DypurfVXVy9xR33",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": false
     },
@@ -207,7 +207,7 @@
       "name": "Portal",
       "programId": "ntT3RcLXQV8bMPiTwFNXvE9RTcxsmJLCH6DGtLXzfgV",
       "tokenAddress": "FMQjDvT1GztVxdvYgMBEde4L54fftFGx9m5GmbqeJGM5",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -215,7 +215,7 @@
       "name": "VictoriaVR",
       "programId": "Ntt4DumFpWsaM3MjoHBnbDcK7DfAsmWK7yC4nKK2MbR",
       "tokenAddress": "7zJqVFQZkZqN7B3bHWWaPig4pBBqwbCVXpFtiDYxaVuX",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -223,7 +223,7 @@
       "name": "Avail",
       "programId": "nttbhNaJput6dP8hXV6fuuhRHyvKYy2GJYAs64s176G",
       "tokenAddress": "CANeF11aEY9XNGbJmnQwTPvnnXoPfGKpPyLxZr2zVd9W",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -231,7 +231,7 @@
       "name": "Ponke",
       "programId": "NTTB7GBM1e559QnE2AtppjjuRmA9gHYMuqauLC2DiXn",
       "tokenAddress": "5z3EqYQo9HiCEs3R84RCDMu2n7anpDMxRhdK8PSWmrRC",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -239,7 +239,7 @@
       "name": "GoPlus",
       "programId": "ntts1k5D5paWgPDmWVujZUGBQruMXFRSrjRydAweSKc",
       "tokenAddress": "9Qh7srATukeENC1D1eNimWgdY34Wjs3g6MjBuLRNkWy4",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -247,7 +247,7 @@
       "name": "Powerledger",
       "programId": "nttUkLVrPQiLjyH83XrK877L4bsHMJ5bhZN91BDoynL",
       "tokenAddress": "PowerhfyX6JqFprXzy89fPBSKqmLj8Yzcvr3FkHrQHR",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -255,7 +255,7 @@
       "name": "Quantum Biology DAO",
       "programId": "nttmCZuaoLZ2TEyuo1qytxUJwW9v5Um7bhUgY9zhS6M",
       "tokenAddress": "qbioCGDnUBGX5qcK1Fc4zg19GaQEPmxHFMPMZQm4LZ8",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -263,7 +263,7 @@
       "name": "Lingo",
       "programId": "nTTQspEC1JoEUJVFTcgZSatgcv4PNT8UYtCtyaUSKcX",
       "tokenAddress": "GWZGj6AM4pkWxQW6bifE6JChSRf2hEQFWFkYC4REaL7H",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -271,7 +271,7 @@
       "name": "ZeUSD",
       "programId": "nTTdCamfWnZ3zGAG3bKpqu64X88WjSFLVnW6deigxbL",
       "tokenAddress": "EVSMG8w3xZjf37nAH8yMkX8Uubw1JAKSHaZza2mVQqR2",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -279,7 +279,7 @@
       "name": "WrappedPOL",
       "programId": "nTT1Pzu8fDkwYAyZ4B55qN1aS7iPQN9eB3Q7cR9mXrs",
       "tokenAddress": "AzuQ9o7mjzfJk72xRgzSCfrs1XWkhYyaGcudSu62qwg",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -287,7 +287,7 @@
       "name": "Blast",
       "programId": "NTTRncfCa7rmT15TY5g1GR887YaebsXS5UndprWW11c",
       "tokenAddress": "HUGDquup2qWiXrSJPS2yyyYHcy7MWx7cft9LR4DhSyhW",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -295,7 +295,7 @@
       "name": "TracyAI",
       "programId": "nttJq45pyjVKAUcieL9zrU9nsc4Q7czQFcyvvg2nmcH",
       "tokenAddress": "C1nzFL2DD3Wqc3dzRbsrpb6tiZ6dbYsXubjVtzyHvirt",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -303,10 +303,26 @@
       "name": "AVAX",
       "programId": "ntTW3X39Vo1G7YdnAt62TYexBoFMfBzcJozXvmdNKtv",
       "tokenAddress": "yNBMYD9LMrmGpWbAFbJv5UkkqSvKEupvSGSZxSz7wN5",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
+    {
+      "name": "DIMO",
+      "programId": "ntTaFab1KhTpuPX8LMUo6gnXJEGD5HDsF53VFhNGJKy",
+      "tokenAddress": "ERQXNXuWfpaGMh9Cs19zxcQTtzCVNZerdKXJ7BQKXVhd",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
+    {
+      "name": "TDE",
+      "programId": "nttjM2C3pjAgTPe5drXFZWG1BrtETCbEibnNXA6davy",
+      "tokenAddress": "CKWsepKf2N6h7NNpsP8JewmseoP4QEJQHTw82HoipDnU",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    }
   ],
   "peerQuotes": {
     "Ethereum": {
