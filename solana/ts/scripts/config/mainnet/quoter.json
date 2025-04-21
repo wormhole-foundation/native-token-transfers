@@ -298,6 +298,22 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "DIMO",
+      "programId": "ntTaFab1KhTpuPX8LMUo6gnXJEGD5HDsF53VFhNGJKy",
+      "tokenAddress": "ERQXNXuWfpaGMh9Cs19zxcQTtzCVNZerdKXJ7BQKXVhd",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
+    {
+      "name": "TDE",
+      "programId": "nttjM2C3pjAgTPe5drXFZWG1BrtETCbEibnNXA6davy",
+      "tokenAddress": "CKWsepKf2N6h7NNpsP8JewmseoP4QEJQHTw82HoipDnU",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
