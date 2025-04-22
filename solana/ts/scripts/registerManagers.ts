@@ -14,6 +14,8 @@ async function run() {
   const quoter = new NttQuoter(connection, programs.quoterProgramId);
 
   for (const managerConfig of config.managerRegistrations) {
+    await sleep(1000); // HACK avoid 429 rate limit error
+
     const nttKey = new PublicKey(managerConfig.programId);
     const registration = await quoter.tryGetRegisteredNtt(nttKey);
     console.log(`Registration for manager ${managerConfig.programId} (${managerConfig.name}):`, registration);
@@ -64,7 +66,14 @@ async function run() {
         `Failed to register or de-register manager ${managerConfig.programId}: ${error}`
       );
     }
+  
+  
   }
 }
 
 run();
+
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
