@@ -70,10 +70,18 @@ pub fn set_peer(ctx: Context<SetPeer>, args: SetPeerArgs) -> Result<()> {
         token_decimals: args.token_decimals,
     });
 
-    ctx.accounts.inbox_rate_limit.set_inner(InboxRateLimit {
-        bump: ctx.bumps.inbox_rate_limit,
-        rate_limit: RateLimitState::new(args.limit),
-    });
+    // if rate limit is uninitialized/unused, set new rate limit
+    if ctx.accounts.inbox_rate_limit.rate_limit.last_tx_timestamp == 0 {
+        ctx.accounts.inbox_rate_limit.set_inner(InboxRateLimit {
+            bump: ctx.bumps.inbox_rate_limit,
+            rate_limit: RateLimitState::new(args.limit),
+        });
+    }
+    // else update rate limit
+    else {
+        ctx.accounts.inbox_rate_limit.set_limit(args.limit);
+    }
+
     Ok(())
 }
 
