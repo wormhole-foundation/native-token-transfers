@@ -5,9 +5,12 @@
 //! client could just manage its own ad-hoc lookup table.
 //! Nevertheless, we provide this instruction to make it easier for the client
 //! to query the lookup table from a deterministic address, and for integrators
-//! to be able to fetch the accounts from the LUT in a standardised way. However,
-//! since an attacker could permissionlessly backrun the lookup table, we make it
-//! permissioned.
+//! to be able to fetch the accounts from the LUT in a standardised way.
+//!
+//! Currently the `fee_collector` and `sequence` in the [`Entries`] struct are
+//! unconstrainted and are only verified by the core bridge. Thus it is possible
+//! for an attacker to fill the LUT with garbage values for those accounts.
+//! To avoid this, we make this call permissioned.
 //!
 //! This way, the client sdk can abstract away the lookup table logic in a
 //! maintanable way.
