@@ -694,7 +694,19 @@ yargs(hideBin(process.argv))
                             console.error(`cannot update ${chain} because the configured private key does not correspond to owner ${contractOwner.address}`)
                             continue
                         } else {
-                            // assume if that there's code, that it's the same interface as the bootnode NttOwner
+                            const eip165Interface = new Interface([
+                                "function supportsInterface(bytes4 interfaceId) external view returns (bool)",
+                                ] as const)
+                            const callData = eip165Interface.encodeFunctionData("supportsInterface", ["0x43412b75"])
+                            const supports = await provider.call({
+                                to: contractOwner.toString(),
+                                data: callData,
+                            })
+                            const supportsInt = parseInt(supports)
+                            if(supportsInt !== 1)  {
+                                console.error(`cannot update ${chain} because the owning contract does not implement INttOwner`)
+                                process.exit(1)
+                            }
                             nttOwner = contractOwner
                         }
                     }
