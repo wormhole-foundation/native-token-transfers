@@ -676,13 +676,13 @@ yargs(hideBin(process.argv))
             const shouldSkipChain = (chain: string) => {
                 if(onlyChains.length > 0) {
                     if(!onlyChains.includes(chain)) {
-                        return false;
+                        return true
                     }
                 }
                 if(skipChains.includes(chain)) {
-                    return false
+                    return true
                 }
-                return true
+                return false
             }
             const missing = await missingConfigs(deps, verbose);
 
