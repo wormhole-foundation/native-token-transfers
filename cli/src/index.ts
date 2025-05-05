@@ -171,6 +171,11 @@ const options = {
         type: "array",
         choices: chains,
     },
+    onlyChain: {
+        describe: "Only chains",
+        type: "array",
+        choices: chains,
+    }
 } as const;
 
 
@@ -654,6 +659,7 @@ yargs(hideBin(process.argv))
             .option("skip-verify", options.skipVerify)
             .option("payer", options.payer)
             .option("skip-chain", options.skipChain)
+            .option("only-chain", options.onlyChain)
             .example("$0 push", "Push local configuration changes to the blockchain")
             .example("$0 push --signer-type ledger", "Push changes using a Ledger hardware wallet for signing")
             .example("$0 push --skip-verify", "Push changes without verifying contracts on EVM chains")
@@ -666,6 +672,18 @@ yargs(hideBin(process.argv))
             const signerType = argv["signer-type"] as SignerType;
             const payerPath = argv["payer"];
             const skipChains = argv["skip-chain"] as string[];
+            const onlyChains = argv["only-chain"] as string[];
+            const shouldSkipChain = (chain: string) => {
+                if(onlyChains.length > 0) {
+                    if(!onlyChains.includes(chain)) {
+                        return false;
+                    }
+                }
+                if(skipChains.includes(chain)) {
+                    return false
+                }
+                return true
+            }
             const missing = await missingConfigs(deps, verbose);
 
             if (checkConfigErrors(deps)) {
@@ -677,7 +695,7 @@ yargs(hideBin(process.argv))
 
 
             for (const [chain, _] of Object.entries(deps)) {
-                if(skipChains.includes(chain)) {
+                if(shouldSkipChain(chain)) {
                     console.log(`skipping registration for chain ${chain}`)
                     continue
                 }
@@ -718,7 +736,7 @@ yargs(hideBin(process.argv))
                 }
             }
             for (const [chain, missingConfig] of Object.entries(missing)) {
-                if(skipChains.includes(chain)) {
+                if(shouldSkipChain(chain)) {
                     console.log(`skipping registration for chain ${chain}`)
                     continue
                 }
@@ -782,7 +800,7 @@ yargs(hideBin(process.argv))
             const depsAfterRegistrations: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
 
             for (const [chain, deployment] of Object.entries(depsAfterRegistrations)) {
-                if(skipChains.includes(chain)) {
+                if(shouldSkipChain(chain)) {
                     console.log(`skipping deployment for chain ${chain}`)
                     continue
                 }
