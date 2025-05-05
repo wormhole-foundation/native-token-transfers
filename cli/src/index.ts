@@ -671,8 +671,8 @@ yargs(hideBin(process.argv))
             const deps: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
             const signerType = argv["signer-type"] as SignerType;
             const payerPath = argv["payer"];
-            const skipChains = argv["skip-chain"] as string[];
-            const onlyChains = argv["only-chain"] as string[];
+            const skipChains = argv["skip-chain"] as string[] || [];
+            const onlyChains = argv["only-chain"] as string[] || [];
             const shouldSkipChain = (chain: string) => {
                 if(onlyChains.length > 0) {
                     if(!onlyChains.includes(chain)) {
