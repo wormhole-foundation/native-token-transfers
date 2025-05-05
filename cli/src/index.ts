@@ -172,7 +172,7 @@ const options = {
         choices: chains,
     },
     onlyChain: {
-        describe: "Only chains",
+        describe: "Only do these chains (can be skipped)",
         type: "array",
         choices: chains,
     }
