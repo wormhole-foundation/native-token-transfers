@@ -704,7 +704,6 @@ yargs(hideBin(process.argv))
                     const ntt = deps[chain]!.ntt;
                     const ctx = deps[chain]!.ctx;
                     const signer = await getSigner(ctx, signerType, undefined, payerPath);
-                    console.log(`performing ownership check for chain ${chain}`)
                     const rpc = ctx.config.rpc;
                     const provider = new ethers.JsonRpcProvider(rpc);
                     // get the owner of the ntt manager
@@ -729,7 +728,6 @@ yargs(hideBin(process.argv))
                                 console.error(`cannot update ${chain} because the owning contract does not implement INttOwner`)
                                 process.exit(1)
                             }
-                            console.log(`Found that ${chain} owner is nttOwner ${contractOwner.toString()}`)
                             nttOwnerForChain[chain] = contractOwner.toString()
                         }
                     }
