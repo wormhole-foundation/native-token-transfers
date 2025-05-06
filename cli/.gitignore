@@ -2,6 +2,7 @@
 deployment.json
 *deployment.json
 id.json
+*-id.json
 
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 
