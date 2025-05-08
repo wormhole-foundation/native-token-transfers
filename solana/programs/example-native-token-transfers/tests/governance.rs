@@ -3,6 +3,13 @@
 
 use std::sync::atomic::AtomicU64;
 
+use crate::{
+    common::{query::GetAccountDataAnchor, setup::setup, submit::Submittable},
+    sdk::instructions::{
+        admin::{set_paused, SetPaused},
+        post_vaa::post_vaa,
+    },
+};
 use anchor_lang::{prelude::*, InstructionData};
 use example_native_token_transfers::config::Config;
 use ntt_messages::mode::Mode;
@@ -19,14 +26,6 @@ use wormhole_governance::{
 };
 use wormhole_sdk::{Address, Vaa, GOVERNANCE_EMITTER};
 use wormhole_solana_utils::cpi::bpf_loader_upgradeable;
-
-use crate::{
-    common::{query::GetAccountDataAnchor, setup::setup, submit::Submittable},
-    sdk::instructions::{
-        admin::{set_paused, SetPaused},
-        post_vaa::post_vaa,
-    },
-};
 
 pub mod common;
 pub mod sdk;

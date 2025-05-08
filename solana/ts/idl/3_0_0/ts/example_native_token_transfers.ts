@@ -204,6 +204,16 @@ export type ExampleNativeTokenTransfers = {
                   "name": "rent",
                   "isMut": false,
                   "isSigner": false
+                },
+                {
+                  "name": "transceiver",
+                  "isMut": false,
+                  "isSigner": false
+                },
+                {
+                  "name": "emitter",
+                  "isMut": false,
+                  "isSigner": false
                 }
               ]
             }
@@ -219,7 +229,13 @@ export type ExampleNativeTokenTransfers = {
     },
     {
       "name": "version",
-      "accounts": [],
+      "accounts": [
+        {
+          "name": "dummy",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
       "args": [],
       "returns": "string"
     },
@@ -1335,322 +1351,6 @@ export type ExampleNativeTokenTransfers = {
           "type": "u8"
         }
       ]
-    },
-    {
-      "name": "setWormholePeer",
-      "accounts": [
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "peer",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "args",
-          "type": {
-            "defined": "SetTransceiverPeerArgs"
-          }
-        }
-      ]
-    },
-    {
-      "name": "receiveWormholeMessage",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "accounts": [
-            {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        },
-        {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "vaa",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "transceiverMessage",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "releaseWormholeOutbound",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "accounts": [
-            {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        },
-        {
-          "name": "outboxItem",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormhole",
-          "accounts": [
-            {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseOutboundArgs"
-          }
-        }
-      ]
-    },
-    {
-      "name": "broadcastWormholeId",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormhole",
-          "accounts": [
-            {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "broadcastWormholePeer",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormhole",
-          "accounts": [
-            {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "args",
-          "type": {
-            "defined": "BroadcastPeerArgs"
-          }
-        }
-      ]
     }
   ],
   "accounts": [
@@ -1967,30 +1667,6 @@ export type ExampleNativeTokenTransfers = {
       }
     },
     {
-      "name": "transceiverPeer",
-      "docs": [
-        "A peer on another chain. Stored in a PDA seeded by the chain id."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "bridgeData",
       "type": {
         "kind": "struct",
@@ -2227,53 +1903,6 @@ export type ExampleNativeTokenTransfers = {
               "just delayed."
             ],
             "type": "i64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SetTransceiverPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
-          },
-          {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "BroadcastPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "chainId",
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
-      "name": "ReleaseOutboundArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "revertOnDelay",
-            "type": "bool"
           }
         ]
       }
@@ -2704,6 +2333,16 @@ export const IDL: ExampleNativeTokenTransfers = {
                   "name": "rent",
                   "isMut": false,
                   "isSigner": false
+                },
+                {
+                  "name": "transceiver",
+                  "isMut": false,
+                  "isSigner": false
+                },
+                {
+                  "name": "emitter",
+                  "isMut": false,
+                  "isSigner": false
                 }
               ]
             }
@@ -2719,7 +2358,13 @@ export const IDL: ExampleNativeTokenTransfers = {
     },
     {
       "name": "version",
-      "accounts": [],
+      "accounts": [
+        {
+          "name": "dummy",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
       "args": [],
       "returns": "string"
     },
@@ -3835,322 +3480,6 @@ export const IDL: ExampleNativeTokenTransfers = {
           "type": "u8"
         }
       ]
-    },
-    {
-      "name": "setWormholePeer",
-      "accounts": [
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "peer",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "args",
-          "type": {
-            "defined": "SetTransceiverPeerArgs"
-          }
-        }
-      ]
-    },
-    {
-      "name": "receiveWormholeMessage",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "accounts": [
-            {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        },
-        {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "vaa",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "transceiverMessage",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "releaseWormholeOutbound",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "accounts": [
-            {
-              "name": "config",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        },
-        {
-          "name": "outboxItem",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormhole",
-          "accounts": [
-            {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "args",
-          "type": {
-            "defined": "ReleaseOutboundArgs"
-          }
-        }
-      ]
-    },
-    {
-      "name": "broadcastWormholeId",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormhole",
-          "accounts": [
-            {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "broadcastWormholePeer",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "peer",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormholeMessage",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "wormhole",
-          "accounts": [
-            {
-              "name": "bridge",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "feeCollector",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "sequence",
-              "isMut": true,
-              "isSigner": false
-            },
-            {
-              "name": "program",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "systemProgram",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "clock",
-              "isMut": false,
-              "isSigner": false
-            },
-            {
-              "name": "rent",
-              "isMut": false,
-              "isSigner": false
-            }
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "args",
-          "type": {
-            "defined": "BroadcastPeerArgs"
-          }
-        }
-      ]
     }
   ],
   "accounts": [
@@ -4467,30 +3796,6 @@ export const IDL: ExampleNativeTokenTransfers = {
       }
     },
     {
-      "name": "transceiverPeer",
-      "docs": [
-        "A peer on another chain. Stored in a PDA seeded by the chain id."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "bridgeData",
       "type": {
         "kind": "struct",
@@ -4727,53 +4032,6 @@ export const IDL: ExampleNativeTokenTransfers = {
               "just delayed."
             ],
             "type": "i64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SetTransceiverPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "chainId",
-            "type": {
-              "defined": "ChainId"
-            }
-          },
-          {
-            "name": "address",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "BroadcastPeerArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "chainId",
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
-      "name": "ReleaseOutboundArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "revertOnDelay",
-            "type": "bool"
           }
         ]
       }

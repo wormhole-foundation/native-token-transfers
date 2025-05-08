@@ -1564,6 +1564,7 @@ dependencies = [
  "hex",
  "libsecp256k1",
  "ntt-messages",
+ "ntt-transceiver",
  "serde",
  "serde_json",
  "serde_wormhole",

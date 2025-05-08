@@ -147,39 +147,10 @@ impl NTT {
         registered_transceiver
     }
 
-    pub fn emitter(&self) -> Pubkey {
-        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program);
-        emitter
-    }
-
-    pub fn wormhole_message(&self, outbox_item: &Pubkey) -> Pubkey {
-        let (wormhole_message, _) = Pubkey::find_program_address(
-            &[b"message".as_ref(), outbox_item.as_ref()],
-            &self.program,
-        );
-        wormhole_message
-    }
-
     pub fn peer(&self, chain: u16) -> Pubkey {
         let (peer, _) =
             Pubkey::find_program_address(&[b"peer".as_ref(), &chain.to_be_bytes()], &self.program);
         peer
-    }
-
-    pub fn transceiver_peer(&self, chain: u16) -> Pubkey {
-        let (peer, _) = Pubkey::find_program_address(
-            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
-            &self.program,
-        );
-        peer
-    }
-
-    pub fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
-        let (transceiver_message, _) = Pubkey::find_program_address(
-            &[b"transceiver_message".as_ref(), &chain.to_be_bytes(), &id],
-            &self.program,
-        );
-        transceiver_message
     }
 
     pub fn custody(&self, mint: &Pubkey) -> Pubkey {
@@ -198,8 +169,8 @@ impl NTT {
         )
     }
 
-    pub fn wormhole_sequence(&self) -> Pubkey {
-        self.wormhole.sequence(&self.emitter())
+    pub fn wormhole_sequence(&self, ntt_transceiver: &NTTTransceiver) -> Pubkey {
+        self.wormhole.sequence(&ntt_transceiver.emitter())
     }
 
     pub fn program_data(&self) -> Pubkey {
@@ -211,5 +182,46 @@ impl NTT {
     pub fn upgrade_lock(&self) -> Pubkey {
         let (addr, _) = Pubkey::find_program_address(&[b"upgrade_lock"], &self.program);
         addr
+    }
+}
+
+pub struct NTTTransceiver {
+    pub program: Pubkey,
+}
+
+impl NTTTransceiver {
+    pub fn emitter(&self) -> Pubkey {
+        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program);
+        emitter
+    }
+
+    pub fn outbox_item_signer(&self) -> Pubkey {
+        let (outbox_item_signer, _) =
+            Pubkey::find_program_address(&[b"outbox_item_signer".as_ref()], &self.program);
+        outbox_item_signer
+    }
+
+    pub fn wormhole_message(&self, outbox_item: &Pubkey) -> Pubkey {
+        let (wormhole_message, _) = Pubkey::find_program_address(
+            &[b"message".as_ref(), outbox_item.as_ref()],
+            &self.program,
+        );
+        wormhole_message
+    }
+
+    pub fn transceiver_peer(&self, chain: u16) -> Pubkey {
+        let (peer, _) = Pubkey::find_program_address(
+            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
+            &self.program,
+        );
+        peer
+    }
+
+    pub fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
+        let (transceiver_message, _) = Pubkey::find_program_address(
+            &[b"transceiver_message".as_ref(), &chain.to_be_bytes(), &id],
+            &self.program,
+        );
+        transceiver_message
     }
 }

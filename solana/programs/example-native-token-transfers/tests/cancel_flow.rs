@@ -1,8 +1,22 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
+use crate::{
+    common::{
+        query::GetAccountDataAnchor,
+        setup::{setup, TestData, OTHER_CHAIN, OTHER_MANAGER, OTHER_TRANSCEIVER, THIS_CHAIN},
+        submit::Submittable,
+    },
+    sdk::{
+        instructions::{
+            post_vaa::post_vaa,
+            redeem::{redeem, Redeem},
+            transfer::{approve_token_authority, transfer, Transfer},
+        },
+        transceivers::wormhole::instructions::receive_message::{receive_message, ReceiveMessage},
+    },
+};
 use anchor_lang::prelude::*;
-use common::setup::{TestData, OTHER_CHAIN, OTHER_MANAGER, OTHER_TRANSCEIVER, THIS_CHAIN};
 use example_native_token_transfers::{
     error::NTTError,
     instructions::{RedeemArgs, TransferArgs},
@@ -14,27 +28,10 @@ use ntt_messages::{
     transceiver::TransceiverMessage, transceivers::wormhole::WormholeTransceiver,
     trimmed_amount::TrimmedAmount,
 };
-use sdk::transceivers::wormhole::instructions::receive_message::ReceiveMessage;
 use solana_program::instruction::InstructionError;
 use solana_program_test::*;
 use solana_sdk::{signature::Keypair, signer::Signer, transaction::TransactionError};
 use wormhole_sdk::{Address, Vaa};
-
-use crate::{
-    common::submit::Submittable,
-    sdk::instructions::transfer::{approve_token_authority, transfer},
-};
-use crate::{
-    common::{query::GetAccountDataAnchor, setup::setup},
-    sdk::{
-        instructions::{
-            post_vaa::post_vaa,
-            redeem::{redeem, Redeem},
-            transfer::Transfer,
-        },
-        transceivers::wormhole::instructions::receive_message::receive_message,
-    },
-};
 
 pub mod common;
 pub mod sdk;
@@ -74,9 +71,9 @@ fn init_redeem_accs(
     Redeem {
         payer: ctx.payer.pubkey(),
         peer: test_data.ntt.peer(chain_id),
-        transceiver: test_data.ntt.program,
+        transceiver: test_data.ntt_transceiver.program,
         transceiver_message: test_data
-            .ntt
+            .ntt_transceiver
             .transceiver_message(chain_id, ntt_manager_message.id),
         inbox_item: test_data.ntt.inbox_item(chain_id, ntt_manager_message),
         inbox_rate_limit: test_data.ntt.inbox_rate_limit(chain_id),
@@ -93,7 +90,7 @@ fn init_receive_message_accs(
 ) -> ReceiveMessage {
     ReceiveMessage {
         payer: ctx.payer.pubkey(),
-        peer: test_data.ntt.transceiver_peer(chain_id),
+        peer: test_data.ntt_transceiver.transceiver_peer(chain_id),
         vaa,
         chain_id,
         id,
@@ -187,6 +184,7 @@ async fn test_cancel() {
 
     receive_message(
         &test_data.ntt,
+        &test_data.ntt_transceiver,
         init_receive_message_accs(&mut ctx, &test_data, vaa0, OTHER_CHAIN, [0u8; 32]),
     )
     .submit(&mut ctx)
@@ -244,6 +242,7 @@ async fn test_cancel() {
 
     receive_message(
         &test_data.ntt,
+        &test_data.ntt_transceiver,
         init_receive_message_accs(&mut ctx, &test_data, vaa1, OTHER_CHAIN, [1u8; 32]),
     )
     .submit(&mut ctx)
@@ -288,6 +287,7 @@ async fn test_wrong_recipient_ntt_manager() {
 
     receive_message(
         &test_data.ntt,
+        &test_data.ntt_transceiver,
         init_receive_message_accs(&mut ctx, &test_data, vaa0, OTHER_CHAIN, [0u8; 32]),
     )
     .submit(&mut ctx)
