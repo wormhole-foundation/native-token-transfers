@@ -37,7 +37,7 @@ module ntt_common::validated_transceiver_message {
         from_chain: u16,
         message: TransceiverMessageData<A>
     ): ValidatedTransceiverMessage<TransceiverAuth, A> {
-        ntt_common::contract_auth::assert_auth_type(auth);
+        ntt_common::contract_auth::assert_auth_type(auth, b"TransceiverAuth");
         ValidatedTransceiverMessage {
             from_chain,
             message
@@ -50,7 +50,7 @@ module ntt_common::validated_transceiver_message {
     ): (u16, ExternalAddress, NttManagerMessage<A>) {
         let ValidatedTransceiverMessage { from_chain, message } = message;
         let (source_ntt_manager, recipient_ntt_manager, ntt_manager_message) = message.destruct();
-        let caller_manager = ntt_common::contract_auth::assert_auth_type(auth);
+        let caller_manager = ntt_common::contract_auth::assert_auth_type(auth, b"ManagerAuth");
         assert!(external_address::from_address(caller_manager) == recipient_ntt_manager, EInvalidRecipientManager);
         (from_chain, source_ntt_manager, ntt_manager_message)
     }

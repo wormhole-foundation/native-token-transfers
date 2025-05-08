@@ -10,7 +10,7 @@
 /// this type given the original amount's decimals.
 module ntt_common::trimmed_amount {
     use sui::coin::Coin;
-    use sui::balance::{Self, Balance};
+    use sui::balance::Balance;
     use wormhole::bytes;
     use wormhole::cursor::{Self, Cursor};
 
