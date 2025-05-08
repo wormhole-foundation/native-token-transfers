@@ -37,7 +37,7 @@ module ntt_common::outbound_message {
         message: NttManagerMessage<vector<u8>>,
         recipient_ntt_manager: ExternalAddress,
     ): OutboundMessage<TransceiverAuth> {
-        let manager_address = contract_auth::assert_auth_type(auth);
+        let manager_address = contract_auth::assert_auth_type(auth, b"ManagerAuth");
         let source_ntt_manager = external_address::from_address(manager_address);
         OutboundMessage { message, source_ntt_manager, recipient_ntt_manager }
     }
@@ -46,7 +46,7 @@ module ntt_common::outbound_message {
         message: OutboundMessage<TransceiverAuth>,
         auth: &TransceiverAuth,
     ): (NttManagerMessage<vector<u8>>, ExternalAddress, ExternalAddress) {
-        contract_auth::assert_auth_type(auth);
+        contract_auth::assert_auth_type(auth, b"TransceiverAuth");
         let OutboundMessage { message, source_ntt_manager, recipient_ntt_manager } = message;
         (message, source_ntt_manager, recipient_ntt_manager)
     }
