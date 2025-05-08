@@ -330,6 +330,22 @@
       "gasGost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "VitaDAO",
+      "programId": "nTtX6Vvdat5fsGqLVQwHVWm2W8JL8TwK2gbrXrUGThx",
+      "tokenAddress": "VitAJ7SePwVQdpYAfKQ77RCde8dRtWdYsVE9m4UNvQV",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
+    {
+      "name": "Doodles",
+      "programId": "nTtWMBHa1LvWqPbuhS3uRGPmhxw9XNDKzFmjtwHY4cc",
+      "tokenAddress": "DvjbEsdca43oQcw2h3HW1CT7N3x5vRcr3QrvTUHnXvgV",
+      "gasGost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
