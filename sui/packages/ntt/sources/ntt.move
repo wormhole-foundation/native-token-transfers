@@ -113,7 +113,7 @@ module ntt::ntt {
         ticket: TransferTicket<CoinType>,
         clock: &Clock,
     ): OutboxKey {
-        transfer_impl(state, version_gated, coin_meta, ticket, clock, ntt_common::contract_auth::assert_auth_type(auth))
+        transfer_impl(state, version_gated, coin_meta, ticket, clock, ntt_common::contract_auth::assert_auth_type(auth, b"NttSenderAuth"))
     }
 
     fun transfer_impl<CoinType>(

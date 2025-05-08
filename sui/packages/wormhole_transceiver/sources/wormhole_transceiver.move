@@ -11,10 +11,10 @@ module wormhole_transceiver::wormhole_transceiver {
     use ntt::state::{State as ManagerState};
     use sui::coin::{CoinMetadata};
 
-    public struct Auth has drop {}
+    public struct TransceiverAuth has drop {}
 
-    public fun prefix(): PrefixOf<Auth> {
-        transceiver_message::prefix(&Auth {}, ntt_common::bytes4::new(x"9945FF10"))
+    public fun prefix(): PrefixOf<TransceiverAuth> {
+        transceiver_message::prefix(&TransceiverAuth {}, ntt_common::bytes4::new(x"9945FF10"))
     }
 
     public struct State has key, store {
@@ -57,11 +57,11 @@ module wormhole_transceiver::wormhole_transceiver {
 
     public fun release_outbound(
         state: &mut State,
-        message: OutboundMessage<Auth>,
+        message: OutboundMessage<TransceiverAuth>,
     ): MessageTicket {
 
         let (ntt_manager_message, source_ntt_manager, recipient_ntt_manager)
-            = message.unwrap_outbound_message(&Auth {});
+            = message.unwrap_outbound_message(&TransceiverAuth {});
 
         let transceiver_message = transceiver_message::new(
             transceiver_message_data::new(
@@ -83,8 +83,8 @@ module wormhole_transceiver::wormhole_transceiver {
 
     public fun validate_message(
         state: &State,
-        vaa: VAA, 
-    ): ValidatedTransceiverMessage<Auth, vector<u8>> {
+        vaa: VAA,
+    ): ValidatedTransceiverMessage<TransceiverAuth, vector<u8>> {
         let (emitter_chain, emitter_address, payload)
             = vaa::take_emitter_info_and_payload(vaa);
 
@@ -95,7 +95,7 @@ module wormhole_transceiver::wormhole_transceiver {
         let (message_data, _) = transceiver_message.destruct();
 
         validated_transceiver_message::new(
-            &Auth {},
+            &TransceiverAuth {},
             emitter_chain,
             message_data,
         )
@@ -120,7 +120,7 @@ module wormhole_transceiver::wormhole_transceiver {
     // }
 
     public fun set_peer(_ : &AdminCap, state: &mut State, chain: u16, peer: ExternalAddress): MessageTicket{
-        
+
         // Cannot replace WH peers because of complexities with the accountant, according to EVM implementation.
         assert!(!state.peers.contains(chain));
         state.peers.add(chain, peer);
@@ -129,8 +129,8 @@ module wormhole_transceiver::wormhole_transceiver {
     }
 
     /*
-    Broadcast Peer in Solana 
-    Transceiver Registration in EVM 
+    Broadcast Peer in Solana
+    Transceiver Registration in EVM
 
     NTT Accountant must know which transceivers registered each other as peers.
     */
@@ -146,7 +146,7 @@ module wormhole_transceiver::wormhole_transceiver {
     }
 
     /*
-    TransceiverInit on EVM 
+    TransceiverInit on EVM
     BroadCastId on Solana
 
     Deployment of a new transceiver and notice to the NTT accountant.
@@ -157,7 +157,7 @@ module wormhole_transceiver::wormhole_transceiver {
     */
     public fun broadcast_id<CoinType, Auth>(_: &AdminCap, coin_meta: &CoinMetadata<CoinType>, state: &mut State, manager_state: &ManagerState<CoinType>): MessageTicket {
 
-        let mut manager_address_opt: Option<address> = ntt_common::contract_auth::get_auth_address<Auth>(); 
+        let mut manager_address_opt: Option<address> = ntt_common::contract_auth::get_auth_address<Auth>(b"ManagerAuth");
         let manager_address = option::extract(&mut manager_address_opt);
 
         let external_address_manager_address = wormhole::external_address::from_address(manager_address);
@@ -174,6 +174,6 @@ module wormhole_transceiver::wormhole_transceiver {
 
     #[test]
     public fun test_auth_type() {
-        assert!(ntt_common::contract_auth::is_auth_type<wormhole_transceiver::wormhole_transceiver::Auth>(), 0);
+        assert!(ntt_common::contract_auth::is_auth_type<wormhole_transceiver::wormhole_transceiver::TransceiverAuth>(b"TransceiverAuth"), 0);
     }
 }

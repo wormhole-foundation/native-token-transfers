@@ -67,7 +67,7 @@ module ntt::ntt_tests {
 
         // Get state and vote on message
         let mut state = ntt_scenario::take_state(&scenario);
-        state::vote<test_transceiver_a::Auth, ntt_scenario::NTT_SCENARIO>(&mut state, ntt_scenario::peer_chain_id(), message);
+        state::vote<test_transceiver_a::TransceiverAuth, ntt_scenario::NTT_SCENARIO>(&mut state, ntt_scenario::peer_chain_id(), message);
 
         // Verify vote was counted
         let inbox_item = state::borrow_inbox_item<ntt_scenario::NTT_SCENARIO>(&state, ntt_scenario::peer_chain_id(), message);
@@ -92,7 +92,7 @@ module ntt::ntt_tests {
         let mut state = ntt_scenario::take_state(&scenario);
 
         // First vote
-        state::vote<test_transceiver_a::Auth, _>(&mut state, ntt_scenario::peer_chain_id(), message);
+        state::vote<test_transceiver_a::TransceiverAuth, _>(&mut state, ntt_scenario::peer_chain_id(), message);
         {
             let inbox_item = state::borrow_inbox_item(&state, ntt_scenario::peer_chain_id(), message);
             let vote_count = inbox_item.count_enabled_votes(&state::get_enabled_transceivers(&state));
@@ -100,7 +100,7 @@ module ntt::ntt_tests {
         };
 
         // Second vote
-        state::vote<test_transceiver_b::Auth, _>(&mut state, ntt_scenario::peer_chain_id(), message);
+        state::vote<test_transceiver_b::TransceiverAuth, _>(&mut state, ntt_scenario::peer_chain_id(), message);
         {
             let inbox_item = state::borrow_inbox_item(&state, ntt_scenario::peer_chain_id(), message);
             let vote_count = inbox_item.count_enabled_votes(&state::get_enabled_transceivers(&state));
@@ -126,7 +126,7 @@ module ntt::ntt_tests {
         // Get state and vote with both transceivers
         let mut state = ntt_scenario::take_state(&scenario);
 
-        state::vote<test_transceiver_c::Auth, ntt_scenario::NTT_SCENARIO>(&mut state, ntt_scenario::peer_chain_id(), message);
+        state::vote<test_transceiver_c::TransceiverAuth, ntt_scenario::NTT_SCENARIO>(&mut state, ntt_scenario::peer_chain_id(), message);
         {
             let inbox_item = state::borrow_inbox_item(&state, ntt_scenario::peer_chain_id(), message);
             let vote_count = inbox_item.count_enabled_votes(&state::get_enabled_transceivers(&state));
@@ -201,12 +201,12 @@ module ntt::ntt_tests {
         assert!(to_chain == ntt_scenario::peer_chain_id());
         assert!(recipient_addr.to_bytes() == recipient);
 
-        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::Auth, _>(
+        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::TransceiverAuth, _>(
             message_id,
             &clock
         );
 
-        let transceiver_b_message = state.create_transceiver_message<test_transceiver_b::Auth, _>(
+        let transceiver_b_message = state.create_transceiver_message<test_transceiver_b::TransceiverAuth, _>(
             message_id,
             &clock
         );
@@ -286,7 +286,7 @@ module ntt::ntt_tests {
         let message = *state.borrow_outbox().borrow(outbox_key).borrow_data();
         let (message_id, _, _) = message.destruct();
 
-        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::Auth, _>(
+        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::TransceiverAuth, _>(
             message_id,
             &clock
         );
@@ -294,7 +294,7 @@ module ntt::ntt_tests {
         sui::test_utils::destroy(transceiver_a_message);
 
         // this will fail, because transceiver a already released the message
-        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::Auth, _>(
+        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::TransceiverAuth, _>(
             message_id,
             &clock
         );

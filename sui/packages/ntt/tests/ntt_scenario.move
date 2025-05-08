@@ -51,7 +51,7 @@ module ntt::ntt_scenario {
     /// - Two registered transceivers
     /// - One peer chain
     /// - Clock for rate limiting
-    // TODO: create a locking mode test
+    /// TODO: create a locking mode test
     public fun setup(scenario: &mut Scenario) {
         let sender = scenario.sender();
         scenario.next_tx(ADMIN);
@@ -76,8 +76,8 @@ module ntt::ntt_scenario {
         );
 
         // Register transceivers
-        state::register_transceiver<ntt::test_transceiver_a::Auth, _>(&mut state, &admin_cap);
-        state::register_transceiver<ntt::test_transceiver_b::Auth, _>(&mut state, &admin_cap);
+        state::register_transceiver<ntt::test_transceiver_a::TransceiverAuth, _>(&mut state, &admin_cap);
+        state::register_transceiver<ntt::test_transceiver_b::TransceiverAuth, _>(&mut state, &admin_cap);
 
         // Create clock for rate limiting
         let clock = take_clock(scenario);
@@ -166,27 +166,27 @@ module ntt::ntt_scenario {
 
 #[test_only]
 module ntt::test_transceiver_a {
-    public struct Auth has drop {}
+    public struct TransceiverAuth has drop {}
 
-    public fun auth(): Auth {
-        Auth {}
+    public fun auth(): TransceiverAuth {
+        TransceiverAuth {}
     }
 }
 
 #[test_only]
 module ntt::test_transceiver_b {
-    public struct Auth has drop {}
+    public struct TransceiverAuth has drop {}
 
-    public fun auth(): Auth {
-        Auth {}
+    public fun auth(): TransceiverAuth {
+        TransceiverAuth {}
     }
 }
 
 #[test_only]
 module ntt::test_transceiver_c {
-    public struct Auth has drop {}
+    public struct TransceiverAuth has drop {}
 
-    public fun auth(): Auth {
-        Auth {}
+    public fun auth(): TransceiverAuth {
+        TransceiverAuth {}
     }
 }
