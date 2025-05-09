@@ -327,7 +327,7 @@
       "name": "M0",
       "programId": "mzp1q2j5Hr1QuLC3KFBCAUz5aUckT6qyuZKZ3WJnMmY",
       "tokenAddress": "mzerokyEX9TNDoK4o2YZQBDmMzjokAeN6M2g2S3pLJo",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -335,7 +335,7 @@
       "name": "VitaDAO",
       "programId": "nTtX6Vvdat5fsGqLVQwHVWm2W8JL8TwK2gbrXrUGThx",
       "tokenAddress": "VitAJ7SePwVQdpYAfKQ77RCde8dRtWdYsVE9m4UNvQV",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
@@ -343,7 +343,7 @@
       "name": "Doodles",
       "programId": "nTtWMBHa1LvWqPbuhS3uRGPmhxw9XNDKzFmjtwHY4cc",
       "tokenAddress": "DvjbEsdca43oQcw2h3HW1CT7N3x5vRcr3QrvTUHnXvgV",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
     }
