@@ -281,6 +281,14 @@
       "tokenAddress": "AzuQ9o7mjzfJk72xRgzSCfrs1XWkhYyaGcudSu62qwg",
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
+      "isSupported": false
+    },
+    {
+      "name": "WrappedPOL",
+      "programId": "ntTQ7P52ubXy7EKdLn9bcPQxLDkhvvhymAmAHStyaUL",
+      "tokenAddress": "5QfZBHuAv9RNhvEroxqrwmhLD6bPha4io7PkoNtn5GNV",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
     {
