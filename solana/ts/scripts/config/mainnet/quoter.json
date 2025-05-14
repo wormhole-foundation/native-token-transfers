@@ -354,6 +354,14 @@
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "WrappedSOL",
+      "programId": "NttQ2dJzKK6EYVqUdVvtYXgTuGJC1PLuif7XiwZupMt",
+      "tokenAddress": "So11111111111111111111111111111111111111112",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
