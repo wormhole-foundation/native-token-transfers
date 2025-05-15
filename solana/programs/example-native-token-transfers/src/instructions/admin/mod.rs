@@ -151,13 +151,8 @@ pub struct DeregisterTransceiver<'info> {
 
     pub owner: Signer<'info>,
 
-    #[account(executable)]
-    /// CHECK: transceiver is meant to be a transceiver program. Arguably a `Program` constraint could be
-    /// used here that wraps the Transceiver account type.
-    pub transceiver: UncheckedAccount<'info>,
-
     #[account(
-        seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
+        seeds = [RegisteredTransceiver::SEED_PREFIX, registered_transceiver.transceiver_address.as_ref()],
         bump,
         constraint = config.enabled_transceivers.get(registered_transceiver.id)? @ NTTError::DisabledTransceiver,
     )]
