@@ -27,6 +27,7 @@ pub struct SetPeer<'info> {
 
     #[account(
         has_one = owner,
+        constraint = args.chain_id != config.chain_id @ NTTError::InvalidChainId
     )]
     pub config: Account<'info, Config>,
 
