@@ -55,21 +55,26 @@ pub struct TransferOwnership<'info> {
 pub fn transfer_ownership(ctx: Context<TransferOwnership>) -> Result<()> {
     ctx.accounts.config.pending_owner = Some(ctx.accounts.new_owner.key());
 
-    // TODO: only transfer authority when the authority is not already the upgrade lock
-    bpf_loader_upgradeable::set_upgrade_authority_checked(
-        CpiContext::new_with_signer(
-            ctx.accounts
-                .bpf_loader_upgradeable_program
-                .to_account_info(),
-            bpf_loader_upgradeable::SetUpgradeAuthorityChecked {
-                program_data: ctx.accounts.program_data.to_account_info(),
-                current_authority: ctx.accounts.owner.to_account_info(),
-                new_authority: ctx.accounts.upgrade_lock.to_account_info(),
-            },
-            &[&[b"upgrade_lock", &[ctx.bumps.upgrade_lock]]],
-        ),
-        &crate::ID,
-    )
+    // only transfer authority when the authority is not already the upgrade lock
+    if ctx.accounts.program_data.upgrade_authority_address != Some(ctx.accounts.upgrade_lock.key())
+    {
+        bpf_loader_upgradeable::set_upgrade_authority_checked(
+            CpiContext::new_with_signer(
+                ctx.accounts
+                    .bpf_loader_upgradeable_program
+                    .to_account_info(),
+                bpf_loader_upgradeable::SetUpgradeAuthorityChecked {
+                    program_data: ctx.accounts.program_data.to_account_info(),
+                    current_authority: ctx.accounts.owner.to_account_info(),
+                    new_authority: ctx.accounts.upgrade_lock.to_account_info(),
+                },
+                &[&[b"upgrade_lock", &[ctx.bumps.upgrade_lock]]],
+            ),
+            &crate::ID,
+        )
+    } else {
+        Ok(())
+    }
 }
 
 pub fn transfer_ownership_one_step_unchecked(ctx: Context<TransferOwnership>) -> Result<()> {
