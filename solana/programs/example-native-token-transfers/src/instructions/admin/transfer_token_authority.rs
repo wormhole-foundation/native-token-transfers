@@ -199,7 +199,12 @@ pub fn set_token_authority(ctx: Context<SetTokenAuthorityChecked>) -> Result<()>
         .set_inner(PendingTokenAuthority {
             bump: ctx.bumps.pending_token_authority,
             pending_authority: ctx.accounts.common.new_authority.key(),
-            rent_payer: ctx.accounts.rent_payer.key(),
+            rent_payer: if ctx.accounts.pending_token_authority.rent_payer != Pubkey::default() {
+                // do not update rent_payer if already initialized
+                ctx.accounts.pending_token_authority.rent_payer
+            } else {
+                ctx.accounts.rent_payer.key()
+            },
         });
     Ok(())
 }
