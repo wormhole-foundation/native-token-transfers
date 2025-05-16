@@ -58,7 +58,7 @@ pub fn transfer_ownership(ctx: Context<TransferOwnership>) -> Result<()> {
     // only transfer authority when the authority is not already the upgrade lock
     if ctx.accounts.program_data.upgrade_authority_address != Some(ctx.accounts.upgrade_lock.key())
     {
-        bpf_loader_upgradeable::set_upgrade_authority_checked(
+        return bpf_loader_upgradeable::set_upgrade_authority_checked(
             CpiContext::new_with_signer(
                 ctx.accounts
                     .bpf_loader_upgradeable_program
@@ -71,10 +71,9 @@ pub fn transfer_ownership(ctx: Context<TransferOwnership>) -> Result<()> {
                 &[&[b"upgrade_lock", &[ctx.bumps.upgrade_lock]]],
             ),
             &crate::ID,
-        )
-    } else {
-        Ok(())
+        );
     }
+    Ok(())
 }
 
 pub fn transfer_ownership_one_step_unchecked(ctx: Context<TransferOwnership>) -> Result<()> {
