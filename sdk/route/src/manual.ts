@@ -24,6 +24,7 @@ import {
   signSendWait,
   finality,
   isNative,
+  guardians,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "./types.js";
@@ -163,7 +164,9 @@ export class NttManualRoute<N extends Network>
         token: request.destination.id,
         amount: dstAmount,
       },
-      eta: finality.estimateFinalityTime(request.fromChain.chain),
+      eta:
+        finality.estimateFinalityTime(request.fromChain.chain) +
+        guardians.guardianAttestationEta * 1000,
     };
     const { fromChain, toChain } = request;
     const dstNtt = await toChain.getProtocol("Ntt", {
