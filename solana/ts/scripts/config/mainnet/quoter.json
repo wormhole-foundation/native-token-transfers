@@ -362,6 +362,14 @@
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "SolayerUSD",
+      "programId": "35hKLzywFC4Dn9u4j9pHHJeKVfnn4ZeAkFCUZ5tznraz",
+      "tokenAddress": "susdabGDNbhrnCa6ncrYo81u4s9GM8ecK2UwMyZiq4X",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
