@@ -370,6 +370,22 @@
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "RedStone",
+      "programId": "NTTLfv5maZDudMfd9gNjn99dcEgRMY3E5johLyE4Pm2",
+      "tokenAddress": "RED7iNewvwjeu9rdcugDqkPUm4fhGT7Dt9sYosFr6e7",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
+    {
+      "name": "CrosschainIOTX",
+      "programId": "NtTYamQSpg8SFTzFB4io1FTgTvRhZq5gmcUsBR7Sk76",
+      "tokenAddress": "QUUzqeiXHxjs9Yxm33tvugvUsKr5T8vjeyV4XhVsAfZ",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
