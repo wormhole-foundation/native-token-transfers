@@ -2026,7 +2026,7 @@ function warnLocalDeployment(yes: boolean): Promise<void> {
 function validateChain<N extends Network, C extends Chain>(network: N, chain: C) {
     if (network === "Testnet") {
         if (chain === "Ethereum") {
-            console.error("Ethereum is deprecated on Testnet. Use EthereumSepolia instead.");
+            console.error("Ethereum is deprecated on Testnet. Use Sepolia instead.");
             process.exit(1);
         }
         // if on testnet, and the chain has a *Sepolia counterpart, use that instead
