@@ -103,7 +103,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./../.github/actions/setup-anchor/
+      - uses: ./.github/actions/setup-anchor
         with:
           anchor-version: ${{ env.anchor-version }}
           solana-cli-version: ${{ env.solana-cli-version }}
