@@ -77,7 +77,7 @@ impl Readable for WormholeTransceiverInfo {
 
 impl Writeable for WormholeTransceiverInfo {
     fn written_size(&self) -> usize {
-        WormholeTransceiverInfo::SIZE.unwrap()
+        WormholeTransceiver::INFO_PREFIX.len() + WormholeTransceiverInfo::SIZE.unwrap()
     }
 
     fn write<W>(&self, writer: &mut W) -> std::io::Result<()>
@@ -146,7 +146,7 @@ impl Readable for WormholeTransceiverRegistration {
 
 impl Writeable for WormholeTransceiverRegistration {
     fn written_size(&self) -> usize {
-        WormholeTransceiverRegistration::SIZE.unwrap()
+        WormholeTransceiver::PEER_INFO_PREFIX.len() + WormholeTransceiverRegistration::SIZE.unwrap()
     }
 
     fn write<W>(&self, writer: &mut W) -> std::io::Result<()>
