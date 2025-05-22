@@ -75,6 +75,10 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         _initializeTransceiver();
     }
 
+    function _migrate() internal virtual override {
+        _setMigratesImmutables(true);
+    }
+
     function _initializeTransceiver() internal {
         TransceiverStructs.TransceiverInit memory init = TransceiverStructs.TransceiverInit({
             transceiverIdentifier: WH_TRANSCEIVER_INIT_PREFIX,
