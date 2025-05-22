@@ -763,7 +763,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       .accountsStrict({
         owner,
         config: this.pdas.configAccount(),
-        transceiver: transceiverProgramId,
         registeredTransceiver:
           this.pdas.registeredTransceiver(transceiverProgramId),
       })
