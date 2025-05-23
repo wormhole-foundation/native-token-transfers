@@ -1,19 +1,43 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "@wormhole-foundation/ntt-cli",
-  "version": "1.1.0",
-  "module": "src/index.ts",
+  "version": "2.0.0",
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/yargs": "^17.0.32"
+  "scripts": {
+    "build": "rollup -c"
   },
-  "peerDependencies": {
+  "files": [
+    "dist",
+    "./bin.cjs"
+  ],
+  "bin": "./bin.cjs",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "import": "./dist/index.js",
+    "require": "./dist/index.cjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/bun": "latest",
+    "@types/yargs": "^17.0.32",
+    "rollup": "^4.20.0",
+    "rollup-plugin-string-import": "^1.2.5",
     "typescript": "^5.0.0"
   },
-  "bin": {
-    "ntt": "src/index.ts"
-  },
   "dependencies": {
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.2",
+    "@wormhole-foundation/sdk": "1.14.2",
+    "@wormhole-foundation/sdk-connect": "1.14.2",
+    "@wormhole-foundation/sdk-definitions-ntt": "0.5.0",
+    "@wormhole-foundation/sdk-evm-ntt": "0.5.0",
+    "@wormhole-foundation/sdk-solana": "1.14.2",
+    "@wormhole-foundation/sdk-solana-ntt": "0.5.0",
     "chalk": "^5.3.0",
     "yargs": "^17.7.2"
   }

@@ -10,29 +10,29 @@
 // </sigh>
 const info = console.info;
 console.info = function (x: string) {
-  if (x !== "secp256k1 unavailable, reverting to browser version") {
-    info(x);
-  }
+	if (x !== "secp256k1 unavailable, reverting to browser version") {
+		info(x);
+	}
 };
 
 const warn = console.warn;
 globalThis.console.warn = function (x: string) {
-  if (
-    x !==
-    "bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)"
-  ) {
-    warn(x);
-  }
+	if (
+		x !==
+		"bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)"
+	) {
+		warn(x);
+	}
 };
 
 // Ensure BigInt can be serialized to json
 //
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 interface BigInt {
-  /** Convert to BigInt to string form in JSON.stringify */
-  toJSON: () => string;
+	/** Convert to BigInt to string form in JSON.stringify */
+	toJSON: () => string;
 }
 // Without this JSON.stringify() blows up
 (BigInt.prototype as any).toJSON = function () {
-  return this.toString();
+	return this.toString();
 };
