@@ -17,9 +17,9 @@ jobs:
     runs-on: tilt-kube-public
     env:
       RUSTFLAGS: -Dwarnings
-
     steps:
       - uses: actions/checkout@v3
+
       - name: Get rust toolchain version
         id: toolchain
         run: |
@@ -68,7 +68,7 @@ jobs:
         env:
           SOLANA_VERSION: ${{ steps.solana.outputs.version }}
         run: |
-          sh -c "$(curl -sSfL https://release.solana.com/v${SOLANA_VERSION}/install)"
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
           ~/.local/share/solana/install/active_release/bin/sdk/sbf/scripts/install.sh
 
       - name: cargo build-sbf && cargo test-sbf && cargo test
@@ -83,60 +83,78 @@ jobs:
           cargo build-sbf --features "mainnet"
           cargo test-sbf --features "mainnet"
           cargo test
+
   check-version:
     name: Check version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - run: ./scripts/sync-versions --check
         shell: bash
 
   anchor-test:
     name: Anchor Test
     runs-on: ubuntu-latest
+    env:
+      node-version: "20.11.0"
+      solana-cli-version: "1.18.26"
+      anchor-version: "0.29.0"
     steps:
       - uses: actions/checkout@v4
-      - uses: metadaoproject/setup-anchor@v2
+
+      - uses: ./.github/actions/setup-anchor
         with:
-          node-version: "20.11.0"
-          solana-cli-version: "1.18.26"
-          anchor-version: "0.29.0"
+          anchor-version: ${{ env.anchor-version }}
+          solana-cli-version: ${{ env.solana-cli-version }}
+          node-version: ${{ env.node-version }}
+
       - name: Cache node_modules
         uses: actions/cache@v3
         with:
           path: ./solana/node_modules/
-          key: node-modules-${{ runner.os }}-build-${{ inputs.node-version }}
+          key: node-modules-${{ runner.os }}-build-${{ env.node-version }}
+
       - name: Install node_modules
         run: make node_modules
         shell: bash
+
       - name: Create keypair
         run: solana-keygen new --no-bip39-passphrase
         shell: bash
+
       - name: Make Anchor.toml compatible with runner
         run: sed -i 's:/user/:/runner/:' Anchor.toml
         shell: bash
+
       - name: Install Cargo toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           components: rustc
+
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "solana"
+
       - name: Setup SDK
         run: make sdk
         shell: bash
+
       - name: Check idl
         run: |
           git diff --exit-code ts/idl
+
       - name: Set default Rust toolchain
         run: rustup default stable
         shell: bash
+
       - name: Run anchor lint
         run: make anchor-lint
         shell: bash
+
       - name: Run tests
         run: anchor test --skip-build
         shell: bash

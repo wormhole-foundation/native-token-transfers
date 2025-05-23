@@ -662,10 +662,10 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       "Ntt.Initialize"
     );
 
-    yield* this.initializeOrUpdateLUT({ payer });
+    yield* this.initializeOrUpdateLUT({ payer, owner: payer });
   }
 
-  async *initializeOrUpdateLUT(args: { payer: PublicKey }) {
+  async *initializeOrUpdateLUT(args: { payer: PublicKey; owner: PublicKey }) {
     const config = await this.getConfig();
 
     const whTransceiver = await this.getWormholeTransceiver();
@@ -680,6 +680,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       whTransceiverProgramId,
       {
         payer: args.payer,
+        owner: args.owner,
         wormholeId: new PublicKey(this.core.address),
       }
     );

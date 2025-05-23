@@ -1,0 +1,39 @@
+# adapted from https://github.com/metaDAOproject/setup-anchor
+name: "Setup Anchor"
+description: "Install Anchor, Solana CLI tools, and Node.js."
+branding:
+  icon: anchor
+  color: blue
+inputs:
+  node-version:
+    description: "Version of node.js to use"
+    required: true
+  solana-cli-version:
+    description: "Version of Solana CLI to use"
+    required: true
+  anchor-version:
+    description: "Version of Anchor to use"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+    - name: Cache Solana CLI tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/solana/
+          ~/.local/share/solana/
+        key: solana-cli-${{ runner.os }}-build-${{ inputs.solana-cli-version }}
+    - name: Install Solana CLI tools
+      run: |
+        sh -c "$(curl -sSfL https://release.anza.xyz/v${{ inputs.solana-cli-version }}/install)"
+      shell: bash
+    - name: Update PATH
+      run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      shell: bash
+    - name: Install Anchor
+      run: npm i -g @coral-xyz/anchor-cli@${{ inputs.anchor-version }}
+      shell: bash
