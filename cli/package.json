@@ -4,6 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
+    "prepublish": "npm run build",
     "build": "rollup -c"
   },
   "files": [
