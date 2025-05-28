@@ -386,6 +386,22 @@
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "Cerebrum DAO",
+      "programId": "NTT7seDbSws7fyMS1R8gf8ZFreQgAnNJiVi8n1fAQNf",
+      "tokenAddress": "neuRodi6Saw2cwDpud7FyAcjzqPBJDtr3fDTXE2Fu4j",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
+    },
+    {
+      "name": "WalletConnect",
+      "programId": "nttLq3ZsKu9uAFWuBGksdZTPAjkMRyPkxp61CJPsntA",
+      "tokenAddress": "WCTk5xWdn5SYg56twGj32sUF3W4WFQ48ogezLBuYTBY",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
