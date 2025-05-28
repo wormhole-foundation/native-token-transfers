@@ -251,6 +251,7 @@ export class MultiTokenNttAutomaticRoute<N extends Network>
         ),
       },
       eta: finality.estimateFinalityTime(request.fromChain.chain),
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
     };
 
     const toNtt = await toChain.getProtocol("MultiTokenNtt", {
