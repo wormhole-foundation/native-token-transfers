@@ -163,7 +163,7 @@ module ntt::state {
         self: &mut State<T>,
         message_id: Bytes32,
         clock: &Clock
-    ): ntt_common::outbound_message::OutboundMessage<TransceiverAuth> {
+    ): ntt_common::outbound_message::OutboundMessage<ntt::auth::ManagerAuth, TransceiverAuth> {
         let transceiver_index = self.transceivers.transceiver_id<TransceiverAuth>();
         let outbox_key = outbox::new_outbox_key(message_id);
         let released = self.outbox.try_release(outbox_key, transceiver_index, clock);
