@@ -17,16 +17,17 @@ module wormhole_transceiver::wormhole_transceiver {
         transceiver_message::prefix(&TransceiverAuth {}, ntt_common::bytes4::new(x"9945FF10"))
     }
 
-    public struct State has key, store {
+    public struct State<phantom ManagerAuth> has key, store {
         id: UID,
         peers: Table<u16, ExternalAddress>,
         emitter_cap: EmitterCap,
     }
 
-    public(package) fun new(
+    public(package) fun new<ManagerAuth>(
         wormhole_state: &wormhole::state::State,
         ctx: &mut TxContext
-    ): State {
+    ): State<ManagerAuth> {
+        assert!(ntt_common::contract_auth::is_auth_type<ManagerAuth>(b"ManagerAuth"));
         State {
             id: object::new(ctx),
             peers: table::new(ctx),
@@ -45,19 +46,19 @@ module wormhole_transceiver::wormhole_transceiver {
     }
 
     #[allow(lint(share_owned))]
-    public fun complete(deployer: DeployerCap, wormhole_state: &wormhole::state::State, ctx: &mut TxContext): AdminCap {
+    public fun complete<ManagerAuth>(deployer: DeployerCap, wormhole_state: &wormhole::state::State, ctx: &mut TxContext): AdminCap {
         let DeployerCap { id } = deployer;
         object::delete(id); // Deletion means that nothing can redeploy this again...
 
-        let state = new(wormhole_state, ctx);
+        let state = new<ManagerAuth>(wormhole_state, ctx);
         transfer::public_share_object(state);
 
         AdminCap { id: object::new(ctx) }
     }
 
-    public fun release_outbound(
-        state: &mut State,
-        message: OutboundMessage<TransceiverAuth>,
+    public fun release_outbound<ManagerAuth>(
+        state: &mut State<ManagerAuth>,
+        message: OutboundMessage<ManagerAuth, TransceiverAuth>,
     ): MessageTicket {
 
         let (ntt_manager_message, source_ntt_manager, recipient_ntt_manager)
@@ -81,8 +82,8 @@ module wormhole_transceiver::wormhole_transceiver {
         message_ticket
     }
 
-    public fun validate_message(
-        state: &State,
+    public fun validate_message<ManagerAuth>(
+        state: &State<ManagerAuth>,
         vaa: VAA,
     ): ValidatedTransceiverMessage<TransceiverAuth, vector<u8>> {
         let (emitter_chain, emitter_address, payload)
@@ -107,19 +108,7 @@ module wormhole_transceiver::wormhole_transceiver {
         id: UID
     }
 
-    // public fun set_peer(
-    //     _: &AdminCap,
-    //     state: &mut State,
-    //     chain: u16,
-    //     peer: ExternalAddress
-    // ) {
-    //     if (state.peers.contains(chain)) {
-    //         state.peers.remove(chain);
-    //     };
-    //     state.peers.add(chain, peer);
-    // }
-
-    public fun set_peer(_ : &AdminCap, state: &mut State, chain: u16, peer: ExternalAddress): MessageTicket{
+    public fun set_peer<ManagerAuth>(_ : &AdminCap, state: &mut State<ManagerAuth>, chain: u16, peer: ExternalAddress): MessageTicket{
 
         // Cannot replace WH peers because of complexities with the accountant, according to EVM implementation.
         assert!(!state.peers.contains(chain));
@@ -134,7 +123,7 @@ module wormhole_transceiver::wormhole_transceiver {
 
     NTT Accountant must know which transceivers registered each other as peers.
     */
-    fun broadcast_peer(chain_id: u16, peer_address: ExternalAddress, state: &mut State): MessageTicket{
+    fun broadcast_peer<ManagerAuth>(chain_id: u16, peer_address: ExternalAddress, state: &mut State<ManagerAuth>): MessageTicket{
 
         let transceiver_registration_struct = wormhole_transceiver::wormhole_transceiver_registration::new(chain_id, peer_address);
         let message_ticket = wormhole::publish_message::prepare_message(
@@ -155,9 +144,9 @@ module wormhole_transceiver::wormhole_transceiver {
     the NTT accountant to begin with but does want it in the future.
     If wanted in the future, an admin would call this function to allow the NTT accountant to work.
     */
-    public fun broadcast_id<CoinType, Auth>(_: &AdminCap, coin_meta: &CoinMetadata<CoinType>, state: &mut State, manager_state: &ManagerState<CoinType>): MessageTicket {
+    public fun broadcast_id<CoinType, ManagerAuth>(_: &AdminCap, coin_meta: &CoinMetadata<CoinType>, state: &mut State<ManagerAuth>, manager_state: &ManagerState<CoinType>): MessageTicket {
 
-        let mut manager_address_opt: Option<address> = ntt_common::contract_auth::get_auth_address<Auth>(b"ManagerAuth");
+        let mut manager_address_opt: Option<address> = ntt_common::contract_auth::get_auth_address<ManagerAuth>(b"ManagerAuth");
         let manager_address = option::extract(&mut manager_address_opt);
 
         let external_address_manager_address = wormhole::external_address::from_address(manager_address);
