@@ -91,7 +91,7 @@ Modify [transfer.rs](./programs/example-native-token-transfers/src/transfer.rs) 
 
 The additional payload field should then have your custom struct available everywhere `NativeTokenTransfer<Payload>` is used. Due to typing, parsing, and account allocation restrictions, this implementation expects that _all_ `NativeTokenTransfer` payloads for your contract adhere to your custom struct definition.
 
-You can then modify [release_outbound](./programs/example-native-token-transfers/src/transceivers/wormhole/instructions/release_outbound.rs) and [redeem](./programs/example-native-token-transfers/src/instructions/redeem.rs) to generate and process the additional payload.
+You can then modify [release_outbound.rs](./programs/example-native-token-transfers/src/transceivers/wormhole/instructions/release_outbound.rs) and [redeem.rs](./programs/example-native-token-transfers/src/instructions/redeem.rs) to generate and process the additional payload.
 
 ## SPL Multisig Support
 
@@ -110,11 +110,11 @@ You can set the created multisig as the mint authority via the [`accept_token_au
 
 > If the current mint authority is also an SPL Multisig, use the [`accept_token_authority_from_multisig`] instruction instead.
 
-3. **Use [`*_multisig`] instruction variants**
+3. **Pass the SPL Multisig mint authority as `multisig_token_authority`**
 
-To initialize NTT, use the [`initialize_multisig`] instruction instead.
+To initialize NTT, use the [`initialize`] instruction but pass in the SPL Multisig mint authority as the `multisig_token_authority` account.
 
-In `burning` mode, to release the inbound transfer and the mint tokens to the recipient, use the [`release_inbound_mint_multisig`] instruction instead.
+In `burning` mode, to release the inbound transfer and the mint tokens to the recipient, use the [`release_inbound_mint`] instruction but pass in the SPL Multisig mint authority as the `multisig_token_authority` account.
 
 ## Prerequisites
 
