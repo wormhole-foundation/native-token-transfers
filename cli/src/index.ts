@@ -450,9 +450,7 @@ yargs(hideBin(process.argv))
 
       // let's deploy
 
-            // TODO: factor out to function to get chain context
-            const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
-            const ch = wh.getChain(chain);
+      const ch = getChainContext(network, chain, overrides);
 
       // TODO: make manager configurable
       const deployedManager = await deploy(
@@ -558,8 +556,7 @@ yargs(hideBin(process.argv))
         await askForConfirmation();
       }
 
-            const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
-            const ch = wh.getChain(chain);
+      const ch = getChainContext(network, chain, overrides);
 
       const [_, ctx, ntt] = await pullChainConfig(
         network,
@@ -2150,10 +2147,8 @@ async function pullChainConfig<N extends Network, C extends Chain>(
 ): Promise<
   [ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]
 > {
-    const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
-    const ch = wh.getChain(manager.chain);
-
-    const nativeManagerAddress = canonicalAddress(manager);
+  const ch = getChainContext(network, manager.chain, overrides);
+  const nativeManagerAddress = canonicalAddress(manager);
 
   const {
     ntt,
@@ -2307,6 +2302,16 @@ async function nttFromManager<N extends Network, C extends Chain>(
     ntt: addresses,
   });
   return { ntt, addresses };
+}
+
+function getChainContext<N extends Network, C extends Chain>(
+  network: N,
+  chain: C,
+  overrides?: WormholeConfigOverrides<N>
+) {
+  const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
+  const ch = wh.getChain(chain);
+  return ch;
 }
 
 function formatNumber(num: bigint, decimals: number) {
