@@ -1124,11 +1124,100 @@ yargs(hideBin(process.argv))
             tokenProgram
           );
           console.log(ata.toBase58());
-                    })
-                .demandCommand()
         }
-    )
-    .help()
+      )
+      .command(
+        "create-spl-multisig <multisigMemberPubkey...>",
+        "create a valid SPL Multisig (see docs for more info)",
+        (yargs) =>
+          yargs
+            .positional("multisigMemberPubkey", {
+              describe:
+                "public keys of the members that can independently mint",
+              type: "string",
+              demandOption: true,
+            })
+            .option("path", options.deploymentPath)
+            .option("payer", { ...options.payer, demandOption: true })
+            .example(
+              "$0 solana create-spl-multisig Sol1234... --payer <SOLANA_KEYPAIR_PATH>",
+              "Create multisig with Sol1234... having independent mint privilege alongside NTT token-authority"
+            )
+            .example(
+              "$0 solana create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
+              "Create multisig with Sol1234..., Sol3456..., and Sol5678... having mint privileges alongside NTT token-authority"
+            ),
+        async (argv) => {
+          const path = argv["path"];
+          const deployments: Config = loadConfig(path);
+          const chain: Chain = "Solana";
+          const network = deployments.network as Network;
+          
+          if (!fs.existsSync(argv["payer"])) {
+            console.error("Payer not found. Specify with --payer");
+            process.exit(1);
+          }
+          const payerKeypair = Keypair.fromSecretKey(
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(argv["payer"]).toString())
+            )
+          );
+          
+          if (!(chain in deployments.chains)) {
+            console.error(`Chain ${chain} not found in ${path}`);
+            process.exit(1);
+          }
+          const chainConfig = deployments.chains[chain]!;
+          const ch = getChainContext(network, chain, overrides);
+          const connection = await ch.getRpc();
+          const [, , ntt] = await pullChainConfig(
+            network,
+            { chain, address: toUniversal(chain, chainConfig.manager) },
+            overrides
+          );
+          const solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
+          const tokenAuthority = NTT.pdas(chainConfig.manager).tokenAuthority();
+          
+          // check if SPL-Multisig is supported for manager version
+          const major = Number(solanaNtt.version.split(".")[0]);
+          if (major < 3) {
+            console.error(
+              "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
+            );
+            process.exit(1);
+          }
+          
+          try {
+            // use same tokenProgram as token to create multisig
+            const tokenProgram = (await solanaNtt.getConfig()).tokenProgram;
+            const additionalMemberPubkeys = (argv["multisigMemberPubkey"] as any).map(
+              (key: string) => new PublicKey(key)
+            );
+            const multisig = await spl.createMultisig(
+              connection,
+              payerKeypair,
+              [
+                tokenAuthority,
+                ...additionalMemberPubkeys,
+              ],
+              1,
+              undefined,
+              { commitment: "finalized" },
+              tokenProgram
+            );
+            console.log(`Valid SPL Multisig created: ${multisig.toBase58()}`);
+          } catch (error) {
+            if (error instanceof Error) {
+              console.error(error.message);
+            } else if (error instanceof SendTransactionError) {
+              console.error(error.logs);
+            }
+          }
+        }
+      )
+      .demandCommand();
+  })
+  .help()
   .strict()
   .demandCommand()
   .parse();
