@@ -1215,6 +1215,194 @@ yargs(hideBin(process.argv))
           }
         }
       )
+      .command(
+        "set-mint-authority <newAuthority>",
+        "set token mint authority to token authority (or valid SPL Multisig if --multisig flag is provided)",
+        (yargs) =>
+          yargs
+            .positional("newAuthority", {
+              describe:
+                "token authority address (or valid SPL Multisig address if --multisig flag is provided)",
+              type: "string",
+              demandOption: true,
+            })
+            .option("path", options.deploymentPath)
+            .option("payer", { ...options.payer, demandOption: true })
+            .option("multisig", {
+              describe: "newAuthority is a valid SPL Multisig",
+              type: "boolean",
+              default: false,
+            })
+            .example(
+              "$0 solana set-mint-authority <TOKEN_AUTHORITY> --payer <SOLANA_KEYPAIR_PATH>",
+              "Set token mint authority to be the token authority address"
+            )
+            .example(
+              "$0 solana set-mint-authority <VALID_SPL_MULTISIG> --multisig --payer <SOLANA_KEYPAIR_PATH>",
+              "Set token mint authority to be a valid SPL Multisig"
+            ),
+        async (argv) => {
+          const path = argv["path"];
+          const deployments: Config = loadConfig(path);
+          const chain: Chain = "Solana";
+          const network = deployments.network as Network;
+
+          if (!fs.existsSync(argv["payer"])) {
+            console.error("Payer not found. Specify with --payer");
+            process.exit(1);
+          }
+          const payerKeypair = Keypair.fromSecretKey(
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(argv["payer"]).toString())
+            )
+          );
+
+          if (!(chain in deployments.chains)) {
+            console.error(`Chain ${chain} not found in ${path}`);
+            process.exit(1);
+          }
+          const chainConfig = deployments.chains[chain]!;
+          const ch = getChainContext(network, chain, overrides);
+          const connection: Connection = await ch.getRpc();
+          const [, , ntt] = await pullChainConfig(
+            network,
+            { chain, address: toUniversal(chain, chainConfig.manager) },
+            overrides
+          );
+          const solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
+          const major = Number(solanaNtt.version.split(".")[0]);
+          const config = await solanaNtt.getConfig();
+          const tokenAuthority = NTT.pdas(chainConfig.manager).tokenAuthority();
+
+          // verify current mint authority is payer
+          const mintInfo = await spl.getMint(
+            connection,
+            config.mint,
+            undefined,
+            config.tokenProgram
+          );
+          if (!mintInfo.mintAuthority) {
+            console.error(
+              "Token has fixed supply and no further tokens may be minted"
+            );
+            process.exit(1);
+          }
+          if (!mintInfo.mintAuthority.equals(payerKeypair.publicKey)) {
+            console.error(
+              `Current mint authority (${mintInfo.mintAuthority.toBase58()}) does not match payer (${payerKeypair.publicKey.toBase58()}). Retry with current authority`
+            );
+            process.exit(1);
+          }
+
+          const isMultisig = argv["multisig"];
+          if (isMultisig) {
+            // check if SPL-Multisig is supported for manager version
+            if (major < 3) {
+              console.error(
+                "SPL Multisig token mint authority only supported for versions >= 3.x.x"
+              );
+              process.exit(1);
+            }
+          }
+
+          // verify new authority address is valid
+          const newAuthority = new PublicKey(argv["newAuthority"]);
+          if (isMultisig && newAuthority.equals(tokenAuthority)) {
+            console.error(
+              `New authority matches token authority (${newAuthority.toBase58()}). To set mint authority as token authority, retry without --multisig`
+            );
+            process.exit(1);
+          }
+          if (!isMultisig && !newAuthority.equals(tokenAuthority)) {
+            console.error(
+              `New authority (${newAuthority.toBase58()}) does not match token authority (${tokenAuthority.toBase58()}). To set mint authority as a valid SPL Multisig, specify with --multisig`
+            );
+            process.exit(1);
+          }
+
+          // ensure manager is paused
+          if (!(await solanaNtt.isPaused())) {
+            console.error(
+              `Not paused. Set \`paused\` for Solana to \`true\` in ${path} and run \`ntt push\` to sync the changes on-chain. Then retry this command.`
+            );
+            process.exit(1);
+          }
+
+          // manager versions < 3.x.x have to call spl setAuthority instruction directly
+          if (major < 3) {
+            try {
+              await spl.setAuthority(
+                connection,
+                payerKeypair,
+                config.mint,
+                payerKeypair.publicKey,
+                spl.AuthorityType.MintTokens,
+                newAuthority,
+                [],
+                { commitment: "finalized" },
+                config.tokenProgram
+              );
+              console.log(
+                `Token mint authority successfully updated to ${newAuthority.toBase58()}`
+              );
+              process.exit(0);
+            } catch (error) {
+              if (error instanceof Error) {
+                console.error(error.message);
+              } else if (error instanceof SendTransactionError) {
+                console.error(error.logs);
+              }
+              process.exit(1);
+            }
+          }
+
+          // use lut if configured
+          const luts: AddressLookupTableAccount[] = [];
+          try {
+            luts.push(await solanaNtt.getAddressLookupTable());
+          } catch {}
+
+          // send versioned transaction
+          try {
+            const latestBlockHash = await connection.getLatestBlockhash();
+            const messageV0 = new TransactionMessage({
+              payerKey: payerKeypair.publicKey,
+              instructions: [
+                await NTT.createAcceptTokenAuthorityInstruction(
+                  solanaNtt.program,
+                  config,
+                  {
+                    currentAuthority: payerKeypair.publicKey,
+                    multisigTokenAuthority: isMultisig
+                      ? newAuthority
+                      : undefined,
+                  }
+                ),
+              ],
+              recentBlockhash: latestBlockHash.blockhash,
+            }).compileToV0Message(luts);
+            const vtx = new VersionedTransaction(messageV0);
+            vtx.sign([payerKeypair]);
+            const signature = await connection.sendTransaction(vtx, {});
+            await connection.confirmTransaction(
+              {
+                ...latestBlockHash,
+                signature,
+              },
+              "finalized"
+            );
+            console.log(
+              `Token mint authority successfully updated to ${newAuthority.toBase58()}`
+            );
+          } catch (error) {
+            if (error instanceof Error) {
+              console.error(error.message);
+            } else if (error instanceof SendTransactionError) {
+              console.error(error.logs);
+            }
+          }
+        }
+      )
       .demandCommand();
   })
   .help()
@@ -1759,7 +1947,9 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
       console.error(
         `Set the mint authority to the program's token authority PDA with e.g.:`
       );
-      console.error(`spl-token authorize ${token} mint ${expectedMintAuthority}`);
+      console.error(
+        `ntt solana set-mint-authority ${expectedMintAuthority}`
+      );
       process.exit(1);
     }
   }
