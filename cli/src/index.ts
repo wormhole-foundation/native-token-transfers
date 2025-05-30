@@ -1,37 +1,75 @@
 #!/usr/bin/env bun
-import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
+import { encoding } from "@wormhole-foundation/sdk-connect";
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
-import { encoding } from '@wormhole-foundation/sdk-connect';
 import { execSync } from "child_process";
+import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
 
 import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with { type: "file" };
 import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with { type: "file" };
 
-import chalk from "chalk";
-import yargs from "yargs";
-import { $ } from "bun";
-import { hideBin } from "yargs/helpers";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
-import fs from "fs";
-import readline from "readline";
-import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toUniversal, type AccountAddress, type Chain, type ChainAddress, type ConfigOverrides, type Network, type Platform } from "@wormhole-foundation/sdk";
+import {
+  AddressLookupTableAccount,
+  Connection,
+  Keypair,
+  PublicKey,
+  SendTransactionError,
+  TransactionMessage,
+  VersionedTransaction,
+} from "@solana/web3.js";
+import {
+  ChainContext,
+  UniversalAddress,
+  Wormhole,
+  assertChain,
+  canonicalAddress,
+  chainToPlatform,
+  chains,
+  isNetwork,
+  networks,
+  platforms,
+  signSendWait,
+  toUniversal,
+  type AccountAddress,
+  type Chain,
+  type ChainAddress,
+  type Network,
+  type Platform,
+  type WormholeConfigOverrides,
+} from "@wormhole-foundation/sdk";
+import "@wormhole-foundation/sdk-definitions-ntt";
+import type {
+  Ntt,
+  NttTransceiver,
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
-import "@wormhole-foundation/sdk-definitions-ntt";
-import type { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
+import { $ } from "bun";
+import chalk from "chalk";
+import fs from "fs";
+import readline from "readline";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 
-import { type SolanaChains, SolanaAddress } from "@wormhole-foundation/sdk-solana";
-
+import type { EvmChains } from "@wormhole-foundation/sdk-evm";
+import type {
+  EvmNtt,
+  EvmNttWormholeTranceiver,
+} from "@wormhole-foundation/sdk-evm-ntt";
+import {
+  SolanaAddress,
+  type SolanaChains,
+} from "@wormhole-foundation/sdk-solana";
+import {
+  NTT,
+  SolanaNtt,
+} from "@wormhole-foundation/sdk-solana-ntt";
+import { ethers } from "ethers";
+import * as configuration from "./configuration";
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
-import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
-import type { EvmNtt, EvmNttWormholeTranceiver } from "@wormhole-foundation/sdk-evm-ntt";
-import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
-import * as configuration from "./configuration";
-import { ethers } from "ethers";
 
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
@@ -39,14 +77,14 @@ import { ethers } from "ethers";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
-const overrides: ConfigOverrides<Network> = (function () {
-    // read overrides.json file if exists
-    if (fs.existsSync("overrides.json")) {
-        console.error(chalk.yellow("Using overrides.json"));
-        return JSON.parse(fs.readFileSync("overrides.json").toString());
-    } else {
-        return {};
-    }
+const overrides: WormholeConfigOverrides<Network> = (function () {
+  // read overrides.json file if exists
+  if (fs.existsSync("overrides.json")) {
+    console.error(chalk.yellow("Using overrides.json"));
+    return JSON.parse(fs.readFileSync("overrides.json").toString());
+  } else {
+    return {};
+  }
 })();
 
 export type Deployment<C extends Chain> = {
@@ -1697,10 +1735,12 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
 }
 
 async function pullChainConfig<N extends Network, C extends Chain>(
-    network: N,
-    manager: ChainAddress<C>,
-    overrides?: ConfigOverrides<N>
-): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
+  network: N,
+  manager: ChainAddress<C>,
+  overrides?: WormholeConfigOverrides<N>
+): Promise<
+  [ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]
+> {
     const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
     const ch = wh.getChain(manager.chain);
 
