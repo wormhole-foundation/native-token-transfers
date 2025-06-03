@@ -12,7 +12,7 @@ import chalk from "chalk";
 import yargs from "yargs";
 import { $ } from "bun";
 import { hideBin } from "yargs/helpers";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { AddressLookupTableAccount, Connection, Keypair, PublicKey, SendTransactionError, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs from "fs";
 import readline from "readline";
