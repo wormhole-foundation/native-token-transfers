@@ -25,7 +25,6 @@
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.1.2",
-    "@types/bun": "latest",
     "@types/yargs": "^17.0.32",
     "rollup": "^4.20.0",
     "rollup-plugin-string-import": "^1.2.5",

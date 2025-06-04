@@ -1,9 +1,8 @@
 import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
-import evm from "@wormhole-foundation/sdk/platforms/evm";
-import solana from "@wormhole-foundation/sdk/platforms/solana";
+import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
+import {SolanaPlatform} from "@wormhole-foundation/sdk-solana";
 import { execSync, spawn } from "child_process";
 import { base58 } from "@scure/base";
-
 
 
 import chalk from "chalk";
@@ -461,7 +460,7 @@ export const YargsCommand = yargs(hideBin(process.argv))
 			// TODO: factor out to function to get chain context
 			const wh = new Wormhole(
 				network,
-				[solana.Platform, evm.Platform],
+				[SolanaPlatform, EvmPlatform],
 				overrides,
 			);
 			const ch = wh.getChain(chain);
@@ -577,7 +576,7 @@ export const YargsCommand = yargs(hideBin(process.argv))
 
 			const wh = new Wormhole(
 				network,
-				[solana.Platform, evm.Platform],
+				[SolanaPlatform, EvmPlatform],
 				overrides,
 			);
 			const ch = wh.getChain(chain);
@@ -1860,7 +1859,9 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 
 		const deployProc = spawn(deployCommand.join(" "));
 
-		const out = await new Response(deployProc.stdout).text();
+		deployProc.stdout.on("data", (data) => {
+			console.log(data);
+		});
 		const deployProcExitCode = await new Promise<number | null>((resolve) => {
 			deployProc.on("exit", (code) => {
 				resolve(code);
@@ -1877,7 +1878,6 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 		// success. remove buffer.json
 		fs.unlinkSync("buffer.json");
 
-		console.log(out);
 	}
 
 	if (initialize) {
@@ -2257,7 +2257,7 @@ async function pullChainConfig<N extends Network, C extends Chain>(
 ): Promise<
 	[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]
 > {
-	const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
+	const wh = new Wormhole(network, [SolanaPlatform, EvmPlatform], overrides);
 	const ch = wh.getChain(manager.chain);
 
 	const nativeManagerAddress = canonicalAddress(manager);
