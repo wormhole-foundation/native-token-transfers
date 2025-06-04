@@ -177,8 +177,11 @@ where
     fn written_size(&self) -> usize {
         4 // prefix
         + self.source_ntt_manager.len()
+        + self.recipient_ntt_manager.len()
         + u16::SIZE.unwrap() // length prefix
         + self.ntt_manager_payload.written_size()
+        + u16::SIZE.unwrap() // length prefix
+        + self.transceiver_payload.len()
     }
 
     fn write<W>(&self, writer: &mut W) -> io::Result<()>

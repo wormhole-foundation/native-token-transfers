@@ -85,7 +85,6 @@ pub fn deregister_transceiver(ntt: &NTT, accounts: DeregisterTransceiver) -> Ins
     let accounts = example_native_token_transfers::accounts::DeregisterTransceiver {
         config: ntt.config(),
         owner: accounts.owner,
-        transceiver: accounts.transceiver,
         registered_transceiver: ntt.registered_transceiver(&accounts.transceiver),
     };
 
