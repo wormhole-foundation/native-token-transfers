@@ -942,7 +942,7 @@ yargs(hideBin(process.argv))
                           console.error(
                             "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
                           );
-                              console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
+                          console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
                           process.exit(1);
                         }
               
@@ -1032,7 +1032,7 @@ yargs(hideBin(process.argv))
                         const config = await solanaNtt.getConfig();
                         const tokenAuthority = NTT.pdas(chainConfig.manager).tokenAuthority();
               
-                        // verify current mint authority is payer
+                        // verify current mint authority is not token authority
                         const mintInfo = await spl.getMint(
                           connection,
                           config.mint,
@@ -1045,6 +1045,37 @@ yargs(hideBin(process.argv))
                           );
                           process.exit(1);
                         }
+                        if (mintInfo.mintAuthority.equals(tokenAuthority)) {
+                          console.error("Please use https://github.com/wormhole-foundation/demo-ntt-token-mint-authority-transfer to transfer the token mint authority out of the NTT manager");
+                          process.exit(1);
+                        }
+                        
+                        // verify current mint authority is not valid SPL Multisig
+                        let isMultisigTokenAuthority = false;
+                        try {
+                          const multisigInfo = await spl.getMultisig(
+                            connection,
+                            mintInfo.mintAuthority,
+                            undefined,
+                            config.tokenProgram
+                          );
+                          if (multisigInfo.m === 1) {
+                            const n = multisigInfo.n;
+                            for (let i = 0; i < n; ++i) {
+                              // TODO: not sure if there's an easier way to loop through and check
+                              if ((multisigInfo[`signer${i + 1}` as keyof spl.Multisig] as PublicKey).equals(tokenAuthority))  {
+                                isMultisigTokenAuthority = true;
+                                break;
+                              }
+                            }
+                          }
+                        } catch {}
+                        if (isMultisigTokenAuthority) {
+                          console.error("Please use https://github.com/wormhole-foundation/demo-ntt-token-mint-authority-transfer to transfer the token mint authority out of the NTT manager");
+                          process.exit(1);
+                        }
+                        
+                        // verify current mint authority is payer
                         if (!mintInfo.mintAuthority.equals(payerKeypair.publicKey)) {
                           console.error(
                             `Current mint authority (${mintInfo.mintAuthority.toBase58()}) does not match payer (${payerKeypair.publicKey.toBase58()}). Retry with current authority`
@@ -1059,7 +1090,7 @@ yargs(hideBin(process.argv))
                             console.error(
                               "SPL Multisig token mint authority only supported for versions >= 3.x.x"
                             );
-                             console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
+                            console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
                             process.exit(1);
                           }
                         }
