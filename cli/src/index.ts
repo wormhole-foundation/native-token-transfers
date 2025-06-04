@@ -942,6 +942,7 @@ yargs(hideBin(process.argv))
                           console.error(
                             "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
                           );
+                              console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
                           process.exit(1);
                         }
               
@@ -1058,6 +1059,7 @@ yargs(hideBin(process.argv))
                             console.error(
                               "SPL Multisig token mint authority only supported for versions >= 3.x.x"
                             );
+                             console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
                             process.exit(1);
                           }
                         }
