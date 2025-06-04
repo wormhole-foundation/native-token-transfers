@@ -1613,7 +1613,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
             console.error(`Expected: ${expectedMintAuthority}`);
             console.error(`Actual: ${actualMintAuthority}`);
             console.error(`Set the mint authority to the program's token authority PDA with e.g.:`);
-            console.error(`spl-token authorize ${token} mint ${expectedMintAuthority}`);
+            console.error(`ntt solana set-mint-authority ${expectedMintAuthority}`);
             process.exit(1);
         }
     }
