@@ -885,7 +885,7 @@ yargs(hideBin(process.argv))
                         console.log(ata.toBase58());
                     })
                 .command("create-spl-multisig <multisigMemberPubkey...>",
-                      "create a valid SPL Multisig (see docs for more info)",
+                      "create a valid SPL Multisig (see https://github.com/wormhole-foundation/native-token-transfers/tree/main/solana#spl-multisig-support for more info)",
                       (yargs) =>
                         yargs
                           .positional("multisigMemberPubkey", {
