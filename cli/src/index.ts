@@ -62,7 +62,10 @@ import { newSignSendWaiter } from "./signSendWait.js";
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
 // TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
-
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+const __dirname = path.dirname(__filename); // get the name of the directory
 const evmDeployFile = readFileSync(__dirname+"/DeployWormholeNtt.s.sol")
 const evmDeployFileHelper = readFileSync(__dirname + "/DeployWormholeNttBase.sol")
 // TODO: check if manager can mint the token in burning mode (on solana it's

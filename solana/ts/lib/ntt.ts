@@ -1,10 +1,10 @@
 import {
-  BN,
   Program,
   parseIdlErrors,
   translateError,
   web3,
 } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import * as splToken from "@solana/spl-token";
 import {
   AccountMeta,
