@@ -4,10 +4,11 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "prepublish": "npm run build",
+    "prepublish": "npm run build && cp ../evm/script/DeployWormholeNtt.s.sol ../evm/script/helpers/DeployWormholeNttBase.sol script",
     "build": "rollup -c"
   },
   "files": [
+    "script/*",
     "dist",
     "./bin.cjs"
   ],
@@ -39,8 +40,9 @@
     "@wormhole-foundation/sdk-evm-ntt": "0.5.0",
     "@wormhole-foundation/sdk-solana": "1.14.2",
     "@wormhole-foundation/sdk-solana-ntt": "0.5.0",
-    "chalk": "^5.3.0",
-    "ethers": "^6.14.1",
-    "yargs": "^17.7.2"
+    "chalk": "5.3.0",
+    "ethers": "6.14.1",
+    "yargs": "17.7.2",
+    "@coral-xyz/anchor": "0.29.0"
   }
 }

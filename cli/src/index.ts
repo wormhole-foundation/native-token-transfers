@@ -4,19 +4,14 @@ import solana from "@wormhole-foundation/sdk/platforms/solana";
 import { execSync, spawn } from "child_process";
 import { base58 } from "@scure/base";
 
-import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with {
-	type: "file",
-};
-import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with {
-	type: "file",
-};
+
 
 import chalk from "chalk";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
-import fs from "fs";
+import fs, { readFileSync } from "fs";
 import readline from "readline";
 import {
 	ChainContext,
@@ -68,6 +63,8 @@ import { newSignSendWaiter } from "./signSendWait.js";
 // TODO: set special relaying?
 // TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
 
+const evmDeployFile = readFileSync(__dirname+"/DeployWormholeNtt.s.sol")
+const evmDeployFileHelper = readFileSync(__dirname + "/DeployWormholeNttBase.sol")
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
 const overrides: WormholeConfigOverrides<Network> = (function () {
