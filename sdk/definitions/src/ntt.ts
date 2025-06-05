@@ -51,11 +51,15 @@ export namespace Ntt {
     typeof transceiverRegistration
   >;
 
+  // export type WormholeRelayType = "manual" | "automatic" | "executor";
+
   export type TransferOptions = {
     /** Whether or not to queue the transfer if the outbound capacity is exceeded */
     queue: boolean;
     /** Whether or not to request this transfer should be relayed, otherwise manual redemption is required */
     automatic?: boolean;
+    /** The mechanism by which the wormhole attestation (VAA) gets delivered */
+    // relayType?: WormholeRelayType;
     /** How much native gas on the destination to send along with the transfer */
     gasDropoff?: bigint;
     /** Whether or not the token needs to be wrapped, only relevant for gas token transfers */
