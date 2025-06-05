@@ -48,7 +48,7 @@ import {
   getNttProgram,
   getTransceiverProgram,
 } from "../lib/bindings.js";
-import { NTT, NttQuoter, WEI_PER_GWEI } from "../lib/index.js";
+import { NTT, NttQuoter } from "../lib/index.js";
 import { parseVersion } from "../lib/utils.js";
 
 export class SolanaNttWormholeTransceiver<
@@ -537,10 +537,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     if (!this.quoter.isRelayEnabled(destination))
       throw new Error("Relay not enabled");
 
-    return await this.quoter.quoteDeliveryPrice(
-      destination,
-      options.gasDropoff
-    );
+    return await this.quoter.quoteDeliveryPrice(destination, 0n);
   }
 
   static async fromRpc<N extends Network>(
@@ -946,8 +943,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         outboxItem.publicKey,
         destination.chain,
         Number(fee) / LAMPORTS_PER_SOL,
-        // NOTE: quoter expects gas dropoff to be in terms of gwei
-        Number(options.gasDropoff ?? 0n) / WEI_PER_GWEI
+        0
       );
       tx.add(relayIx);
     }

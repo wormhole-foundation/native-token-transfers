@@ -142,7 +142,6 @@ export class NttAutomaticRoute<N extends Network>
         options: {
           queue: false,
           automatic: true,
-          gasDropoff: 0n,
           wrapNative,
         },
       },
@@ -195,10 +194,6 @@ export class NttAutomaticRoute<N extends Network>
           fromChain.config.nativeTokenDecimals
         ),
       },
-      destinationNativeGas: amount.fromBaseUnits(
-        params.normalizedParams.options.gasDropoff ?? 0n,
-        toChain.config.nativeTokenDecimals
-      ),
       eta: finality.estimateFinalityTime(request.fromChain.chain),
     };
     const dstNtt = await toChain.getProtocol("Ntt", {

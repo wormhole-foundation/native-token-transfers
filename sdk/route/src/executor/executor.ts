@@ -186,7 +186,7 @@ export class NttExecutorRoute<N extends Network>
         options: {
           queue: false,
           automatic: true,
-          //gasDropoff: amount.units(gasDropoff),
+          useExecutor: true,
           wrapNative,
         },
       },
@@ -357,14 +357,13 @@ export class NttExecutorRoute<N extends Network>
     });
 
     // Calculate the gas dropOff value
-    // const gasDropOffLimit = BigInt(dstCapabilities.gasDropOffLimit);
-    const dropOff = 0n;
-    //const dropOff =
-    //  params.options.nativeGas && gasDropOffLimit > 0n
-    //    ? (BigInt(Math.round(params.options.nativeGas * 100)) *
-    //        gasDropOffLimit) /
-    //      100n
-    //    : 0n;
+    const gasDropOffLimit = BigInt(dstCapabilities.gasDropOffLimit);
+    const dropOff =
+      params.options.nativeGas && gasDropOffLimit > 0n
+        ? (BigInt(Math.round(params.options.nativeGas * 100)) *
+            gasDropOffLimit) /
+          100n
+        : 0n;
 
     // Add the gas drop-off instruction if applicable
     if (dropOff > 0n || !tokenAccountExists) {

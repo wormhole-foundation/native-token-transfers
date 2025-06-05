@@ -127,7 +127,6 @@ export class NttManualRoute<N extends Network>
         options: {
           queue: false,
           automatic: false,
-          gasDropoff: 0n,
           wrapNative,
         },
       },

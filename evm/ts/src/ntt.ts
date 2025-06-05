@@ -80,20 +80,23 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
   async *setPeer<P extends Chain>(
     peer: ChainAddress<P>
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
-    const coreBridge = new Contract(this.manager.contracts.coreBridge!, [
-        "function messageFee() public view returns (uint256)",
-      ],
+    const coreBridge = new Contract(
+      this.manager.contracts.coreBridge!,
+      ["function messageFee() public view returns (uint256)"],
       this.manager.provider
-    )
-    const messageFee = await coreBridge.getFunction("messageFee").staticCall()
+    );
+    const messageFee = await coreBridge.getFunction("messageFee").staticCall();
     const tx = await this.transceiver.setWormholePeer.populateTransaction(
       toChainId(peer.chain),
       universalAddress(peer)
     );
-    yield this.manager.createUnsignedTx({
-      ...tx,
-      value: messageFee
-    }, "WormholeTransceiver.registerPeer");
+    yield this.manager.createUnsignedTx(
+      {
+        ...tx,
+        value: messageFee,
+      },
+      "WormholeTransceiver.registerPeer"
+    );
   }
 
   async getPauser(): Promise<AccountAddress<C> | null> {
@@ -396,7 +399,9 @@ export class EvmNtt<N extends Network, C extends EvmChains>
 
     ixs.push({
       index: 0,
-      payload: this.xcvrs[0]!.encodeFlags({ skipRelay: !options.automatic }),
+      payload: this.xcvrs[0]!.encodeFlags({
+        skipRelay: !options.automatic || options.useExecutor === true,
+      }),
     });
 
     return ixs;
@@ -514,17 +519,23 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     }
 
     const receiver = universalAddress(destination);
-    const txReq = await this.manager
-      .getFunction("transfer(uint256,uint16,bytes32,bytes32,bool,bytes)")
-      .populateTransaction(
-        amount,
-        toChainId(destination.chain),
-        receiver,
-        receiver,
-        options.queue,
-        Ntt.encodeTransceiverInstructions(this.encodeOptions(options)),
-        { value: totalPrice }
-      );
+
+    let txReq;
+    if (options.useExecutor) {
+      throw new Error("executor transfers are not supported yet");
+    } else {
+      txReq = await this.manager
+        .getFunction("transfer(uint256,uint16,bytes32,bytes32,bool,bytes)")
+        .populateTransaction(
+          amount,
+          toChainId(destination.chain),
+          receiver,
+          receiver,
+          options.queue,
+          Ntt.encodeTransceiverInstructions(this.encodeOptions(options)),
+          { value: totalPrice }
+        );
+    }
 
     yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.transfer");
   }
