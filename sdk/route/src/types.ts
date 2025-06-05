@@ -34,6 +34,11 @@ export namespace NttRoute {
     transceiver: TransceiverConfig[];
     quoter?: string;
     isWrappedGasToken?: boolean;
+    // Referrer Fee in *tenths* of basis points
+    // e.g. 10 = 1 basis point (0.01%)
+    // Only applicable to the executor route
+    referrerFeeDbps?: bigint;
+    // gasLimit?: bigint;
   };
 
   export type Config = {
@@ -44,7 +49,9 @@ export namespace NttRoute {
   /** Options for Per-TransferRequest settings */
   export interface Options {
     automatic: boolean;
-    gasDropoff?: string;
+    // 0.0 - 1.0 percentage of the maximum gas drop-off amount
+    // returned by the executor API
+    nativeGas?: number;
   }
 
   export const ManualOptions: Options = {
@@ -53,7 +60,6 @@ export namespace NttRoute {
 
   export const AutomaticOptions: Options = {
     automatic: true,
-    gasDropoff: "0.0",
   };
 
   export type NormalizedParams = {

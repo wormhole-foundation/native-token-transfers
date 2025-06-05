@@ -4,9 +4,9 @@ import {
   toChainId,
   amount as sdkAmount,
 } from "@wormhole-foundation/sdk-base";
-import { SignedQuote } from "./layouts";
+import { SignedQuote } from "./layouts/signedQuote.js";
 import axios from "axios";
-import { apiBaseUrl } from "./consts";
+import { apiBaseUrl } from "./consts.js";
 
 // TODO: this belongs in its own sdk package
 export enum RelayStatus {

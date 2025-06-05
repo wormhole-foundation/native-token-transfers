@@ -110,13 +110,6 @@ export class NttManualRoute<N extends Network>
       request.destination.decimals
     );
 
-    const gasDropoff = amount.units(
-      amount.parse(
-        options.gasDropoff ?? "0.0",
-        request.toChain.config.nativeTokenDecimals
-      )
-    );
-
     const wrapNative = isNative(request.source.id.address);
 
     const { srcContracts, dstContracts } = NttRoute.resolveNttContracts(
@@ -134,7 +127,7 @@ export class NttManualRoute<N extends Network>
         options: {
           queue: false,
           automatic: false,
-          gasDropoff,
+          gasDropoff: 0n,
           wrapNative,
         },
       },

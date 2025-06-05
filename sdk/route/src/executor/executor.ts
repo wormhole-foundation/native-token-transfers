@@ -11,10 +11,13 @@ import {
   TokenId,
   TransactionId,
   TransferState,
+  UniversalAddress,
   Wormhole,
   WormholeMessageId,
   amount,
   canonicalAddress,
+  deserializeLayout,
+  encoding,
   finality,
   guardians,
   isAttested,
@@ -25,40 +28,22 @@ import {
   isSourceInitiated,
   nativeTokenId,
   routes,
+  serializeLayout,
   signSendWait,
+  toChainId,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "../types.js";
+import { gasLimits, referrers } from "./consts.js";
+import {
+  calculateReferrerFee,
+  fetchCapabilities,
+  fetchSignedQuote,
+} from "./utils.js";
+import { relayInstructionsLayout } from "./layouts/relayInstruction.js";
+import { signedQuoteLayout } from "./layouts/signedQuote.js";
 
 export namespace NttExecutorRoute {
-  export type Options = {
-    // TODO: why need dis
-    automatic: boolean;
-
-    // 0.0 - 1.0 percentage of the maximum gas drop-off amount
-    // returned by the executor API
-    nativeGas?: number;
-  };
-
-  export type TokenConfig = NttRoute.TokenConfig & {
-    // Referrer Fee in *tenths* of basis points
-    // e.g. 10 = 1 basis point (0.01%)
-    referrerFeeDbps?: bigint;
-  };
-
-  export type Config = NttRoute.Config & {
-    // Token Name => Config
-    tokens: Record<string, TokenConfig[]>;
-
-    //// Referrer Fee in *tenths* of basis points
-    //// e.g. 10 = 1 basis point (0.01%)
-    //referrerFeeDbps: bigint;
-    //// Optional threshold USDC amount used in the below referrer fee formula when specified.
-    //// min(referrerFeeDbps, referrerFeeThreshold/amount)
-    //// Note that this is in whole USDC, not in base units.
-    //referrerFeeThreshold?: bigint;
-  };
-
   // TODO: might not need all this
   export type ExecutorQuote = {
     signedQuote: Uint8Array; // The signed quote from the /v0/quote endpoint
@@ -73,7 +58,7 @@ export namespace NttExecutorRoute {
   };
 }
 
-type Op = NttExecutorRoute.Options;
+type Op = NttRoute.Options;
 type Tp = routes.TransferParams<Op>;
 type Vr = routes.ValidationResult<Op>;
 
@@ -84,7 +69,7 @@ type QR = routes.QuoteResult<Op, Vp>;
 
 type R = NttRoute.ManualTransferReceipt;
 
-export function nttExecutorRoute(config: NttExecutorRoute.Config) {
+export function nttExecutorRoute(config: NttRoute.Config) {
   class NttExecutorRouteImpl<N extends Network> extends NttExecutorRoute<N> {
     static override config = config;
   }
@@ -102,7 +87,7 @@ export class NttExecutorRoute<N extends Network>
   // Since we set the config on the static class, access it with this param
   // the NttExecutorRoute.config will always be empty
   readonly staticConfig = this.constructor.config;
-  static config: NttExecutorRoute.Config = { tokens: {} };
+  static config: NttRoute.Config = { tokens: {} };
 
   static meta = { name: "NttExecutorRoute" };
 
@@ -218,7 +203,7 @@ export class NttExecutorRoute<N extends Network>
     const { fromChain, toChain } = request;
 
     try {
-      const executorQuote = await this.fetchExecutorQuote(request);
+      const executorQuote = await this.fetchExecutorQuote(request, params);
 
       const { remainingAmount, estimatedCost, gasDropOff, expires } =
         executorQuote;
@@ -293,8 +278,11 @@ export class NttExecutorRoute<N extends Network>
   }
 
   async fetchExecutorQuote(
-    request: routes.RouteTransferRequest<N>
+    request: routes.RouteTransferRequest<N>,
+    params: Vp
   ): Promise<NttExecutorRoute.ExecutorQuote> {
+    const { fromChain, toChain } = request;
+
     const referrerAddress = referrers[fromChain.network]?.[fromChain.chain];
     if (!referrerAddress) {
       throw new Error("No referrer address found");
@@ -304,8 +292,8 @@ export class NttExecutorRoute<N extends Network>
     const { referrerFee, remainingAmount, referrerFeeDbps } =
       calculateReferrerFee(
         amount.units(params.normalizedParams.amount),
-        config.referrerFeeDbps,
-        config.referrerFeeThreshold
+        this.staticConfig.referrerFeeDbps,
+        this.staticConfig.referrerFeeThreshold
       );
     if (remainingAmount <= 0n) {
       throw new Error("Amount after fee <= 0");
@@ -323,42 +311,39 @@ export class NttExecutorRoute<N extends Network>
     }
 
     const dstCapabilities = capabilities[toChainId(toChain.chain)];
-    if (
-      !dstCapabilities ||
-      !dstCapabilities.requestPrefixes.includes(capability)
-    ) {
+    if (!dstCapabilities || !dstCapabilities.requestPrefixes.includes("ERN1")) {
       throw new Error("Unsupported destination chain");
     }
 
     const { recipient } = request;
     let tokenAccountExists = true;
 
-    // Check if the associated token account (ATA) exists on Solana.
-    // If it doesn't, include a gas drop-off instruction so the relayer can create it.
-    // Note: There's a potential race condition — the account might exist during this check,
-    // but could be closed before the transfer completes.
-    if (recipient && toChain.chain === "Solana") {
-      const usdcAddress = Wormhole.parseAddress("Solana", dstUsdcAddress);
-      const ata = await toChain.getTokenAccount(recipient.address, usdcAddress);
-      const connection: Connection = await toChain.getRpc();
-      const ataAccount = await connection.getAccountInfo(
-        new SolanaAddress(ata.address).unwrap()
-      );
-      tokenAccountExists = ataAccount !== null;
-      if (!tokenAccountExists && !ataMinRentAmount) {
-        ataMinRentAmount = BigInt(
-          await connection.getMinimumBalanceForRentExemption(165)
-        );
-      }
-    }
+    //// Check if the associated token account (ATA) exists on Solana.
+    //// If it doesn't, include a gas drop-off instruction so the relayer can create it.
+    //// Note: There's a potential race condition — the account might exist during this check,
+    //// but could be closed before the transfer completes.
+    //if (recipient && toChain.chain === "Solana") {
+    //  const usdcAddress = Wormhole.parseAddress("Solana", dstUsdcAddress);
+    //  const ata = await toChain.getTokenAccount(recipient.address, usdcAddress);
+    //  const connection: Connection = await toChain.getRpc();
+    //  const ataAccount = await connection.getAccountInfo(
+    //    new SolanaAddress(ata.address).unwrap()
+    //  );
+    //  tokenAccountExists = ataAccount !== null;
+    //  if (!tokenAccountExists && !ataMinRentAmount) {
+    //    ataMinRentAmount = BigInt(
+    //      await connection.getMinimumBalanceForRentExemption(165)
+    //    );
+    //  }
+    //}
 
     let msgValue = 0n;
-    if (toChain.chain === "Solana") {
-      msgValue += SOLANA_MSG_VALUE_BASE_FEE;
-      if (!tokenAccountExists && ataMinRentAmount) {
-        msgValue += ataMinRentAmount;
-      }
-    }
+    //if (toChain.chain === "Solana") {
+    //  msgValue += SOLANA_MSG_VALUE_BASE_FEE;
+    //  if (!tokenAccountExists && ataMinRentAmount) {
+    //    msgValue += ataMinRentAmount;
+    //  }
+    //}
 
     const relayRequests = [];
 
@@ -372,13 +357,14 @@ export class NttExecutorRoute<N extends Network>
     });
 
     // Calculate the gas dropOff value
-    const gasDropOffLimit = BigInt(dstCapabilities.gasDropOffLimit);
-    const dropOff =
-      params.options.nativeGas && gasDropOffLimit > 0n
-        ? (BigInt(Math.round(params.options.nativeGas * 100)) *
-            gasDropOffLimit) /
-          100n
-        : 0n;
+    // const gasDropOffLimit = BigInt(dstCapabilities.gasDropOffLimit);
+    const dropOff = 0n;
+    //const dropOff =
+    //  params.options.nativeGas && gasDropOffLimit > 0n
+    //    ? (BigInt(Math.round(params.options.nativeGas * 100)) *
+    //        gasDropOffLimit) /
+    //      100n
+    //    : 0n;
 
     // Add the gas drop-off instruction if applicable
     if (dropOff > 0n || !tokenAccountExists) {
@@ -416,7 +402,7 @@ export class NttExecutorRoute<N extends Network>
 
     const estimatedCost = BigInt(quote.estimatedCost);
 
-    const details: NttExecutorRoute.ExecutorQuote = {
+    return {
       signedQuote: signedQuoteBytes,
       relayInstructions: relayInstructions,
       estimatedCost,
@@ -427,8 +413,6 @@ export class NttExecutorRoute<N extends Network>
       expires: signedQuote.quote.expiryTime,
       gasDropOff: dropOff,
     };
-
-    return details;
   }
 
   async initiate(

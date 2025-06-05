@@ -118,11 +118,6 @@ export class NttAutomaticRoute<N extends Network>
   ): Promise<Vr> {
     const options = params.options ?? this.getDefaultOptions();
 
-    const gasDropoff = amount.parse(
-      options.gasDropoff ?? "0.0",
-      request.toChain.config.nativeTokenDecimals
-    );
-
     const wrapNative = isNative(request.source.id.address);
 
     const parsedAmount = amount.parse(params.amount, request.source.decimals);
@@ -147,7 +142,7 @@ export class NttAutomaticRoute<N extends Network>
         options: {
           queue: false,
           automatic: true,
-          gasDropoff: amount.units(gasDropoff),
+          gasDropoff: 0n,
           wrapNative,
         },
       },
