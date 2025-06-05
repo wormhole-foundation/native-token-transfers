@@ -249,7 +249,6 @@ describe("Automatic Route Tests", function () {
       "sourceToken",
       "destinationToken",
       "relayFee",
-      "destinationNativeGas",
       "eta",
     ]);
   });

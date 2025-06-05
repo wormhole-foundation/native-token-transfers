@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-evm-ntt",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/example-native-token-transfers.git"
@@ -44,14 +44,14 @@
     "test": "jest --config ./jest.config.ts"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-definitions-ntt": "0.5.0",
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
     "ethers": "^6.5.1"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^1.0.0",
-    "@wormhole-foundation/sdk-definitions": "^1.0.0",
-    "@wormhole-foundation/sdk-evm": "^1.0.0",
-    "@wormhole-foundation/sdk-evm-core": "^1.0.0"
+    "@wormhole-foundation/sdk-base": "^2.1.0",
+    "@wormhole-foundation/sdk-definitions": "^2.1.0",
+    "@wormhole-foundation/sdk-evm": "^2.1.0",
+    "@wormhole-foundation/sdk-evm-core": "^2.1.0"
   },
   "devDependencies": {
     "@typechain/ethers-v6": "^0.5.1",
