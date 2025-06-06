@@ -49,7 +49,6 @@ COPY solana/ts solana/ts
 COPY evm/ts evm/ts
 COPY solana/tsconfig.*.json solana/
 COPY cli/package.json cli/package.json
-COPY cli/package-lock.json cli/package-lock.json
 COPY cli/src cli/src
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
