@@ -90,7 +90,7 @@ validator_dir=$(mktemp -d)
 if [ "$USE_TMP_DIR" = true ]; then
    tmp_dir=$(mktemp -d)
    cd "$tmp_dir" || exit
-   ntt new test-ntt
+   $NTT_CMD new test-ntt
    cd test-ntt || exit
 fi
 
