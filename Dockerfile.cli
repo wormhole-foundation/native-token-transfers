@@ -50,6 +50,9 @@ COPY evm/ts evm/ts
 COPY solana/tsconfig.*.json solana/
 COPY cli/package.json cli/package.json
 COPY cli/src cli/src
+COPY cli/rollup.config.js cli/rollup.config.js
+COPY cli/tsconfig.json cli/tsconfig.json
+COPY cli/bin.cjs cli/bin.cjs
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
 RUN bash -ci "which ntt-cli"

@@ -1,14 +1,13 @@
 import { importAsString } from 'rollup-plugin-string-import';
 import typescript from '@rollup/plugin-typescript';
-import pkg from './package.json' with {type: 'json'};
 import json from '@rollup/plugin-json';
 const minifiedOutputs = [
   {
-    file: pkg.exports.import,
+    file: "./dist/index.js",
     format: 'esm',
   },
   {
-    file: pkg.exports.require,
+    file:"./dist/index.cjs",
     format: 'cjs',
   },
 ];
