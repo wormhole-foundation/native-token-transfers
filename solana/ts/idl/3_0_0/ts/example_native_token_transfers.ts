@@ -1212,14 +1212,6 @@ export type ExampleNativeTokenTransfers = {
           "isSigner": true
         },
         {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "used here that wraps the Transceiver account type."
-          ]
-        },
-        {
           "name": "registeredTransceiver",
           "isMut": false,
           "isSigner": false
@@ -3710,14 +3702,6 @@ export const IDL: ExampleNativeTokenTransfers = {
           "name": "owner",
           "isMut": false,
           "isSigner": true
-        },
-        {
-          "name": "transceiver",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "used here that wraps the Transceiver account type."
-          ]
         },
         {
           "name": "registeredTransceiver",
