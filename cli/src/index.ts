@@ -242,7 +242,7 @@ async function withCustomEvmDeployerScript<A>(
 
 export const YargsCommand = yargs(hideBin(process.argv))
 	.wrap(Math.min(process.stdout.columns || 120, 160)) // Use terminal width, but no more than 160 characters
-	.scriptName("ntt")
+	.scriptName("ntt-cli")
 	.version(
 		(() => {
 			const ver = nttVersion();

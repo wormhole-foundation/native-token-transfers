@@ -31,7 +31,7 @@ FROM base as cli-remote
 # This build stage tests that path.
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
-RUN bash -ci "which ntt"
+RUN bash -ci "which ntt-cli"
 
 FROM base-solana as cli-local
 # NOTE: when invoking the installer inside of the source tree, it installs from
@@ -52,7 +52,7 @@ COPY cli/package.json cli/package.json
 COPY cli/src cli/src
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
-RUN bash -ci "which ntt"
+RUN bash -ci "which ntt-cli"
 
 FROM cli-local as cli-local-test
 COPY cli/test cli/test
