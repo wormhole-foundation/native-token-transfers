@@ -224,7 +224,7 @@ async function withCustomEvmDeployerScript<A>(
 		if (fs.existsSync(path)) {
 			fs.copyFileSync(path, old);
 		}
-		fs.copyFileSync(withFile, path);
+		fs.writeFileSync(path, withFile);
 	}
 	try {
 		return await then();

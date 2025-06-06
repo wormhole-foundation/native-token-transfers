@@ -4,8 +4,8 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "prepublish": "npm run build && cp ../evm/script/DeployWormholeNtt.s.sol ../evm/script/helpers/DeployWormholeNttBase.sol script",
-    "build": "rollup -c"
+    "prepublish": "npm run build && npm run copy-script",
+    "build": "rollup -c && cp ../evm/script/DeployWormholeNtt.s.sol ../evm/script/helpers/DeployWormholeNttBase.sol dist"
   },
   "files": [
     "script/*",

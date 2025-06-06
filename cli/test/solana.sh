@@ -21,7 +21,8 @@ OVERRIDES_FILE="overrides.json"
 DEPLOYMENT_FILE="deployment.json"
 KEEP_ALIVE=false
 USE_TMP_DIR=false
-NTT_CMD="ntt-cli"
+# NTT_CMD set to default vcalue or env var if exists
+NTT_CMD=${NTT_CMD:="ntt-cli"}
 
 # Function to display usage information
 usage() {
@@ -185,7 +186,7 @@ ntt_keypair=$(realpath "$ntt_keypair")
 popd || exit
 
 # Set token authority
-authority=$(ntt solana token-authority "$ntt_keypair_without_json")
+authority=$($NTT_CMD solana token-authority "$ntt_keypair_without_json")
 echo "Authority: $authority"
 spl-token authorize "$token" mint "$authority" -u "$NETWORK"
 

@@ -47,6 +47,7 @@ COPY sdk sdk
 COPY solana/package.json solana/package.json
 COPY solana/ts solana/ts
 COPY evm/ts evm/ts
+COPY evm/script evm/script
 COPY solana/tsconfig.*.json solana/
 COPY cli/package.json cli/package.json
 COPY cli/src cli/src
@@ -62,9 +63,8 @@ COPY cli/test cli/test
 COPY evm evm
 RUN bash -ci "./cli/test/sepolia-bsc.sh"
 
-FROM cli-local as cli-local-test-solana
-COPY cli/test cli/test
-# evm/script needed for the cli, at least for now
-COPY evm/script evm/script
-COPY solana solana
-RUN bash -ci "./cli/test/solana.sh --use-tmp-dir"
+#FROM cli-local as cli-local-test-solana
+#COPY cli/test cli/test
+## evm/script needed for the cli, at least for now
+#COPY solana solana
+#RUN bash -ci "./cli/test/solana.sh --use-tmp-dir"

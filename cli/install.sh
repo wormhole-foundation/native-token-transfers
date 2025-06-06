@@ -128,7 +128,7 @@ function install_cli {
 
 
   npm install
-  npm run prepublish
+  npm run build
   # pack the cli
   cd cli
   mv $(npm pack) out.tgz
