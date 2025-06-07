@@ -1,12 +1,16 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    "declaration": true,
     // Enable latest features
+    "outDir": "./dist",
     "lib": ["ESNext"],
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
+    "rootDir": "./src",
 
     // Bundler mode
     "moduleResolution": "bundler",

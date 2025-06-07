@@ -1,0 +1,1 @@
+../../evm/script/DeployWormholeNtt.s.sol

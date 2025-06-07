@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-# check that 'bun' is installed
+# check that 'npm' is installed
 
-if ! command -v bun > /dev/null; then
-  echo "bun is not installed. Follow the instructions at https://bun.sh/docs/installation"
+if ! command -v npm > /dev/null; then
+  echo "npm is not installed."
   exit 1
 fi
 
@@ -121,44 +121,19 @@ function install_cli {
 
   # if 'ntt' is already installed, uninstall it
   # just check with 'which'
-  if which ntt > /dev/null; then
+  if which ntt-cli > /dev/null; then
     echo "Removing existing ntt CLI"
-    rm $(which ntt)
+    rm $(which ntt-cli)
   fi
 
-  # swallow the output of the first install
-  # TODO: figure out why it fails the first time.
-  bun install > /dev/null 2>&1 || true
-  bun install
 
-  # make a temporary directory
-
-  tmpdir="$(mktemp -d)"
-
-  # create a temporary symlink 'npm' to 'bun'
-
-  ln -s "$(command -v bun)" "$tmpdir/npm"
-
-  # add the temporary directory to the PATH
-
-  export PATH="$tmpdir:$PATH"
-
-  # swallow the output of the first build
-  # TODO: figure out why it fails the first time.
-  bun --bun run --filter '*' build > /dev/null 2>&1 || true
-  bun --bun run --filter '*' build
-
-  # remove the temporary directory
-
-  rm -r "$tmpdir"
-
-  # now link the CLI
-
+  npm install
+  npm link
+  npm run build
+  # pack the cli
   cd cli
-
-  bun link
-
-  bun link @wormhole-foundation/ntt-cli
+  mv $(npm pack) out.tgz
+  npm i -g out.tgz
 }
 
 main "$@"
