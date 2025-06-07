@@ -63,8 +63,8 @@ COPY cli/test cli/test
 COPY evm evm
 RUN bash -ci "./cli/test/sepolia-bsc.sh"
 
-#FROM cli-local as cli-local-test-solana
-#COPY cli/test cli/test
-## evm/script needed for the cli, at least for now
-#COPY solana solana
-#RUN bash -ci "./cli/test/solana.sh --use-tmp-dir"
+FROM cli-local as cli-local-test-solana
+COPY cli/test cli/test
+# evm/script needed for the cli, at least for now
+COPY solana solana
+RUN bash -ci "./cli/test/solana.sh --use-tmp-dir"

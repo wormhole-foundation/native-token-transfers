@@ -1988,7 +1988,8 @@ async function missingConfigs(
 				});
 			} else {
 				// @ts-ignore TODO
-				if (!peer.address.address.equals(to.manager.address.address)) {
+				console.log("peer addr", peer.address, "manager addr", to.manager.address.toUniversalAddress());
+				if (!peer.address.address.equals(to.manager.address.toUniversalAddress())) {
 					console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
 				}
 				if (peer.tokenDecimals !== to.decimals) {
