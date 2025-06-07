@@ -1,10 +1,9 @@
+use crate::sdk::accounts::NTT;
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
 use anchor_spl::{token::Token, token_2022::spl_token_2022};
 use example_native_token_transfers::{accounts::NotPausedConfig, instructions::TransferArgs};
 use ntt_messages::mode::Mode;
 use solana_sdk::instruction::Instruction;
-
-use crate::sdk::accounts::NTT;
 
 #[derive(Debug, Clone)]
 pub struct Transfer {

@@ -121,11 +121,6 @@ export type NttTransceiver = {
           "isSigner": false
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "wormhole",
           "accounts": [
             {
@@ -160,6 +155,16 @@ export type NttTransceiver = {
             },
             {
               "name": "rent",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "transceiver",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "emitter",
               "isMut": false,
               "isSigner": false
             }
@@ -209,11 +214,6 @@ export type NttTransceiver = {
           "isSigner": true
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "wormhole",
           "accounts": [
             {
@@ -248,6 +248,16 @@ export type NttTransceiver = {
             },
             {
               "name": "rent",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "transceiver",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "emitter",
               "isMut": false,
               "isSigner": false
             }
@@ -280,11 +290,6 @@ export type NttTransceiver = {
           "isSigner": true
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "wormhole",
           "accounts": [
             {
@@ -319,6 +324,16 @@ export type NttTransceiver = {
             },
             {
               "name": "rent",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "transceiver",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "emitter",
               "isMut": false,
               "isSigner": false
             }
@@ -819,11 +834,6 @@ export const IDL: NttTransceiver = {
           "isSigner": false
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "wormhole",
           "accounts": [
             {
@@ -858,6 +868,16 @@ export const IDL: NttTransceiver = {
             },
             {
               "name": "rent",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "transceiver",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "emitter",
               "isMut": false,
               "isSigner": false
             }
@@ -907,11 +927,6 @@ export const IDL: NttTransceiver = {
           "isSigner": true
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "wormhole",
           "accounts": [
             {
@@ -946,6 +961,16 @@ export const IDL: NttTransceiver = {
             },
             {
               "name": "rent",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "transceiver",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "emitter",
               "isMut": false,
               "isSigner": false
             }
@@ -978,11 +1003,6 @@ export const IDL: NttTransceiver = {
           "isSigner": true
         },
         {
-          "name": "emitter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "wormhole",
           "accounts": [
             {
@@ -1017,6 +1037,16 @@ export const IDL: NttTransceiver = {
             },
             {
               "name": "rent",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "transceiver",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "emitter",
               "isMut": false,
               "isSigner": false
             }
