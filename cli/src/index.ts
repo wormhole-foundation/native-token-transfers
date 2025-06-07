@@ -60,6 +60,7 @@ import { newSignSendWaiter } from "./signSendWait.js";
 // TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
 import path from "path";
 import { fileURLToPath } from "url";
+import { ensureNttRoot } from "./util.js";
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
 const evmDeployFile = readFileSync(__dirname + "/DeployWormholeNtt.s.sol");
@@ -2555,16 +2556,6 @@ function searchHexInBinary(binaryPath: string, searchHex: string) {
 	const found = hexString.includes(searchHex);
 
 	return found;
-}
-
-export function ensureNttRoot(pwd = ".") {
-	if (
-		!fs.existsSync(`${pwd}/evm/foundry.toml`) ||
-		!fs.existsSync(`${pwd}/solana/Anchor.toml`)
-	) {
-		console.error("Run this command from the root of an NTT project.");
-		process.exit(1);
-	}
 }
 
 function checkAnchorVersion() {

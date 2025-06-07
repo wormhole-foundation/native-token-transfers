@@ -38,7 +38,7 @@
     "build": "npm run build:esm && npm run build:cjs",
     "rebuild": "npm run clean && npm run build",
     "clean": "rm -rf ./dist",
-    "test:ci": "jest --config ./jest.config.ts",
+    "test:ci": "jest --config ./jest.config.cjs",
     "build:contracts": "make build"
   },
   "devDependencies": {

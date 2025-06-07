@@ -1,8 +1,8 @@
 import { assertChain, chains, type Chain } from "@wormhole-foundation/sdk";
 import * as yargs from "yargs";
 import fs from "fs";
-import { ensureNttRoot } from ".";
 import chalk from "chalk";
+import { ensureNttRoot } from "./util";
 
 // We support project-local and global configuration.
 // The configuration is stored in JSON files in $HOME/.ntt-cli/config.json (global) and .ntt-cli/config.json (local).
