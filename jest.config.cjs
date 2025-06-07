@@ -1,6 +1,4 @@
-import type { JestConfigWithTsJest } from "ts-jest";
-
-const jestConfig: JestConfigWithTsJest = {
+const jestConfig = {
   verbose: true,
   testTimeout: 10000000,
   roots: ["./sdk/__tests__"],
@@ -15,4 +13,4 @@ const jestConfig: JestConfigWithTsJest = {
   },
 };
 
-export default jestConfig;
+module.exports = jestConfig;
