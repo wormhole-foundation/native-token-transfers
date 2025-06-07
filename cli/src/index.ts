@@ -1976,7 +1976,7 @@ async function missingConfigs(
 				5,
 				5000,
 			);
-			if (peer === null) {
+			if (peer === null || peer?.address?.address === undefined) {
 				const configLimit = from.config.local?.limits?.inbound?.[
 					toChain
 				]?.replace(".", "");

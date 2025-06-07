@@ -128,6 +128,7 @@ function install_cli {
 
 
   npm install
+  npm link
   npm run build
   # pack the cli
   cd cli
