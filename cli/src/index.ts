@@ -1,20 +1,19 @@
 import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
-import {SolanaPlatform} from "@wormhole-foundation/sdk-solana";
+import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { execSync, spawn } from "child_process";
 import { base58 } from "@scure/base";
-
 
 import chalk from "chalk";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { type Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs, { readFileSync } from "fs";
 import readline from "readline";
 import {
-	ChainContext,
-	UniversalAddress,
+	type ChainContext,
+	type UniversalAddress,
 	Wormhole,
 	assertChain,
 	canonicalAddress,
@@ -25,7 +24,7 @@ import {
 	platforms,
 	signSendWait,
 	toUniversal,
-  type WormholeConfigOverrides,
+	type WormholeConfigOverrides,
 	type AccountAddress,
 	type Chain,
 	type ChainAddress,
@@ -61,15 +60,17 @@ import { newSignSendWaiter } from "./signSendWait.js";
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
 // TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from "path";
+import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
-const evmDeployFile = readFileSync(__dirname+"/DeployWormholeNtt.s.sol")
-const evmDeployFileHelper = readFileSync(__dirname + "/DeployWormholeNttBase.sol")
+const evmDeployFile = readFileSync(__dirname + "/DeployWormholeNtt.s.sol");
+const evmDeployFileHelper = readFileSync(
+	__dirname + "/DeployWormholeNttBase.sol",
+);
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
-const overrides: WormholeConfigOverrides<Network> = (function () {
+const overrides: WormholeConfigOverrides<Network> = (() => {
 	// read overrides.json file if exists
 	if (fs.existsSync("overrides.json")) {
 		console.error(chalk.yellow("Using overrides.json"));
@@ -78,6 +79,10 @@ const overrides: WormholeConfigOverrides<Network> = (function () {
 		return {};
 	}
 })();
+
+const sleep = async (ms: number) => {
+	await new Promise((resolve) => setTimeout(resolve, ms));
+};
 
 export type Deployment<C extends Chain> = {
 	ctx: ChainContext<Network, C>;
@@ -719,7 +724,7 @@ export const YargsCommand = yargs(hideBin(process.argv))
 			// this can happen when the last we hit the rate limit just in the last iteration of the loop above.
 			// (happens more often than you'd think, because the rate limiter
 			// gets more aggressive after each hit)
-			await new Promise((resolve) => setTimeout(resolve, 2000));
+			await sleep(2000);
 
 			// now loop through the chains, and query their peer information to get the inbound limits
 			await pullInboundLimits(ntts, sorted, verbose);
@@ -914,7 +919,7 @@ export const YargsCommand = yargs(hideBin(process.argv))
 								to: contractOwner.toString(),
 								data: callData,
 							});
-							const supportsInt = parseInt(supports);
+							const supportsInt = Number.parseInt(supports);
 							if (supportsInt !== 1) {
 								console.error(
 									`cannot update ${chain} because the owning contract does not implement INttOwner`,
@@ -945,6 +950,7 @@ export const YargsCommand = yargs(hideBin(process.argv))
 					);
 					await signSendWaitFunc(ctx, tx, signer.signer);
 				}
+			await sleep(2000);
 				for (const transceiver of missingConfig.transceiverPeers) {
 					const tx = ntt.setTransceiverPeer(
 						0,
@@ -1064,7 +1070,7 @@ export const YargsCommand = yargs(hideBin(process.argv))
 
 			const network = deployments.network as Network;
 
-			let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
+			const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
 				await pullDeployments(deployments, network, verbose);
 
 			let fixable = 0;
@@ -1381,7 +1387,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
 		stdio: "pipe",
 	});
 
-	let verifyArgs: string = "";
+	let verifyArgs = "";
 	if (evmVerify) {
 		// TODO: verify etherscan api key?
 		const etherscanApiKey = configuration.get(ctx.chain, "scan_api_key", {
@@ -1877,7 +1883,6 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 
 		// success. remove buffer.json
 		fs.unlinkSync("buffer.json");
-
 	}
 
 	if (initialize) {
@@ -1919,7 +1924,7 @@ async function missingConfigs(
 		let count = 0;
 		assertChain(fromChain);
 
-		let missing: MissingImplicitConfig = {
+		const missing: MissingImplicitConfig = {
 			managerPeers: [],
 			transceiverPeers: [],
 			evmChains: [],
@@ -2040,9 +2045,9 @@ async function missingConfigs(
 			} else {
 				// @ts-ignore TODO
 				if (
-                    !transceiverPeer.address.equals(
-                        to.whTransceiver.getAddress().address.toUniversalAddress()
-                    )
+					!transceiverPeer.address.equals(
+						to.whTransceiver.getAddress().address.toUniversalAddress(),
+					)
 				) {
 					console.error(
 						`Transceiver peer address mismatch for ${fromChain} -> ${toChain}`,
@@ -2082,7 +2087,7 @@ async function pushDeployment<C extends Chain>(
 
 	const signer = await getSigner(ctx, signerType, undefined, filePath);
 
-	let txs = [];
+	const txs = [];
 	// we perform this last to make sure we don't accidentally lock ourselves out
 	let updateOwner: ReturnType<typeof deployment.ntt.setOwner> | undefined =
 		undefined;
@@ -2198,7 +2203,7 @@ async function pullDeployments(
 	network: Network,
 	verbose: boolean,
 ): Promise<Partial<{ [C in Chain]: Deployment<Chain> }>> {
-	let deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
+	const deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
 
 	for (const [chain, deployment] of Object.entries(deployments.chains)) {
 		if (verbose) {
@@ -2454,7 +2459,7 @@ function cargoNetworkFeature(network: Network): string {
 }
 
 async function askForConfirmation(
-	prompt: string = "Do you want to continue?",
+	prompt = "Do you want to continue?",
 ): Promise<void> {
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -2558,7 +2563,7 @@ function searchHexInBinary(binaryPath: string, searchHex: string) {
 	return found;
 }
 
-export function ensureNttRoot(pwd: string = ".") {
+export function ensureNttRoot(pwd = ".") {
 	if (
 		!fs.existsSync(`${pwd}/evm/foundry.toml`) ||
 		!fs.existsSync(`${pwd}/solana/Anchor.toml`)

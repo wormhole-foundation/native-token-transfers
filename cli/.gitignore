@@ -1,4 +1,7 @@
 script
+.deployment
+overrides.json
+keys
 
 deployment.json
 *deployment.json
