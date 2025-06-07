@@ -10,7 +10,6 @@ import {
 	type UnsignedTransaction,
 	type TransactionId,
 	type Signer,
-	type AccountAddress,
 	signSendWait,
 	chainToPlatform,
 } from "@wormhole-foundation/sdk";

@@ -3,7 +3,6 @@ import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { execSync, spawn } from "child_process";
 import { base58 } from "@scure/base";
-
 import chalk from "chalk";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -56,7 +55,6 @@ import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
 import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
-
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
 // TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
@@ -1021,7 +1019,6 @@ export const YargsCommand = yargs(hideBin(process.argv))
 					}
 				}
 			}
-
 			// pull deps again
 			const depsAfterRegistrations: Partial<{
 				[C in Chain]: Deployment<Chain>;
@@ -1067,7 +1064,6 @@ export const YargsCommand = yargs(hideBin(process.argv))
 			const verbose = argv["verbose"];
 			// TODO: I don't like the variable names here
 			const deployments: Config = loadConfig(path);
-
 			const network = deployments.network as Network;
 
 			const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
@@ -1576,7 +1572,6 @@ ${simulateArg} \
 		});
 		return fs.readFileSync(`${pwd}/evm/last-run.stdout`).toString();
 	};
-
 	// we attempt to deploy with simulation first, then without if it fails
 	let out = await deploy(true);
 	if (out.includes("Simulated execution failed")) {
@@ -1821,7 +1816,6 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 			if (buildProcExitCode !== 0) {
 				process.exit(buildProcExitCode ?? 1);
 			}
-
 			binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
 		}
 
@@ -2074,7 +2068,6 @@ async function pushDeployment<C extends Chain>(
 	if (Object.keys(diff).length === 0) {
 		return;
 	}
-
 	const canonical = canonicalAddress(deployment.manager);
 	console.log(`Pushing changes to ${deployment.manager.chain} (${canonical})`);
 
