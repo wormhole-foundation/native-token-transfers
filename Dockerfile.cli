@@ -67,4 +67,5 @@ FROM cli-local as cli-local-test-solana
 COPY cli/test cli/test
 # evm/script needed for the cli, at least for now
 COPY solana solana
+COPY evm/script evm/script
 RUN bash -ci "./cli/test/solana.sh --use-tmp-dir"
