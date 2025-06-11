@@ -2,8 +2,9 @@
 import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
-import { encoding } from '@wormhole-foundation/sdk-connect';
+import { encoding, type RpcConnection, type UnsignedTransaction, type WormholeConfigOverrides } from '@wormhole-foundation/sdk-connect';
 import { execSync } from "child_process";
+import * as myEvmSigner from "./evmsigner.js";
 
 import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with { type: "file" };
 import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with { type: "file" };
@@ -16,7 +17,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs from "fs";
 import readline from "readline";
-import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toUniversal, type AccountAddress, type Chain, type ChainAddress, type ConfigOverrides, type Network, type Platform } from "@wormhole-foundation/sdk";
+import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toUniversal, type AccountAddress, type Chain, type ChainAddress, type Network, type Platform } from "@wormhole-foundation/sdk";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-definitions-ntt";
@@ -28,10 +29,11 @@ import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { EvmNtt, EvmNttWormholeTranceiver } from "@wormhole-foundation/sdk-evm-ntt";
-import type { EvmChains } from "@wormhole-foundation/sdk-evm";
+import type { EvmChains, EvmNativeSigner, EvmUnsignedTransaction } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
-import { ethers } from "ethers";
+import { AbiCoder, ethers, Interface } from "ethers";
+import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
 
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
@@ -39,7 +41,7 @@ import { ethers } from "ethers";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
-const overrides: ConfigOverrides<Network> = (function () {
+const overrides: WormholeConfigOverrides<Network> = (function () {
     // read overrides.json file if exists
     if (fs.existsSync("overrides.json")) {
         console.error(chalk.yellow("Using overrides.json"));
@@ -164,6 +166,16 @@ const options = {
         describe: "Path to the payer json file (Solana)",
         type: "string",
     },
+    skipChain: {
+        describe: "Skip chains",
+        type: "array",
+        choices: chains,
+    },
+    onlyChain: {
+        describe: "Only do these chains (can be skipped)",
+        type: "array",
+        choices: chains,
+    }
 } as const;
 
 
@@ -646,6 +658,8 @@ yargs(hideBin(process.argv))
             .option("verbose", options.verbose)
             .option("skip-verify", options.skipVerify)
             .option("payer", options.payer)
+            .option("skip-chain", options.skipChain)
+            .option("only-chain", options.onlyChain)
             .example("$0 push", "Push local configuration changes to the blockchain")
             .example("$0 push --signer-type ledger", "Push changes using a Ledger hardware wallet for signing")
             .example("$0 push --skip-verify", "Push changes without verifying contracts on EVM chains")
@@ -657,7 +671,19 @@ yargs(hideBin(process.argv))
             const deps: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
             const signerType = argv["signer-type"] as SignerType;
             const payerPath = argv["payer"];
-
+            const skipChains = argv["skip-chain"] as string[] || [];
+            const onlyChains = argv["only-chain"] as string[] || [];
+            const shouldSkipChain = (chain: string) => {
+                if(onlyChains.length > 0) {
+                    if(!onlyChains.includes(chain)) {
+                        return true
+                    }
+                }
+                if(skipChains.includes(chain)) {
+                    return true
+                }
+                return false
+            }
             const missing = await missingConfigs(deps, verbose);
 
             if (checkConfigErrors(deps)) {
@@ -665,30 +691,77 @@ yargs(hideBin(process.argv))
                 process.exit(1);
             }
 
+            const nttOwnerForChain: Record<string, string | undefined> = {};
+
+
+            for (const [chain, _] of Object.entries(deps)) {
+                if(shouldSkipChain(chain)) {
+                    console.log(`skipping registration for chain ${chain}`)
+                    continue
+                }
+                assertChain(chain);
+                if (chainToPlatform(chain) === "Evm") {
+                    const ntt = deps[chain]!.ntt;
+                    const ctx = deps[chain]!.ctx;
+                    const signer = await getSigner(ctx, signerType, undefined, payerPath);
+                    const rpc = ctx.config.rpc;
+                    const provider = new ethers.JsonRpcProvider(rpc);
+                    // get the owner of the ntt manager
+                    const contractOwner = await ntt.getOwner();
+                    // check if the owner has data to see if it is a smart contract
+                    if(!signer.address.address.equals(contractOwner.toUniversalAddress())) {
+                        const contractCode = await provider.getCode(contractOwner.address.toString())
+                        if(contractCode.length <= 2) {
+                            console.error(`cannot update ${chain} because the configured private key does not correspond to owner ${contractOwner.address}`)
+                            continue
+                        } else {
+                            const eip165Interface = new Interface([
+                                "function supportsInterface(bytes4 interfaceId) external view returns (bool)",
+                            ] as const)
+                            const callData = eip165Interface.encodeFunctionData("supportsInterface", ["0x43412b75"])
+                            const supports = await provider.call({
+                                to: contractOwner.toString(),
+                                data: callData,
+                            })
+                            const supportsInt = parseInt(supports)
+                            if(supportsInt !== 1)  {
+                                console.error(`cannot update ${chain} because the owning contract does not implement INttOwner`)
+                                process.exit(1)
+                            }
+                            nttOwnerForChain[chain] = contractOwner.toString()
+                        }
+                    }
+                }
+            }
             for (const [chain, missingConfig] of Object.entries(missing)) {
+                if(shouldSkipChain(chain)) {
+                    console.log(`skipping registration for chain ${chain}`)
+                    continue
+                }
                 assertChain(chain);
                 const ntt = deps[chain]!.ntt;
                 const ctx = deps[chain]!.ctx;
                 const signer = await getSigner(ctx, signerType, undefined, payerPath);
+                const signSendWaitFunc = newSignSendWaiter(nttOwnerForChain[chain])
                 for (const manager of missingConfig.managerPeers) {
                     const tx = ntt.setPeer(manager.address, manager.tokenDecimals, manager.inboundLimit, signer.address.address)
-                    await signSendWait(ctx, tx, signer.signer)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
                 }
                 for (const transceiver of missingConfig.transceiverPeers) {
                     const tx = ntt.setTransceiverPeer(0, transceiver, signer.address.address)
-                    await signSendWait(ctx, tx, signer.signer)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
                 }
                 for (const evmChain of missingConfig.evmChains) {
                     const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsEvmChain(evmChain, true)
-                    await signSendWait(ctx, tx, signer.signer)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
                 }
                 for (const relayingTarget of missingConfig.standardRelaying) {
                     const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsWormholeRelayingEnabled(relayingTarget, true)
-                    await signSendWait(ctx, tx, signer.signer)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
                 }
                 for (const relayingTarget of missingConfig.specialRelaying) {
                     const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsSpecialRelayingEnabled(relayingTarget, true)
-                    await signSendWait(ctx, tx, signer.signer)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
                 }
                 if (missingConfig.solanaWormholeTransceiver) {
                     if (chainToPlatform(chain) !== "Solana") {
@@ -725,8 +798,15 @@ yargs(hideBin(process.argv))
             const depsAfterRegistrations: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
 
             for (const [chain, deployment] of Object.entries(depsAfterRegistrations)) {
+                if(shouldSkipChain(chain)) {
+                    console.log(`skipping deployment for chain ${chain}`)
+                    continue
+                }
                 assertChain(chain);
-                await pushDeployment(deployment as any, signerType, !argv["skip-verify"], argv["yes"], payerPath);
+                const signSendWaitFunc = newSignSendWaiter(nttOwnerForChain[chain])
+                await pushDeployment(deployment as any,
+                    signSendWaitFunc,
+                    signerType, !argv["skip-verify"], argv["yes"], payerPath);
             }
         })
     .command("status",
@@ -1035,9 +1115,9 @@ ${ntt.managerAddress} \
 ${signerArgs} \
 --broadcast \
 ${verifyArgs} | tee last-run.stdout`, {
-            cwd: `${pwd}/evm`,
-            stdio: "inherit"
-        });
+                cwd: `${pwd}/evm`,
+                stdio: "inherit"
+            });
     });
 
 }
@@ -1162,10 +1242,10 @@ forge script --via-ir script/DeployWormholeNtt.s.sol \
 ${simulateArg} \
 --sig "${sig}" ${wormhole} ${token} ${relayer} ${specialRelayer} ${decimals} ${modeUint} \
 --broadcast ${verifyArgs.join(' ')} ${signerArgs} 2>&1 | tee last-run.stdout`, {
-                    cwd: `${pwd}/evm`,
-                    encoding: 'utf8',
-                    stdio: 'inherit'
-                });
+                        cwd: `${pwd}/evm`,
+                        encoding: 'utf8',
+                        stdio: 'inherit'
+                    });
             } catch (error) {
                 console.error("Failed to deploy manager");
                 // NOTE: we don't exit here. instead, we check if the manager was
@@ -1357,8 +1437,8 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
                     "-p", "example_native_token_transfers",
                     "--", "--no-default-features", "--features", cargoNetworkFeature(ch.network)
                 ], {
-                cwd: `${pwd}/solana`
-            });
+                    cwd: `${pwd}/solana`
+                });
 
             // const _out = await new Response(proc.stdout).text();
 
@@ -1550,7 +1630,9 @@ async function missingConfigs(
     return missingConfigs;
 }
 
-async function pushDeployment<C extends Chain>(deployment: Deployment<C>, signerType: SignerType, evmVerify: boolean, yes: boolean, filePath?: string): Promise<void> {
+async function pushDeployment<C extends Chain>(deployment: Deployment<C>,
+    signSendWaitFunc: ReturnType<typeof newSignSendWaiter>,
+    signerType: SignerType, evmVerify: boolean, yes: boolean, filePath?: string): Promise<void> {
     const diff = diffObjects(deployment.config.local!, deployment.config.remote!);
     if (Object.keys(diff).length === 0) {
         return;
@@ -1640,10 +1722,10 @@ async function pushDeployment<C extends Chain>(deployment: Deployment<C>, signer
         await upgrade(managerUpgrade.from, managerUpgrade.to, deployment.ntt, ctx, signerType, evmVerify);
     }
     for (const tx of txs) {
-        await signSendWait(ctx, tx, signer.signer)
+        await signSendWaitFunc(ctx, tx, signer.signer)
     }
     if (updateOwner) {
-        await signSendWait(ctx, updateOwner, signer.signer)
+        await signSendWaitFunc(ctx, updateOwner, signer.signer)
     }
 }
 
@@ -1699,7 +1781,7 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
 async function pullChainConfig<N extends Network, C extends Chain>(
     network: N,
     manager: ChainAddress<C>,
-    overrides?: ConfigOverrides<N>
+    overrides?: WormholeConfigOverrides<N>
 ): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
     const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
     const ch = wh.getChain(manager.chain);
@@ -1707,7 +1789,7 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     const nativeManagerAddress = canonicalAddress(manager);
 
     const { ntt, addresses }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts>; } =
-        await nttFromManager<N, C>(ch, nativeManagerAddress);
+    await nttFromManager<N, C>(ch, nativeManagerAddress);
 
     const mode = await ntt.getMode();
     const outboundLimit = await ntt.getOutboundLimit();
