@@ -410,6 +410,14 @@
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "ROAM",
+      "programId": "R6yPssVmTujhhE8QPUnVpmuz8yzQaFkkqQxBuxQX53R",
+      "tokenAddress": "RoamA1USA8xjvpTJZ6RvvxyDRzNh6GCA1zVGKSiMVkn",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
