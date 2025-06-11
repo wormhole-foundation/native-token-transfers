@@ -1,4 +1,5 @@
 {
+  "operatingChains": [6],
   "guardianSetIndex": 3,
   "chains": [
     {
@@ -6,6 +7,12 @@
       "evmNetworkId": 1,
       "chainId": 2,
       "rpc": "https://eth.llamarpc.com"
+    },
+    {
+      "description": "Avalanche",
+      "evmNetworkId": 43114,
+      "chainId": 6,
+      "rpc": "https://avalanche.drpc.org"
     },
     {
       "description": "Arbitrum",
