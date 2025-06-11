@@ -402,6 +402,14 @@
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
+    },
+    {
+      "name": "MoveUSD",
+      "programId": "ntt1Pkd8r2VXFWsrQzzwRa1aLAQEJzLjh83XHuCAVg5",
+      "tokenAddress": "3AdhVEX6k85yNivHVXDEiY3WyP2WgFQTUZCahGaeC2qm",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
+      "isSupported": true
     }
   ],
   "peerQuotes": {
