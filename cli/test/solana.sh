@@ -13,8 +13,8 @@
 set -euo pipefail
 
 # Default values
-PORT=6000
-FAUCET_PORT=6100
+PORT=16000
+FAUCET_PORT=16100
 NETWORK="http://127.0.0.1:$PORT"
 KEYS_DIR="keys"
 OVERRIDES_FILE="overrides.json"

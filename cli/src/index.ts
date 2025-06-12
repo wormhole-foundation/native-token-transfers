@@ -1753,7 +1753,13 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 	const tokenMint = new PublicKey(token);
 	// const tokenInfo = await ch.connection.getTokenInfo(tokenMint);
 	const connection: Connection = await ch.getRpc();
-	const mintInfo = await connection.getAccountInfo(tokenMint);
+	let mintInfo: any;
+	try  {
+		mintInfo = await connection.getAccountInfo(tokenMint);
+	} catch(e) {
+		console.log("error", e)
+		throw e
+	}
 	if (!mintInfo) {
 		console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
 		process.exit(1);
@@ -1790,8 +1796,8 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 			// TODO: build with docker
 			checkAnchorVersion();
 			const proc = spawn(
+				"anchor",
 				[
-					"anchor",
 					"build",
 					"-p",
 					"example_native_token_transfers",
@@ -1799,14 +1805,18 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 					"--no-default-features",
 					"--features",
 					cargoNetworkFeature(ch.network),
-				].join(" "),
+				],
 				{
 					cwd: `${pwd}/solana`,
 				},
 			);
 
 			// const _out = await new Response(proc.stdout).text();
-			const buildProcExitCode = await new Promise<number | null>((resolve) => {
+			const buildProcExitCode = await new Promise<number | null>((resolve, reject) => {
+				proc.on("error", (err) => {
+					console.error(err);
+					reject(err)
+				});
 				proc.on("exit", (code) => {
 					resolve(code);
 				});
