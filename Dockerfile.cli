@@ -12,10 +12,10 @@ RUN apt install -y git
 RUN apt install -y curl
 RUN apt install -y unzip
 
-RUN curl -fsSL https://bun.sh/install | bash
-
 RUN curl -L https://foundry.paradigm.xyz | bash
 RUN bash -ci "foundryup"
+
+sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.14/install)"
 
 RUN apt install -y jq
 

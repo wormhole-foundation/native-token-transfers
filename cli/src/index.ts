@@ -2191,8 +2191,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 			);
 		}
 
-		const deployCommand = [
-			"solana",
+		const deployCommandArgs = [
 			"program",
 			"deploy",
 			"--program-id",
@@ -2209,11 +2208,16 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 		];
 
 		if (priorityFee !== undefined) {
-			deployCommand.push("--with-compute-unit-price", priorityFee.toString());
+			deployCommandArgs.push("--with-compute-unit-price", priorityFee.toString());
 		}
 
-		const deployProc = spawn(deployCommand.join(" "));
-		deployProc.stdout.on("data", (data) => {
+		const deployProc = spawn("solana",
+			deployCommandArgs,
+			{
+				shell: true,
+			},
+		);
+		deployProc.stderr.on("data", (data) => {
 			console.log(data);
 		});
 		const deployProcExitCode = await new Promise<number | null>((resolve, reject) => {
