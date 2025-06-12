@@ -15,8 +15,6 @@ RUN apt install -y unzip
 RUN curl -L https://foundry.paradigm.xyz | bash
 RUN bash -ci "foundryup"
 
-sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.14/install)"
-
 RUN apt install -y jq
 
 FROM base as base-solana
