@@ -1,4 +1,5 @@
 import solana from "@wormhole-foundation/sdk/platforms/solana";
+
 import * as myEvmSigner from "./evmsigner.js";
 import {
 	ChainContext,
@@ -72,7 +73,11 @@ export async function getSigner<N extends Network, C extends Chain>(
 						}
 						privateKey = privateKeySource;
 					}
-					signer = await solana.getSigner(await chain.getRpc(), privateKey, {
+					let ns:typeof solana = solana
+					if('default' in solana) {
+						ns = solana.default as any
+					}
+					signer = await ns.getSigner(await chain.getRpc(), privateKey, {
 						debug: false,
 					});
 					break;
