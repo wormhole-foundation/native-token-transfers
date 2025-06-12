@@ -1,5 +1,6 @@
 script
 .deployment
+.deployments
 overrides.json
 keys
 
