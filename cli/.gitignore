@@ -1,4 +1,5 @@
 script
+buffer.json
 .deployment
 .deployments
 overrides.json
