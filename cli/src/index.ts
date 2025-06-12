@@ -6,7 +6,15 @@ import { base58 } from "@scure/base";
 import chalk from "chalk";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { type Connection, Keypair, PublicKey } from "@solana/web3.js";
+import {
+	AddressLookupTableAccount,
+	Connection,
+	Keypair,
+	PublicKey,
+	SendTransactionError,
+	TransactionMessage,
+	VersionedTransaction,
+} from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs, { readFileSync } from "fs";
 import readline from "readline";
@@ -949,7 +957,6 @@ export const YargsCommand = yargs(hideBin(process.argv))
 					);
 					await signSendWaitFunc(ctx, tx, signer.signer);
 				}
-			await sleep(2000);
 				for (const transceiver of missingConfig.transceiverPeers) {
 					const tx = ntt.setTransceiverPeer(
 						0,
@@ -1227,6 +1234,337 @@ export const YargsCommand = yargs(hideBin(process.argv))
 						tokenProgram,
 					);
 					console.log(ata.toBase58());
+				},
+			)
+			.command(
+				"create-spl-multisig <multisigMemberPubkey...>",
+				"create a valid SPL Multisig (see https://github.com/wormhole-foundation/native-token-transfers/tree/main/solana#spl-multisig-support for more info)",
+				(yargs) =>
+					yargs
+						.positional("multisigMemberPubkey", {
+							describe:
+								"public keys of the members that can independently mint",
+							type: "string",
+							demandOption: true,
+						})
+						.option("path", options.deploymentPath)
+						.option("payer", { ...options.payer, demandOption: true })
+						.example(
+							"$0 solana create-spl-multisig Sol1234... --payer <SOLANA_KEYPAIR_PATH>",
+							"Create multisig with Sol1234... having independent mint privilege alongside NTT token-authority",
+						)
+						.example(
+							"$0 solana create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
+							"Create multisig with Sol1234..., Sol3456..., and Sol5678... having mint privileges alongside NTT token-authority",
+						),
+				async (argv) => {
+					const path = argv["path"];
+					const deployments: Config = loadConfig(path);
+					const chain: Chain = "Solana";
+					const network = deployments.network as Network;
+
+					if (!fs.existsSync(argv["payer"])) {
+						console.error("Payer not found. Specify with --payer");
+						process.exit(1);
+					}
+					const payerKeypair = Keypair.fromSecretKey(
+						new Uint8Array(
+							JSON.parse(fs.readFileSync(argv["payer"]).toString()),
+						),
+					);
+
+					if (!(chain in deployments.chains)) {
+						console.error(`Chain ${chain} not found in ${path}`);
+						process.exit(1);
+					}
+					const chainConfig = deployments.chains[chain]!;
+					const wh = new Wormhole(
+						network,
+						[SolanaPlatform, EvmPlatform],
+						overrides,
+					);
+					const ch = wh.getChain(chain);
+					const connection = await ch.getRpc();
+					const [, , ntt] = await pullChainConfig(
+						network,
+						{ chain, address: toUniversal(chain, chainConfig.manager) },
+						overrides,
+					);
+					const solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
+					const tokenAuthority = NTT.pdas(chainConfig.manager).tokenAuthority();
+
+					// check if SPL-Multisig is supported for manager version
+					const major = Number(solanaNtt.version.split(".")[0]);
+					if (major < 3) {
+						console.error(
+							"SPL Multisig token mint authority is only supported for versions >= 3.x.x",
+						);
+						console.error(
+							"Use 'ntt upgrade' to upgrade the NTT contract to a specific version.",
+						);
+						process.exit(1);
+					}
+
+					try {
+						// use same tokenProgram as token to create multisig
+						const tokenProgram = (await solanaNtt.getConfig()).tokenProgram;
+						const additionalMemberPubkeys = (
+							argv["multisigMemberPubkey"] as any
+						).map((key: string) => new PublicKey(key));
+						const multisig = await spl.createMultisig(
+							connection,
+							payerKeypair,
+							[tokenAuthority, ...additionalMemberPubkeys],
+							1,
+							undefined,
+							{ commitment: "finalized" },
+							tokenProgram,
+						);
+						console.log(`Valid SPL Multisig created: ${multisig.toBase58()}`);
+					} catch (error) {
+						if (error instanceof Error) {
+							console.error(error.message);
+						} else if (error instanceof SendTransactionError) {
+							console.error(error.logs);
+						}
+					}
+				},
+			)
+			.command(
+				"set-mint-authority <newAuthority>",
+				"set token mint authority to token authority (or valid SPL Multisig if --multisig flag is provided)",
+				(yargs) =>
+					yargs
+						.positional("newAuthority", {
+							describe:
+								"token authority address (or valid SPL Multisig address if --multisig flag is provided)",
+							type: "string",
+							demandOption: true,
+						})
+						.option("path", options.deploymentPath)
+						.option("payer", { ...options.payer, demandOption: true })
+						.option("multisig", {
+							describe: "newAuthority is a valid SPL Multisig",
+							type: "boolean",
+							default: false,
+						})
+						.example(
+							"$0 solana set-mint-authority <TOKEN_AUTHORITY> --payer <SOLANA_KEYPAIR_PATH>",
+							"Set token mint authority to be the token authority address",
+						)
+						.example(
+							"$0 solana set-mint-authority <VALID_SPL_MULTISIG> --multisig --payer <SOLANA_KEYPAIR_PATH>",
+							"Set token mint authority to be a valid SPL Multisig",
+						),
+				async (argv) => {
+					const path = argv["path"];
+					const deployments: Config = loadConfig(path);
+					const chain: Chain = "Solana";
+					const network = deployments.network as Network;
+
+					if (!fs.existsSync(argv["payer"])) {
+						console.error("Payer not found. Specify with --payer");
+						process.exit(1);
+					}
+					const payerKeypair = Keypair.fromSecretKey(
+						new Uint8Array(
+							JSON.parse(fs.readFileSync(argv["payer"]).toString()),
+						),
+					);
+
+					if (!(chain in deployments.chains)) {
+						console.error(`Chain ${chain} not found in ${path}`);
+						process.exit(1);
+					}
+					const chainConfig = deployments.chains[chain]!;
+					const wh = new Wormhole(
+						network,
+						[SolanaPlatform, EvmPlatform],
+						overrides,
+					);
+					const ch = wh.getChain(chain);
+					const connection: Connection = await ch.getRpc();
+					const [, , ntt] = await pullChainConfig(
+						network,
+						{ chain, address: toUniversal(chain, chainConfig.manager) },
+						overrides,
+					);
+					const solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
+					const major = Number(solanaNtt.version.split(".")[0]);
+					const config = await solanaNtt.getConfig();
+					const tokenAuthority = NTT.pdas(chainConfig.manager).tokenAuthority();
+
+					// verify current mint authority is not token authority
+					const mintInfo = await spl.getMint(
+						connection,
+						config.mint,
+						undefined,
+						config.tokenProgram,
+					);
+					if (!mintInfo.mintAuthority) {
+						console.error(
+							"Token has fixed supply and no further tokens may be minted",
+						);
+						process.exit(1);
+					}
+					if (mintInfo.mintAuthority.equals(tokenAuthority)) {
+						console.error(
+							"Please use https://github.com/wormhole-foundation/demo-ntt-token-mint-authority-transfer to transfer the token mint authority out of the NTT manager",
+						);
+						process.exit(1);
+					}
+
+					// verify current mint authority is not valid SPL Multisig
+					let isMultisigTokenAuthority = false;
+					try {
+						const multisigInfo = await spl.getMultisig(
+							connection,
+							mintInfo.mintAuthority,
+							undefined,
+							config.tokenProgram,
+						);
+						if (multisigInfo.m === 1) {
+							const n = multisigInfo.n;
+							for (let i = 0; i < n; ++i) {
+								// TODO: not sure if there's an easier way to loop through and check
+								if (
+									(
+										multisigInfo[
+											`signer${i + 1}` as keyof spl.Multisig
+										] as PublicKey
+									).equals(tokenAuthority)
+								) {
+									isMultisigTokenAuthority = true;
+									break;
+								}
+							}
+						}
+					} catch {}
+					if (isMultisigTokenAuthority) {
+						console.error(
+							"Please use https://github.com/wormhole-foundation/demo-ntt-token-mint-authority-transfer to transfer the token mint authority out of the NTT manager",
+						);
+						process.exit(1);
+					}
+
+					// verify current mint authority is payer
+					if (!mintInfo.mintAuthority.equals(payerKeypair.publicKey)) {
+						console.error(
+							`Current mint authority (${mintInfo.mintAuthority.toBase58()}) does not match payer (${payerKeypair.publicKey.toBase58()}). Retry with current authority`,
+						);
+						process.exit(1);
+					}
+
+					const isMultisig = argv["multisig"];
+					if (isMultisig) {
+						// check if SPL-Multisig is supported for manager version
+						if (major < 3) {
+							console.error(
+								"SPL Multisig token mint authority only supported for versions >= 3.x.x",
+							);
+							console.error(
+								"Use 'ntt upgrade' to upgrade the NTT contract to a specific version.",
+							);
+							process.exit(1);
+						}
+					}
+
+					// verify new authority address is valid
+					const newAuthority = new PublicKey(argv["newAuthority"]);
+					if (isMultisig && newAuthority.equals(tokenAuthority)) {
+						console.error(
+							`New authority matches token authority (${newAuthority.toBase58()}). To set mint authority as token authority, retry without --multisig`,
+						);
+						process.exit(1);
+					}
+					if (!isMultisig && !newAuthority.equals(tokenAuthority)) {
+						console.error(
+							`New authority (${newAuthority.toBase58()}) does not match token authority (${tokenAuthority.toBase58()}). To set mint authority as a valid SPL Multisig, specify with --multisig`,
+						);
+						process.exit(1);
+					}
+
+					// ensure manager is paused
+					if (!(await solanaNtt.isPaused())) {
+						console.error(
+							`Not paused. Set \`paused\` for Solana to \`true\` in ${path} and run \`ntt push\` to sync the changes on-chain. Then retry this command.`,
+						);
+						process.exit(1);
+					}
+
+					// manager versions < 3.x.x have to call spl setAuthority instruction directly
+					if (major < 3) {
+						try {
+							await spl.setAuthority(
+								connection,
+								payerKeypair,
+								config.mint,
+								payerKeypair.publicKey,
+								spl.AuthorityType.MintTokens,
+								newAuthority,
+								[],
+								{ commitment: "finalized" },
+								config.tokenProgram,
+							);
+							console.log(
+								`Token mint authority successfully updated to ${newAuthority.toBase58()}`,
+							);
+							process.exit(0);
+						} catch (error) {
+							if (error instanceof Error) {
+								console.error(error.message);
+							} else if (error instanceof SendTransactionError) {
+								console.error(error.logs);
+							}
+							process.exit(1);
+						}
+					}
+
+					// use lut if configured
+					const luts: AddressLookupTableAccount[] = [];
+					try {
+						luts.push(await solanaNtt.getAddressLookupTable());
+					} catch {}
+
+					// send versioned transaction
+					try {
+						const latestBlockHash = await connection.getLatestBlockhash();
+						const messageV0 = new TransactionMessage({
+							payerKey: payerKeypair.publicKey,
+							instructions: [
+								await NTT.createAcceptTokenAuthorityInstruction(
+									solanaNtt.program,
+									config,
+									{
+										currentAuthority: payerKeypair.publicKey,
+										multisigTokenAuthority: isMultisig
+											? newAuthority
+											: undefined,
+									},
+								),
+							],
+							recentBlockhash: latestBlockHash.blockhash,
+						}).compileToV0Message(luts);
+						const vtx = new VersionedTransaction(messageV0);
+						vtx.sign([payerKeypair]);
+						const signature = await connection.sendTransaction(vtx, {});
+						await connection.confirmTransaction(
+							{
+								...latestBlockHash,
+								signature,
+							},
+							"finalized",
+						);
+						console.log(
+							`Token mint authority successfully updated to ${newAuthority.toBase58()}`,
+						);
+					} catch (error) {
+						if (error instanceof Error) {
+							console.error(error.message);
+						} else if (error instanceof SendTransactionError) {
+							console.error(error.logs);
+						}
+					}
 				},
 			)
 			.demandCommand();
@@ -1754,11 +2092,11 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 	// const tokenInfo = await ch.connection.getTokenInfo(tokenMint);
 	const connection: Connection = await ch.getRpc();
 	let mintInfo: any;
-	try  {
+	try {
 		mintInfo = await connection.getAccountInfo(tokenMint);
-	} catch(e) {
-		console.log("error", e)
-		throw e
+	} catch (e) {
+		console.log("error", e);
+		throw e;
 	}
 	if (!mintInfo) {
 		console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
@@ -1785,7 +2123,6 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 	}
 
 	let binary: string;
-
 	const skipDeploy = false;
 
 	if (!skipDeploy) {
@@ -1812,18 +2149,20 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 			);
 
 			// const _out = await new Response(proc.stdout).text();
-			const buildProcExitCode = await new Promise<number | null>((resolve, reject) => {
-				proc.on("error", (err) => {
-					console.error(err);
-					reject(err)
-				});
-				proc.on("exit", (code) => {
-					resolve(code);
-				});
-				proc.on("close", (code) => {
-					resolve(code);
-				});
-			});
+			const buildProcExitCode = await new Promise<number | null>(
+				(resolve, reject) => {
+					proc.on("error", (err) => {
+						console.error(err);
+						reject(err);
+					});
+					proc.on("exit", (code) => {
+						resolve(code);
+					});
+					proc.on("close", (code) => {
+						resolve(code);
+					});
+				},
+			);
 			if (buildProcExitCode !== 0) {
 				process.exit(buildProcExitCode ?? 1);
 			}
@@ -1999,8 +2338,15 @@ async function missingConfigs(
 				});
 			} else {
 				// @ts-ignore TODO
-				console.log("peer addr", peer.address, "manager addr", to.manager.address.toUniversalAddress());
-				if (!peer.address.address.equals(to.manager.address.toUniversalAddress())) {
+				console.log(
+					"peer addr",
+					peer.address,
+					"manager addr",
+					to.manager.address.toUniversalAddress(),
+				);
+				if (
+					!peer.address.address.equals(to.manager.address.toUniversalAddress())
+				) {
 					console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
 				}
 				if (peer.tokenDecimals !== to.decimals) {
