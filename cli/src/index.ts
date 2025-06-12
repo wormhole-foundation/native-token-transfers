@@ -2131,6 +2131,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 		} else {
 			// build the program
 			// TODO: build with docker
+			console.log("building solana", pwd);
 			checkAnchorVersion();
 			const proc = spawn(
 				"anchor",
@@ -2145,8 +2146,12 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 				],
 				{
 					cwd: `${pwd}/solana`,
+					shell: true,
 				},
 			);
+			proc.stderr.on("data", (data) => {
+				process.stderr.write(data.toString());
+			});
 
 			// const _out = await new Response(proc.stdout).text();
 			const buildProcExitCode = await new Promise<number | null>(
@@ -2208,11 +2213,14 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 		}
 
 		const deployProc = spawn(deployCommand.join(" "));
-
 		deployProc.stdout.on("data", (data) => {
 			console.log(data);
 		});
-		const deployProcExitCode = await new Promise<number | null>((resolve) => {
+		const deployProcExitCode = await new Promise<number | null>((resolve, reject) => {
+			deployProc.on("error", (err) => {
+				console.error(err);
+				reject(err);
+			});
 			deployProc.on("exit", (code) => {
 				resolve(code);
 			});
