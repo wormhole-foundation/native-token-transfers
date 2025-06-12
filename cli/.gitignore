@@ -1,3 +1,9 @@
+script
+buffer.json
+.deployment
+.deployments
+overrides.json
+keys
 
 deployment.json
 *deployment.json

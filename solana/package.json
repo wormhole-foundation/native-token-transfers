@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-solana-ntt",
-  "version": "0.5.0",
+  "version": "0.8.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/example-native-token-transfers.git"
@@ -38,7 +38,7 @@
     "build": "npm run build:esm && npm run build:cjs",
     "rebuild": "npm run clean && npm run build",
     "clean": "rm -rf ./dist",
-    "test:ci": "jest --config ./jest.config.ts",
+    "test:ci": "jest --config ./jest.config.cjs",
     "build:contracts": "make build"
   },
   "devDependencies": {

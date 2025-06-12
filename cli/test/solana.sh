@@ -13,14 +13,16 @@
 set -euo pipefail
 
 # Default values
-PORT=6000
-FAUCET_PORT=6100
+PORT=16000
+FAUCET_PORT=16100
 NETWORK="http://127.0.0.1:$PORT"
 KEYS_DIR="keys"
 OVERRIDES_FILE="overrides.json"
 DEPLOYMENT_FILE="deployment.json"
 KEEP_ALIVE=false
 USE_TMP_DIR=false
+# NTT_CMD set to default vcalue or env var if exists
+NTT_CMD=${NTT_CMD:="ntt-cli"}
 
 # Function to display usage information
 usage() {
@@ -89,7 +91,7 @@ validator_dir=$(mktemp -d)
 if [ "$USE_TMP_DIR" = true ]; then
    tmp_dir=$(mktemp -d)
    cd "$tmp_dir" || exit
-   ntt new test-ntt
+   $NTT_CMD new test-ntt
    cd test-ntt || exit
 fi
 
@@ -159,7 +161,7 @@ fi
 
 # Initialize NTT
 rm -rf "$DEPLOYMENT_FILE"
-ntt init Mainnet
+$NTT_CMD init Mainnet
 
 # Generate and configure keypairs
 pushd "$KEYS_DIR" || exit
@@ -184,21 +186,21 @@ ntt_keypair=$(realpath "$ntt_keypair")
 popd || exit
 
 # Set token authority
-authority=$(ntt solana token-authority "$ntt_keypair_without_json")
+authority=$($NTT_CMD solana token-authority "$ntt_keypair_without_json")
 echo "Authority: $authority"
 spl-token authorize "$token" mint "$authority" -u "$NETWORK"
 
 # Add chain and upgrade
-ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair"
+$NTT_CMD add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair"
 
 echo "Getting status"
-ntt status || true
+$NTT_CMD status || true
 
 solana program extend "$ntt_keypair_without_json" 100000 -u "$NETWORK"
-ntt upgrade Solana --ver 2.0.0 --payer "$keypair" --program-key "$ntt_keypair" --yes
-ntt status || true
+$NTT_CMD upgrade Solana --ver 2.0.0 --payer "$keypair" --program-key "$ntt_keypair" --yes
+$NTT_CMD status || true
 
-ntt push --payer "$keypair" --yes
+$NTT_CMD push --payer "$keypair" --yes
 
 cat "$DEPLOYMENT_FILE"
 

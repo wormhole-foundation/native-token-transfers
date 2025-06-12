@@ -12,8 +12,6 @@ RUN apt install -y git
 RUN apt install -y curl
 RUN apt install -y unzip
 
-RUN curl -fsSL https://bun.sh/install | bash
-
 RUN curl -L https://foundry.paradigm.xyz | bash
 RUN bash -ci "foundryup"
 
@@ -31,7 +29,7 @@ FROM base as cli-remote
 # This build stage tests that path.
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
-RUN bash -ci "which ntt"
+RUN bash -ci "which ntt-cli"
 
 FROM base-solana as cli-local
 # NOTE: when invoking the installer inside of the source tree, it installs from
@@ -47,13 +45,16 @@ COPY sdk sdk
 COPY solana/package.json solana/package.json
 COPY solana/ts solana/ts
 COPY evm/ts evm/ts
+COPY evm/script evm/script
 COPY solana/tsconfig.*.json solana/
 COPY cli/package.json cli/package.json
-COPY cli/package-lock.json cli/package-lock.json
 COPY cli/src cli/src
+COPY cli/rollup.config.js cli/rollup.config.js
+COPY cli/tsconfig.json cli/tsconfig.json
+COPY cli/bin.cjs cli/bin.cjs
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
-RUN bash -ci "which ntt"
+RUN bash -ci "which ntt-cli"
 
 FROM cli-local as cli-local-test
 COPY cli/test cli/test
@@ -63,6 +64,6 @@ RUN bash -ci "./cli/test/sepolia-bsc.sh"
 FROM cli-local as cli-local-test-solana
 COPY cli/test cli/test
 # evm/script needed for the cli, at least for now
-COPY evm/script evm/script
 COPY solana solana
+COPY evm/script evm/script
 RUN bash -ci "./cli/test/solana.sh --use-tmp-dir"

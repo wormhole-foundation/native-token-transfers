@@ -1,4 +1,4 @@
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import { PublicKey, PublicKeyInitData } from "@solana/web3.js";
 import {
   Chain,

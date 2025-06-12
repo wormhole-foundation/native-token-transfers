@@ -10,8 +10,8 @@
     "build:evm": "npm run build --workspace=sdk/definitions --workspace=sdk/evm",
     "generate": "npm run generate --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "test:ci": "CI=true jest --config ./jest.config.ts",
-    "test:local": "jest --config ./jest.config.ts",
+    "test:ci": "CI=true jest --config ./jest.config.cjs",
+    "test:local": "jest --config ./jest.config.cjs",
     "generate:test": "npm run generate:test --workspaces --if-present",
     "build:deps": "npm run build:contracts --workspaces --if-present && npm run generate",
     "version": "tsx setSdkVersion.ts"

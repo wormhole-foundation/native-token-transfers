@@ -1,6 +1,4 @@
-import type { JestConfigWithTsJest } from "ts-jest";
-
-const jestConfig: JestConfigWithTsJest = {
+const jestConfig= {
   verbose: true,
   testTimeout: 10000000,
   modulePathIgnorePatterns: ["mocks"],
@@ -14,5 +12,5 @@ const jestConfig: JestConfigWithTsJest = {
     "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.anchor.json" }],
   },
 };
+module.exports = jestConfig;
 
-export default jestConfig;
