@@ -389,6 +389,27 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         );
     }
 
+    function test_specialRelayerMigration() public {
+        WormholeTransceiver newImplementation = new MockWormholeTransceiverImmutableAllow(
+            address(nttManagerChain1),
+            address(wormhole),
+            address(relayer),
+            address(0x8C56eE9cd232d23541a697C0eBd3cA597DE3c88D), // new specialRelayer address
+            FAST_CONSISTENCY_LEVEL,
+            GAS_LIMIT
+        );
+
+        // Perform upgrade which will trigger migration
+        wormholeTransceiverChain1.upgrade(address(newImplementation));
+
+        // Verify specialRelayer was set to the expected address
+        require(
+            address(wormholeTransceiverChain1.specialRelayer()) == 0x8C56eE9cd232d23541a697C0eBd3cA597DE3c88D,
+            "SpecialRelayer not set to expected address"
+        );
+    }
+
+
     function test_authNttManager() public {
         // User not owner so this should fail
         vm.prank(userA);
