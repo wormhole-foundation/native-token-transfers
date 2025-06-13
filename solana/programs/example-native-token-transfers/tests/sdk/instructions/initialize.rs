@@ -1,10 +1,9 @@
+use crate::sdk::accounts::NTT;
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
 use anchor_spl::{associated_token::AssociatedToken, token::Token};
 use example_native_token_transfers::instructions::InitializeArgs;
 use solana_sdk::instruction::Instruction;
 use wormhole_solana_utils::cpi::bpf_loader_upgradeable::BpfLoaderUpgradeable;
-
-use crate::sdk::accounts::NTT;
 
 pub struct Initialize {
     pub payer: Pubkey,

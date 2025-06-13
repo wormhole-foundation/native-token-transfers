@@ -1,7 +1,10 @@
 use crate::wormhole::accounts::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface;
-use example_native_token_transfers::config::*;
+use example_native_token_transfers::{
+    config::*,
+    wormhole_accounts::{anchor_reexports::*, *},
+};
 use ntt_messages::transceivers::wormhole::WormholeTransceiverInfo;
 
 #[derive(Accounts)]
@@ -20,13 +23,6 @@ pub struct BroadcastId<'info> {
     #[account(mut)]
     pub wormhole_message: Signer<'info>,
 
-    #[account(
-        seeds = [b"emitter"],
-        bump
-    )]
-    /// CHECK: The seeds constraint ensures that this is the correct address
-    pub emitter: UncheckedAccount<'info>,
-
     pub wormhole: WormholeAccounts<'info>,
 }
 
@@ -44,8 +40,7 @@ pub fn broadcast_id(ctx: Context<BroadcastId>) -> Result<()> {
         &accs.wormhole,
         accs.payer.to_account_info(),
         accs.wormhole_message.to_account_info(),
-        accs.emitter.to_account_info(),
-        ctx.bumps.emitter,
+        ctx.bumps.wormhole.emitter,
         &message,
         &[],
     )?;

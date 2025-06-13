@@ -1,8 +1,7 @@
+use crate::sdk::accounts::NTT;
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
 use example_native_token_transfers::instructions::SetPeerArgs;
 use solana_sdk::instruction::Instruction;
-
-use crate::sdk::accounts::NTT;
 
 pub struct SetPeer {
     pub payer: Pubkey,

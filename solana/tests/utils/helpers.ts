@@ -203,6 +203,35 @@ export class TestHelper {
   }
 
   /**
+   * Jest utility functions
+   */
+  jest = {
+    /**
+     * Executes describe block if condition is met; otherwise, skips it
+     * @param condition Condition to execute describe block
+     * @param args Arguments passed onto describe block
+     */
+    describeIf: (condition: boolean, ...args: Parameters<typeof describe>) =>
+      condition ? describe(...args) : describe.skip(...args),
+
+    /**
+     * Executes test block if condition is met; otherwise, skips it
+     * @param condition Condition to execute test block
+     * @param args Arguments passed onto test block
+     */
+    testIf: (condition: boolean, ...args: Parameters<typeof test>) =>
+      condition ? test(...args) : test.skip(...args),
+
+    /**
+     * Executes it block if condition is met; otherwise, skips it
+     * @param condition Condition to execute it block
+     * @param args Arguments passed onto it block
+     */
+    itIf: (condition: boolean, ...args: Parameters<typeof it>) =>
+      condition ? it(...args) : it.skip(...args),
+  };
+
+  /**
    * `Keypair` utility functions
    */
   keypair = {
