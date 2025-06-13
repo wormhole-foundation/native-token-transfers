@@ -244,7 +244,6 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
   const transferTxs = srcNtt.transfer(sender.address, srcAmt, receiver, {
     queue: false,
     automatic: useRelayer,
-    gasDropoff: 0n,
   });
   const txids = await signSendWait(sourceCtx.context, transferTxs, srcSigner);
 
