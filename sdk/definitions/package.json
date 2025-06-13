@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-definitions-ntt",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/example-native-token-transfers.git"
@@ -49,8 +49,8 @@
     "test": "jest --config ./jest.config.ts"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^1.14.2",
-    "@wormhole-foundation/sdk-definitions": "^1.14.2"
+    "@wormhole-foundation/sdk-base": "^2.1.0",
+    "@wormhole-foundation/sdk-definitions": "^2.1.0"
   },
   "type": "module"
 }

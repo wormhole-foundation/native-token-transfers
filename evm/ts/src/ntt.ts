@@ -80,20 +80,23 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
   async *setPeer<P extends Chain>(
     peer: ChainAddress<P>
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
-    const coreBridge = new Contract(this.manager.contracts.coreBridge!, [
-        "function messageFee() public view returns (uint256)",
-      ],
+    const coreBridge = new Contract(
+      this.manager.contracts.coreBridge!,
+      ["function messageFee() public view returns (uint256)"],
       this.manager.provider
-    )
-    const messageFee = await coreBridge.getFunction("messageFee").staticCall()
+    );
+    const messageFee = await coreBridge.getFunction("messageFee").staticCall();
     const tx = await this.transceiver.setWormholePeer.populateTransaction(
       toChainId(peer.chain),
       universalAddress(peer)
     );
-    yield this.manager.createUnsignedTx({
-      ...tx,
-      value: messageFee
-    }, "WormholeTransceiver.registerPeer");
+    yield this.manager.createUnsignedTx(
+      {
+        ...tx,
+        value: messageFee,
+      },
+      "WormholeTransceiver.registerPeer"
+    );
   }
 
   async getPauser(): Promise<AccountAddress<C> | null> {
@@ -357,6 +360,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
 
   async getTokenDecimals(): Promise<number> {
     return await EvmPlatform.getDecimals(
+      this.network,
       this.chain,
       this.provider,
       this.tokenAddress
@@ -396,7 +400,9 @@ export class EvmNtt<N extends Network, C extends EvmChains>
 
     ixs.push({
       index: 0,
-      payload: this.xcvrs[0]!.encodeFlags({ skipRelay: !options.automatic }),
+      payload: this.xcvrs[0]!.encodeFlags({
+        skipRelay: !options.automatic,
+      }),
     });
 
     return ixs;
@@ -482,35 +488,12 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     );
 
     if (options.wrapNative) {
-      // TODO: the contract should handle this for us
-      const wrappedNative = new Contract(this.tokenAddress, [
-        "function deposit() public payable",
-      ]);
-
-      const txReq = await wrappedNative
-        .getFunction("deposit")
-        .populateTransaction({ value: amount });
-
-      yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Deposit");
+      yield this.wrapNative(sender, amount);
     }
 
-    //TODO check for ERC-2612 (permit) support on token?
-    const tokenContract = EvmPlatform.getTokenImplementation(
-      this.provider,
-      this.tokenAddress
-    );
-
-    const allowance = await tokenContract.allowance(
-      senderAddress,
-      this.managerAddress
-    );
-    if (allowance < amount) {
-      const txReq = await tokenContract.approve.populateTransaction(
-        this.managerAddress,
-        amount
-      );
-
-      yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Approve");
+    const approveTx = await this.approve(sender, amount);
+    if (approveTx) {
+      yield approveTx;
     }
 
     const receiver = universalAddress(destination);
@@ -527,6 +510,46 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       );
 
     yield this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.transfer");
+  }
+
+  async wrapNative(sender: AccountAddress<C>, amount: bigint) {
+    const senderAddress = new EvmAddress(sender).toString();
+
+    // TODO: the contract should handle this for us
+    const wrappedNative = new Contract(this.tokenAddress, [
+      "function deposit() public payable",
+    ]);
+
+    const txReq = await wrappedNative
+      .getFunction("deposit")
+      .populateTransaction({ value: amount });
+
+    return this.createUnsignedTx(addFrom(txReq, senderAddress), "Ntt.Deposit");
+  }
+
+  async approve(sender: AccountAddress<C>, amount: bigint) {
+    const senderAddress = new EvmAddress(sender).toString();
+
+    const tokenContract = EvmPlatform.getTokenImplementation(
+      this.provider,
+      this.tokenAddress
+    );
+
+    const allowance = await tokenContract.allowance(
+      senderAddress,
+      this.managerAddress
+    );
+    if (allowance < amount) {
+      const txReq = await tokenContract.approve.populateTransaction(
+        this.managerAddress,
+        amount
+      );
+
+      return this.createUnsignedTx(
+        addFrom(txReq, senderAddress),
+        "Ntt.Approve"
+      );
+    }
   }
 
   // TODO: should this be some map of idx to transceiver?

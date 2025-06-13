@@ -56,8 +56,6 @@ export namespace Ntt {
     queue: boolean;
     /** Whether or not to request this transfer should be relayed, otherwise manual redemption is required */
     automatic?: boolean;
-    /** How much native gas on the destination to send along with the transfer */
-    gasDropoff?: bigint;
     /** Whether or not the token needs to be wrapped, only relevant for gas token transfers */
     wrapNative?: boolean;
   };

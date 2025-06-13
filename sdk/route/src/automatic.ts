@@ -17,6 +17,7 @@ import {
   canonicalAddress,
   chainToPlatform,
   finality,
+  guardians,
   isAttested,
   isDestinationQueued,
   isNative,
@@ -118,11 +119,6 @@ export class NttAutomaticRoute<N extends Network>
   ): Promise<Vr> {
     const options = params.options ?? this.getDefaultOptions();
 
-    const gasDropoff = amount.parse(
-      options.gasDropoff ?? "0.0",
-      request.toChain.config.nativeTokenDecimals
-    );
-
     const wrapNative = isNative(request.source.id.address);
 
     const parsedAmount = amount.parse(params.amount, request.source.decimals);
@@ -147,7 +143,6 @@ export class NttAutomaticRoute<N extends Network>
         options: {
           queue: false,
           automatic: true,
-          gasDropoff: amount.units(gasDropoff),
           wrapNative,
         },
       },
@@ -200,11 +195,9 @@ export class NttAutomaticRoute<N extends Network>
           fromChain.config.nativeTokenDecimals
         ),
       },
-      destinationNativeGas: amount.fromBaseUnits(
-        params.normalizedParams.options.gasDropoff ?? 0n,
-        toChain.config.nativeTokenDecimals
-      ),
-      eta: finality.estimateFinalityTime(request.fromChain.chain),
+      eta:
+        finality.estimateFinalityTime(request.fromChain.chain) +
+        guardians.guardianAttestationEta * 1000,
     };
     const dstNtt = await toChain.getProtocol("Ntt", {
       ntt: params.normalizedParams.destinationContracts,

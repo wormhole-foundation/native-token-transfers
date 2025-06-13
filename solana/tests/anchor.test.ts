@@ -215,7 +215,7 @@ describe("example-native-token-transfers", () => {
         sender,
         amount,
         receiver,
-        { queue: false, automatic: false, gasDropoff: 0n },
+        { queue: false, automatic: false },
         outboxItem
       );
       await signSendWait(ctx, xferTxs, signer);
