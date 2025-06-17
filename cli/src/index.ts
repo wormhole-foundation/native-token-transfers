@@ -20,6 +20,7 @@ import readline from "readline";
 import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toUniversal, type AccountAddress, type Chain, type ChainAddress, type Network, type Platform } from "@wormhole-foundation/sdk";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
+import "@wormhole-foundation/sdk-sui-ntt";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import type { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
 
@@ -335,6 +336,16 @@ yargs(hideBin(process.argv))
                 type: "number",
                 default: 50000,
             })
+            .option("sui-gas-budget", {
+                describe: "Gas budget for Sui deployment",
+                type: "number",
+                default: 100000000,
+            })
+            .option("sui-package-path", {
+                describe: "Path to Sui Move package directory (relative to project root)",
+                type: "string",
+                default: "sui",
+            })
             .option("signer-type", options.signerType)
             .option("skip-verify", options.skipVerify)
             .option("ver", options.version)
@@ -385,11 +396,11 @@ yargs(hideBin(process.argv))
             // let's deploy
 
             // TODO: factor out to function to get chain context
-            const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
+            const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides); // TODO: Add sui.Platform
             const ch = wh.getChain(chain);
 
             // TODO: make manager configurable
-            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"]);
+            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"], argv["sui-gas-budget"], argv["sui-package-path"]);
 
             const [config, _ctx, _ntt, decimals] =
                 await pullChainConfig(network, deployedManager, overrides);
@@ -463,7 +474,7 @@ yargs(hideBin(process.argv))
                 await askForConfirmation();
             }
 
-            const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
+            const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides); // TODO: Add sui.Platform
             const ch = wh.getChain(chain);
 
             const [_, ctx, ntt] = await pullChainConfig(
@@ -1459,7 +1470,9 @@ async function deploy<N extends Network, C extends Chain>(
     solanaPayer?: string,
     solanaProgramKeyPath?: string,
     solanaBinaryPath?: string,
-    solanaPriorityFee?: number
+    solanaPriorityFee?: number,
+    suiGasBudget?: number,
+    suiPackagePath?: string
 ): Promise<ChainAddress<C>> {
     if (version === null) {
         await warnLocalDeployment(yes);
@@ -1476,6 +1489,9 @@ async function deploy<N extends Network, C extends Chain>(
             }
             const solanaCtx = ch as ChainContext<N, SolanaChains>;
             return await deploySolana(worktree, version, mode, solanaCtx, token, solanaPayer, true, solanaProgramKeyPath, solanaBinaryPath, solanaPriorityFee) as ChainAddress<C>;
+        case "Sui":
+            const suiCtx = ch as ChainContext<N, Chain>; // TODO: Use proper SuiChains type
+            return await deploySui(worktree, version, mode, suiCtx, token, signerType, true, evmVerify, suiGasBudget, suiPackagePath) as ChainAddress<C>;
         default:
             throw new Error("Unsupported platform");
     }
@@ -1826,6 +1842,56 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     return { chain: ch.chain, address: toUniversal(ch.chain, providedProgramId) };
 }
 
+async function deploySui<N extends Network, C extends Chain>(
+    pwd: string,
+    version: string | null,
+    mode: Ntt.Mode,
+    ch: ChainContext<N, C>,
+    token: string,
+    signerType: SignerType,
+    initialize: boolean,
+    skipVerify?: boolean,
+    gasBudget?: number,
+    packagePath?: string
+): Promise<ChainAddress<C>> {
+    const finalPackagePath = packagePath || "sui";
+    const finalGasBudget = gasBudget || 100000000;
+    
+    console.log(`Deploying Sui NTT contracts in ${mode} mode...`);
+    console.log(`Package path: ${finalPackagePath}`);
+    console.log(`Gas budget: ${finalGasBudget}`);
+    console.log(`Target chain: ${ch.chain}`);
+    console.log(`Token: ${token}`);
+    
+    // Build the Move packages
+    console.log("Building Move packages...");
+    try {
+        execSync(`cd ${pwd}/${finalPackagePath} && sui move build`, { stdio: "inherit" });
+    } catch (e) {
+        console.error("Failed to build Move packages");
+        throw e;
+    }
+
+    // TODO: Deploy the Move packages using sui client publish
+    // This is a placeholder implementation that shows the expected flow
+    console.log("TODO: Implement Sui package deployment");
+    console.log("Expected deployment steps:");
+    console.log("1. sui client publish --gas-budget " + finalGasBudget);
+    console.log("2. Initialize NTT manager with token and mode");
+    console.log("3. Set up transceivers and configuration");
+    console.log("4. Return the deployed manager object ID");
+    
+    // For now, return a placeholder address
+    // In a real implementation, this would:
+    // 1. Use sui client publish to deploy packages
+    // 2. Initialize the NTT manager with proper parameters  
+    // 3. Return the actual manager address
+    const placeholderAddress = "0x0000000000000000000000000000000000000000000000000000000000000000";
+    
+    console.log(chalk.green("Deployment placeholder completed"));
+    return { chain: ch.chain, address: toUniversal(ch.chain, placeholderAddress) };
+}
+
 async function missingConfigs(
     deps: Partial<{ [C in Chain]: Deployment<Chain> }>,
     verbose: boolean,
@@ -2092,7 +2158,7 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     manager: ChainAddress<C>,
     overrides?: WormholeConfigOverrides<N>
 ): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
-    const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
+    const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides); // TODO: Add sui.Platform
     const ch = wh.getChain(manager.chain);
 
     const nativeManagerAddress = canonicalAddress(manager);

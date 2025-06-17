@@ -8,6 +8,7 @@
     "rebuild": "npm run rebuild --workspaces --if-present",
     "build:solana": "npm run build --workspace=sdk/definitions --workspace=solana",
     "build:evm": "npm run build --workspace=sdk/definitions --workspace=sdk/evm",
+    "build:sui": "npm run build --workspace=sdk/definitions --workspace=sui/ts",
     "generate": "npm run generate --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:ci": "CI=true jest --config ./jest.config.ts",
@@ -32,6 +33,7 @@
     "sdk/definitions",
     "evm/ts",
     "solana",
+    "sui/ts",
     "sdk/route",
     "sdk/examples",
     "cli"

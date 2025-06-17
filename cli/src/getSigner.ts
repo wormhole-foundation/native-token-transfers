@@ -1,5 +1,6 @@
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import * as myEvmSigner from "./evmsigner.js";
+import * as mySuiSigner from "./suisigner.js";
 import { ChainContext, Wormhole, chainToPlatform, type Chain, type ChainAddress, type Network, type Signer } from "@wormhole-foundation/sdk";
 import { Keypair } from "@solana/web3.js";
 import fs from "fs";
@@ -89,6 +90,25 @@ export async function getSigner<N extends Network, C extends Chain>(
                     break;
                 case "ledger":
                     throw new Error("Ledger not yet supported on Evm");
+                default:
+                    throw new Error("Unsupported signer type");
+            }
+            break;
+        case "Sui":
+            switch (type) {
+                case "privateKey":
+                    const privateKey = source ?? process.env.SUI_PRIVATE_KEY;
+                    if (!privateKey) {
+                        throw new Error("SUI_PRIVATE_KEY env var not set");
+                    }
+                    signer = await mySuiSigner.getSuiSigner(
+                        await chain.getRpc(),
+                        privateKey,
+                        { debug: false }
+                    );
+                    break;
+                case "ledger":
+                    throw new Error("Ledger not yet supported on Sui");
                 default:
                     throw new Error("Unsupported signer type");
             }
