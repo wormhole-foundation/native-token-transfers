@@ -62,7 +62,7 @@ export namespace NttExecutorRoute {
     // Referrer Fee in *tenths* of basis points - e.g. 10 = 1 basis point (0.01%)
     feeDbps: bigint;
     // The address to which the referrer fee will be sent
-    referrerAddresses: Partial<Record<Platform, string>>;
+    referrerAddresses?: Partial<Record<Platform, string>>;
     perTokenOverrides?: Partial<
       Record<Chain, Record<string, { referrerFeeDbps: bigint }>>
     >;
