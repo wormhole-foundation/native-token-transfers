@@ -315,7 +315,7 @@ export class NttExecutorRoute<N extends Network>
     const referrerFeeConfig = this.staticConfig.referrerFee;
     if (referrerFeeConfig) {
       const platform = chainToPlatform(fromChain.chain);
-      let referrerAddress =
+      const referrerAddress =
         referrerFeeConfig.referrerAddresses?.[platform] ?? "";
       if (referrerAddress) {
         referrer = Wormhole.chainAddress(fromChain.chain, referrerAddress);
