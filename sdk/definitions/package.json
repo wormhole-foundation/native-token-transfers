@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wormhole-foundation/example-native-token-transfers.git"
+    "url": "git+https://github.com/wormhole-foundation/native-token-transfers.git"
   },
   "bugs": {
-    "url": "https://github.com/wormhole-foundation/example-native-token-transfers"
+    "url": "https://github.com/wormhole-foundation/native-token-transfers"
   },
-  "homepage": "https://github.com/wormhole-foundation/example-native-token-transfers#readme",
+  "homepage": "https://github.com/wormhole-foundation/native-token-transfers#readme",
   "directories": {
     "test": "__tests__"
   },
