@@ -167,7 +167,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     };
     const feeArgs = {
       dbps: quote.referrerFeeDbps,
-      payee: quote.referrer.address.toString(),
+      payee: quote.referrer ? quote.referrer.address.toString() : senderAddress,
     };
 
     const data = iface.encodeFunctionData("transfer", [

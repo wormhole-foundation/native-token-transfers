@@ -32,10 +32,11 @@ import {
   serializeLayout,
   signSendWait,
   toChainId,
+  Platform,
+  chainToPlatform,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "../types.js";
-import { getReferrerAddress } from "./consts.js";
 import {
   calculateReferrerFee,
   fetchCapabilities,
@@ -53,13 +54,17 @@ import {
 export namespace NttExecutorRoute {
   export type Config = {
     ntt: NttRoute.Config;
+    referrerFee?: ReferrerFeeConfig;
+  };
+
+  export type ReferrerFeeConfig = {
     // Referrer Fee in *tenths* of basis points - e.g. 10 = 1 basis point (0.01%)
-    referrerFeeDbps?: bigint;
-    perTokenOverrides?: {
-      chain: Chain;
-      address: string;
-      referrerFeeDbps: bigint;
-    }[];
+    feeDbps: bigint;
+    // The address to which the referrer fee will be sent
+    referrerAddresses: Partial<Record<Platform, string>>;
+    perTokenOverrides?: Partial<
+      Record<Chain, Record<string, { referrerFeeDbps: bigint }>>
+    >;
   };
 
   export type Options = {
@@ -191,15 +196,18 @@ export class NttExecutorRoute<N extends Network>
       request.destination.id
     );
 
-    let referrerFeeDbps = this.staticConfig.referrerFeeDbps ?? 0n;
-    if (this.staticConfig.perTokenOverrides) {
-      const srcTokenAddress = canonicalAddress(request.source.id);
-      const override = this.staticConfig.perTokenOverrides.find(
-        (o) =>
-          o.chain === request.source.id.chain && o.address === srcTokenAddress
-      );
-      if (override) {
-        referrerFeeDbps = override.referrerFeeDbps;
+    let referrerFeeDbps = 0n;
+    if (this.staticConfig.referrerFee) {
+      referrerFeeDbps = this.staticConfig.referrerFee.feeDbps;
+      if (this.staticConfig.referrerFee.perTokenOverrides) {
+        const srcTokenAddress = canonicalAddress(request.source.id);
+        const override =
+          this.staticConfig.referrerFee.perTokenOverrides[
+            request.source.id.chain
+          ]?.[srcTokenAddress];
+        if (override) {
+          referrerFeeDbps = override.referrerFeeDbps;
+        }
       }
     }
 
@@ -302,11 +310,17 @@ export class NttExecutorRoute<N extends Network>
   ): Promise<NttWithExecutor.Quote> {
     const { fromChain, toChain } = request;
 
-    const referrerAddress = getReferrerAddress(fromChain.chain);
-    if (!referrerAddress) {
-      throw new Error("No referrer address found");
+    let referrer: ChainAddress | undefined = undefined;
+    const referrerFeeConfig = this.staticConfig.referrerFee;
+    if (referrerFeeConfig && referrerFeeConfig.feeDbps > 0n) {
+      const platform = chainToPlatform(fromChain.chain);
+      const referrerAddress =
+        referrerFeeConfig.referrerAddresses?.[platform] ?? "";
+      if (!referrerAddress) {
+        throw new Error("No referrer address found");
+      }
+      referrer = Wormhole.chainAddress(fromChain.chain, referrerAddress);
     }
-    const referrer = Wormhole.chainAddress(fromChain.chain, referrerAddress);
 
     const { referrerFee, remainingAmount, referrerFeeDbps } =
       calculateReferrerFee(

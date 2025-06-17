@@ -119,6 +119,7 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
         );
 
         if (quote.referrerFee > 0n) {
+          if (!quote.referrer) throw new Error("referrer is required");
           const referrer = new PublicKey(quote.referrer.address.toString());
           const { mint } = await ntt.getConfig();
           const referrerAta = getAssociatedTokenAddressSync(
