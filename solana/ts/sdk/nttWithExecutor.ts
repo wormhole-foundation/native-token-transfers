@@ -128,7 +128,12 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
             true,
             tokenProgram
           );
-          const senderAta = getAssociatedTokenAddressSync(mint, senderPk, true);
+          const senderAta = getAssociatedTokenAddressSync(
+            mint,
+            senderPk,
+            true,
+            tokenProgram
+          );
           const referrerAtaAccount = await this.connection.getAccountInfo(
             referrerAta
           );
