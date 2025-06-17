@@ -13,7 +13,7 @@ export namespace NttWithExecutor {
     relayInstructions: Uint8Array; // The relay instructions for the transfer
     estimatedCost: bigint; // The estimated cost of the transfer in native token base units
     payeeAddress: Uint8Array; // The wallet address on the source chain, designated by the Quoter, to receive funds when requesting an execution
-    referrer?: ChainAddress; // The referrer address (to whom the referrer fee should be paid, undefined when fee is 0)
+    referrer: ChainAddress; // The referrer address (to whom the referrer fee should be paid)
     referrerFee: bigint; // The referrer fee in NTT token base units
     remainingAmount: bigint; // The remaining amount after the referrer fee in NTT token base units
     referrerFeeDbps: bigint; // The referrer fee in *tenths* of basis points

@@ -50,6 +50,7 @@ import {
   relayInstructionsLayout,
   signedQuoteLayout,
 } from "@wormhole-foundation/sdk-definitions";
+import { getDefaultReferrerAddress } from "./consts.js";
 
 export namespace NttExecutorRoute {
   export type Config = {
@@ -310,16 +311,15 @@ export class NttExecutorRoute<N extends Network>
   ): Promise<NttWithExecutor.Quote> {
     const { fromChain, toChain } = request;
 
-    let referrer: ChainAddress | undefined = undefined;
+    let referrer = getDefaultReferrerAddress(fromChain.chain);
     const referrerFeeConfig = this.staticConfig.referrerFee;
-    if (referrerFeeConfig && referrerFeeConfig.feeDbps > 0n) {
+    if (referrerFeeConfig) {
       const platform = chainToPlatform(fromChain.chain);
-      const referrerAddress =
+      let referrerAddress =
         referrerFeeConfig.referrerAddresses?.[platform] ?? "";
-      if (!referrerAddress) {
-        throw new Error("No referrer address found");
+      if (referrerAddress) {
+        referrer = Wormhole.chainAddress(fromChain.chain, referrerAddress);
       }
-      referrer = Wormhole.chainAddress(fromChain.chain, referrerAddress);
     }
 
     const { referrerFee, remainingAmount, referrerFeeDbps } =
