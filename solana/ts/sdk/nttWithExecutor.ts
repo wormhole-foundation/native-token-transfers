@@ -120,11 +120,13 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
 
         if (quote.referrerFee > 0n) {
           const referrer = new PublicKey(quote.referrer.address.toString());
-          const { mint } = await ntt.getConfig();
+
+          const { mint, tokenProgram } = await ntt.getConfig();
           const referrerAta = getAssociatedTokenAddressSync(
             mint,
             referrer,
-            true
+            true,
+            tokenProgram
           );
           const senderAta = getAssociatedTokenAddressSync(mint, senderPk, true);
           const referrerAtaAccount = await this.connection.getAccountInfo(
@@ -136,7 +138,8 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
                 senderPk,
                 referrerAta,
                 referrer,
-                mint
+                mint,
+                tokenProgram
               )
             );
           }
@@ -145,7 +148,9 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
               senderAta,
               referrerAta,
               senderPk,
-              quote.referrerFee
+              quote.referrerFee,
+              undefined,
+              tokenProgram
             )
           );
         }
@@ -306,10 +311,18 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
     if (recipient) {
       const recipientPk = new PublicKey(recipient.address.toString());
 
+      const mint = new SolanaAddress(this.contracts.ntt!.token).unwrap();
+      const mintInfo = await this.connection.getAccountInfo(mint);
+      if (mintInfo === null)
+        throw new Error(
+          "Couldn't determine token program. Mint account is null."
+        );
+
       const ata = getAssociatedTokenAddressSync(
-        new SolanaAddress(this.contracts.ntt!.token).unwrap(),
+        mint,
         recipientPk,
-        true
+        true,
+        mintInfo.owner
       );
 
       if ((await this.connection.getAccountInfo(ata)) === null) {
