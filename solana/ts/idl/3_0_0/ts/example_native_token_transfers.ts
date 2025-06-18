@@ -529,10 +529,7 @@ export type ExampleNativeTokenTransfers = {
             {
               "name": "tokenAuthority",
               "isMut": false,
-              "isSigner": false,
-              "docs": [
-                "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              "isSigner": false
             },
             {
               "name": "mint",
@@ -601,10 +598,7 @@ export type ExampleNativeTokenTransfers = {
             {
               "name": "tokenAuthority",
               "isMut": false,
-              "isSigner": false,
-              "docs": [
-                "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              "isSigner": false
             },
             {
               "name": "mint",
@@ -1521,7 +1515,11 @@ export type ExampleNativeTokenTransfers = {
         {
           "name": "emitter",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "enforced by the [`CpiContext`] call in [`post_message`].",
+            "The seeds constraint ensures that this is the correct address"
+          ]
         },
         {
           "name": "wormhole",
@@ -3021,10 +3019,7 @@ export const IDL: ExampleNativeTokenTransfers = {
             {
               "name": "tokenAuthority",
               "isMut": false,
-              "isSigner": false,
-              "docs": [
-                "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              "isSigner": false
             },
             {
               "name": "mint",
@@ -3093,10 +3088,7 @@ export const IDL: ExampleNativeTokenTransfers = {
             {
               "name": "tokenAuthority",
               "isMut": false,
-              "isSigner": false,
-              "docs": [
-                "CHECK The seeds constraint ensures that this is the correct address"
-              ]
+              "isSigner": false
             },
             {
               "name": "mint",
@@ -4013,7 +4005,11 @@ export const IDL: ExampleNativeTokenTransfers = {
         {
           "name": "emitter",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "enforced by the [`CpiContext`] call in [`post_message`].",
+            "The seeds constraint ensures that this is the correct address"
+          ]
         },
         {
           "name": "wormhole",

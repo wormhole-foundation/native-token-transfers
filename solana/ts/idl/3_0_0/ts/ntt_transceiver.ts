@@ -211,7 +211,11 @@ export type NttTransceiver = {
         {
           "name": "emitter",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "enforced by the [`CpiContext`] call in [`post_message`].",
+            "The seeds constraint ensures that this is the correct address"
+          ]
         },
         {
           "name": "wormhole",
@@ -909,7 +913,11 @@ export const IDL: NttTransceiver = {
         {
           "name": "emitter",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "enforced by the [`CpiContext`] call in [`post_message`].",
+            "The seeds constraint ensures that this is the correct address"
+          ]
         },
         {
           "name": "wormhole",
