@@ -269,7 +269,7 @@ yargs(hideBin(process.argv))
                 if (argv["repo"]) {
                     repoArg = `--repo ${argv["repo"]}`;
                 }
-                const installScript = "https://raw.githubusercontent.com/wormhole-foundation/example-native-token-transfers/main/cli/install.sh";
+                const installScript = "https://raw.githubusercontent.com/wormhole-foundation/native-token-transfers/main/cli/install.sh";
                 // save it to "$HOME/.ntt-cli/install.sh"
                 const nttDir = `${process.env.HOME}/.ntt-cli`;
                 const installer = `${nttDir}/install.sh`;
@@ -297,7 +297,7 @@ yargs(hideBin(process.argv))
                 process.exit(1);
             }
             const path = argv["path"];
-            await $`git clone -b main https://github.com/wormhole-foundation/example-native-token-transfers.git ${path}`;
+            await $`git clone -b main https://github.com/wormhole-foundation/native-token-transfers.git ${path}`;
         })
     .command("add-chain <chain>",
         "add a chain to the deployment file",

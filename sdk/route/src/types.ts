@@ -44,7 +44,6 @@ export namespace NttRoute {
   /** Options for Per-TransferRequest settings */
   export interface Options {
     automatic: boolean;
-    gasDropoff?: string;
   }
 
   export const ManualOptions: Options = {
@@ -53,7 +52,6 @@ export namespace NttRoute {
 
   export const AutomaticOptions: Options = {
     automatic: true,
-    gasDropoff: "0.0",
   };
 
   export type NormalizedParams = {
