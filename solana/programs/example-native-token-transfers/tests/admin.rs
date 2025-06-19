@@ -10,11 +10,8 @@ use solana_program_test::*;
 use solana_sdk::{instruction::InstructionError, signer::Signer, transaction::TransactionError};
 
 use crate::{
-    common::{
-        query::GetAccountDataAnchor,
-        setup::{setup, TestData},
-        submit::Submittable,
-    },
+    common::{query::GetAccountDataAnchor, setup::setup, submit::Submittable},
+    sdk::accounts::{good_ntt, NTTAccounts},
     sdk::instructions::admin::{
         deregister_transceiver, register_transceiver, set_threshold, DeregisterTransceiver,
         RegisterTransceiver, SetThreshold,
@@ -24,23 +21,18 @@ use crate::{
 pub mod common;
 pub mod sdk;
 
-async fn assert_threshold(
-    ctx: &mut ProgramTestContext,
-    test_data: &TestData,
-    expected_threshold: u8,
-) {
-    let config_account: Config = ctx.get_account_data_anchor(test_data.ntt.config()).await;
+async fn assert_threshold(ctx: &mut ProgramTestContext, expected_threshold: u8) {
+    let config_account: Config = ctx.get_account_data_anchor(good_ntt.config()).await;
     assert_eq!(config_account.threshold, expected_threshold);
 }
 
 async fn assert_transceiver_id(
     ctx: &mut ProgramTestContext,
-    test_data: &TestData,
     transceiver: &Pubkey,
     expected_id: u8,
 ) {
     let registered_transceiver_account: RegisteredTransceiver = ctx
-        .get_account_data_anchor(test_data.ntt.registered_transceiver(transceiver))
+        .get_account_data_anchor(good_ntt.registered_transceiver(transceiver))
         .await;
     assert_eq!(
         registered_transceiver_account.transceiver_address,
@@ -55,7 +47,7 @@ async fn test_invalid_transceiver() {
 
     // try registering system program
     let err = register_transceiver(
-        &test_data.ntt,
+        &good_ntt,
         RegisterTransceiver {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -89,7 +81,7 @@ async fn test_reregister_all_transceivers() {
     // register dummy transceivers
     for (idx, transceiver) in dummy_transceivers.iter().enumerate() {
         register_transceiver(
-            &test_data.ntt,
+            &good_ntt,
             RegisterTransceiver {
                 payer: ctx.payer.pubkey(),
                 owner: test_data.program_owner.pubkey(),
@@ -99,12 +91,12 @@ async fn test_reregister_all_transceivers() {
         .submit_with_signers(&[&test_data.program_owner], &mut ctx)
         .await
         .unwrap();
-        assert_transceiver_id(&mut ctx, &test_data, transceiver, idx as u8 + 1).await;
+        assert_transceiver_id(&mut ctx, transceiver, idx as u8 + 1).await;
     }
 
     // set threshold = 1 (for baked-in transceiver) + num_dummy_transceivers
     set_threshold(
-        &test_data.ntt,
+        &good_ntt,
         SetThreshold {
             owner: test_data.program_owner.pubkey(),
         },
@@ -117,7 +109,7 @@ async fn test_reregister_all_transceivers() {
     // deregister dummy transceivers
     for (idx, transceiver) in dummy_transceivers.iter().enumerate() {
         deregister_transceiver(
-            &test_data.ntt,
+            &good_ntt,
             DeregisterTransceiver {
                 owner: test_data.program_owner.pubkey(),
                 transceiver: *transceiver,
@@ -126,12 +118,12 @@ async fn test_reregister_all_transceivers() {
         .submit_with_signers(&[&test_data.program_owner], &mut ctx)
         .await
         .unwrap();
-        assert_threshold(&mut ctx, &test_data, num_dummy_transceivers - idx as u8).await;
+        assert_threshold(&mut ctx, num_dummy_transceivers - idx as u8).await;
     }
 
     // deregister baked-in transceiver
     deregister_transceiver(
-        &test_data.ntt,
+        &good_ntt,
         DeregisterTransceiver {
             owner: test_data.program_owner.pubkey(),
             transceiver: example_native_token_transfers::ID,
@@ -140,12 +132,12 @@ async fn test_reregister_all_transceivers() {
     .submit_with_signers(&[&test_data.program_owner], &mut ctx)
     .await
     .unwrap();
-    assert_threshold(&mut ctx, &test_data, 1).await;
+    assert_threshold(&mut ctx, 1).await;
 
     // reregister dummy transceiver
     for (idx, transceiver) in dummy_transceivers.iter().enumerate() {
         register_transceiver(
-            &test_data.ntt,
+            &good_ntt,
             RegisterTransceiver {
                 payer: ctx.payer.pubkey(),
                 owner: test_data.program_owner.pubkey(),
@@ -155,13 +147,13 @@ async fn test_reregister_all_transceivers() {
         .submit_with_signers(&[&test_data.program_owner], &mut ctx)
         .await
         .unwrap();
-        assert_transceiver_id(&mut ctx, &test_data, transceiver, idx as u8 + 1).await;
-        assert_threshold(&mut ctx, &test_data, 1).await;
+        assert_transceiver_id(&mut ctx, transceiver, idx as u8 + 1).await;
+        assert_threshold(&mut ctx, 1).await;
     }
 
     // reregister baked-in transceiver
     register_transceiver(
-        &test_data.ntt,
+        &good_ntt,
         RegisterTransceiver {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -171,8 +163,8 @@ async fn test_reregister_all_transceivers() {
     .submit_with_signers(&[&test_data.program_owner], &mut ctx)
     .await
     .unwrap();
-    assert_transceiver_id(&mut ctx, &test_data, &example_native_token_transfers::ID, 0).await;
-    assert_threshold(&mut ctx, &test_data, 1).await;
+    assert_transceiver_id(&mut ctx, &example_native_token_transfers::ID, 0).await;
+    assert_threshold(&mut ctx, 1).await;
 }
 
 #[tokio::test]
@@ -180,7 +172,7 @@ async fn test_zero_threshold() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
     let err = set_threshold(
-        &test_data.ntt,
+        &good_ntt,
         SetThreshold {
             owner: test_data.program_owner.pubkey(),
         },
@@ -203,7 +195,7 @@ async fn test_threshold_too_high() {
     let (mut ctx, test_data) = setup(Mode::Burning).await;
 
     let err = set_threshold(
-        &test_data.ntt,
+        &good_ntt,
         SetThreshold {
             owner: test_data.program_owner.pubkey(),
         },

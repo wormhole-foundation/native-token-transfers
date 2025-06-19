@@ -63,13 +63,16 @@ async fn post_governance_vaa<A: Clone + AnchorSerialize>(
     (post_vaa(wormhole, ctx, vaa.clone()).await, vaa)
 }
 
-/// Helper function to transfer ownership to the governance program.
-/// Returns the VAA that was used to claim ownership.
+/// Helper function to perform 2-step ownership transfer to the governance program.
+/// Returns the VAA that was used to claim ownership as a result (so that even error can be unwrapped).
 async fn transfer_ownership_to_gov_program(
     ctx: &mut ProgramTestContext,
     test_data: &TestData,
     governance_program_override: Option<Pubkey>,
-) -> (Result<Vaa<GovernanceMessage>>, Instruction) {
+) -> (
+    core::result::Result<Vaa<GovernanceMessage>, BanksClientError>,
+    Instruction,
+) {
     let governance_pda = test_data.governance.governance();
 
     // step 1. transfer ownership to governance
@@ -109,7 +112,7 @@ async fn transfer_ownership_to_gov_program(
         data: inner_ix_data.data(),
     };
 
-    let config_account: Config = ctx.get_account_data_anchor(test_data.ntt.config()).await;
+    let config_account: Config = ctx.get_account_data_anchor(good_ntt.config()).await;
     assert!(!config_account.paused); // make sure not paused before
 
     let vaa = wrap_governance(
@@ -130,7 +133,10 @@ async fn transfer_ownership_to_gov_program(
 async fn test_governance() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
-    transfer_ownership_to_gov_program(&mut ctx, &test_data, None).await;
+    transfer_ownership_to_gov_program(&mut ctx, &test_data, None)
+        .await
+        .0
+        .unwrap();
 
     // step 3. set paused
     wrap_governance(
@@ -153,6 +159,8 @@ async fn test_governance() {
 async fn test_governance_one_step_transfer() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
+    let governance_pda = test_data.governance.governance();
+
     // step 1. transfer ownership to governance (1 step)
     let ix = example_native_token_transfers::instruction::TransferOwnershipOneStepUnchecked;
 
@@ -166,15 +174,15 @@ async fn test_governance_one_step_transfer() {
     };
 
     Instruction {
-        program_id: good_ntt.program,
+        program_id: good_ntt.program(),
         accounts: accs.to_account_metas(None),
         data: ix.data(),
     }
-    .submit_with_signers(&[&test_data.program_owner], ctx)
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
     .await
     .unwrap();
 
-    let config_account: Config = ctx.get_account_data_anchor(test_data.ntt.config()).await;
+    let config_account: Config = ctx.get_account_data_anchor(good_ntt.config()).await;
     assert!(!config_account.paused); // make sure not paused before
 
     // step 2. set paused
@@ -214,7 +222,7 @@ async fn test_governance_bad_emitter() {
         err.unwrap(),
         TransactionError::InstructionError(
             0,
-            InstructionError::Custom(GovernanceError::InvalidGovernanceProgram.into())
+            InstructionError::Custom(GovernanceError::InvalidGovernanceEmitter.into())
         )
     );
 }
@@ -223,10 +231,9 @@ async fn test_governance_bad_emitter() {
 async fn test_governance_bad_governance_contract() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
-    let governance_pda = test_data.governance.governance();
-
     let err = transfer_ownership_to_gov_program(&mut ctx, &test_data, Some(Pubkey::new_unique()))
         .await
+        .0
         .unwrap_err();
 
     assert_eq!(
