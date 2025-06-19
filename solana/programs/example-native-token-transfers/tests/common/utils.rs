@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicU64;
 
 use anchor_lang::AnchorSerialize;
+use example_native_token_transfers::transfer::Payload;
 use ntt_messages::{
     chain_id::ChainId, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
     transceiver::TransceiverMessage, transceivers::wormhole::WormholeTransceiver,
@@ -20,7 +21,7 @@ pub fn make_transfer_message(
     id: [u8; 32],
     amount: u64,
     recipient: &Pubkey,
-) -> TransceiverMessage<WormholeTransceiver, NativeTokenTransfer> {
+) -> TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>> {
     let ntt_manager_message = NttManagerMessage {
         id,
         sender: [4u8; 32],
@@ -32,6 +33,7 @@ pub fn make_transfer_message(
             source_token: [3u8; 32],
             to_chain: ChainId { id: THIS_CHAIN },
             to: recipient.to_bytes(),
+            additional_payload: Payload {},
         },
     };
 
