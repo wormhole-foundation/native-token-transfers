@@ -393,12 +393,9 @@ async fn test_bad_mint() {
         false,
     );
 
-    // use the wrong mint here
-    accs.mint = test_data.bad_mint;
-
     approve_token_authority(
         &good_ntt,
-        &test_data.bad_user_token_account,
+        &test_data.user_token_account,
         &test_data.user.pubkey(),
         &args,
     )
@@ -406,7 +403,22 @@ async fn test_bad_mint() {
     .await
     .unwrap();
 
-    let err = transfer(&good_ntt, accs, args, Mode::Locking)
+    // use the wrong mint here
+    accs.mint = test_data.bad_mint;
+
+    let mut instruction = transfer(&good_ntt, accs, args, Mode::Locking);
+
+    // iterate through instruction accounts and replace bad_custody account with
+    // pre-initialized good_custody account to avoid AccountNotInitialized error
+    let bad_custody = good_ntt.custody(&test_data.bad_mint);
+    let good_custody = good_ntt.custody(&test_data.mint);
+    instruction.accounts.iter_mut().for_each(|acc| {
+        if acc.pubkey == bad_custody {
+            acc.pubkey = good_custody;
+        }
+    });
+
+    let err = instruction
         .submit_with_signers(&[&outbox_item], &mut ctx)
         .await
         .unwrap_err();
