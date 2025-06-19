@@ -565,7 +565,8 @@ pub fn add_program_upgradeable(
         );
         let mut program_data = bincode::serialize(&UpgradeableLoaderState::ProgramData {
             slot: 0,
-            upgrade_authority_address: upgrade_authority_address.or(Some(Pubkey::default())),
+            upgrade_authority_address: upgrade_authority_address
+                .or_else(|| Some(Pubkey::default())),
         })
         .unwrap();
         program_data.extend_from_slice(&elf);
