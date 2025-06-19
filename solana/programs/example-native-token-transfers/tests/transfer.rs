@@ -240,10 +240,10 @@ async fn test_transfer_with_transfer_fee(
 ) {
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(ctx, test_data, outbox_item.pubkey(), 154, false);
+    let (accs, args) = init_accs_args(&good_ntt, ctx, test_data, outbox_item.pubkey(), 154, false);
 
     approve_token_authority_with_token_program_id(
-        &test_data.ntt,
+        &good_ntt,
         &test_data.user_token_account,
         &test_data.user.pubkey(),
         &args,
@@ -252,11 +252,10 @@ async fn test_transfer_with_transfer_fee(
     .submit_with_signers(&[&test_data.user], ctx)
     .await
     .unwrap();
-    let err =
-        transfer_with_token_program_id(&test_data.ntt, accs, args, mode, &spl_token_2022::id())
-            .submit_with_signers(&[&outbox_item], ctx)
-            .await
-            .unwrap_err();
+    let err = transfer_with_token_program_id(&good_ntt, accs, args, mode, &spl_token_2022::id())
+        .submit_with_signers(&[&outbox_item], ctx)
+        .await
+        .unwrap_err();
     assert_eq!(
         err.unwrap(),
         TransactionError::InstructionError(0, InstructionError::Custom(error_code))

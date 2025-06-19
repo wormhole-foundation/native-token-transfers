@@ -10,6 +10,7 @@ use common::{
 use example_native_token_transfers::{
     error::NTTError,
     instructions::{RedeemArgs, ReleaseInboundArgs},
+    transfer::Payload,
 };
 use ntt_messages::{mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage};
 use sdk::{
@@ -44,7 +45,7 @@ fn init_redeem_accs(
     ctx: &mut ProgramTestContext,
     test_data: &TestData,
     chain_id: u16,
-    ntt_manager_message: NttManagerMessage<NativeTokenTransfer>,
+    ntt_manager_message: NttManagerMessage<NativeTokenTransfer<Payload>>,
 ) -> Redeem {
     Redeem {
         payer: ctx.payer.pubkey(),
@@ -155,7 +156,7 @@ async fn test_receive() {
             recipient: recipient_token_account,
         },
         ReleaseInboundArgs {
-            revert_on_delay: false,
+            revert_when_not_ready: false,
         },
     )
     .submit(&mut ctx)
@@ -175,7 +176,7 @@ async fn test_receive() {
             recipient: recipient_token_account,
         },
         ReleaseInboundArgs {
-            revert_on_delay: false,
+            revert_when_not_ready: false,
         },
     )
     .submit(&mut ctx)
