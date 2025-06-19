@@ -363,11 +363,18 @@ pub async fn setup_accounts_with_transfer_fee(
     let mint_authority = Keypair::new();
 
     let bad_mint = Keypair::new();
+    let bad_mint_authority = Keypair::new();
 
     let user = Keypair::new();
     let payer = ctx.payer.pubkey();
 
     create_mint_with_transfer_fee(ctx, &mint, &mint_authority.pubkey(), 9, 500, 5000)
+        .await
+        .submit(ctx)
+        .await
+        .unwrap();
+
+    create_mint_with_transfer_fee(ctx, &bad_mint, &bad_mint_authority.pubkey(), 9, 500, 5000)
         .await
         .submit(ctx)
         .await
@@ -423,12 +430,12 @@ pub async fn setup_accounts_with_transfer_fee(
         &spl_token_2022::id(),
         &bad_mint.pubkey(),
         &bad_user_token_account,
-        &mint_authority.pubkey(),
+        &bad_mint_authority.pubkey(),
         &[],
         MINT_AMOUNT,
     )
     .unwrap()
-    .submit_with_signers(&[&mint_authority], ctx)
+    .submit_with_signers(&[&bad_mint_authority], ctx)
     .await
     .unwrap();
 
@@ -439,6 +446,7 @@ pub async fn setup_accounts_with_transfer_fee(
         program_owner,
         mint_authority,
         mint: mint.pubkey(),
+        bad_mint_authority,
         bad_mint: bad_mint.pubkey(),
         user,
         user_token_account,
