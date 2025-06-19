@@ -1,6 +1,9 @@
 use crate::{peer::TransceiverPeer, wormhole::accounts::*};
 use anchor_lang::prelude::*;
-use example_native_token_transfers::config::*;
+use example_native_token_transfers::{
+    config::*,
+    wormhole_accounts::{anchor_reexports::*, *},
+};
 use ntt_messages::{chain_id::ChainId, transceivers::wormhole::WormholeTransceiverRegistration};
 
 #[derive(Accounts)]
@@ -20,13 +23,6 @@ pub struct BroadcastPeer<'info> {
     /// CHECK: initialized and written to by wormhole core bridge
     #[account(mut)]
     pub wormhole_message: Signer<'info>,
-
-    #[account(
-        seeds = [b"emitter"],
-        bump
-    )]
-    /// CHECK: The seeds constraint ensures that this is the correct address
-    pub emitter: UncheckedAccount<'info>,
 
     pub wormhole: WormholeAccounts<'info>,
 }
@@ -49,8 +45,7 @@ pub fn broadcast_peer(ctx: Context<BroadcastPeer>, args: BroadcastPeerArgs) -> R
         &accs.wormhole,
         accs.payer.to_account_info(),
         accs.wormhole_message.to_account_info(),
-        accs.emitter.to_account_info(),
-        ctx.bumps.emitter,
+        ctx.bumps.wormhole.emitter,
         &message,
         &[],
     )?;

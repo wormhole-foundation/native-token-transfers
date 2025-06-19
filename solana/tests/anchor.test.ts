@@ -22,7 +22,7 @@ import {
 } from "@wormhole-foundation/sdk-solana";
 import { SolanaWormholeCore } from "@wormhole-foundation/sdk-solana-core";
 
-import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
+import { IdlVersion, NTT } from "../ts/index.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
@@ -45,6 +45,7 @@ const NTT_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.ExampleNativeTokenTransfers.programId;
 const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.NttTransceiver.programId;
+const TEST_SPL_MULTISIG = true; // only matters for VERSION >= 3.x.x
 
 /**
  * Test Helpers
@@ -90,11 +91,7 @@ const remoteXcvr: ChainAddress = $.chainAddress.generateFromValue(
   "transceiver"
 );
 const nttTransceivers = {
-  wormhole: getTransceiverProgram(
-    $.connection,
-    WH_TRANSCEIVER_ADDRESS.toBase58(),
-    VERSION
-  ),
+  wormhole: WH_TRANSCEIVER_ADDRESS,
 };
 
 describe("example-native-token-transfers", () => {
@@ -148,7 +145,7 @@ describe("example-native-token-transfers", () => {
           token: testMint.address.toBase58(),
           manager: NTT_ADDRESS.toBase58(),
           transceiver: {
-            wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+            wormhole: nttTransceivers["wormhole"].toBase58(),
           },
         },
       },
@@ -167,7 +164,7 @@ describe("example-native-token-transfers", () => {
       ]);
       await testMint.setMintAuthority(
         payer,
-        multisigTokenAuthority,
+        TEST_SPL_MULTISIG ? multisigTokenAuthority : ntt.pdas.tokenAuthority(),
         mintAuthority
       );
 
@@ -176,7 +173,9 @@ describe("example-native-token-transfers", () => {
         mint: testMint.address,
         outboundLimit: 1_000_000n,
         mode: "burning",
-        multisigTokenAuthority,
+        multisigTokenAuthority: TEST_SPL_MULTISIG
+          ? multisigTokenAuthority
+          : undefined,
       });
       await signSendWait(ctx, initTxs, signer);
 
@@ -251,220 +250,233 @@ describe("example-native-token-transfers", () => {
       await assert.tokenBalance($.connection, tokenAccount).equal(9_900_000);
     });
 
-    describe("Can transfer mint authority to-and-from NTT manager", () => {
-      const newAuthority = $.keypair.generate();
-      let newMultisigAuthority: anchor.web3.PublicKey;
-      const nttOwner = payer.publicKey;
+    $.jest.describeIf(
+      TEST_SPL_MULTISIG,
+      "Can transfer mint authority to-and-from NTT manager",
+      () => {
+        const newAuthority = $.keypair.generate();
+        let newMultisigAuthority: anchor.web3.PublicKey;
+        const nttOwner = payer.publicKey;
 
-      beforeAll(async () => {
-        newMultisigAuthority = await $.multisig.create(payer, 2, [
-          mintAuthority.publicKey,
-          newAuthority.publicKey,
-        ]);
-      });
+        beforeAll(async () => {
+          newMultisigAuthority = await $.multisig.create(payer, 2, [
+            mintAuthority.publicKey,
+            newAuthority.publicKey,
+          ]);
+        });
 
-      it("Fails when contract is not paused", async () => {
-        await assert
-          .promise(
-            $.sendAndConfirm(
-              await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
-                ntt.program,
-                await ntt.getConfig(),
-                {
-                  owner: nttOwner,
-                  newAuthority: newAuthority.publicKey,
-                  multisigTokenAuthority,
-                }
-              ),
-              payer
+        it("Fails when contract is not paused", async () => {
+          await assert
+            .promise(
+              $.sendAndConfirm(
+                await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
+                  ntt.program,
+                  await ntt.getConfig(),
+                  {
+                    owner: nttOwner,
+                    newAuthority: newAuthority.publicKey,
+                    multisigTokenAuthority,
+                  }
+                ),
+                payer
+              )
             )
-          )
-          .failsWithAnchorError(anchor.web3.SendTransactionError, {
-            code: "NotPaused",
-            number: 6024,
-          });
+            .failsWithAnchorError(anchor.web3.SendTransactionError, {
+              code: "NotPaused",
+              number: 6024,
+            });
 
-        await assert.testMintAuthority(testMint).equal(multisigTokenAuthority);
-      });
+          await assert
+            .testMintAuthority(testMint)
+            .equal(multisigTokenAuthority);
+        });
 
-      test("Multisig(owner, TA) -> newAuthority", async () => {
-        // retry after pausing contract
-        const pauseTxs = ntt.pause(payerAddress);
-        await signSendWait(ctx, pauseTxs, signer);
+        test("Multisig(owner, TA) -> newAuthority", async () => {
+          // retry after pausing contract
+          const pauseTxs = ntt.pause(payerAddress);
+          await signSendWait(ctx, pauseTxs, signer);
 
-        await $.sendAndConfirm(
-          await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
-            ntt.program,
-            await ntt.getConfig(),
-            {
-              owner: nttOwner,
-              newAuthority: newAuthority.publicKey,
-              multisigTokenAuthority,
-            }
-          ),
-          payer
-        );
-
-        await assert.testMintAuthority(testMint).equal(newAuthority.publicKey);
-      });
-
-      test("newAuthority -> TA", async () => {
-        await $.sendAndConfirm(
-          await NTT.createAcceptTokenAuthorityInstruction(
-            ntt.program,
-            await ntt.getConfig(),
-            {
-              currentAuthority: newAuthority.publicKey,
-            }
-          ),
-          payer,
-          newAuthority
-        );
-
-        await assert
-          .testMintAuthority(testMint)
-          .equal(ntt.pdas.tokenAuthority());
-      });
-
-      test("TA -> Multisig(owner, newAuthority)", async () => {
-        // set token authority: TA -> newMultisigAuthority
-        await $.sendAndConfirm(
-          await NTT.createSetTokenAuthorityInstruction(
-            ntt.program,
-            await ntt.getConfig(),
-            {
-              rentPayer: nttOwner,
-              owner: nttOwner,
-              newAuthority: newMultisigAuthority,
-            }
-          ),
-          payer
-        );
-
-        // claim token authority: newMultisigAuthority <- TA
-        await $.sendAndConfirm(
-          await NTT.createClaimTokenAuthorityToMultisigInstruction(
-            ntt.program,
-            await ntt.getConfig(),
-            {
-              rentPayer: nttOwner,
-              newMultisigAuthority,
-              additionalSigners: [
-                newAuthority.publicKey,
-                mintAuthority.publicKey,
-              ],
-            }
-          ),
-          payer,
-          newAuthority,
-          mintAuthority
-        );
-
-        await assert.testMintAuthority(testMint).equal(newMultisigAuthority);
-      });
-
-      test("Multisig(owner, newAuthority) -> Multisig(owner, TA)", async () => {
-        await $.sendAndConfirm(
-          await NTT.createAcceptTokenAuthorityFromMultisigInstruction(
-            ntt.program,
-            await ntt.getConfig(),
-            {
-              currentMultisigAuthority: newMultisigAuthority,
-              additionalSigners: [
-                newAuthority.publicKey,
-                mintAuthority.publicKey,
-              ],
-              multisigTokenAuthority,
-            }
-          ),
-          payer,
-          newAuthority,
-          mintAuthority
-        );
-
-        await assert.testMintAuthority(testMint).equal(multisigTokenAuthority);
-      });
-
-      it("Fails on claim after revert", async () => {
-        // fund newAuthority for it to be rent payer
-        await $.airdrop(newAuthority.publicKey, anchor.web3.LAMPORTS_PER_SOL);
-        await assert
-          .nativeBalance($.connection, newAuthority.publicKey)
-          .equal(anchor.web3.LAMPORTS_PER_SOL);
-
-        // set token authority: multisigTokenAuthority -> newAuthority
-        await $.sendAndConfirm(
-          await NTT.createSetTokenAuthorityInstruction(
-            ntt.program,
-            await ntt.getConfig(),
-            {
-              rentPayer: newAuthority.publicKey,
-              owner: nttOwner,
-              newAuthority: newAuthority.publicKey,
-              multisigTokenAuthority,
-            }
-          ),
-          payer,
-          newAuthority
-        );
-        const pendingTokenAuthorityRentExemptAmount =
-          await $.connection.getMinimumBalanceForRentExemption(
-            ntt.program.account.pendingTokenAuthority.size
-          );
-        await assert
-          .nativeBalance($.connection, newAuthority.publicKey)
-          .equal(
-            anchor.web3.LAMPORTS_PER_SOL - pendingTokenAuthorityRentExemptAmount
+          await $.sendAndConfirm(
+            await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                owner: nttOwner,
+                newAuthority: newAuthority.publicKey,
+                multisigTokenAuthority,
+              }
+            ),
+            payer
           );
 
-        // revert token authority: multisigTokenAuthority
-        await $.sendAndConfirm(
-          await NTT.createRevertTokenAuthorityInstruction(
-            ntt.program,
-            await ntt.getConfig(),
-            {
-              rentPayer: newAuthority.publicKey,
-              owner: nttOwner,
-              multisigTokenAuthority,
-            }
-          ),
-          payer
-        );
-        await assert
-          .nativeBalance($.connection, newAuthority.publicKey)
-          .equal(anchor.web3.LAMPORTS_PER_SOL);
+          await assert
+            .testMintAuthority(testMint)
+            .equal(newAuthority.publicKey);
+        });
 
-        // claim token authority: newAuthority <- multisigTokenAuthority
-        await assert
-          .promise(
-            $.sendAndConfirm(
-              await NTT.createClaimTokenAuthorityInstruction(
-                ntt.program,
-                await ntt.getConfig(),
-                {
-                  rentPayer: newAuthority.publicKey,
-                  newAuthority: newAuthority.publicKey,
-                  multisigTokenAuthority,
-                }
-              ),
-              payer,
-              newAuthority
+        test("newAuthority -> TA", async () => {
+          await $.sendAndConfirm(
+            await NTT.createAcceptTokenAuthorityInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                currentAuthority: newAuthority.publicKey,
+              }
+            ),
+            payer,
+            newAuthority
+          );
+
+          await assert
+            .testMintAuthority(testMint)
+            .equal(ntt.pdas.tokenAuthority());
+        });
+
+        test("TA -> Multisig(owner, newAuthority)", async () => {
+          // set token authority: TA -> newMultisigAuthority
+          await $.sendAndConfirm(
+            await NTT.createSetTokenAuthorityInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                rentPayer: nttOwner,
+                owner: nttOwner,
+                newAuthority: newMultisigAuthority,
+              }
+            ),
+            payer
+          );
+
+          // claim token authority: newMultisigAuthority <- TA
+          await $.sendAndConfirm(
+            await NTT.createClaimTokenAuthorityToMultisigInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                rentPayer: nttOwner,
+                newMultisigAuthority,
+                additionalSigners: [
+                  newAuthority.publicKey,
+                  mintAuthority.publicKey,
+                ],
+              }
+            ),
+            payer,
+            newAuthority,
+            mintAuthority
+          );
+
+          await assert.testMintAuthority(testMint).equal(newMultisigAuthority);
+        });
+
+        test("Multisig(owner, newAuthority) -> Multisig(owner, TA)", async () => {
+          await $.sendAndConfirm(
+            await NTT.createAcceptTokenAuthorityFromMultisigInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                currentMultisigAuthority: newMultisigAuthority,
+                additionalSigners: [
+                  newAuthority.publicKey,
+                  mintAuthority.publicKey,
+                ],
+                multisigTokenAuthority,
+              }
+            ),
+            payer,
+            newAuthority,
+            mintAuthority
+          );
+
+          await assert
+            .testMintAuthority(testMint)
+            .equal(multisigTokenAuthority);
+        });
+
+        it("Fails on claim after revert", async () => {
+          // fund newAuthority for it to be rent payer
+          await $.airdrop(newAuthority.publicKey, anchor.web3.LAMPORTS_PER_SOL);
+          await assert
+            .nativeBalance($.connection, newAuthority.publicKey)
+            .equal(anchor.web3.LAMPORTS_PER_SOL);
+
+          // set token authority: multisigTokenAuthority -> newAuthority
+          await $.sendAndConfirm(
+            await NTT.createSetTokenAuthorityInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                rentPayer: newAuthority.publicKey,
+                owner: nttOwner,
+                newAuthority: newAuthority.publicKey,
+                multisigTokenAuthority,
+              }
+            ),
+            payer,
+            newAuthority
+          );
+          const pendingTokenAuthorityRentExemptAmount =
+            await $.connection.getMinimumBalanceForRentExemption(
+              ntt.program.account.pendingTokenAuthority.size
+            );
+          await assert
+            .nativeBalance($.connection, newAuthority.publicKey)
+            .equal(
+              anchor.web3.LAMPORTS_PER_SOL -
+                pendingTokenAuthorityRentExemptAmount
+            );
+
+          // revert token authority: multisigTokenAuthority
+          await $.sendAndConfirm(
+            await NTT.createRevertTokenAuthorityInstruction(
+              ntt.program,
+              await ntt.getConfig(),
+              {
+                rentPayer: newAuthority.publicKey,
+                owner: nttOwner,
+                multisigTokenAuthority,
+              }
+            ),
+            payer
+          );
+          await assert
+            .nativeBalance($.connection, newAuthority.publicKey)
+            .equal(anchor.web3.LAMPORTS_PER_SOL);
+
+          // claim token authority: newAuthority <- multisigTokenAuthority
+          await assert
+            .promise(
+              $.sendAndConfirm(
+                await NTT.createClaimTokenAuthorityInstruction(
+                  ntt.program,
+                  await ntt.getConfig(),
+                  {
+                    rentPayer: newAuthority.publicKey,
+                    newAuthority: newAuthority.publicKey,
+                    multisigTokenAuthority,
+                  }
+                ),
+                payer,
+                newAuthority
+              )
             )
-          )
-          .failsWithAnchorError(anchor.web3.SendTransactionError, {
-            code: "AccountNotInitialized",
-            number: 3012,
-          });
+            .failsWithAnchorError(anchor.web3.SendTransactionError, {
+              code: "AccountNotInitialized",
+              number: 3012,
+            });
 
-        await assert.testMintAuthority(testMint).equal(multisigTokenAuthority);
-      });
+          await assert
+            .testMintAuthority(testMint)
+            .equal(multisigTokenAuthority);
+        });
 
-      afterAll(async () => {
-        // unpause
-        const unpauseTxs = ntt.unpause(payerAddress);
-        await signSendWait(ctx, unpauseTxs, signer);
-      });
-    });
+        afterAll(async () => {
+          // unpause
+          const unpauseTxs = ntt.unpause(payerAddress);
+          await signSendWait(ctx, unpauseTxs, signer);
+        });
+      }
+    );
 
     it("Can receive tokens", async () => {
       const emitter = new testing.mocks.MockEmitter(
@@ -510,7 +522,7 @@ describe("example-native-token-transfers", () => {
       assert.bn(await testDummyTransferHook.counter.value()).equal(2);
     });
 
-    it("Can mint independently", async () => {
+    $.jest.itIf(TEST_SPL_MULTISIG, "Can mint independently", async () => {
       const temp = await testMint.mint(
         payer,
         $.keypair.generate().publicKey,
@@ -530,7 +542,7 @@ describe("example-native-token-transfers", () => {
         token: mint.publicKey.toBase58(),
         manager: NTT_ADDRESS.toBase58(),
         transceiver: {
-          wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+          wormhole: nttTransceivers["wormhole"].toBase58(),
         },
       },
     };
@@ -564,21 +576,6 @@ describe("example-native-token-transfers", () => {
           payerAddress
         );
         expect(version).toBe("3.0.0");
-      });
-
-      test("It initializes using `emitterAccount` as transceiver address", async () => {
-        const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
-          JSON.stringify(overrides["Solana"])
-        );
-        overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(NTT_ADDRESS)
-          .emitterAccount()
-          .toBase58();
-
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrideEmitter },
-        });
-        expect(ntt).toBeTruthy();
       });
 
       test("It gets the correct transceiver type", async () => {
