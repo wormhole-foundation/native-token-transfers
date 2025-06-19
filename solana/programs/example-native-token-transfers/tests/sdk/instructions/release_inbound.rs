@@ -29,8 +29,8 @@ pub fn release_inbound_unlock(
             token_authority: ntt.token_authority(),
             mint: release_inbound.mint,
             token_program: Token::id(),
+            custody: ntt.custody(&release_inbound.mint),
         },
-        custody: ntt.custody(&release_inbound.mint),
     };
     Instruction {
         program_id: example_native_token_transfers::ID,
