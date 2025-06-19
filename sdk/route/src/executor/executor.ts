@@ -64,7 +64,17 @@ export namespace NttExecutorRoute {
     // The address to which the referrer fee will be sent
     referrerAddresses?: Partial<Record<Platform, string>>;
     perTokenOverrides?: Partial<
-      Record<Chain, Record<string, { referrerFeeDbps: bigint }>>
+      Record<
+        Chain,
+        Record<
+          string,
+          {
+            referrerFeeDbps?: bigint;
+            // Some tokens may require more gas to redeem than the default.
+            gasLimit?: bigint;
+          }
+        >
+      >
     >;
   };
 
@@ -206,7 +216,7 @@ export class NttExecutorRoute<N extends Network>
           this.staticConfig.referrerFee.perTokenOverrides[
             request.source.id.chain
           ]?.[srcTokenAddress];
-        if (override) {
+        if (override?.referrerFeeDbps !== undefined) {
           referrerFeeDbps = override.referrerFeeDbps;
         }
       }
@@ -358,8 +368,20 @@ export class NttExecutorRoute<N extends Network>
           100n
         : 0n;
 
-    const { msgValue, gasLimit } =
+    let { msgValue, gasLimit } =
       await dstNttWithExec.estimateMsgValueAndGasLimit(recipient);
+
+    // Check for overrides in the config.
+    if (this.staticConfig.referrerFee?.perTokenOverrides) {
+      const dstTokenAddress = canonicalAddress(request.destination.id);
+      const override =
+        this.staticConfig.referrerFee.perTokenOverrides[
+          request.destination.id.chain
+        ]?.[dstTokenAddress];
+      if (override?.gasLimit !== undefined) {
+        gasLimit = override.gasLimit;
+      }
+    }
 
     const relayRequests = [];
 
