@@ -1145,7 +1145,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     payer: AccountAddress<C>
   ) {
     const sender = new SolanaAddress(payer).unwrap();
-    const ix = await NTT.setInboundLimit(this.program, {
+    const ix = await NTT.createSetInboundLimitInstruction(this.program, {
       owner: sender,
       chain: fromChain,
       limit: new BN(limit.toString()),

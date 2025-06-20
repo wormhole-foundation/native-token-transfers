@@ -1084,7 +1084,7 @@ export namespace NTT {
       .instruction();
   }
 
-  export async function setInboundLimit(
+  export async function createSetInboundLimitInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     args: {
       owner: PublicKey;
