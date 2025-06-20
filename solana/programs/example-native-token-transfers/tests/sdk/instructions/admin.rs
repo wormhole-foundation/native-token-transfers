@@ -1,5 +1,5 @@
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
-use example_native_token_transfers::instructions::SetPeerArgs;
+use example_native_token_transfers::instructions::{SetOutboundLimitArgs, SetPeerArgs};
 use solana_sdk::instruction::Instruction;
 
 use crate::sdk::accounts::NTT;
@@ -7,7 +7,6 @@ use crate::sdk::accounts::NTT;
 pub struct SetPeer {
     pub payer: Pubkey,
     pub owner: Pubkey,
-    pub mint: Pubkey,
 }
 
 pub fn set_peer(ntt: &NTT, accounts: SetPeer, args: SetPeerArgs) -> Instruction {
@@ -24,7 +23,7 @@ pub fn set_peer(ntt: &NTT, accounts: SetPeer, args: SetPeerArgs) -> Instruction 
     };
 
     Instruction {
-        program_id: example_native_token_transfers::ID,
+        program_id: ntt.program(),
         accounts: accounts.to_account_metas(None),
         data: data.data(),
     }
@@ -43,7 +42,7 @@ pub fn set_paused(ntt: &NTT, accounts: SetPaused, pause: bool) -> Instruction {
     };
 
     Instruction {
-        program_id: example_native_token_transfers::ID,
+        program_id: ntt.program(),
         accounts: accounts.to_account_metas(None),
         data: data.data(),
     }
@@ -68,7 +67,7 @@ pub fn register_transceiver(ntt: &NTT, accounts: RegisterTransceiver) -> Instruc
     };
 
     Instruction {
-        program_id: ntt.program,
+        program_id: ntt.program(),
         accounts: accounts.to_account_metas(None),
         data: data.data(),
     }
@@ -89,7 +88,7 @@ pub fn deregister_transceiver(ntt: &NTT, accounts: DeregisterTransceiver) -> Ins
     };
 
     Instruction {
-        program_id: ntt.program,
+        program_id: ntt.program(),
         accounts: accounts.to_account_metas(None),
         data: data.data(),
     }
@@ -108,7 +107,31 @@ pub fn set_threshold(ntt: &NTT, accounts: SetThreshold, threshold: u8) -> Instru
     };
 
     Instruction {
-        program_id: example_native_token_transfers::ID,
+        program_id: ntt.program(),
+        accounts: accounts.to_account_metas(None),
+        data: data.data(),
+    }
+}
+
+pub struct SetOutboundLimit {
+    pub owner: Pubkey,
+}
+
+pub fn set_outbound_limit(
+    ntt: &NTT,
+    accounts: SetOutboundLimit,
+    args: SetOutboundLimitArgs,
+) -> Instruction {
+    let data = example_native_token_transfers::instruction::SetOutboundLimit { args };
+
+    let accounts = example_native_token_transfers::accounts::SetOutboundLimit {
+        config: ntt.config(),
+        owner: accounts.owner,
+        rate_limit: ntt.outbox_rate_limit(),
+    };
+
+    Instruction {
+        program_id: ntt.program(),
         accounts: accounts.to_account_metas(None),
         data: data.data(),
     }

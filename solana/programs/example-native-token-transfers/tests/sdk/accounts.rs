@@ -67,32 +67,39 @@ impl Governance {
     }
 }
 
-pub struct NTT {
-    pub program: Pubkey,
-    pub wormhole: Wormhole,
-}
+pub type NTT = dyn NTTAccounts;
 
-impl NTT {
-    pub fn config(&self) -> Pubkey {
-        let (config, _) = Pubkey::find_program_address(&[Config::SEED_PREFIX], &self.program);
+pub trait NTTAccounts {
+    fn program(&self) -> Pubkey {
+        example_native_token_transfers::ID
+    }
+
+    fn wormhole(&self) -> Wormhole {
+        Wormhole {
+            program: wormhole_anchor_sdk::wormhole::program::ID,
+        }
+    }
+
+    fn config(&self) -> Pubkey {
+        let (config, _) = Pubkey::find_program_address(&[Config::SEED_PREFIX], &self.program());
         config
     }
 
-    pub fn outbox_rate_limit(&self) -> Pubkey {
+    fn outbox_rate_limit(&self) -> Pubkey {
         let (outbox_rate_limit, _) =
-            Pubkey::find_program_address(&[OutboxRateLimit::SEED_PREFIX], &self.program);
+            Pubkey::find_program_address(&[OutboxRateLimit::SEED_PREFIX], &self.program());
         outbox_rate_limit
     }
 
-    pub fn inbox_rate_limit(&self, chain: u16) -> Pubkey {
+    fn inbox_rate_limit(&self, chain: u16) -> Pubkey {
         let (inbox_rate_limit, _) = Pubkey::find_program_address(
             &[InboxRateLimit::SEED_PREFIX, &chain.to_be_bytes()],
-            &self.program,
+            &self.program(),
         );
         inbox_rate_limit
     }
 
-    pub fn session_authority(&self, sender: &Pubkey, args: &TransferArgs) -> Pubkey {
+    fn session_authority(&self, sender: &Pubkey, args: &TransferArgs) -> Pubkey {
         let TransferArgs {
             amount,
             recipient_chain,
@@ -101,23 +108,19 @@ impl NTT {
         } = args;
         let mut hasher = Keccak256::new();
 
-        hasher.update(&amount.to_be_bytes());
-        hasher.update(&recipient_chain.id.to_be_bytes());
-        hasher.update(&recipient_address);
-        hasher.update(&[*should_queue as u8]);
+        hasher.update(amount.to_be_bytes());
+        hasher.update(recipient_chain.id.to_be_bytes());
+        hasher.update(recipient_address);
+        hasher.update([*should_queue as u8]);
 
         let (session_authority, _) = Pubkey::find_program_address(
-            &[
-                SESSION_AUTHORITY_SEED.as_ref(),
-                sender.as_ref(),
-                &hasher.finalize(),
-            ],
-            &self.program,
+            &[SESSION_AUTHORITY_SEED, sender.as_ref(), &hasher.finalize()],
+            &self.program(),
         );
         session_authority
     }
 
-    pub fn inbox_item(
+    fn inbox_item(
         &self,
         chain: u16,
         ntt_manager_message: NttManagerMessage<NativeTokenTransfer<Payload>>,
@@ -128,69 +131,71 @@ impl NTT {
 
         let (inbox_item, _) = Pubkey::find_program_address(
             &[InboxItem::SEED_PREFIX, &hasher.finalize()],
-            &self.program,
+            &self.program(),
         );
         inbox_item
     }
 
-    pub fn token_authority(&self) -> Pubkey {
+    fn token_authority(&self) -> Pubkey {
         let (token_authority, _) =
-            Pubkey::find_program_address(&[TOKEN_AUTHORITY_SEED.as_ref()], &self.program);
+            Pubkey::find_program_address(&[TOKEN_AUTHORITY_SEED], &self.program());
         token_authority
     }
 
-    pub fn registered_transceiver(&self, transceiver: &Pubkey) -> Pubkey {
+    fn registered_transceiver(&self, transceiver: &Pubkey) -> Pubkey {
         let (registered_transceiver, _) = Pubkey::find_program_address(
             &[RegisteredTransceiver::SEED_PREFIX, transceiver.as_ref()],
-            &self.program,
+            &self.program(),
         );
         registered_transceiver
     }
 
-    pub fn emitter(&self) -> Pubkey {
-        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program);
+    fn emitter(&self) -> Pubkey {
+        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program());
         emitter
     }
 
-    pub fn wormhole_message(&self, outbox_item: &Pubkey) -> Pubkey {
+    fn wormhole_message(&self, outbox_item: &Pubkey) -> Pubkey {
         let (wormhole_message, _) = Pubkey::find_program_address(
             &[b"message".as_ref(), outbox_item.as_ref()],
-            &self.program,
+            &self.program(),
         );
         wormhole_message
     }
 
-    pub fn peer(&self, chain: u16) -> Pubkey {
-        let (peer, _) =
-            Pubkey::find_program_address(&[b"peer".as_ref(), &chain.to_be_bytes()], &self.program);
-        peer
+    fn wormhole_sequence(&self) -> Pubkey {
+        self.wormhole().sequence(&self.emitter())
     }
 
-    pub fn transceiver_peer(&self, chain: u16) -> Pubkey {
+    fn peer(&self, chain: u16) -> Pubkey {
         let (peer, _) = Pubkey::find_program_address(
-            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
-            &self.program,
+            &[b"peer".as_ref(), &chain.to_be_bytes()],
+            &self.program(),
         );
         peer
     }
 
-    pub fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
+    fn transceiver_peer(&self, chain: u16) -> Pubkey {
+        let (peer, _) = Pubkey::find_program_address(
+            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
+            &self.program(),
+        );
+        peer
+    }
+
+    fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
         let (transceiver_message, _) = Pubkey::find_program_address(
             &[b"transceiver_message".as_ref(), &chain.to_be_bytes(), &id],
-            &self.program,
+            &self.program(),
         );
         transceiver_message
     }
 
-    pub fn custody(&self, mint: &Pubkey) -> Pubkey {
+    fn custody(&self, mint: &Pubkey) -> Pubkey {
         self.custody_with_token_program_id(mint, &spl_token::ID)
     }
 
-    pub fn custody_with_token_program_id(
-        &self,
-        mint: &Pubkey,
-        token_program_id: &Pubkey,
-    ) -> Pubkey {
+    fn custody_with_token_program_id(&self, mint: &Pubkey, token_program_id: &Pubkey) -> Pubkey {
         anchor_spl::associated_token::get_associated_token_address_with_program_id(
             &self.token_authority(),
             mint,
@@ -198,18 +203,23 @@ impl NTT {
         )
     }
 
-    pub fn wormhole_sequence(&self) -> Pubkey {
-        self.wormhole.sequence(&self.emitter())
-    }
-
-    pub fn program_data(&self) -> Pubkey {
+    fn program_data(&self) -> Pubkey {
         let (addr, _) =
-            Pubkey::find_program_address(&[self.program.as_ref()], &bpf_loader_upgradeable::id());
+            Pubkey::find_program_address(&[self.program().as_ref()], &bpf_loader_upgradeable::id());
         addr
     }
 
-    pub fn upgrade_lock(&self) -> Pubkey {
-        let (addr, _) = Pubkey::find_program_address(&[b"upgrade_lock"], &self.program);
+    fn upgrade_lock(&self) -> Pubkey {
+        let (addr, _) = Pubkey::find_program_address(&[b"upgrade_lock"], &self.program());
         addr
     }
 }
+
+/// This implements the account derivations correctly. For negative tests, other
+/// implementations will implement them incorrectly.
+pub struct GoodNTT {}
+
+#[allow(non_upper_case_globals)]
+pub const good_ntt: GoodNTT = GoodNTT {};
+
+impl NTTAccounts for GoodNTT {}
