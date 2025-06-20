@@ -7,7 +7,7 @@ use common::setup::{TestData, OTHER_CHAIN};
 use example_native_token_transfers::{
     bitmap::Bitmap,
     error::NTTError,
-    instructions::TransferArgs,
+    instructions::{SetOutboundLimitArgs, TransferArgs},
     queue::outbox::{OutboxItem, OutboxRateLimit},
     transceivers::wormhole::ReleaseOutboundArgs,
     transfer::Payload,
@@ -28,7 +28,7 @@ use wormhole_anchor_sdk::wormhole::PostedVaa;
 use crate::{
     common::{
         query::GetAccountDataAnchor,
-        setup::{ANOTHER_CHAIN, OUTBOUND_LIMIT},
+        setup::{ANOTHER_CHAIN, OUTBOUND_LIMIT, UNREGISTERED_CHAIN},
     },
     sdk::{
         accounts::{good_ntt, NTTAccounts},
@@ -39,7 +39,7 @@ use crate::{
     common::{setup::OTHER_MANAGER, submit::Submittable},
     sdk::{
         instructions::{
-            admin::{set_paused, SetPaused},
+            admin::{set_outbound_limit, set_paused, SetOutboundLimit, SetPaused},
             transfer::{
                 approve_token_authority, approve_token_authority_with_token_program_id, transfer,
                 transfer_with_token_program_id,
@@ -55,13 +55,6 @@ pub mod common;
 pub mod sdk;
 
 use crate::common::setup::{setup, setup_with_transfer_fee};
-
-// TODO: some more tests
-// - unregistered peer can't transfer
-// - can't transfer to unregistered peer
-// - can't transfer more than balance
-// - wrong inbox accounts
-// - paused contracts
 
 /// Helper function for setting up transfer accounts and args.
 /// It sets the accounts up properly, so for negative testing we just modify the
@@ -658,6 +651,64 @@ async fn test_transfer_wrong_mode() {
         TransactionError::InstructionError(
             0,
             InstructionError::Custom(NTTError::InvalidMode.into())
+        )
+    );
+}
+
+#[tokio::test]
+async fn test_cant_transfer_more_than_balance() {
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    let outbox_item = Keypair::new();
+
+    let token_account: TokenAccount = ctx
+        .get_account_data_anchor(test_data.user_token_account)
+        .await;
+    let more_than_balance = token_account.amount.checked_add(100).unwrap();
+
+    // extend outbound limit to avoid TransferExceedsRateLimit error
+    set_outbound_limit(
+        &good_ntt,
+        SetOutboundLimit {
+            owner: test_data.program_owner.pubkey(),
+        },
+        SetOutboundLimitArgs {
+            limit: more_than_balance,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+    .await
+    .unwrap();
+
+    // try to transfer more than balance
+    let (accs, args) = init_accs_args(
+        &good_ntt,
+        &mut ctx,
+        &test_data,
+        outbox_item.pubkey(),
+        more_than_balance,
+        false,
+    );
+
+    approve_token_authority(
+        &good_ntt,
+        &test_data.user_token_account,
+        &test_data.user.pubkey(),
+        &args,
+    )
+    .submit_with_signers(&[&test_data.user], &mut ctx)
+    .await
+    .unwrap();
+    let err = transfer(&good_ntt, accs, args, Mode::Locking)
+        .submit_with_signers(&[&outbox_item], &mut ctx)
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(spl_token::error::TokenError::InsufficientFunds as u32,)
         )
     );
 }
