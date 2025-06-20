@@ -4,7 +4,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 use common::{
-    setup::{TestData, OTHER_CHAIN},
+    setup::{TestData, ANOTHER_CHAIN, OTHER_CHAIN},
     utils::make_transfer_message,
 };
 use example_native_token_transfers::{
@@ -18,7 +18,9 @@ use sdk::{
 };
 use solana_program::instruction::InstructionError;
 use solana_program_test::*;
-use solana_sdk::{signature::Keypair, signer::Signer, transaction::TransactionError};
+use solana_sdk::{
+    pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::TransactionError,
+};
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 use wormhole_sdk::Address;
 
@@ -234,6 +236,7 @@ async fn test_double_receive() {
 
     assert_eq!(
         err.unwrap(),
+        // AccountAlreadyInUse
         TransactionError::InstructionError(0, InstructionError::Custom(0))
     );
 }
@@ -365,6 +368,53 @@ async fn test_wrong_manager_peer() {
         TransactionError::InstructionError(
             0,
             InstructionError::Custom(NTTError::InvalidNttManagerPeer.into())
+        )
+    );
+}
+
+#[tokio::test]
+async fn test_wrong_inbox_item() {
+    let recipient = Keypair::new();
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    let msg = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
+
+    let vaa0 = post_vaa_helper(
+        &good_ntt,
+        OTHER_CHAIN.into(),
+        Address(OTHER_TRANSCEIVER),
+        msg.clone(),
+        &mut ctx,
+    )
+    .await;
+
+    receive_message(
+        &good_ntt,
+        init_receive_message_accs(&mut ctx, vaa0, OTHER_CHAIN, [0u8; 32]),
+    )
+    .submit(&mut ctx)
+    .await
+    .unwrap();
+
+    // use 'ANOTHER_CHAIN' inbox item account here
+    let mut redeem_accs = init_redeem_accs(
+        &mut ctx,
+        &test_data,
+        OTHER_CHAIN,
+        msg.ntt_manager_payload.clone(),
+    );
+    redeem_accs.inbox_item = good_ntt.inbox_item(ANOTHER_CHAIN, msg.ntt_manager_payload.clone());
+
+    let err = redeem(&good_ntt, redeem_accs, RedeemArgs {})
+        .submit(&mut ctx)
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(ErrorCode::ConstraintSeeds.into())
         )
     );
 }
