@@ -45,6 +45,7 @@ pub const ANOTHER_MANAGER: [u8; 32] = [5u8; 32];
 pub const THIS_CHAIN: u16 = 1;
 pub const OTHER_CHAIN: u16 = 2;
 pub const ANOTHER_CHAIN: u16 = 3;
+pub const UNREGISTERED_CHAIN: u16 = u16::MAX;
 
 pub struct TestData {
     pub governance: Governance,

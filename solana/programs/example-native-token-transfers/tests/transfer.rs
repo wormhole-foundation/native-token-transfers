@@ -483,6 +483,104 @@ async fn test_invalid_peer() {
 }
 
 #[tokio::test]
+async fn test_unregistered_peer_cant_transfer() {
+    // in this test we try to transfer with unregistered peer
+    struct BadNTT {}
+
+    impl NTTAccounts for BadNTT {
+        fn peer(&self, _chain_id: u16) -> Pubkey {
+            // return 'UNREGISTERED_CHAIN' peer account
+            good_ntt.peer(UNREGISTERED_CHAIN)
+        }
+    }
+
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    let outbox_item = Keypair::new();
+
+    let (accs, args) = init_accs_args(
+        &BadNTT {},
+        &mut ctx,
+        &test_data,
+        outbox_item.pubkey(),
+        1050,
+        false,
+    );
+
+    approve_token_authority(
+        &good_ntt,
+        &test_data.user_token_account,
+        &test_data.user.pubkey(),
+        &args,
+    )
+    .submit_with_signers(&[&test_data.user], &mut ctx)
+    .await
+    .unwrap();
+
+    let err = transfer(&BadNTT {}, accs, args, Mode::Locking)
+        .submit_with_signers(&[&outbox_item], &mut ctx)
+        .await
+        .unwrap_err();
+
+    // should err as peer account is not initialized
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(ErrorCode::AccountNotInitialized.into())
+        )
+    );
+}
+
+#[tokio::test]
+async fn test_cant_transfer_to_unregistered_peer() {
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    let outbox_item = Keypair::new();
+
+    let (accs, args) = init_accs_args(
+        &good_ntt,
+        &mut ctx,
+        &test_data,
+        outbox_item.pubkey(),
+        1050,
+        false,
+    );
+
+    // use unregistered peer chain id here
+    let bad_args = TransferArgs {
+        recipient_chain: ChainId {
+            id: UNREGISTERED_CHAIN,
+        },
+        ..args
+    };
+
+    approve_token_authority(
+        &good_ntt,
+        &test_data.user_token_account,
+        &test_data.user.pubkey(),
+        &bad_args,
+    )
+    .submit_with_signers(&[&test_data.user], &mut ctx)
+    .await
+    .unwrap();
+
+    let err = transfer(&good_ntt, accs, bad_args, Mode::Locking)
+        .submit_with_signers(&[&outbox_item], &mut ctx)
+        .await
+        .unwrap_err();
+
+    // should err as inbox_rate_limit account is not initialized
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(ErrorCode::AccountNotInitialized.into())
+        )
+    );
+}
+
+#[tokio::test]
 async fn test_rate_limit() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
