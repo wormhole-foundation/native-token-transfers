@@ -1,4 +1,4 @@
-FROM backpackapp/build:v0.29.0@sha256:9aee169b2d8b89b4a4243419ae35c176773136e78d751b3e439eff692c9c1293 as anchor
+FROM backpackapp/build:v0.29.0@sha256:9aee169b2d8b89b4a4243419ae35c176773136e78d751b3e439eff692c9c1293 AS anchor
 
 WORKDIR /usr/src/solana/
 
@@ -43,7 +43,7 @@ COPY solana/scripts scripts
 
 RUN make target/idl/example_native_token_transfers.json
 
-FROM scratch as export
+FROM scratch AS export
 
 COPY --from=builder /opt/solana/deps /opt/solana/deps
 COPY --from=builder /usr/src/solana/ts /usr/src/solana/ts
@@ -53,7 +53,7 @@ COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.c
 COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl 
 COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types
 
-FROM node:lts-alpine3.19@sha256:ec0c413b1d84f3f7f67ec986ba885930c57b5318d2eb3abc6960ee05d4f2eb28 as governance
+FROM node:lts-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS governance
 
 WORKDIR /app
 
