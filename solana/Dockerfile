@@ -63,9 +63,10 @@ RUN apk add make python3 gcc g++
 COPY tsconfig.json tsconfig.json
 COPY package.json package.json
 COPY package-lock.json package-lock.json
+COPY sdk sdk
 RUN npm ci
 
-COPY idl idl
-COPY ts ts
+WORKDIR /app/solana
+COPY solana/ts ts
 
 ENTRYPOINT [ "npx", "ts-node", "-T" ]
