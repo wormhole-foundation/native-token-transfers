@@ -69,4 +69,4 @@ RUN npm ci
 WORKDIR /app/solana
 COPY solana/ts ts
 
-ENTRYPOINT [ "npx", "ts-node", "-T" ]
+ENTRYPOINT [ "npx", "tsx" ]
