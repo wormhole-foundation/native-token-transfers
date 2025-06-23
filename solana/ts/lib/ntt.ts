@@ -1,5 +1,4 @@
 import {
-  BN,
   Program,
   parseIdlErrors,
   translateError,
@@ -33,6 +32,7 @@ import {
   VAA,
   keccak256,
 } from "@wormhole-foundation/sdk-definitions";
+import BN from "bn.js";
 
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
