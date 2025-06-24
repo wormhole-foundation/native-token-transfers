@@ -98,8 +98,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       node-version: "20.11.0"
-      solana-cli-version: "1.18.26"
-      anchor-version: "0.29.0"
+      solana-cli-version: "2.1.0"
+      anchor-version: "0.31.1"
     steps:
       - uses: actions/checkout@v4
 

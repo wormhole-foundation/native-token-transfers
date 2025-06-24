@@ -2361,7 +2361,7 @@ export function ensureNttRoot(pwd: string = ".") {
 }
 
 function checkAnchorVersion() {
-    const expected = "0.29.0";
+    const expected = "0.31.1";
     try {
         execSync("which anchor");
     } catch {
