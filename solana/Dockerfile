@@ -58,7 +58,7 @@ FROM node:lts-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d
 WORKDIR /app
 
 # RUN apk add python3
-RUN apk add make python3 gcc g++
+RUN apk add --no-cache make python3 gcc g++
 
 COPY tsconfig.json tsconfig.json
 COPY package.json package.json
