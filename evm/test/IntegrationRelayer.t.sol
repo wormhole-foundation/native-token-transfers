@@ -36,7 +36,7 @@ contract TestEndToEndRelayer is IntegrationHelpers, IRateLimiterEvents, Wormhole
     using TrimmedAmountLib for TrimmedAmount;
 
     uint16 constant chainId1 = 4;
-    uint16 constant chainId2 = 6;
+    uint16 constant chainId2 = 14;
     uint8 constant FAST_CONSISTENCY_LEVEL = 200;
     uint256 constant GAS_LIMIT = 500000;
 
