@@ -1,0 +1,23 @@
+[package]
+name = "ntt-fuzz"
+version = "0.0.1"
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[[bin]]
+name = "fuzz-trimmed-amount"
+path = "fuzz_targets/fuzz_trimmed_amount.rs"
+
+[[bin]]
+name = "fuzz-rate-limit-state"
+path = "fuzz_targets/fuzz_rate_limit.rs"
+
+[dependencies]
+ntt-messages = { path = "../modules/ntt-messages" }
+example-native-token-transfers = { path = "../programs/example-native-token-transfers" }
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", optional = true, features = ["derive"] }
+
+[workspace]
