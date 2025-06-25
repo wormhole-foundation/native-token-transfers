@@ -32,6 +32,9 @@ module ntt::state {
         next_sequence: u64,
 
         version: u64,
+
+        // for off-chain discoverability
+        admin_cap_id: ID,
     }
 
     public(package) fun new<CoinType>(
@@ -42,6 +45,9 @@ module ntt::state {
     ): (State<CoinType>, AdminCap) {
         // treasury_cap is None iff we're in locking mode
         assert!(treasury_cap.is_none() == mode.is_locking());
+        let admin_cap = AdminCap {
+            id: object::new(ctx)
+        };
 
         let u64max = 0xFFFFFFFFFFFFFFFF;
         let state = State {
@@ -57,10 +63,7 @@ module ntt::state {
             chain_id,
             next_sequence: 1,
             version: 0,
-        };
-
-        let admin_cap = AdminCap {
-            id: object::new(ctx)
+            admin_cap_id: admin_cap.id.to_inner(),
         };
 
         (state, admin_cap)
