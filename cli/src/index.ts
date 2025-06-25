@@ -55,10 +55,7 @@ import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
 import { AbiCoder, ethers, Interface } from "ethers";
 import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
-
-// TODO: contract upgrades on solana
-// TODO: set special relaying?
-// TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
+import { createToken, transferTokenAuthoritySolana, fetchTokenMetadata, type SolanaCreateTokenOptions, type TokenMetadata, type StandardTokenInfo } from "./token";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
@@ -428,6 +425,170 @@ yargs(hideBin(process.argv))
             deployments.chains[chain] = config;
             fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
             console.log(`Added ${chain} to ${path}`);
+        })
+    .command("create-token <chain>",
+        "Create a token (use 'transfer-token-authority' to transfer mint authority to NTT program)",
+        (yargs) => yargs
+            .positional("chain", options.chain)
+            .option("decimals", {
+                describe: "Token decimals",
+                type: "number",
+                demandOption: true
+            })
+            // Metadata options
+            .option("name", {
+                describe: "Token name",
+                type: "string",
+                demandOption: true,
+            })
+            .option("symbol", {
+                describe: "Token symbol",
+                type: "string",
+                demandOption: true,
+            })
+            .option("uri", {
+                describe: "Token metadata URI (points to off-chain JSON)",
+                type: "string",
+            })
+            // Solana-specific options
+            .option("token-program", {
+                describe: "Token program - legacy or token22 (Solana only)",
+                type: "string",
+                choices: ["legacy", "token22"],
+                default: "legacy",
+            })
+            .option("payer", {
+                ...options.payer,
+                demandOption: true
+            })
+            .option("path", options.deploymentPath)
+            .check((argv) => {
+                // For now, only support SVM
+                if (chainToPlatform(argv.chain) !== "Solana") {
+                    throw new Error("Token creation is currently only supported for SVM");
+                }
+                return true;
+            })
+            .example("$0 create-token Solana --name 'My Token' --symbol 'MTK' --uri 'https://example.com/metadata.json'", "Create Solana token with Metaplex metadata")
+            .example("$0 create-token Solana --token-program legacy", "Create legacy SPL token without metadata"),
+        async (argv) => {
+            const config = loadConfig(argv["path"]);
+            const wh = new Wormhole(config.network as Network, [solana.Platform, evm.Platform], overrides);
+            const chain = argv["chain"] as Chain;
+            const ch = wh.getChain(chain);
+
+            // Build metadata if provided
+            const metadata: TokenMetadata = {
+                name: argv["name"] as string,
+                symbol: argv["symbol"] as string,
+                uri: argv["uri"] as string | undefined,
+            };
+
+            // Platform-specific handling
+            const platform = chainToPlatform(chain);
+            let tokenAddress: string;
+
+            try {
+                if (platform === "Solana") {
+                    const options: SolanaCreateTokenOptions = {
+                        decimals: argv["decimals"] as number,
+                        tokenProgram: argv["token-program"] as "legacy" | "token22",
+                        payer: argv["payer"] as string,
+                        metadata,
+                    };
+                    tokenAddress = await createToken(ch, options);
+                } else {
+                    throw new Error(`Token creation not yet supported for ${platform}`);
+                }
+
+                console.log(tokenAddress);
+            } catch (error) {
+                console.error(chalk.red("Failed to create token:"), error instanceof Error ? error.message : String(error));
+                process.exit(1);
+            }
+        })
+    .command("transfer-token-authority <chain> <token-address>",
+        "Transfer token mint authority to the NTT program",
+        (yargs) => yargs
+            .positional("chain", options.chain)
+            .positional("token-address", {
+                describe: "Token mint address",
+                type: "string",
+            })
+            .option("ntt-program", {
+                describe: "NTT program address",
+                type: "string",
+                demandOption: true,
+            })
+            .option("payer", {
+                ...options.payer,
+                demandOption: true
+            })
+            .option("path", options.deploymentPath)
+            .check((argv) => {
+                // For now, only support Solana
+                if (chainToPlatform(argv.chain) !== "Solana") {
+                    throw new Error("Token authority transfer is currently only supported for SVM");
+                }
+                return true;
+            })
+            .example("$0 transfer-token-authority Solana 9WzDX... --ntt-program NTT1234... --payer ~/.config/solana/id.json", "Transfer token mint authority to NTT program"),
+        async (argv) => {
+            const config = loadConfig(argv["path"]);
+            const wh = new Wormhole(config.network as Network, [solana.Platform, evm.Platform], overrides);
+            const chain = argv["chain"] as Chain;
+            const ch = wh.getChain(chain);
+
+            try {
+                const platform = chainToPlatform(chain);
+                if (platform === "Solana") {
+                    await transferTokenAuthoritySolana(
+                        ch as ChainContext<Network, SolanaChains>,
+                        argv["token-address"] as string,
+                        argv["ntt-program"] as string,
+                        argv["payer"] as string
+                    );
+                } else {
+                    throw new Error(`Token authority transfer not yet supported for ${platform}`);
+                }
+
+                console.log(chalk.green("✓ Token mint authority transferred successfully"));
+            } catch (error) {
+                console.error(chalk.red("Failed to transfer token authority:"), error instanceof Error ? error.message : String(error));
+                process.exit(1);
+            }
+        })
+    .command("get-token-metadata <chain> <token-address>",
+        "Fetch and display token metadata",
+        (yargs) => yargs
+            .positional("chain", options.chain)
+            .positional("token-address", {
+                describe: "Token mint address",
+                type: "string",
+            })
+            .option("path", options.deploymentPath)
+            .check((argv) => {
+                // Currently supports Solana, EVM support coming soon
+                const platform = chainToPlatform(argv.chain as Chain);
+                if (platform !== "Solana" && platform !== "Evm") {
+                    throw new Error(`Token metadata fetching not supported for platform: ${platform}`);
+                }
+                return true;
+            })
+            .example("$0 get-token-metadata Solana 6YarSyej9K5htZz7vLDA2XRprJBskhJVRuWfUubfxKHS", "Fetch metadata for a Solana token"),
+        async (argv) => {
+            const config = loadConfig(argv["path"]);
+            const wh = new Wormhole(config.network as Network, [solana.Platform, evm.Platform], overrides);
+            const chain = argv["chain"] as Chain;
+            const ch = wh.getChain(chain);
+
+            try {
+                const metadata = await fetchTokenMetadata(ch, argv["token-address"] as string);
+                console.log(JSON.stringify(metadata, null, 2));
+            } catch (error) {
+                console.error(chalk.red("Failed to fetch token metadata:"), error instanceof Error ? error.message : String(error));
+                process.exit(1);
+            }
         })
     .command("upgrade <chain>",
         "upgrade the contract on a specific chain",
@@ -1244,7 +1405,7 @@ yargs(hideBin(process.argv))
                         process.exit(1);
                     }
                 }
-    
+
                 // call spl setAuthority instruction directly as program is not yet deployed
                 try {
                     await spl.setAuthority(
@@ -2002,7 +2163,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
             console.error("Core bridge address not found in Solana config");
             process.exit(1);
         }
-        
+
         if (ch.chain !== "Solana") {
             await patchSolanaBinary(binary, wormhole, solanaAddress);
         }
