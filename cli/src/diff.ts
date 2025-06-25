@@ -43,7 +43,7 @@ export function diffObjects<T extends Record<string, any>>(obj1: T, obj2: T): Pa
     // prune empty objects
     for (const key in result) {
         if (isObject(result[key])) {
-            if (Object.keys(result[key]).length === 0) {
+            if (result[key] && Object.keys(result[key] as object).length === 0) {
                 delete result[key];
             }
         }

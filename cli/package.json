@@ -3,6 +3,9 @@
   "version": "1.2.0",
   "module": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/yargs": "^17.0.32"

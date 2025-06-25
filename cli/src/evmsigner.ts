@@ -136,22 +136,12 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
         feeData.maxPriorityFeePerGas ?? maxPriorityFeePerGas;
     }
 
-    // Oasis throws malformed errors unless we
-    // set it to use legacy transaction parameters
-    const gasOpts =
-      chain === 'Oasis'
-        ? {
-            gasLimit,
-            gasPrice: gasPrice,
-            // Hardcode type
-            type: 0,
-          }
-        : {
-            gasPrice,
-            maxFeePerGas,
-            maxPriorityFeePerGas,
-            gasLimit,
-          };
+    const gasOpts = {
+      gasPrice,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      gasLimit,
+    };
 
     // TODO: DIFF ENDS HERE
 

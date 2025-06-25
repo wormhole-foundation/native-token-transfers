@@ -62,6 +62,7 @@ export async function getSigner<N extends Network, C extends Chain>(
                         }
                         privateKey = privateKeySource;
                     }
+                    source = privateKey;
                     signer = await solana.getSigner(
                         await chain.getRpc(),
                         privateKey,

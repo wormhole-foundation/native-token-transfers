@@ -8,6 +8,7 @@
     "rebuild": "npm run rebuild --workspaces --if-present",
     "build:solana": "npm run build --workspace=sdk/definitions --workspace=solana",
     "build:evm": "npm run build --workspace=sdk/definitions --workspace=sdk/evm",
+    "typecheck:cli": "npm run typecheck --workspace=cli",
     "generate": "npm run generate --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:ci": "CI=true jest --config ./jest.config.ts",
