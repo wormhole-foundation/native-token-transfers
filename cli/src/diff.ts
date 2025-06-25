@@ -15,14 +15,24 @@ function isObject(obj: any): obj is Record<string, any> {
     return obj && typeof obj === 'object' && !Array.isArray(obj);
 }
 
-export function diffObjects<T extends Record<string, any>>(obj1: T, obj2: T): Partial<DiffMap<T>> {
+function isPathExcluded(path: string, excludedPaths: string[]): boolean {
+    return excludedPaths.includes(path);
+}
+
+export function diffObjects<T extends Record<string, any>>(obj1: T, obj2: T, excludedPaths: string[] = [], currentPath: string = ""): Partial<DiffMap<T>> {
     const result: Partial<DiffMap<T>> = {};
 
     for (const key in obj1) {
         if (obj1.hasOwnProperty(key)) {
+            const keyPath = currentPath ? `${currentPath}.${key}` : key;
+
+            if (isPathExcluded(keyPath, excludedPaths)) {
+                continue; // Skip excluded paths
+            }
+
             if (obj2.hasOwnProperty(key)) {
                 if (isObject(obj1[key]) && isObject(obj2[key])) {
-                    result[key] = diffObjects(obj1[key], obj2[key]);
+                    result[key] = diffObjects(obj1[key], obj2[key], excludedPaths, keyPath);
                 } else if (obj1[key] === obj2[key]) {
                     // result[key] = obj1[key] as any;
                 } else {
@@ -36,6 +46,12 @@ export function diffObjects<T extends Record<string, any>>(obj1: T, obj2: T): Pa
 
     for (const key in obj2) {
         if (obj2.hasOwnProperty(key) && !obj1.hasOwnProperty(key)) {
+            const keyPath = currentPath ? `${currentPath}.${key}` : key;
+
+            if (isPathExcluded(keyPath, excludedPaths)) {
+                continue; // Skip excluded paths
+            }
+
             result[key] = { pull: obj2[key] } as any;
         }
     }
