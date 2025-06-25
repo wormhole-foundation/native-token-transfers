@@ -30,7 +30,7 @@ wait_for_rpc() {
   local url=$1
   local max_attempts=30
   local attempt=1
-  
+
   echo "Waiting for RPC endpoint $url to be ready..."
   while [ $attempt -le $max_attempts ]; do
     if curl -s -X POST "$url" \
@@ -87,7 +87,7 @@ cat <<EOF > overrides.json
 }
 EOF
 
-ntt add-chain Bsc --token 0x0B15635FCF5316EdFD2a9A0b0dC3700aeA4D09E6 --mode locking --skip-verify --latest
+ntt add-chain Bsc --token 0x0B15635FCF5316EdFD2a9A0b0dC3700aeA4D09E6 --mode locking --skip-verify --latest --no-executor
 ntt add-chain Sepolia --token 0xB82381A3fBD3FaFA77B3a7bE693342618240067b --skip-verify --ver 1.0.0
 
 ntt pull --yes
