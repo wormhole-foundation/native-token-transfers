@@ -17,6 +17,10 @@ impl AccountDeserialize for SplMultisig {
 
 impl AccountSerialize for SplMultisig {}
 
+impl Discriminator for SplMultisig {
+    const DISCRIMINATOR: &'static [u8] = &[0, 0, 0, 0, 0, 0, 0, 0];
+}
+
 impl Owners for SplMultisig {
     fn owners() -> &'static [Pubkey] {
         TokenInterface::ids()
