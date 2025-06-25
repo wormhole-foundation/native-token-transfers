@@ -124,7 +124,7 @@ Ensure that you are using the correct version of the Solana and Anchor CLI tools
 
 ```toml
 [toolchain]
-anchor_version = "0.29.0"
+anchor_version = "0.31.1"
 solana_version = "2.1.0"
 ```
 
