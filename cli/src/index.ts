@@ -1970,7 +1970,15 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
         }
 
 
-        await checkSolanaBinary(binary, wormhole, providedProgramId, version ?? undefined)
+        const wh = new Wormhole(ch.network, [solana.Platform], overrides);
+        const sol = wh.getChain("Solana");
+        const coreBridge = sol.config.contracts.coreBridge;
+        if (!coreBridge) {
+            console.error("Core bridge address not found in Solana config");
+            process.exit(1);
+        }
+        await patchSolanaBinary(binary, wormhole, coreBridge);
+        await checkSolanaBinary(binary, wormhole, providedProgramId, version ?? undefined);
 
         // if buffer.json doesn't exist, create it
         if (!fs.existsSync(`buffer.json`)) {
@@ -2528,6 +2536,58 @@ async function pullInboundLimits(ntts: Partial<{ [C in Chain]: Ntt<Network, C> }
     }
 }
 
+async function patchSolanaBinary(binary: string, wormhole: string, coreBridge: string) {
+    // Ensure binary path exists
+    if (!fs.existsSync(binary)) {
+        console.error(`.so file not found: ${binary}`);
+        process.exit(1);
+    }
+
+    console.log(`Patching binary ${binary} to use wormhole address ${wormhole}`);
+
+    // Convert addresses from base58 to Buffer
+    const wormholeBuffer = new PublicKey(wormhole).toBuffer();
+    const coreBridgeBuffer = new PublicKey(coreBridge).toBuffer();
+
+    // Read the binary file
+    let binaryData = fs.readFileSync(binary);
+
+    // Find and count occurrences of core bridge address
+    let occurrences = 0;
+    let searchIndex = 0;
+
+    while (true) {
+        const index = binaryData.indexOf(coreBridgeBuffer, searchIndex);
+        if (index === -1) break;
+
+        occurrences++;
+        searchIndex = index + coreBridgeBuffer.length;
+    }
+
+    if (occurrences === 0) {
+        console.log(`Core bridge address ${coreBridge} not found in binary - no patching needed`);
+        return;
+    }
+
+    console.log(`Found ${occurrences} occurrence(s) of core bridge address, replacing with wormhole address`);
+
+    // Replace all occurrences of core bridge with wormhole
+    searchIndex = 0;
+    while (true) {
+        const index = binaryData.indexOf(coreBridgeBuffer, searchIndex);
+        if (index === -1) break;
+
+        // Replace the bytes at this position
+        wormholeBuffer.copy(binaryData, index);
+        searchIndex = index + coreBridgeBuffer.length;
+    }
+
+    // Write the patched binary back to file
+    fs.writeFileSync(binary, binaryData);
+
+    console.log(`✓ Binary patched successfully`);
+}
+
 async function checkSolanaBinary(binary: string, wormhole: string, providedProgramId: string, version?: string) {
     // ensure binary path exists
     if (!fs.existsSync(binary)) {
@@ -2536,33 +2596,30 @@ async function checkSolanaBinary(binary: string, wormhole: string, providedProgr
     }
     // console.log(`Checking binary ${binary} for wormhole and provided program ID`);
 
-    // convert wormhole and providedProgramId from base58 to hex
-    const wormholeHex = new PublicKey(wormhole).toBuffer().toString("hex");
-    const providedProgramIdHex = new PublicKey(providedProgramId).toBuffer().toString("hex");
-    const versionHex = version ? Buffer.from(version).toString("hex") : undefined;
+    // convert addresses from base58 to Buffer
+    const wormholeBuffer = new PublicKey(wormhole).toBuffer();
+    const providedProgramIdBuffer = new PublicKey(providedProgramId).toBuffer();
+    const versionBuffer = version ? Buffer.from(version, 'utf8') : undefined;
 
-    if (!searchHexInBinary(binary, wormholeHex)) {
+    if (!searchBufferInBinary(binary, wormholeBuffer)) {
         console.error(`Wormhole address not found in binary: ${wormhole}`);
         process.exit(1);
     }
-    if (!searchHexInBinary(binary, providedProgramIdHex)) {
+    if (!searchBufferInBinary(binary, providedProgramIdBuffer)) {
         console.error(`Provided program ID not found in binary: ${providedProgramId}`);
         process.exit(1);
     }
-    if (versionHex && !searchHexInBinary(binary, versionHex)) {
+    if (versionBuffer && !searchBufferInBinary(binary, versionBuffer)) {
         // TODO: figure out how to search for the version string in the binary
         // console.error(`Version string not found in binary: ${version}`);
         // process.exit(1);
     }
 }
 
-// not the most efficient, but at least it's definitely portable
-function searchHexInBinary(binaryPath: string, searchHex: string) {
-    const buffer = fs.readFileSync(binaryPath);
-    const hexString = buffer.toString('hex');
-    const found = hexString.includes(searchHex);
-
-    return found;
+// Search for a buffer pattern within a binary file using direct buffer operations
+function searchBufferInBinary(binaryPath: string, searchBuffer: Buffer): boolean {
+    const binaryData = fs.readFileSync(binaryPath);
+    return binaryData.indexOf(searchBuffer) !== -1;
 }
 
 export function ensureNttRoot(pwd: string = ".") {
