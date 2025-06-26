@@ -2442,7 +2442,7 @@ function checkSolanaVersion(pwd: string): void {
             currentVersion = versionMatch[1];
         } catch (error) {
             console.error(chalk.red("Error: solana CLI not found. Please install the Solana toolchain."));
-            console.error(chalk.yellow("Install with: sh -c \"$(curl -sSfL https://release.solana.com/stable/install)\""));
+            console.error(chalk.yellow("Install with: sh -c \"$(curl -sSfL https://release.anza.xyz/stable/install)\""));
             process.exit(1);
         }
 
