@@ -1368,7 +1368,6 @@ version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
- "solana-program",
  "spl-tlv-account-resolution 0.6.4",
  "spl-transfer-hook-interface 0.6.4",
 ]
@@ -1560,7 +1559,6 @@ dependencies = [
  "serde_wormhole",
  "sha3",
  "solana-address-lookup-table-program",
- "solana-program",
  "solana-program-runtime",
  "solana-program-test",
  "solana-sdk",
@@ -2373,9 +2371,9 @@ checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 
 [[package]]
 name = "libredox"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
+checksum = "1580801010e535496706ba011c15f8532df6b42297d2e471fec38ceadd8c0638"
 dependencies = [
  "bitflags 2.9.1",
  "libc",
@@ -2681,7 +2679,6 @@ version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "hex",
- "solana-program",
  "wormhole-io",
 ]
 
@@ -2692,7 +2689,6 @@ dependencies = [
  "anchor-lang",
  "cfg-if",
  "example-native-token-transfers",
- "solana-program",
  "wormhole-io",
  "wormhole-solana-utils",
 ]
@@ -2706,7 +2702,6 @@ dependencies = [
  "example-native-token-transfers",
  "hex",
  "ntt-messages",
- "solana-program",
  "wormhole-anchor-sdk",
  "wormhole-io",
  "wormhole-sdk",
@@ -7782,7 +7777,6 @@ version = "3.0.0"
 dependencies = [
  "anchor-lang",
  "hex",
- "solana-program",
  "wormhole-anchor-sdk",
  "wormhole-io",
  "wormhole-sdk",
