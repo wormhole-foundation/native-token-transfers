@@ -594,9 +594,14 @@ yargs(hideBin(process.argv))
                     continue;
                 }
                 const address: UniversalAddress = peer.address.address.toUniversalAddress()
-                const [peerConfig, _ctx, peerNtt] = await pullChainConfig(network, { chain: c, address }, overrides);
-                ntts[c] = peerNtt as any;
-                configs[c] = peerConfig;
+                try {
+                    const [peerConfig, _ctx, peerNtt] = await pullChainConfig(network, { chain: c, address }, overrides);
+                    ntts[c] = peerNtt as any;
+                    configs[c] = peerConfig;
+                } catch (e) {
+                    console.error(`Failed to pull config for ${c}:`, e);
+                    continue;
+                }
             }
 
             // sort chains by name

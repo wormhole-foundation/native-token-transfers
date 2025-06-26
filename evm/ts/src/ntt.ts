@@ -427,7 +427,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       return abiVersion;
     } catch (e) {
       console.error(
-        `Failed to get NTT_MANAGER_VERSION from contract ${contracts.ntt?.manager}`
+        `Failed to get NTT_MANAGER_VERSION from contract ${contracts.ntt?.manager} on ${(await provider.getNetwork()).name}`
       );
       throw e;
     }
