@@ -32,7 +32,6 @@ workspace = true
 ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
 anchor-lang.workspace = true
 anchor-spl.workspace = true
-solana-program.workspace = true
 
 wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true

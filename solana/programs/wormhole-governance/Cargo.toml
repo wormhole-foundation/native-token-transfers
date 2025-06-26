@@ -28,7 +28,6 @@ workspace = true
 
 [dependencies]
 anchor-lang.workspace = true
-solana-program.workspace = true
 
 wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true

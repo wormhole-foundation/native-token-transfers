@@ -6,7 +6,7 @@ edition = "2021"
 [features]
 default = [ "wormhole" ]
 wormhole = []
-hash = [ "solana-program" ]
+hash = [ "anchor-lang" ]
 anchor = [ "anchor-lang" ]
 
 [lints]
@@ -15,7 +15,6 @@ workspace = true
 [dependencies]
 anchor-lang = { workspace = true, optional = true }
 wormhole-io.workspace = true
-solana-program = { workspace = true, optional = true }
 
 [dev-dependencies]
 

@@ -1,6 +1,6 @@
+use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::{prelude::*, InstructionData};
 use example_native_token_transfers::transceivers::wormhole::BroadcastPeerArgs;
-use solana_program::instruction::Instruction;
 
 use crate::sdk::{accounts::NTT, transceivers::wormhole::accounts::wormhole::wormhole_accounts};
 

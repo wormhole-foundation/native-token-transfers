@@ -26,9 +26,9 @@
 //! often, so the extra allocation is justifiable.
 
 use anchor_lang::prelude::*;
-use solana_program::program::{invoke, invoke_signed};
-use solana_program::address_lookup_table::program::id as lut_program_id;
-use solana_program::address_lookup_table::instruction;
+use anchor_lang::solana_program::address_lookup_table::instruction;
+use anchor_lang::solana_program::address_lookup_table::program::id as lut_program_id;
+use anchor_lang::solana_program::program::{invoke, invoke_signed};
 
 use crate::{config::Config, queue::outbox::OutboxRateLimit, transceivers::wormhole::accounts::*};
 

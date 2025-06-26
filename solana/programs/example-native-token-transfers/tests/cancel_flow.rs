@@ -2,6 +2,7 @@
 #![feature(type_changing_struct_update)]
 
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::InstructionError;
 use common::setup::{TestData, OTHER_CHAIN, OTHER_MANAGER, OTHER_TRANSCEIVER, THIS_CHAIN};
 use example_native_token_transfers::{
     error::NTTError,
@@ -15,7 +16,6 @@ use ntt_messages::{
     trimmed_amount::TrimmedAmount,
 };
 use sdk::transceivers::wormhole::instructions::receive_message::ReceiveMessage;
-use solana_program::instruction::InstructionError;
 use solana_program_test::*;
 use solana_sdk::{signature::Keypair, signer::Signer, transaction::TransactionError};
 use wormhole_sdk::{Address, Vaa};

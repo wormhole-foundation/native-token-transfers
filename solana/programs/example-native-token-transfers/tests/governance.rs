@@ -3,14 +3,14 @@
 
 use std::sync::atomic::AtomicU64;
 
+use anchor_lang::solana_program::{
+    instruction::{Instruction, InstructionError},
+    system_instruction::SystemError,
+};
 use anchor_lang::{prelude::*, InstructionData};
 use example_native_token_transfers::config::Config;
 use ntt_messages::mode::Mode;
 use sdk::accounts::{Governance, Wormhole};
-use solana_program::{
-    instruction::{Instruction, InstructionError},
-    system_instruction::SystemError,
-};
 use solana_program_test::*;
 use solana_sdk::{signer::Signer, transaction::TransactionError};
 use wormhole_governance::{
