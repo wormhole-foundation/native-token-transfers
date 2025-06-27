@@ -2,6 +2,7 @@ use std::io;
 
 #[cfg(feature = "anchor")]
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program;
 
 use wormhole_io::{Readable, TypePrefixedPayload, Writeable};
 

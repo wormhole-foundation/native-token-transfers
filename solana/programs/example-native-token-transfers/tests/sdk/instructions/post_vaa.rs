@@ -5,8 +5,8 @@
 //! also, this whole module is a mess. this is way harder than it needs to be
 
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{instruction::AccountMeta, sysvar};
 use serde_wormhole::RawMessage;
-use solana_program::{instruction::AccountMeta, sysvar};
 use solana_program_test::ProgramTestContext;
 use solana_sdk::{
     instruction::Instruction, secp256k1_instruction::new_secp256k1_instruction, signature::Keypair,
@@ -90,7 +90,7 @@ pub fn verify_signatures<A: AnchorSerialize + Clone>(
             AccountMeta::new(accounts.signature_set, true),
             AccountMeta::new_readonly(sysvar::instructions::id(), false),
             AccountMeta::new_readonly(sysvar::rent::id(), false),
-            AccountMeta::new_readonly(solana_program::system_program::id(), false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::id(), false),
         ],
         data: wormhole_anchor_sdk::wormhole::Instruction::VerifySignatures { signers }
             .try_to_vec()
@@ -109,7 +109,7 @@ pub fn verify_signatures<A: AnchorSerialize + Clone>(
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(sysvar::clock::id(), false),
             AccountMeta::new_readonly(sysvar::rent::id(), false),
-            AccountMeta::new_readonly(solana_program::system_program::id(), false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::id(), false),
         ],
         data: wormhole_anchor_sdk::wormhole::Instruction::PostVAA {
             version: header.version,

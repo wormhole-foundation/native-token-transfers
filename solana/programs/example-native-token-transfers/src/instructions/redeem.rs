@@ -29,24 +29,25 @@ pub struct Redeem<'info> {
     pub config: Account<'info, Config>,
 
     #[account(
-        seeds = [NttManagerPeer::SEED_PREFIX, ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref()],
-        constraint = peer.address == ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.source_ntt_manager() @ NTTError::InvalidNttManagerPeer,
+        seeds = [NttManagerPeer::SEED_PREFIX, transceiver_message.from_chain.id.to_be_bytes().as_ref()],
+        constraint = peer.address == transceiver_message.message.source_ntt_manager @ NTTError::InvalidNttManagerPeer,
         bump = peer.bump,
     )]
     pub peer: Account<'info, NttManagerPeer>,
 
     #[account(
         // check that the message is targeted to this chain
-        constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.ntt_manager_payload().payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
+        constraint = transceiver_message.message.ntt_manager_payload.payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
         // check that we're the intended recipient
-        constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.recipient_ntt_manager() == crate::ID.to_bytes() @ NTTError::InvalidRecipientNttManager,
+        constraint = transceiver_message.message.recipient_ntt_manager == crate::ID.to_bytes() @ NTTError::InvalidRecipientNttManager,
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
         owner = transceiver.transceiver_address
     )]
     /// CHECK: `transceiver_message` has to be manually deserialized as Anchor
     /// `Account<T>` and `owner` constraints are mutually-exclusive
-    pub transceiver_message: UncheckedAccount<'info>,
+    pub transceiver_message:
+        Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>>,
 
     #[account(
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver
@@ -64,8 +65,8 @@ pub struct Redeem<'info> {
         space = 8 + InboxItem::INIT_SPACE,
         seeds = [
             InboxItem::SEED_PREFIX,
-            ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.ntt_manager_payload().keccak256(
-                ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?
+            transceiver_message.message.ntt_manager_payload.keccak256(
+                transceiver_message.from_chain
             ).as_ref(),
         ],
         bump,
@@ -88,7 +89,7 @@ pub struct Redeem<'info> {
         mut,
         seeds = [
             InboxRateLimit::SEED_PREFIX,
-            ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref(),
+            transceiver_message.from_chain.id.to_be_bytes().as_ref(),
         ],
         bump,
     )]
@@ -106,13 +107,8 @@ pub struct RedeemArgs {}
 pub fn redeem(ctx: Context<Redeem>, _args: RedeemArgs) -> Result<()> {
     let accs = ctx.accounts;
 
-    let transceiver_message: ValidatedTransceiverMessage<NativeTokenTransfer<Payload>> =
-        ValidatedTransceiverMessage::try_from(
-            &accs.transceiver_message,
-            &accs.transceiver.transceiver_address,
-        )?;
     let message: NttManagerMessage<NativeTokenTransfer<Payload>> =
-        transceiver_message.message.ntt_manager_payload.clone();
+        accs.transceiver_message.message.ntt_manager_payload.clone();
 
     // Calculate the scaled amount based on the appropriate decimal encoding for the token.
     // Return an error if the resulting amount overflows.
@@ -125,8 +121,7 @@ pub fn redeem(ctx: Context<Redeem>, _args: RedeemArgs) -> Result<()> {
         .map_err(NTTError::from)?;
 
     if !accs.inbox_item.init {
-        let recipient_address =
-            Pubkey::try_from(message.payload.to).map_err(|_| NTTError::InvalidRecipientAddress)?;
+        let recipient_address = Pubkey::from(message.payload.to);
 
         accs.inbox_item.set_inner(InboxItem {
             init: true,

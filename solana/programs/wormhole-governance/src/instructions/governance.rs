@@ -15,7 +15,7 @@
 use std::io;
 
 use anchor_lang::prelude::*;
-use solana_program::instruction::Instruction;
+use anchor_lang::solana_program::instruction::Instruction;
 use wormhole_anchor_sdk::wormhole::PostedVaa;
 use wormhole_io::{Readable, Writeable};
 use wormhole_sdk::{Chain, GOVERNANCE_EMITTER};
@@ -412,7 +412,7 @@ impl From<Instruction> for GovernanceMessage {
     }
 }
 
-/// A copy of [`solana_program::instruction::AccountMeta`] with
+/// A copy of [`anchor_lang::solana_program::instruction::AccountMeta`] with
 /// `AccountSerialize`/`AccountDeserialize` impl.
 /// Would be nice to just use the original, but it lacks these traits.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq)]
@@ -485,7 +485,7 @@ pub fn governance<'info>(ctx: Context<'_, '_, '_, 'info, Governance<'info>>) -> 
     let mut all_account_infos = ctx.accounts.to_account_infos();
     all_account_infos.extend_from_slice(ctx.remaining_accounts);
 
-    solana_program::program::invoke_signed(
+    anchor_lang::solana_program::program::invoke_signed(
         &instruction,
         &all_account_infos,
         &[&[b"governance", &[ctx.bumps.governance]]],

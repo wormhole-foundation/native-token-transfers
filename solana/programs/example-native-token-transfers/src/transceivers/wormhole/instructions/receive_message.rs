@@ -38,7 +38,7 @@ pub struct ReceiveMessage<'info> {
     )]
     pub vaa: Account<
         'info,
-        PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>>,
+        PostedVaa::<TransceiverMessage::<WormholeTransceiver, NativeTokenTransfer<Payload>>>,
     >,
 
     #[account(
@@ -57,7 +57,7 @@ pub struct ReceiveMessage<'info> {
     // attested to the transfer. Then we only release it if there's quorum.
     // We would need to maybe_init this account in that case.
     pub transceiver_message:
-        Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>>,
+        Account<'info, ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>>,
 
     pub system_program: Program<'info, System>,
 }

@@ -24,7 +24,6 @@ workspace = true
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
-solana-program.workspace = true
 cfg-if.workspace = true
 wormhole-io.workspace = true
 wormhole-solana-utils.workspace = true

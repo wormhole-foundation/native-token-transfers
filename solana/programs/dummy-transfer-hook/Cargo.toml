@@ -22,6 +22,5 @@ tilt-devnet2 = [ "tilt-devnet" ]
 [dependencies]
 anchor-lang.workspace = true
 anchor-spl.workspace = true
-solana-program.workspace = true
 spl-tlv-account-resolution = "0.6.3"
 spl-transfer-hook-interface = "0.6.3"

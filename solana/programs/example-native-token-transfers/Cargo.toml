@@ -37,7 +37,6 @@ anchor-spl.workspace = true
 bitmaps = "3.2.1"
 hex.workspace = true
 cfg-if.workspace = true
-solana-program.workspace = true
 solana-address-lookup-table-program.workspace = true
 spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
 wormhole-anchor-sdk.workspace = true
@@ -54,7 +53,7 @@ solana-sdk = "*"
 spl-token = "4"
 spl-associated-token-account = { version = "3.0.0", features = ["no-entrypoint"] }
 sha3 = "0.10.4"
-wormhole-raw-vaas = "0.2.0-alpha.2"
+wormhole-raw-vaas = "0.3.0"
 libsecp256k1 = "=0.6.0"
 wormhole-sdk.workspace = true
 serde_wormhole.workspace = true
