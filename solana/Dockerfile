@@ -45,13 +45,13 @@ RUN make target/idl/example_native_token_transfers.json
 
 FROM scratch AS export
 
-COPY --from=dev-builder /opt/solana/deps /opt/solana/deps
-COPY --from=dev-builder /usr/src/solana/ts /usr/src/solana/ts
-COPY --from=dev-builder /usr/src/solana/package.json /usr/src/solana/package.json
-COPY --from=dev-builder /usr/src/solana/tsconfig.esm.json /usr/src/solana/tsconfig.esm.json
-COPY --from=dev-builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.cjs.json
-COPY --from=dev-builder /usr/src/solana/target/idl  /usr/src/solana/target/idl
-COPY --from=dev-builder /usr/src/solana/target/types /usr/src/solana/target/types
+COPY --from=builder /opt/solana/deps /opt/solana/deps
+COPY --from=builder /usr/src/solana/ts /usr/src/solana/ts
+COPY --from=builder /usr/src/solana/package.json /usr/src/solana/package.json
+COPY --from=builder /usr/src/solana/tsconfig.esm.json /usr/src/solana/tsconfig.esm.json
+COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.cjs.json
+COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl
+COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types
 
 FROM node:lts-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS governance
 
