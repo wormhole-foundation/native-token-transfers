@@ -12,7 +12,6 @@ docker_build(
     context = "./",
     only = ["./sdk", "./solana"],
     ignore=["./sdk/__tests__", "./sdk/Dockerfile", "./sdk/ci.yaml", "./sdk/**/dist", "./sdk/node_modules", "./sdk/**/node_modules"],
-    target = "builder",
     dockerfile = "./solana/Dockerfile",
 )
 docker_build(
