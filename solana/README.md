@@ -144,13 +144,17 @@ Run the following command to install necessary dependencies and to build the pro
 make build
 ```
 
-For building the mainnet binaries, the only requirements are `docker` and `make`:
+#### Verifiable Builds
+
+For building verifiably, make sure [`solana-verify`](https://crates.io/crates/solana-verify) is installed and Docker is installed and running.
+
+Run the following command to build the program binaries deterministically for `mainnet`:
 
 ```sh
 make artifacts-mainnet
 ```
 
-which will produce the object files into the `artifacts-mainnet` directory. This is the recommended way of building the binaries as it results in deterministic builds.
+> This will produce the generated artifacts in the `artifacts-mainnet` directory.
 
 For Solana devnet builds, or local testing builds, use the following commands:
 
