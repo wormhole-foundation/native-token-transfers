@@ -1,18 +1,9 @@
-import { toChainId, type Network } from "@wormhole-foundation/sdk-base";
+import { Program } from "@coral-xyz/anchor";
 import {
-  type AccountAddress,
-  type ChainAddress,
-  type ChainsConfig,
-  Contracts,
-  UnsignedTransaction,
-} from "@wormhole-foundation/sdk-definitions";
-import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
-import {
-  SolanaPlatform,
-  type SolanaPlatformType,
-  type SolanaChains,
-  SolanaAddress,
-} from "@wormhole-foundation/sdk-solana";
+  createAssociatedTokenAccountIdempotentInstruction,
+  createTransferInstruction,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 import {
   AddressLookupTableAccount,
   AddressLookupTableProgram,
@@ -23,22 +14,32 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { SolanaNtt } from "./ntt.js";
+import { toChainId, type Network } from "@wormhole-foundation/sdk-base";
 import {
-  createAssociatedTokenAccountIdempotentInstruction,
-  createTransferInstruction,
-  getAssociatedTokenAddressSync,
-} from "@solana/spl-token";
-import { BN, Program } from "@coral-xyz/anchor";
+  Contracts,
+  UnsignedTransaction,
+  type AccountAddress,
+  type ChainAddress,
+  type ChainsConfig,
+} from "@wormhole-foundation/sdk-definitions";
+import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
-  ExampleNttWithExecutor,
-  ExampleNttWithExecutorIdl,
-} from "../idl/executor/example_ntt_with_executor.js";
+  SolanaAddress,
+  SolanaPlatform,
+  type SolanaChains,
+  type SolanaPlatformType,
+} from "@wormhole-foundation/sdk-solana";
+import BN from "bn.js";
 import {
   ExampleNttSvmLut,
   ExampleNttSvmLutIdl,
 } from "../idl/executor/example_ntt_svm_lut.js";
+import {
+  ExampleNttWithExecutor,
+  ExampleNttWithExecutorIdl,
+} from "../idl/executor/example_ntt_with_executor.js";
 import { chainToBytes } from "../lib/utils.js";
+import { SolanaNtt } from "./ntt.js";
 
 export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
   implements NttWithExecutor<N, C>

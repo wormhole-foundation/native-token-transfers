@@ -1,5 +1,4 @@
 import {
-  BN,
   Program,
   parseIdlErrors,
   translateError,
@@ -33,6 +32,7 @@ import {
   VAA,
   keccak256,
 } from "@wormhole-foundation/sdk-definitions";
+import BN from "bn.js";
 
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
@@ -93,6 +93,7 @@ export namespace NTT {
         ["inbox_item", Ntt.messageDigest(chain, nttMessage)],
         programId
       );
+    const upgradeLock = (): PublicKey => derivePda("upgrade_lock", programId);
     const outboxRateLimitAccount = (): PublicKey =>
       derivePda("outbox_rate_limit", programId);
     const tokenAuthority = (): PublicKey =>
@@ -131,6 +132,7 @@ export namespace NTT {
       outboxRateLimitAccount,
       inboxRateLimitAccount,
       inboxItemAccount,
+      upgradeLock,
       sessionAuthority,
       tokenAuthority,
       pendingTokenAuthority,
@@ -720,7 +722,51 @@ export namespace NTT {
     return transferIx;
   }
 
+  export async function createTransferOwnershipOneStepUncheckedInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    args: {
+      owner: PublicKey;
+      newOwner: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .transferOwnershipOneStepUnchecked()
+      .accountsStrict({
+        config: pdas.configAccount(),
+        owner: args.owner,
+        newOwner: args.newOwner,
+        upgradeLock: pdas.upgradeLock(),
+        programData: programDataAddress(program.programId),
+        bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
+      })
+      .instruction();
+  }
+
   export async function createTransferOwnershipInstruction(
+    program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
+    args: {
+      owner: PublicKey;
+      newOwner: PublicKey;
+    },
+    pdas?: Pdas
+  ) {
+    pdas = pdas ?? NTT.pdas(program.programId);
+    return program.methods
+      .transferOwnership()
+      .accountsStrict({
+        config: pdas.configAccount(),
+        owner: args.owner,
+        newOwner: args.newOwner,
+        upgradeLock: pdas.upgradeLock(),
+        programData: programDataAddress(program.programId),
+        bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
+      })
+      .instruction();
+  }
+
+  export async function createClaimOwnershipInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     args: {
       newOwner: PublicKey;
@@ -729,10 +775,13 @@ export namespace NTT {
   ) {
     pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
-      .transferOwnership()
-      .accounts({
+      .claimOwnership()
+      .accountsStrict({
         config: pdas.configAccount(),
         newOwner: args.newOwner,
+        upgradeLock: pdas.upgradeLock(),
+        programData: programDataAddress(program.programId),
+        bpfLoaderUpgradeableProgram: BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
       })
       .instruction();
   }
@@ -1035,7 +1084,7 @@ export namespace NTT {
       .instruction();
   }
 
-  export async function setInboundLimit(
+  export async function createSetInboundLimitInstruction(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     args: {
       owner: PublicKey;
