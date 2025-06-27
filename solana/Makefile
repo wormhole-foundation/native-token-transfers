@@ -27,9 +27,6 @@ anchor-build:
 	  ./scripts/patch-idl $$jsonfile; \
 	done
 
-prod-build:
-	anchor build --verifiable
-
 artifacts-mainnet: 
 	$(MAKE) _artifacts TARGET_DIR=$@ NETWORK=mainnet
 
