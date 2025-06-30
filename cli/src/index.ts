@@ -1470,7 +1470,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
---broadcast \
+--broadcast --slow \
 ${verifyArgs} | tee last-run.stdout`, {
                 cwd: `${pwd}/evm`,
                 stdio: "inherit"
