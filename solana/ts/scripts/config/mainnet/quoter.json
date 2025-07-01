@@ -345,6 +345,14 @@
       "tokenAddress": "VitAJ7SePwVQdpYAfKQ77RCde8dRtWdYsVE9m4UNvQV",
       "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
+      "isSupported": false
+    },
+    {
+      "name": "VitaDAO",
+      "programId": "NTtZX4WDRYLRYnms6NNgzotf7rC3pVxtgPZfk5AB4yP",
+      "tokenAddress": "vita3LfgKErA37DWA7W8RBks3c7Rym2hPFgizNRshBi",
+      "gasCost": 500000,
+      "wormholeTransceiverIndex": 0,
       "isSupported": true
     },
     {
@@ -423,10 +431,10 @@
       "name": "AVAX",
       "programId": "ntTW3X39Vo1G7YdnAt62TYexBoFMfBzcJozXvmdNKtv",
       "tokenAddress": "yNBMYD9LMrmGpWbAFbJv5UkkqSvKEupvSGSZxSz7wN5",
-      "gasGost": 500000,
+      "gasCost": 500000,
       "wormholeTransceiverIndex": 0,
       "isSupported": true
-    },
+    }
   ],
   "peerQuotes": {
     "Ethereum": {
