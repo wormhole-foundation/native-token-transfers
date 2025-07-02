@@ -1463,6 +1463,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
     }
 
     console.log("Upgrading manager...");
+    const slowFlag = getSlowFlag(ctx.chain);
     await withCustomEvmDeployerScript(pwd, async () => {
         execSync(
             `forge script --via-ir script/DeployWormholeNtt.s.sol \
@@ -1470,7 +1471,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
---broadcast --slow \
+--broadcast ${slowFlag} \
 ${verifyArgs} | tee last-run.stdout`, {
                 cwd: `${pwd}/evm`,
                 stdio: "inherit"
@@ -1593,6 +1594,7 @@ async function deployEvm<N extends Network, C extends Chain>(
     console.log("Deploying manager...");
     const deploy = async (simulate: boolean): Promise<string> => {
         const simulateArg = simulate ? "" : "--skip-simulation";
+        const slowFlag = getSlowFlag(ch.chain);
         const effectiveRelayer = relayer || "0x0000000000000000000000000000000000000000";
         await withCustomEvmDeployerScript(pwd, async () => {
             try {
@@ -1601,7 +1603,7 @@ forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${rpc} \
 ${simulateArg} \
 --sig "${sig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
---broadcast --slow ${verifyArgs.join(' ')} ${signerArgs} 2>&1 | tee last-run.stdout`, {
+--broadcast ${slowFlag} ${verifyArgs.join(' ')} ${signerArgs} 2>&1 | tee last-run.stdout`, {
                         cwd: `${pwd}/evm`,
                         encoding: 'utf8',
                         stdio: 'inherit'
@@ -2404,6 +2406,10 @@ function searchHexInBinary(binaryPath: string, searchHex: string) {
     const found = hexString.includes(searchHex);
 
     return found;
+}
+
+function getSlowFlag(chain: Chain): string {
+    return chain === "Mezo" ? "--slow" : "";
 }
 
 export function ensureNttRoot(pwd: string = ".") {
