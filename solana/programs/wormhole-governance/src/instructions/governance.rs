@@ -354,7 +354,7 @@ impl Readable for GovernanceAction {
             2 => Ok(GovernanceAction::SolanaCall),
             n => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("invalid action {}", n),
+                format!("invalid action {n}"),
             )),
         }
     }

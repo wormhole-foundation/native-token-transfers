@@ -37,7 +37,7 @@ impl InboxItem {
     /// Attempt to release the transfer.
     ///
     /// * If the inbox item status is [`ReleaseStatus::ReleaseAfter`], this function returns true if the current timestamp
-    /// is newer than the one stored in the release status. If the timestamp is in the future, returns false.
+    ///   is newer than the one stored in the release status. If the timestamp is in the future, returns false.
     /// * If the inbox item status is [`ReleaseStatus::NotApproved`], this function returns false.
     ///
     /// # Errors
