@@ -511,6 +511,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   async *setOwner(newOwner: AnySolanaAddress, payer: AccountAddress<C>) {
     const sender = new SolanaAddress(payer).unwrap();
     const ix = await NTT.createTransferOwnershipInstruction(this.program, {
+      owner: new SolanaAddress(await this.getOwner()).unwrap(),
       newOwner: new SolanaAddress(newOwner).unwrap(),
     });
 
@@ -1144,7 +1145,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     payer: AccountAddress<C>
   ) {
     const sender = new SolanaAddress(payer).unwrap();
-    const ix = await NTT.setInboundLimit(this.program, {
+    const ix = await NTT.createSetInboundLimitInstruction(this.program, {
       owner: sender,
       chain: fromChain,
       limit: new BN(limit.toString()),
