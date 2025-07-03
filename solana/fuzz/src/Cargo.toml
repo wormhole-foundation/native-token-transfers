@@ -13,9 +13,7 @@ path = "fuzz_rate_limit.rs"
 [dependencies]
 ntt-messages = { path = "../../modules/ntt-messages" }
 example-native-token-transfers = { path = "../../programs/example-native-token-transfers" }
-libc = "0.2"
-rustc_version = "0.4"
-xdg = "3.0"
+afl = "*"
 arbitrary = { version = "1", optional = true, features = ["derive"] }
 
 [workspace]
