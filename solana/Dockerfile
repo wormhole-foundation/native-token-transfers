@@ -1,4 +1,4 @@
-FROM backpackapp/build:v0.29.0@sha256:9aee169b2d8b89b4a4243419ae35c176773136e78d751b3e439eff692c9c1293 as anchor
+FROM backpackapp/build:v0.29.0@sha256:9aee169b2d8b89b4a4243419ae35c176773136e78d751b3e439eff692c9c1293 AS anchor
 
 WORKDIR /usr/src/solana/
 
@@ -33,7 +33,7 @@ RUN cp ./target/sbf-solana-solana/release/example_native_token_transfers.so /opt
 COPY solana/tilt /opt/solana/deps
 
 COPY sdk ../sdk
-COPY solana/ts ts 
+COPY solana/ts ts
 COPY solana/package.json package.json
 COPY solana/tsconfig.esm.json tsconfig.esm.json
 COPY solana/tsconfig.cjs.json tsconfig.cjs.json
@@ -43,12 +43,12 @@ COPY solana/scripts scripts
 
 RUN make target/idl/example_native_token_transfers.json
 
-FROM scratch as export
+FROM scratch AS export
 
 COPY --from=builder /opt/solana/deps /opt/solana/deps
 COPY --from=builder /usr/src/solana/ts /usr/src/solana/ts
 COPY --from=builder /usr/src/solana/package.json /usr/src/solana/package.json
 COPY --from=builder /usr/src/solana/tsconfig.esm.json /usr/src/solana/tsconfig.esm.json
 COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.cjs.json
-COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl 
+COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl
 COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types

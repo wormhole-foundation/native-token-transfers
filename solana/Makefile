@@ -1,5 +1,5 @@
 .DEFAULT_GOAL = build
-.PHONY: build cargo-build anchor-build prod-build test cargo-test anchor-test idl sdk clean node_modules lint cargo-lint anchor-lint fix-lint
+.PHONY: build cargo-build anchor-build artifacts-mainnet artifacts-solana-devnet artifacts-tilt-devnet _artifacts test cargo-test anchor-test idl sdk clean node_modules lint cargo-lint anchor-lint fix-lint
 
 # Find and convert version line:
 #  Turn `const VERSION: &str = "major.minor.patch";` into `major_minor_patch`
@@ -27,8 +27,17 @@ anchor-build:
 	  ./scripts/patch-idl $$jsonfile; \
 	done
 
-prod-build:
-	anchor build --verifiable
+artifacts-mainnet: 
+	$(MAKE) _artifacts TARGET_DIR=$@ NETWORK=mainnet
+
+artifacts-solana-devnet:
+	$(MAKE) _artifacts TARGET_DIR=$@ NETWORK=solana-devnet
+
+artifacts-tilt-devnet:
+	$(MAKE) _artifacts TARGET_DIR=$@ NETWORK=tilt-devnet
+
+_artifacts:
+	solana-verify build -- --no-default-features --features $(NETWORK) --target-dir $(TARGET_DIR)
 
 idl: anchor-build
 	@echo "IDL Version: $(VERSION)"

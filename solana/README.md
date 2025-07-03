@@ -144,6 +144,25 @@ Run the following command to install necessary dependencies and to build the pro
 make build
 ```
 
+#### Verifiable Builds
+
+For building verifiably, make sure [`solana-verify`](https://crates.io/crates/solana-verify) is installed and Docker is installed and running.
+
+Run the following command to build the program binaries deterministically for `mainnet`:
+
+```sh
+make artifacts-mainnet
+```
+
+> This will produce the generated artifacts in the `artifacts-mainnet` directory.
+
+For Solana devnet builds, or local testing builds, use the following commands:
+
+```sh
+make artifacts-solana-devnet
+make artifacts-tilt-devnet
+```
+
 ### Test
 
 Run the following command to generate the IDL and run the full Solana test-suite:

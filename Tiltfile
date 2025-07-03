@@ -43,7 +43,7 @@ docker_build(
     only=["./sdk", "./package.json", "./package-lock.json", "jest.config.ts", "tsconfig.json", "tsconfig.esm.json", "tsconfig.cjs.json", "tsconfig.test.json"],
     dockerfile = "./sdk/Dockerfile",
 )
-k8s_yaml_with_ns("./sdk/ci.yaml") 
+k8s_yaml_with_ns("./sdk/ci.yaml")
 k8s_resource(
     "ntt-ci-tests",
     labels = ["ntt"],
