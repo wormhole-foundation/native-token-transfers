@@ -1,5 +1,5 @@
 .DEFAULT_GOAL = build
-.PHONY: build cargo-build anchor-build prod-build artifacts-mainnet artifacts-solana-devnet artifacts-tilt-devnet _artifacts test cargo-test anchor-test idl sdk clean node_modules lint cargo-lint anchor-lint fix-lint
+.PHONY: build cargo-build anchor-build artifacts-mainnet artifacts-solana-devnet artifacts-tilt-devnet _artifacts test cargo-test anchor-test idl sdk clean node_modules lint cargo-lint anchor-lint fix-lint
 
 # Find and convert version line:
 #  Turn `const VERSION: &str = "major.minor.patch";` into `major_minor_patch`
