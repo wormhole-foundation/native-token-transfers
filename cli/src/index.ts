@@ -2619,3 +2619,35 @@ function nttVersion(): { version: string, commit: string, path: string, remote: 
         return null;
     }
 }
+
+async function checkSolanaValidSplMultisig(
+    connection: Connection,
+    address: PublicKey,
+    programId: PublicKey,
+    tokenAuthority: PublicKey
+): Promise<boolean> {
+    let isMultisigTokenAuthority = false;
+    try {
+        const multisigInfo = await spl.getMultisig(
+            connection,
+            address,
+            undefined,
+            programId
+        );
+        if (multisigInfo.m === 1) {
+            const n = multisigInfo.n;
+            for (let i = 0; i < n; ++i) {
+                // TODO: not sure if there's an easier way to loop through and check
+                if (
+                    (
+                        multisigInfo[`signer${i + 1}` as keyof spl.Multisig] as PublicKey
+                    ).equals(tokenAuthority)
+                ) {
+                    isMultisigTokenAuthority = true;
+                    break;
+                }
+            }
+        }
+    } catch {}
+    return isMultisigTokenAuthority;
+}
