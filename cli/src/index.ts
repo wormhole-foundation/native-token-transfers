@@ -1014,53 +1014,53 @@ yargs(hideBin(process.argv))
                         console.log(ata.toBase58());
                     })
                 .command("create-spl-multisig <multisigMemberPubkey...>",
-                      "create a valid SPL Multisig (see https://github.com/wormhole-foundation/native-token-transfers/tree/main/solana#spl-multisig-support for more info)",
-                      (yargs) =>
+                    "create a valid SPL Multisig (see https://github.com/wormhole-foundation/native-token-transfers/tree/main/solana#spl-multisig-support for more info)",
+                    (yargs) =>
                         yargs
                           .positional("multisigMemberPubkey", {
-                            describe:
-                              "public keys of the members that can independently mint",
-                            type: "string",
-                            demandOption: true,
+                              describe:
+                                "public keys of the members that can independently mint",
+                              type: "string",
+                              demandOption: true,
                           })
                           .option("path", options.deploymentPath)
                           .option("payer", { ...options.payer, demandOption: true })
                           .example(
-                            "$0 solana create-spl-multisig Sol1234... --payer <SOLANA_KEYPAIR_PATH>",
-                            "Create multisig with Sol1234... having independent mint privilege alongside NTT token-authority"
+                              "$0 solana create-spl-multisig Sol1234... --payer <SOLANA_KEYPAIR_PATH>",
+                              "Create multisig with Sol1234... having independent mint privilege alongside NTT token-authority"
                           )
                           .example(
-                            "$0 solana create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
-                            "Create multisig with Sol1234..., Sol3456..., and Sol5678... having mint privileges alongside NTT token-authority"
+                              "$0 solana create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
+                              "Create multisig with Sol1234..., Sol3456..., and Sol5678... having mint privileges alongside NTT token-authority"
                           ),
-                      async (argv) => {
+                    async (argv) => {
                         const path = argv["path"];
                         const deployments: Config = loadConfig(path);
                         const chain: Chain = "Solana";
                         const network = deployments.network as Network;
 
                         if (!fs.existsSync(argv["payer"])) {
-                          console.error("Payer not found. Specify with --payer");
-                          process.exit(1);
+                            console.error("Payer not found. Specify with --payer");
+                            process.exit(1);
                         }
                         const payerKeypair = Keypair.fromSecretKey(
-                          new Uint8Array(
-                            JSON.parse(fs.readFileSync(argv["payer"]).toString())
-                          )
+                            new Uint8Array(
+                                JSON.parse(fs.readFileSync(argv["payer"]).toString())
+                            )
                         );
 
                         if (!(chain in deployments.chains)) {
-                          console.error(`Chain ${chain} not found in ${path}`);
-                          process.exit(1);
+                            console.error(`Chain ${chain} not found in ${path}`);
+                            process.exit(1);
                         }
                         const chainConfig = deployments.chains[chain]!;
                         const wh = new Wormhole(network, [solana.Platform, evm.Platform], overrides);
                         const ch = wh.getChain(chain);
                         const connection = await ch.getRpc();
                         const [, , ntt] = await pullChainConfig(
-                          network,
-                          { chain, address: toUniversal(chain, chainConfig.manager) },
-                          overrides
+                            network,
+                            { chain, address: toUniversal(chain, chainConfig.manager) },
+                            overrides
                         );
                         const solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
                         const tokenAuthority = NTT.pdas(chainConfig.manager).tokenAuthority();
@@ -1068,38 +1068,38 @@ yargs(hideBin(process.argv))
                         // check if SPL-Multisig is supported for manager version
                         const major = Number(solanaNtt.version.split(".")[0]);
                         if (major < 3) {
-                          console.error(
-                            "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
-                          );
-                          console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
-                          process.exit(1);
+                            console.error(
+                                "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
+                            );
+                            console.error("Use 'ntt upgrade' to upgrade the NTT contract to a specific version.");
+                            process.exit(1);
                         }
 
                         try {
-                          // use same tokenProgram as token to create multisig
-                          const tokenProgram = (await solanaNtt.getConfig()).tokenProgram;
-                          const additionalMemberPubkeys = (argv["multisigMemberPubkey"] as any).map(
-                            (key: string) => new PublicKey(key)
-                          );
-                          const multisig = await spl.createMultisig(
-                            connection,
-                            payerKeypair,
-                            [
-                              tokenAuthority,
-                              ...additionalMemberPubkeys,
-                            ],
-                            1,
-                            undefined,
-                            { commitment: "finalized" },
-                            tokenProgram
-                          );
-                          console.log(`Valid SPL Multisig created: ${multisig.toBase58()}`);
+                            // use same tokenProgram as token to create multisig
+                            const tokenProgram = (await solanaNtt.getConfig()).tokenProgram;
+                            const additionalMemberPubkeys = (argv["multisigMemberPubkey"] as any).map(
+                                (key: string) => new PublicKey(key)
+                            );
+                            const multisig = await spl.createMultisig(
+                                connection,
+                                payerKeypair,
+                                [
+                                tokenAuthority,
+                                ...additionalMemberPubkeys,
+                                ],
+                                1,
+                                undefined,
+                                { commitment: "finalized" },
+                                tokenProgram
+                            );
+                            console.log(`Valid SPL Multisig created: ${multisig.toBase58()}`);
                         } catch (error) {
-                          if (error instanceof Error) {
-                            console.error(error.message);
-                          } else if (error instanceof SendTransactionError) {
-                            console.error(error.logs);
-                          }
+                            if (error instanceof Error) {
+                                console.error(error.message);
+                            } else if (error instanceof SendTransactionError) {
+                                console.error(error.logs);
+                            }
                         }
                     })
                 .command("set-mint-authority <newAuthority>",
