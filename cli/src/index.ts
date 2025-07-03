@@ -1854,25 +1854,39 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 
     // get the mint authority of 'token'
     const tokenMint = new PublicKey(token);
-    // const tokenInfo = await ch.connection.getTokenInfo(tokenMint);
     const connection: Connection = await ch.getRpc();
-    const mintInfo = await connection.getAccountInfo(tokenMint)
+    const mintInfo = await connection.getAccountInfo(tokenMint);
     if (!mintInfo) {
         console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
         process.exit(1);
     }
     const mint = spl.unpackMint(tokenMint, mintInfo, mintInfo.owner);
+    const tokenAuthority = ntt.pdas.tokenAuthority();
 
     if (mode === "burning") {
-        const expectedMintAuthority = ntt.pdas.tokenAuthority().toBase58();
+        // verify mint authority is token authority or valid SPL Multisig
         const actualMintAuthority: string | null = mint.mintAuthority?.toBase58() ?? null;
-        if (actualMintAuthority !== expectedMintAuthority) {
-            console.error(`Mint authority mismatch for ${token}`);
-            console.error(`Expected: ${expectedMintAuthority}`);
-            console.error(`Actual: ${actualMintAuthority}`);
-            console.error(`Set the mint authority to the program's token authority PDA with e.g.:`);
-            console.error(`ntt solana set-mint-authority ${expectedMintAuthority}`);
-            process.exit(1);
+        if (actualMintAuthority !== tokenAuthority.toBase58()) {
+            const isValidSplMultisig = actualMintAuthority && await checkSolanaValidSplMultisig(
+                connection,
+                new PublicKey(actualMintAuthority),
+                mintInfo.owner,
+                tokenAuthority
+            );
+            if (!isValidSplMultisig) {
+                console.error(`Mint authority mismatch for ${token}`);
+                console.error(
+                    `Expected: ${tokenAuthority.toBase58()} or valid SPL Multisig`
+                );
+                console.error(`Actual: ${actualMintAuthority}`);
+                console.error(
+                    `Set the mint authority to the program's token authority PDA with e.g.:`
+                );
+                console.error(
+                    `ntt solana set-mint-authority --token ${token} --manager ${providedProgramId}`
+                );
+                process.exit(1);
+            }
         }
     }
 
@@ -1959,7 +1973,11 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
                 mint: new PublicKey(token),
                 mode,
                 outboundLimit: 100000000n,
-            });
+                ...(!mint.mintAuthority!.equals(tokenAuthority) && {
+                    multisigTokenAuthority: mint.mintAuthority!,
+                }),
+            }
+        );
 
         const signer = await getSigner(ch, "privateKey", encoding.b58.encode(payerKeypair.secretKey));
 
