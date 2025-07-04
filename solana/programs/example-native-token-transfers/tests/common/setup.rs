@@ -8,7 +8,7 @@ use example_native_token_transfers::{
     transceivers::wormhole::SetTransceiverPeerArgs,
 };
 use ntt_messages::{chain_id::ChainId, mode::Mode};
-use solana_program_runtime::log_collector::log::{trace, warn};
+use solana_log_collector::log::{trace, warn};
 use solana_program_test::{find_file, read_file, ProgramTest, ProgramTestContext};
 use solana_sdk::{
     account::Account, signature::Keypair, signer::Signer, system_instruction,

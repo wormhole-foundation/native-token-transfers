@@ -59,4 +59,5 @@ libsecp256k1 = "=0.6.0"
 wormhole-sdk.workspace = true
 serde_wormhole.workspace = true
 solana-program-runtime.workspace = true
+solana-log-collector.workspace = true
 bincode = "1.3.3"

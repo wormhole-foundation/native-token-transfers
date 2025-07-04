@@ -1559,6 +1559,7 @@ dependencies = [
  "serde_wormhole",
  "sha3",
  "solana-address-lookup-table-program",
+ "solana-log-collector",
  "solana-program-runtime",
  "solana-program-test",
  "solana-sdk",
