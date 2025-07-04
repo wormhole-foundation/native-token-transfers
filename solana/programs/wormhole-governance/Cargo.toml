@@ -16,6 +16,7 @@ no-log-ix-name = []
 cpi = ["no-entrypoint"]
 idl-build = [
   "anchor-lang/idl-build",
+  "wormhole-anchor-sdk/idl-build",
 ]
 
 mainnet = [ "wormhole-anchor-sdk/mainnet" ]
