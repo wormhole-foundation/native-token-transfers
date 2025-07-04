@@ -35,4 +35,5 @@ impl Deref for SplMultisig {
     }
 }
 
+#[cfg(feature = "idl-build")]
 impl anchor_lang::IdlBuild for SplMultisig {}
