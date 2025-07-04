@@ -13,6 +13,10 @@ use ntt_messages::{
 };
 use wormhole_anchor_sdk::wormhole::PostedVaa;
 
+type PostedTransceiverMessageVaa =
+    PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>>;
+type ValidatedNTTTransceiverMessage = ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>;
+
 #[derive(Accounts)]
 pub struct ReceiveMessage<'info> {
     #[account(mut)]
@@ -36,10 +40,7 @@ pub struct ReceiveMessage<'info> {
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
     )]
-    pub vaa: Account<
-        'info,
-        PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>>,
-    >,
+    pub vaa: Account<'info, PostedTransceiverMessageVaa>,
 
     #[account(
         init,
@@ -56,8 +57,7 @@ pub struct ReceiveMessage<'info> {
     // inbox item transfer struct with a bitmap storing which transceivers have
     // attested to the transfer. Then we only release it if there's quorum.
     // We would need to maybe_init this account in that case.
-    pub transceiver_message:
-        Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>>,
+    pub transceiver_message: Account<'info, ValidatedNTTTransceiverMessage>,
 
     pub system_program: Program<'info, System>,
 }

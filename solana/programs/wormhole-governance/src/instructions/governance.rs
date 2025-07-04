@@ -15,7 +15,7 @@
 use std::io;
 
 use anchor_lang::prelude::*;
-use solana_program::instruction::Instruction;
+use anchor_lang::solana_program::instruction::Instruction;
 use wormhole_anchor_sdk::wormhole::PostedVaa;
 use wormhole_io::{Readable, Writeable};
 use wormhole_sdk::{Chain, GOVERNANCE_EMITTER};
@@ -34,6 +34,8 @@ pub struct ReplayProtection {
 impl ReplayProtection {
     pub const SEED_PREFIX: &'static [u8] = b"replay";
 }
+
+type PostedGovernanceMessageVaa = PostedVaa<GovernanceMessage>;
 
 #[derive(Accounts)]
 pub struct Governance<'info> {
@@ -54,7 +56,7 @@ pub struct Governance<'info> {
         constraint = *vaa.emitter_address() == GOVERNANCE_EMITTER.0 @ GovernanceError::InvalidGovernanceEmitter,
         constraint = vaa.payload.1.governance_program_id == crate::ID @ GovernanceError::InvalidGovernanceProgram,
     )]
-    pub vaa: Account<'info, PostedVaa<GovernanceMessage>>,
+    pub vaa: Account<'info, PostedGovernanceMessageVaa>,
 
     #[account(executable)]
     /// CHECK: This account is validated by Wormhole, not this program.
@@ -354,7 +356,7 @@ impl Readable for GovernanceAction {
             2 => Ok(GovernanceAction::SolanaCall),
             n => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("invalid action {}", n),
+                format!("invalid action {n}"),
             )),
         }
     }
@@ -412,7 +414,7 @@ impl From<Instruction> for GovernanceMessage {
     }
 }
 
-/// A copy of [`solana_program::instruction::AccountMeta`] with
+/// A copy of [`anchor_lang::solana_program::instruction::AccountMeta`] with
 /// `AccountSerialize`/`AccountDeserialize` impl.
 /// Would be nice to just use the original, but it lacks these traits.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq)]
@@ -485,7 +487,7 @@ pub fn governance<'info>(ctx: Context<'_, '_, '_, 'info, Governance<'info>>) -> 
     let mut all_account_infos = ctx.accounts.to_account_infos();
     all_account_infos.extend_from_slice(ctx.remaining_accounts);
 
-    solana_program::program::invoke_signed(
+    anchor_lang::solana_program::program::invoke_signed(
         &instruction,
         &all_account_infos,
         &[&[b"governance", &[ctx.bumps.governance]]],

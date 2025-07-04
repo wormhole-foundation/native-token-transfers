@@ -25,7 +25,7 @@ cast_precision_loss = "deny"
 cast_sign_loss = "deny"
 unchecked_duration_subtraction = "deny"
 or_fun_call = "deny"
-overflow_check_conditional = "deny"
+panicking_overflow_checks = "deny"
 modulo_one = "deny"
 manual_slice_size_calculation = "deny"
 large_stack_arrays = "deny"
@@ -43,18 +43,19 @@ cast_abs_to_unsigned = "deny"
 
 [workspace.dependencies]
 wormhole-io = "0.1.3"
-wormhole-solana-utils = "0.2.0-alpha.15"
+wormhole-solana-utils = { git = "https://github.com/wormholelabs-xyz/wormhole-sdk-rs", branch = "main" }
 
-anchor-lang = "0.29.0"
-anchor-spl = "0.29.0"
-solana-program = "=1.18.26"
-solana-program-runtime = "=1.18.26"
-solana-program-test = "=1.18.26"
-solana-address-lookup-table-program = "=1.18.26"
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
+solana-program = "=2.1.0"
+solana-program-runtime = "=2.1.0"
+solana-log-collector = "=2.1.0"
+solana-program-test = "=2.1.0"
+solana-address-lookup-table-program = "=2.1.0"
 spl-token = "4.0.0"
 spl-token-2022 = "3.0.2"
 
-wormhole-anchor-sdk = { version = "0.29.0-alpha.1", default-features = false }
+wormhole-anchor-sdk = { version = "0.31.0", git = "https://github.com/wormhole-foundation/wormhole-scaffolding", rev = "3be80a92579b108b5d6fffe234c6e18322e2c3b6", default-features = false }
 wormhole-sdk = { git = "https://github.com/wormhole-foundation/wormhole", rev = "eee4641" }
 serde_wormhole = { git = "https://github.com/wormhole-foundation/wormhole", rev = "eee4641" }
 
