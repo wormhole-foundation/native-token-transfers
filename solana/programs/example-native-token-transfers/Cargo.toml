@@ -16,7 +16,8 @@ no-log-ix-name = []
 cpi = ["no-entrypoint"]
 idl-build = [
   "anchor-lang/idl-build",
-  "anchor-spl/idl-build"
+  "anchor-spl/idl-build",
+  "wormhole-anchor-sdk/idl-build",
 ]
 # cargo-test-sbf will pass this along
 test-sbf = []
