@@ -1161,7 +1161,7 @@ yargs(hideBin(process.argv))
                         // program deployed so fetch token and manager addresses from deployment
                         if (!token && !manager) {
                             if (!(chain in deployments.chains)) {
-                                console.error(`Chain ${chain} not found in ${path}`);
+                                console.error(`Either provide --token and --manager flags, or ensure ${path} contains a valid ${chain} configuration`);
                                 process.exit(1);
                             }
                             const chainConfig = deployments.chains[chain]!;
