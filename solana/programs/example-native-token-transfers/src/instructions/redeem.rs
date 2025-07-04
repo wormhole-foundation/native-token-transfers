@@ -17,6 +17,8 @@ use crate::{
     transfer::Payload,
 };
 
+type ValidatedNTTTransceiverMessage = ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>;
+
 #[derive(Accounts)]
 pub struct Redeem<'info> {
     #[account(mut)]
@@ -46,8 +48,7 @@ pub struct Redeem<'info> {
     )]
     /// CHECK: `transceiver_message` has to be manually deserialized as Anchor
     /// `Account<T>` and `owner` constraints are mutually-exclusive
-    pub transceiver_message:
-        Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>>,
+    pub transceiver_message: Account<'info, ValidatedNTTTransceiverMessage>,
 
     #[account(
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver

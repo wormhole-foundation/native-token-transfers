@@ -35,6 +35,8 @@ impl ReplayProtection {
     pub const SEED_PREFIX: &'static [u8] = b"replay";
 }
 
+type PostedGovernanceMessageVaa = PostedVaa<GovernanceMessage>;
+
 #[derive(Accounts)]
 pub struct Governance<'info> {
     #[account(mut)]
@@ -54,7 +56,7 @@ pub struct Governance<'info> {
         constraint = *vaa.emitter_address() == GOVERNANCE_EMITTER.0 @ GovernanceError::InvalidGovernanceEmitter,
         constraint = vaa.payload.1.governance_program_id == crate::ID @ GovernanceError::InvalidGovernanceProgram,
     )]
-    pub vaa: Account<'info, PostedVaa<GovernanceMessage>>,
+    pub vaa: Account<'info, PostedGovernanceMessageVaa>,
 
     #[account(executable)]
     /// CHECK: This account is validated by Wormhole, not this program.
