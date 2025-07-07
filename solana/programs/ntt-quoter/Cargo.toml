@@ -13,6 +13,10 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
+idl-build = [
+  "anchor-lang/idl-build",
+  "example-native-token-transfers/idl-build"
+]
 
 mainnet = []
 solana-devnet = []
@@ -24,7 +28,6 @@ workspace = true
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
-solana-program.workspace = true
 cfg-if.workspace = true
 wormhole-io.workspace = true
 wormhole-solana-utils.workspace = true

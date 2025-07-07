@@ -26,7 +26,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
         Ok(())
     }
 
-    pub fn try_from(info: &UncheckedAccount, expected_owner: &Pubkey) -> Result<Self> {
+    pub fn try_from(info: &AccountInfo, expected_owner: &Pubkey) -> Result<Self> {
         if info.owner == &system_program::ID && info.lamports() == 0 {
             return Err(ErrorCode::AccountNotInitialized.into());
         }
@@ -38,7 +38,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
         ValidatedTransceiverMessage::try_deserialize(&mut data)
     }
 
-    pub fn from_chain(info: &UncheckedAccount) -> Result<ChainId> {
+    pub fn from_chain(info: &AccountInfo) -> Result<ChainId> {
         let data: &[u8] = &info.try_borrow_data().unwrap();
         Self::discriminator_check(data)?;
         Ok(ChainId {
@@ -48,7 +48,7 @@ impl<A: AnchorDeserialize + AnchorSerialize + Space + Clone> ValidatedTransceive
         })
     }
 
-    pub fn message(data: &[u8]) -> Result<TransceiverMessageDataBytes<A>> {
+    pub fn message(data: &[u8]) -> Result<TransceiverMessageDataBytes<'_, A>> {
         Self::discriminator_check(data)?;
         Ok(TransceiverMessageDataBytes::parse(&data[10..]))
     }

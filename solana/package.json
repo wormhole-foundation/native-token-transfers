@@ -49,8 +49,8 @@
     "tsx": "^4.7.2"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "0.29.0",
-    "@coral-xyz/borsh": "0.29.0",
+    "@coral-xyz/anchor": "0.31.1",
+    "@coral-xyz/borsh": "0.31.1",
     "@solana/spl-token": "0.4.0",
     "@solana/web3.js": "^1.95.8",
     "bn.js": "5.2.1",

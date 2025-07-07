@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 
 use anchor_lang::prelude::{Error, Id, Pubkey};
+use anchor_lang::solana_program::{bpf_loader_upgradeable::UpgradeableLoaderState, rent::Rent};
 use anchor_spl::token::{Mint, Token};
 use example_native_token_transfers::{
     instructions::{InitializeArgs, SetPeerArgs},
     transceivers::wormhole::SetTransceiverPeerArgs,
 };
 use ntt_messages::{chain_id::ChainId, mode::Mode};
-use solana_program::{bpf_loader_upgradeable::UpgradeableLoaderState, rent::Rent};
-use solana_program_runtime::log_collector::log::{trace, warn};
+use solana_log_collector::log::{trace, warn};
 use solana_program_test::{find_file, read_file, ProgramTest, ProgramTestContext};
 use solana_sdk::{
     account::Account, signature::Keypair, signer::Signer, system_instruction,

@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use anchor_lang::prelude::*;
 
 // TODO: is there a more elegant way of checking that these 3 features are mutually exclusive?
