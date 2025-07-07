@@ -134,9 +134,8 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
             true,
             tokenProgram
           );
-          const referrerAtaAccount = await this.connection.getAccountInfo(
-            referrerAta
-          );
+          const referrerAtaAccount =
+            await this.connection.getAccountInfo(referrerAta);
           if (!referrerAtaAccount) {
             message.instructions.push(
               createAssociatedTokenAccountIdempotentInstruction(

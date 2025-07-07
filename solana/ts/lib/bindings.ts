@@ -26,20 +26,20 @@ export namespace NttBindings {
   export type NativeTokenTransfer<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawExampleNativeTokenTransfers
     : V extends "2.0.0"
-    ? _2_0_0.RawExampleNativeTokenTransfers
-    : _3_0_0.RawExampleNativeTokenTransfers;
+      ? _2_0_0.RawExampleNativeTokenTransfers
+      : _3_0_0.RawExampleNativeTokenTransfers;
 
   export type Quoter<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawNttQuoter
     : V extends "2.0.0"
-    ? _2_0_0.RawNttQuoter
-    : _3_0_0.RawNttQuoter;
+      ? _2_0_0.RawNttQuoter
+      : _3_0_0.RawNttQuoter;
 
   export type Transceiver<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawExampleNativeTokenTransfers
     : V extends "2.0.0"
-    ? _2_0_0.RawExampleNativeTokenTransfers
-    : _3_0_0.RawNttTransceiver;
+      ? _2_0_0.RawExampleNativeTokenTransfers
+      : _3_0_0.RawNttTransceiver;
 
   type ProgramAccounts<V extends IdlVersion> = IdlAccounts<
     NttBindings.NativeTokenTransfer<V>
