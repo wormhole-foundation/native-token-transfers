@@ -61,10 +61,13 @@ WORKDIR /app
 RUN apk add --no-cache make python3 gcc g++
 
 COPY tsconfig.json tsconfig.json
+COPY tsconfig.cjs.json tsconfig.cjs.json
+COPY tsconfig.esm.json tsconfig.esm.json
 COPY package.json package.json
 COPY package-lock.json package-lock.json
 COPY sdk sdk
 RUN npm ci
+RUN npm run build
 
 WORKDIR /app/solana
 COPY solana/ts ts
