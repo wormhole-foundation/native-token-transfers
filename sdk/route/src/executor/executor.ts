@@ -97,7 +97,7 @@ export namespace NttExecutorRoute {
 
   export type TransferReceipt<
     SC extends Chain = Chain,
-    DC extends Chain = Chain
+    DC extends Chain = Chain,
   > = _TransferReceipt<NttRoute.ManualAttestationReceipt, SC, DC> & {
     params: ValidatedParams;
   };
