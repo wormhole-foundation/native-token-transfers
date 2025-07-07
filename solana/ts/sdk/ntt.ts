@@ -52,9 +52,10 @@ import { NTT, NttQuoter } from "../lib/index.js";
 import { parseVersion } from "../lib/utils.js";
 
 export class SolanaNttWormholeTransceiver<
-  N extends Network,
-  C extends SolanaChains
-> implements
+    N extends Network,
+    C extends SolanaChains,
+  >
+  implements
     WormholeNttTransceiver<N, C>,
     SolanaNttTransceiver<N, C, WormholeNttTransceiver.VAA>
 {

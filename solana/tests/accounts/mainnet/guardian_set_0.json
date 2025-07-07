@@ -2,10 +2,7 @@
   "pubkey": "DS7qfSAgYsonPpKoAjcGhX9VFjXdGkiHjEDkTidf8H2P",
   "account": {
     "lamports": 21141440,
-    "data": [
-      "AAAAAAEAAAC++kKdV80Yt/ik2RotqatK8F0PvkPJm2EAAAAA",
-      "base64"
-    ],
+    "data": ["AAAAAAEAAAC++kKdV80Yt/ik2RotqatK8F0PvkPJm2EAAAAA", "base64"],
     "owner": "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth",
     "executable": false,
     "rentEpoch": 18446744073709551615,
