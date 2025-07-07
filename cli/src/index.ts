@@ -2430,8 +2430,9 @@ function checkSolanaVersion(pwd: string): void {
 
         const requiredVersion = versionMatch[1];
 
-        // Get current Solana version
+        // Get current Solana version and detect client type
         let currentVersion: string;
+        let clientType: 'agave' | 'solanalabs';
         try {
             const output = execSync('solana --version', { encoding: 'utf8', stdio: 'pipe' });
             const versionMatch = output.match(/solana-cli (\d+\.\d+\.\d+)/);
@@ -2440,6 +2441,16 @@ function checkSolanaVersion(pwd: string): void {
                 process.exit(1);
             }
             currentVersion = versionMatch[1];
+
+            // Detect client type
+            if (output.includes('Agave')) {
+                clientType = 'agave';
+            } else if (output.includes('SolanaLabs')) {
+                clientType = 'solanalabs';
+            } else {
+                // Default to agave if we can't detect
+                clientType = 'agave';
+            }
         } catch (error) {
             console.error(chalk.red("Error: solana CLI not found. Please install the Solana toolchain."));
             console.error(chalk.yellow("Install with: sh -c \"$(curl -sSfL https://release.anza.xyz/stable/install)\""));
@@ -2447,11 +2458,24 @@ function checkSolanaVersion(pwd: string): void {
         }
 
         if (currentVersion !== requiredVersion) {
-            console.error(chalk.red(`Solana version mismatch!`));
-            console.error(chalk.red(`  Required: ${requiredVersion} (from Anchor.toml)`));
-            console.error(chalk.red(`  Current:  ${currentVersion}`));
-            console.error(chalk.yellow(`\nTo fix this, run: agave-install init ${requiredVersion}`));
-            process.exit(1);
+            console.log(chalk.yellow(`Solana version mismatch detected:`));
+            console.log(chalk.yellow(`  Required: ${requiredVersion} (from Anchor.toml)`));
+            console.log(chalk.yellow(`  Current:  ${currentVersion}`));
+            console.log(chalk.yellow(`\nSwitching to required version...`));
+
+            // Run the appropriate version switch command
+            const installCommand = clientType === 'agave'
+                ? `agave-install init ${requiredVersion}`
+                : `solana-install init ${requiredVersion}`;
+
+            try {
+                execSync(installCommand, { stdio: 'inherit' });
+                console.log(chalk.green(`Successfully switched to Solana version ${requiredVersion}`));
+            } catch (error) {
+                console.error(chalk.red(`Failed to switch Solana version using ${installCommand}`));
+                console.error(chalk.red(`Please run manually: ${installCommand}`));
+                process.exit(1);
+            }
         }
     } catch (error) {
         if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
