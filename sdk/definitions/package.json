@@ -46,7 +46,8 @@
     "build": "npm run build:esm && npm run build:cjs",
     "rebuild": "npm run clean && npm run build",
     "clean": "rm -rf ./dist",
-    "test": "jest --config ./jest.config.ts"
+    "test": "jest --config ./jest.config.ts",
+    "prettier": "prettier --write ./src ./__tests__"
   },
   "peerDependencies": {
     "@wormhole-foundation/sdk-base": "^3.8.8",
