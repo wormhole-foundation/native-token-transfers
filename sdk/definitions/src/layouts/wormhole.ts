@@ -5,11 +5,11 @@ import type {
 import { transceiverMessageLayout } from "./transceiver.js";
 
 export type WormholeTransceiverMessage<
-  MP extends CustomizableBytes = undefined
+  MP extends CustomizableBytes = undefined,
 > = LayoutToType<ReturnType<typeof wormholeTransceiverMessageLayout<MP>>>;
 
 export const wormholeTransceiverMessageLayout = <
-  MP extends CustomizableBytes = undefined
+  MP extends CustomizableBytes = undefined,
 >(
   nttManagerPayload?: MP
 ) =>
