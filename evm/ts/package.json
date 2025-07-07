@@ -41,7 +41,8 @@
     "generate:slim": "ABI_VERSION=`tsx scripts/readVersion.ts` && typechain --node16-modules --target ethers-v6 --out-dir src/ethers-contracts/$ABI_VERSION '../out/?(WormholeTransceiver.sol|NttManager.sol)/*.json'",
     "generate": "npm run generate:slim",
     "build:contracts": "cd ../.. && make build-evm-prod",
-    "test": "jest --config ./jest.config.ts"
+    "test": "jest --config ./jest.config.ts",
+    "prettier": "prettier --write ./src ./__tests__"
   },
   "dependencies": {
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",

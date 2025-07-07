@@ -4,7 +4,8 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prettier": "prettier --write ./src ./test"
   },
   "devDependencies": {
     "@types/bun": "latest",
