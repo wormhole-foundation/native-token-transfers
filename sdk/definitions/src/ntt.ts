@@ -360,7 +360,7 @@ export interface Ntt<N extends Network, C extends Chain> {
 export interface NttTransceiver<
   N extends Network,
   C extends Chain,
-  A extends Ntt.Attestation
+  A extends Ntt.Attestation,
 > {
   getTransceiverType(payer?: AccountAddress<C>): Promise<string>;
 
@@ -422,7 +422,7 @@ export interface WormholeNttTransceiver<N extends Network, C extends Chain>
 export interface SolanaNttTransceiver<
   N extends Network,
   C extends Chain,
-  A extends Ntt.Attestation
+  A extends Ntt.Attestation,
 > extends NttTransceiver<N, C, A> {
   programId: PublicKey;
 }
@@ -430,7 +430,7 @@ export interface SolanaNttTransceiver<
 export interface EvmNttTransceiver<
   N extends Network,
   C extends Chain,
-  A extends Ntt.Attestation
+  A extends Ntt.Attestation,
 > extends NttTransceiver<N, C, A> {}
 
 declare module "@wormhole-foundation/sdk-definitions" {
