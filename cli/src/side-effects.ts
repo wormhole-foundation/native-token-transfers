@@ -27,12 +27,14 @@ globalThis.console.warn = function (x: string) {
 
 // Ensure BigInt can be serialized to json
 //
-// eslint-disable-next-line @typescript-eslint/no-redeclare
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface BigInt {
   /** Convert to BigInt to string form in JSON.stringify */
   toJSON: () => string;
 }
 // Without this JSON.stringify() blows up
+/* eslint-disable */
 (BigInt.prototype as any).toJSON = function () {
   return this.toString();
 };
+/* eslint-enable */

@@ -1,7 +1,6 @@
-import solana from "@wormhole-foundation/sdk/platforms/solana";
-import * as myEvmSigner from "./evmsigner.js";
+import { Keypair } from "@solana/web3.js";
+import type { ChainContext } from "@wormhole-foundation/sdk";
 import {
-  ChainContext,
   Wormhole,
   chainToPlatform,
   type Chain,
@@ -9,9 +8,11 @@ import {
   type Network,
   type Signer,
 } from "@wormhole-foundation/sdk";
-import { Keypair } from "@solana/web3.js";
-import fs from "fs";
 import { encoding } from "@wormhole-foundation/sdk-connect";
+import solana from "@wormhole-foundation/sdk/platforms/solana";
+import type { Provider } from "ethers";
+import fs from "fs";
+import * as myEvmSigner from "./evmsigner.js";
 
 export type SignerType = "privateKey" | "ledger";
 
@@ -55,12 +56,16 @@ export async function getSigner<N extends Network, C extends Chain>(
   switch (platform) {
     case "Solana":
       switch (type) {
-        case "privateKey":
+        case "privateKey": {
           let privateKey: string;
           if (filePath) {
             // Read the private key from the file if filePath is provided
             const keyPair = Keypair.fromSecretKey(
-              new Uint8Array(JSON.parse(fs.readFileSync(filePath, "utf8")))
+              new Uint8Array(
+                JSON.parse(
+                  fs.readFileSync(filePath, "utf8")
+                ) as Iterable<number>
+              )
             );
             privateKey = encoding.b58.encode(keyPair.secretKey);
           } else {
@@ -77,6 +82,7 @@ export async function getSigner<N extends Network, C extends Chain>(
             debug: false,
           });
           break;
+        }
         case "ledger":
           throw new Error("Ledger not yet supported on Solana");
         default:
@@ -91,7 +97,7 @@ export async function getSigner<N extends Network, C extends Chain>(
             throw new Error("ETH_PRIVATE_KEY env var not set");
           }
           signer = await myEvmSigner.getEvmSigner(
-            await chain.getRpc(),
+            (await chain.getRpc()) as Provider,
             source,
             { debug: true }
           );

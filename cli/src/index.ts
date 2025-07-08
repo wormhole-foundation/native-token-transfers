@@ -1,38 +1,27 @@
 #!/usr/bin/env bun
-import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
-import evm from "@wormhole-foundation/sdk/platforms/evm";
-import solana from "@wormhole-foundation/sdk/platforms/solana";
 import {
   encoding,
-  type RpcConnection,
-  type UnsignedTransaction,
   type WormholeConfigOverrides,
 } from "@wormhole-foundation/sdk-connect";
+import evm from "@wormhole-foundation/sdk/platforms/evm";
+import solana from "@wormhole-foundation/sdk/platforms/solana";
 import { execSync } from "child_process";
-import * as myEvmSigner from "./evmsigner.js";
+import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
 
 import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with { type: "file" };
 import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with { type: "file" };
 
-import chalk from "chalk";
-import yargs from "yargs";
-import { $ } from "bun";
-import { hideBin } from "yargs/helpers";
+import * as spl from "@solana/spl-token";
+import type { AddressLookupTableAccount, Connection } from "@solana/web3.js";
 import {
-  AddressLookupTableAccount,
-  Connection,
   Keypair,
   PublicKey,
   SendTransactionError,
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import * as spl from "@solana/spl-token";
-import fs from "fs";
-import readline from "readline";
+import type { ChainContext, UniversalAddress } from "@wormhole-foundation/sdk";
 import {
-  ChainContext,
-  UniversalAddress,
   Wormhole,
   assertChain,
   canonicalAddress,
@@ -49,27 +38,43 @@ import {
   type Network,
   type Platform,
 } from "@wormhole-foundation/sdk";
-import "@wormhole-foundation/sdk-evm-ntt";
-import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import type {
   Ntt,
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-
+import type { EvmChains } from "@wormhole-foundation/sdk-evm";
+import "@wormhole-foundation/sdk-evm-ntt";
+import type {
+  EvmNtt,
+  EvmNttWormholeTranceiver,
+} from "@wormhole-foundation/sdk-evm-ntt";
 import {
-  type SolanaChains,
   SolanaAddress,
+  type SolanaChains,
 } from "@wormhole-foundation/sdk-solana";
-
+import "@wormhole-foundation/sdk-solana-ntt";
+import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
+import { $ } from "bun";
+import chalk from "chalk";
+import { Interface, ethers } from "ethers";
+import fs from "fs";
+import readline from "readline";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+import * as configuration from "./configuration";
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
+import { newSignSendWaiter } from "./signSendWait.js";
+import { getAvailableVersions, getGitTagName } from "./tag";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
 const EXCLUDED_DIFF_PATHS = ["transceivers.wormhole.executor"];
 
 // Helper functions for nested object access
+// TODO: fix eslint errors
+/* eslint-disable */
 function getNestedValue(obj: any, path: string[]): any {
   return path.reduce((current, key) => current?.[key], obj);
 }
@@ -82,20 +87,7 @@ function setNestedValue(obj: any, path: string[], value: any): void {
   }, obj);
   target[lastKey] = value;
 }
-import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
-import type {
-  EvmNtt,
-  EvmNttWormholeTranceiver,
-} from "@wormhole-foundation/sdk-evm-ntt";
-import type {
-  EvmChains,
-  EvmNativeSigner,
-  EvmUnsignedTransaction,
-} from "@wormhole-foundation/sdk-evm";
-import { getAvailableVersions, getGitTagName } from "./tag";
-import * as configuration from "./configuration";
-import { AbiCoder, ethers, Interface } from "ethers";
-import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
+/* eslint-enable */
 
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
@@ -107,7 +99,9 @@ const overrides: WormholeConfigOverrides<Network> = (function () {
   // read overrides.json file if exists
   if (fs.existsSync("overrides.json")) {
     console.error(chalk.yellow("Using overrides.json"));
-    return JSON.parse(fs.readFileSync("overrides.json").toString());
+    return JSON.parse(
+      fs.readFileSync("overrides.json").toString()
+    ) as WormholeConfigOverrides<Network>;
   } else {
     return {};
   }
@@ -274,6 +268,7 @@ async function withCustomEvmDeployerScript<A>(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
 yargs(hideBin(process.argv))
   .wrap(Math.min(process.stdout.columns || 120, 160)) // Use terminal width, but no more than 160 characters
   .scriptName("ntt")
@@ -465,7 +460,7 @@ yargs(hideBin(process.argv))
       let mode = argv["mode"] as Ntt.Mode | undefined;
       const signerType = argv["signer-type"] as SignerType;
       const token = argv["token"];
-      const network = deployments.network as Network;
+      const network = deployments.network;
 
       if (chain in deployments.chains) {
         console.error(`Chain ${chain} already exists in ${path}`);
@@ -522,7 +517,7 @@ yargs(hideBin(process.argv))
         argv["solana-priority-fee"]
       );
 
-      const [config, _ctx, _ntt, decimals] = await pullChainConfig(
+      const [config, , , decimals] = await pullChainConfig(
         network,
         deployedManager,
         overrides
@@ -583,7 +578,7 @@ yargs(hideBin(process.argv))
       const deployments: Config = loadConfig(path);
       const chain: Chain = argv["chain"];
       const signerType = argv["signer-type"] as SignerType;
-      const network = deployments.network as Network;
+      const network = deployments.network;
 
       if (!(chain in deployments.chains)) {
         console.error(`Chain ${chain} not found in ${path}`);
@@ -625,7 +620,7 @@ yargs(hideBin(process.argv))
       );
       const ch = wh.getChain(chain);
 
-      const [_, ctx, ntt] = await pullChainConfig(
+      const [, ctx, ntt] = await pullChainConfig(
         network,
         { chain, address: toUniversal(chain, chainConfig.manager) },
         overrides
@@ -712,12 +707,13 @@ yargs(hideBin(process.argv))
 
       const ntts: Partial<{ [C in Chain]: Ntt<Network, C> }> = {};
 
-      const [config, _ctx, ntt, _decimals] = await pullChainConfig(
+      const [config, , ntt] = await pullChainConfig(
         network,
         { chain, address: universalManager },
         overrides
       );
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
       ntts[chain] = ntt as any;
 
       const configs: Partial<{ [C in Chain]: ChainConfig }> = {
@@ -746,11 +742,12 @@ yargs(hideBin(process.argv))
         const address: UniversalAddress =
           peer.address.address.toUniversalAddress();
         try {
-          const [peerConfig, _ctx, peerNtt] = await pullChainConfig(
+          const [peerConfig, , peerNtt] = await pullChainConfig(
             network,
             { chain: c, address },
             overrides
           );
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
           ntts[c] = peerNtt as any;
           configs[c] = peerConfig;
         } catch (e) {
@@ -795,7 +792,7 @@ yargs(hideBin(process.argv))
           "$0 init Mainnet --path custom.json",
           "Initialize a new deployment file for Mainnet with a custom file name"
         ),
-    async (argv) => {
+    (argv) => {
       if (!isNetwork(argv["network"])) {
         console.error("Invalid network");
         process.exit(1);
@@ -834,7 +831,7 @@ yargs(hideBin(process.argv))
     async (argv) => {
       const deployments: Config = loadConfig(argv["path"]);
       const verbose = argv["verbose"];
-      const network = deployments.network as Network;
+      const network = deployments.network;
       const path = argv["path"];
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose);
@@ -854,6 +851,7 @@ yargs(hideBin(process.argv))
           const preservedConfig = { ...deployment.config.remote! };
           for (const excludedPath of EXCLUDED_DIFF_PATHS) {
             const pathParts = excludedPath.split(".");
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const localValue = getNestedValue(
               deployments.chains[chain]!,
               pathParts
@@ -909,7 +907,7 @@ yargs(hideBin(process.argv))
     async (argv) => {
       const deployments: Config = loadConfig(argv["path"]);
       const verbose = argv["verbose"];
-      const network = deployments.network as Network;
+      const network = deployments.network;
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose);
       const signerType = argv["signer-type"] as SignerType;
@@ -938,7 +936,7 @@ yargs(hideBin(process.argv))
 
       const nttOwnerForChain: Record<string, string | undefined> = {};
 
-      for (const [chain, _] of Object.entries(deps)) {
+      for (const [chain] of Object.entries(deps)) {
         if (shouldSkipChain(chain)) {
           console.log(`skipping registration for chain ${chain}`);
           continue;
@@ -961,7 +959,7 @@ yargs(hideBin(process.argv))
             );
             if (contractCode.length <= 2) {
               console.error(
-                `cannot update ${chain} because the configured private key does not correspond to owner ${contractOwner.address}`
+                `cannot update ${chain} because the configured private key does not correspond to owner ${contractOwner.address.toString()}`
               );
               continue;
             } else {
@@ -1056,7 +1054,9 @@ yargs(hideBin(process.argv))
           });
           try {
             await signSendWait(ctx, tx, signer.signer);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (e: any) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             console.error(e.logs);
           }
         }
@@ -1070,7 +1070,9 @@ yargs(hideBin(process.argv))
           const tx = solanaNtt.initializeOrUpdateLUT({ payer, owner: payer });
           try {
             await signSendWait(ctx, tx, signer.signer);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (e: any) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             console.error(e.logs);
           }
         }
@@ -1091,7 +1093,7 @@ yargs(hideBin(process.argv))
         assertChain(chain);
         const signSendWaitFunc = newSignSendWaiter(nttOwnerForChain[chain]);
         await pushDeployment(
-          deployment as any,
+          deployment,
           signSendWaitFunc,
           signerType,
           !argv["skip-verify"],
@@ -1122,14 +1124,18 @@ yargs(hideBin(process.argv))
       // TODO: I don't like the variable names here
       const deployments: Config = loadConfig(path);
 
-      const network = deployments.network as Network;
+      const network = deployments.network;
 
-      let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
+      const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose);
 
       let fixable = 0;
 
-      const extraInfo: any = {};
+      const extraInfo: Partial<{
+        [C in Chain]:
+          | Awaited<ReturnType<typeof getImmutables>>
+          | ReturnType<typeof getPdas>;
+      }> = {};
 
       if (checkConfigErrors(deps)) {
         console.error(
@@ -1155,7 +1161,7 @@ yargs(hideBin(process.argv))
           if (immutables) {
             extraInfo[chain] = immutables;
           }
-          const pdas = await getPdas(chain, deployment.ntt);
+          const pdas = getPdas(chain, deployment.ntt);
           if (pdas) {
             extraInfo[chain] = pdas;
           }
@@ -1256,7 +1262,9 @@ yargs(hideBin(process.argv))
         (argv) => {
           const keypair = Keypair.fromSecretKey(
             new Uint8Array(
-              JSON.parse(fs.readFileSync(argv["keypair"]).toString())
+              JSON.parse(
+                fs.readFileSync(argv["keypair"]).toString()
+              ) as Iterable<number>
             )
           );
           console.log(encoding.b58.encode(keypair.secretKey));
@@ -1322,7 +1330,6 @@ yargs(hideBin(process.argv))
             .positional("multisigMemberPubkey", {
               describe:
                 "public keys of the members that can independently mint",
-              type: "string",
               demandOption: true,
             })
             .option("path", options.deploymentPath)
@@ -1339,7 +1346,7 @@ yargs(hideBin(process.argv))
           const path = argv["path"];
           const deployments: Config = loadConfig(path);
           const chain: Chain = "Solana";
-          const network = deployments.network as Network;
+          const network = deployments.network;
 
           if (!fs.existsSync(argv["payer"])) {
             console.error("Payer not found. Specify with --payer");
@@ -1347,7 +1354,9 @@ yargs(hideBin(process.argv))
           }
           const payerKeypair = Keypair.fromSecretKey(
             new Uint8Array(
-              JSON.parse(fs.readFileSync(argv["payer"]).toString())
+              JSON.parse(
+                fs.readFileSync(argv["payer"]).toString()
+              ) as Iterable<number>
             )
           );
 
@@ -1362,7 +1371,7 @@ yargs(hideBin(process.argv))
             overrides
           );
           const ch = wh.getChain(chain);
-          const connection = await ch.getRpc();
+          const connection = (await ch.getRpc()) as Connection;
           const [, , ntt] = await pullChainConfig(
             network,
             { chain, address: toUniversal(chain, chainConfig.manager) },
@@ -1386,9 +1395,13 @@ yargs(hideBin(process.argv))
           try {
             // use same tokenProgram as token to create multisig
             const tokenProgram = (await solanaNtt.getConfig()).tokenProgram;
-            const additionalMemberPubkeys = (
-              argv["multisigMemberPubkey"] as any
-            ).map((key: string) => new PublicKey(key));
+            const additionalMemberPubkeys = Array.isArray(
+              argv["multisigMemberPubkey"]
+            )
+              ? argv["multisigMemberPubkey"].map(
+                  (key: string) => new PublicKey(key)
+                )
+              : [];
             const multisig = await spl.createMultisig(
               connection,
               payerKeypair,
@@ -1438,7 +1451,7 @@ yargs(hideBin(process.argv))
           const path = argv["path"];
           const deployments: Config = loadConfig(path);
           const chain: Chain = "Solana";
-          const network = deployments.network as Network;
+          const network = deployments.network;
 
           if (!fs.existsSync(argv["payer"])) {
             console.error("Payer not found. Specify with --payer");
@@ -1446,7 +1459,9 @@ yargs(hideBin(process.argv))
           }
           const payerKeypair = Keypair.fromSecretKey(
             new Uint8Array(
-              JSON.parse(fs.readFileSync(argv["payer"]).toString())
+              JSON.parse(
+                fs.readFileSync(argv["payer"]).toString()
+              ) as Iterable<number>
             )
           );
 
@@ -1461,7 +1476,7 @@ yargs(hideBin(process.argv))
             overrides
           );
           const ch = wh.getChain(chain);
-          const connection: Connection = await ch.getRpc();
+          const connection = (await ch.getRpc()) as Connection;
           const [, , ntt] = await pullChainConfig(
             network,
             { chain, address: toUniversal(chain, chainConfig.manager) },
@@ -1756,11 +1771,12 @@ async function upgrade<N extends Network, C extends Chain>(
   const platform = chainToPlatform(ctx.chain);
   const worktree = toVersion ? createWorkTree(platform, toVersion) : ".";
   switch (platform) {
-    case "Evm":
+    case "Evm": {
       const evmNtt = ntt as EvmNtt<N, EvmChains>;
       const evmCtx = ctx as ChainContext<N, EvmChains>;
       return upgradeEvm(worktree, evmNtt, evmCtx, signerType, evmVerify);
-    case "Solana":
+    }
+    case "Solana": {
       if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
         console.error("Payer not found. Specify with --payer");
         process.exit(1);
@@ -1776,6 +1792,7 @@ async function upgrade<N extends Network, C extends Chain>(
         solanaProgramKeyPath,
         solanaBinaryPath
       );
+    }
     default:
       throw new Error("Unsupported platform");
   }
@@ -1814,6 +1831,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
   }
 
   console.log("Upgrading manager...");
+  // eslint-disable-next-line @typescript-eslint/require-await
   await withCustomEvmDeployerScript(pwd, async () => {
     execSync(
       `forge script --via-ir script/DeployWormholeNtt.s.sol \
@@ -1888,7 +1906,7 @@ async function deploy<N extends Network, C extends Chain>(
         evmVerify,
         executor
       );
-    case "Solana":
+    case "Solana": {
       if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
         console.error("Payer not found. Specify with --payer");
         process.exit(1);
@@ -1906,6 +1924,7 @@ async function deploy<N extends Network, C extends Chain>(
         solanaBinaryPath,
         solanaPriorityFee
       )) as ChainAddress<C>;
+    }
     default:
       throw new Error("Unsupported platform");
   }
@@ -1949,7 +1968,7 @@ async function deployEvm<N extends Network, C extends Chain>(
   const provider = new ethers.JsonRpcProvider(rpc);
   const abi = ["function decimals() external view returns (uint8)"];
   const tokenContract = new ethers.Contract(token, abi, provider);
-  const decimals: number = await tokenContract.decimals();
+  const decimals = (await tokenContract.decimals()) as number;
 
   // TODO: should actually make these ENV variables.
   const sig = "run(address,address,address,address,uint8,uint8)";
@@ -1980,6 +1999,7 @@ async function deployEvm<N extends Network, C extends Chain>(
     const simulateArg = simulate ? "" : "--skip-simulation";
     const effectiveRelayer =
       relayer || "0x0000000000000000000000000000000000000000";
+    // eslint-disable-next-line @typescript-eslint/require-await
     await withCustomEvmDeployerScript(pwd, async () => {
       try {
         execSync(
@@ -1995,7 +2015,7 @@ ${simulateArg} \
             stdio: "inherit",
           }
         );
-      } catch (error) {
+      } catch {
         console.error("Failed to deploy manager");
         // NOTE: we don't exit here. instead, we check if the manager was
         // deployed successfully (below) and proceed if it was.
@@ -2090,7 +2110,11 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     }
     programKeypairPath = managerKeyPath;
     programKeypair = Keypair.fromSecretKey(
-      new Uint8Array(JSON.parse(fs.readFileSync(managerKeyPath).toString()))
+      new Uint8Array(
+        JSON.parse(
+          fs.readFileSync(managerKeyPath).toString()
+        ) as Iterable<number>
+      )
     );
   } else {
     const programKeyJson = `${existingProgramId}.json`;
@@ -2106,7 +2130,11 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     }
     programKeypairPath = programKeyJson;
     programKeypair = Keypair.fromSecretKey(
-      new Uint8Array(JSON.parse(fs.readFileSync(programKeyJson).toString()))
+      new Uint8Array(
+        JSON.parse(
+          fs.readFileSync(programKeyJson).toString()
+        ) as Iterable<number>
+      )
     );
     if (existingProgramId !== programKeypair.publicKey.toBase58()) {
       console.error(
@@ -2155,7 +2183,9 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     .emitterAccount()
     .toBase58();
   const payerKeypair = Keypair.fromSecretKey(
-    new Uint8Array(JSON.parse(fs.readFileSync(payer).toString()))
+    new Uint8Array(
+      JSON.parse(fs.readFileSync(payer).toString()) as Iterable<number>
+    )
   );
 
   // this is not super pretty... I want to initialise the 'ntt' object, but
@@ -2184,7 +2214,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
   // get the mint authority of 'token'
   const tokenMint = new PublicKey(token);
   // const tokenInfo = await ch.connection.getTokenInfo(tokenMint);
-  const connection: Connection = await ch.getRpc();
+  const connection = (await ch.getRpc()) as Connection;
   const mintInfo = await connection.getAccountInfo(tokenMint);
   if (!mintInfo) {
     console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
@@ -2245,7 +2275,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
       binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
     }
 
-    await checkSolanaBinary(
+    checkSolanaBinary(
       binary,
       wormhole,
       providedProgramId,
@@ -2257,7 +2287,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
       execSync(`solana-keygen new -o buffer.json --no-bip39-passphrase`);
     } else {
       console.info("buffer.json already exists.");
-      askForConfirmation(
+      await askForConfirmation(
         "Do you want continue an exiting deployment? If not, delete the buffer.json file and run the command again."
       );
     }
@@ -2320,7 +2350,9 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 
     try {
       await signSendWait(ch, tx, signer.signer);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       console.error(e.logs);
     }
   }
@@ -2338,7 +2370,7 @@ async function missingConfigs(
     let count = 0;
     assertChain(fromChain);
 
-    let missing: MissingImplicitConfig = {
+    const missing: MissingImplicitConfig = {
       managerPeers: [],
       transceiverPeers: [],
       evmChains: [],
@@ -2408,10 +2440,8 @@ async function missingConfigs(
         });
       } else {
         if (
-          // @ts-ignore TODO
-          !Buffer.from(peer.address.address.address).equals(
-            // @ts-ignore TODO
-            Buffer.from(to.manager.address.address)
+          !Buffer.from(peer.address.address.address.toString()).equals(
+            Buffer.from(to.manager.address.address.toString())
           )
         ) {
           console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
@@ -2469,10 +2499,10 @@ async function missingConfigs(
         missing.transceiverPeers.push(to.whTransceiver.getAddress());
       } else {
         if (
-          // @ts-ignore TODO
-          !Buffer.from(transceiverPeer.address.address).equals(
-            // @ts-ignore TODO
-            Buffer.from(to.whTransceiver.getAddress().address.address)
+          !Buffer.from(transceiverPeer.address.address.toString()).equals(
+            Buffer.from(
+              to.whTransceiver.getAddress().address.address.toString()
+            )
           )
         ) {
           console.error(
@@ -2517,7 +2547,7 @@ async function pushDeployment<C extends Chain>(
 
   const signer = await getSigner(ctx, signerType, undefined, filePath);
 
-  let txs = [];
+  const txs = [];
   // we perform this last to make sure we don't accidentally lock ourselves out
   let updateOwner: ReturnType<typeof deployment.ntt.setOwner> | undefined =
     undefined;
@@ -2529,23 +2559,23 @@ async function pushDeployment<C extends Chain>(
     } else if (k === "owner") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
-        diff[k]?.push!
+        diff[k]!.push!
       );
       updateOwner = deployment.ntt.setOwner(address, signer.address.address);
     } else if (k === "pauser") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
-        diff[k]?.push!
+        diff[k]!.push!
       );
       txs.push(deployment.ntt.setPauser(address, signer.address.address));
     } else if (k === "paused") {
-      if (diff[k]?.push === true) {
+      if (diff[k]!.push === true) {
         txs.push(deployment.ntt.pause(signer.address.address));
       } else {
         txs.push(deployment.ntt.unpause(signer.address.address));
       }
     } else if (k === "limits") {
-      const newOutbound = diff[k]?.outbound?.push;
+      const newOutbound = diff[k]!.outbound?.push;
       if (newOutbound) {
         // TODO: verify amount has correct number of decimals?
         // remove "." from string and convert to bigint
@@ -2557,7 +2587,7 @@ async function pushDeployment<C extends Chain>(
           )
         );
       }
-      const inbound = diff[k]?.inbound;
+      const inbound = diff[k]!.inbound;
       if (inbound) {
         for (const chain of Object.keys(inbound)) {
           assertChain(chain);
@@ -2633,7 +2663,7 @@ async function pullDeployments(
   network: Network,
   verbose: boolean
 ): Promise<Partial<{ [C in Chain]: Deployment<Chain> }>> {
-  let deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
+  const deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
 
   for (const [chain, deployment] of Object.entries(deployments.chains)) {
     if (verbose) {
@@ -2730,7 +2760,7 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     token: addresses.token!,
     transceivers: {
       threshold,
-      wormhole: { address: addresses.transceiver!.wormhole! },
+      wormhole: { address: addresses.transceiver!.wormhole },
     },
     limits: {
       outbound: outboundLimitDecimals,
@@ -2781,10 +2811,7 @@ async function getImmutables<N extends Network, C extends Chain>(
   };
 }
 
-async function getPdas<N extends Network, C extends Chain>(
-  chain: C,
-  ntt: Ntt<N, C>
-) {
+function getPdas<N extends Network, C extends Chain>(chain: C, ntt: Ntt<N, C>) {
   const platform = chainToPlatform(chain);
   if (platform !== "Solana") {
     return null;
@@ -2947,7 +2974,7 @@ async function pullInboundLimits(
   }
 }
 
-async function checkSolanaBinary(
+function checkSolanaBinary(
   binary: string,
   wormhole: string,
   providedProgramId: string,
@@ -3015,7 +3042,7 @@ function checkAnchorVersion() {
   }
   const version = execSync("anchor --version").toString().trim();
   // version looks like "anchor-cli 0.14.0"
-  const [_, v] = version.split(" ");
+  const [, v] = version.split(" ");
   if (v !== expected) {
     console.error(`Anchor CLI version must be ${expected} but is ${v}`);
     process.exit(1);
@@ -3027,7 +3054,7 @@ function loadConfig(path: string): Config {
     console.error(`Create with 'ntt init' or specify another file with --path`);
     process.exit(1);
   }
-  const deployments: Config = JSON.parse(fs.readFileSync(path).toString());
+  const deployments = JSON.parse(fs.readFileSync(path).toString()) as Config;
   return deployments;
 }
 

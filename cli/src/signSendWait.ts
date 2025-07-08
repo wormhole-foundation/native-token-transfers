@@ -1,19 +1,18 @@
+import {
+  chainToPlatform,
+  signSendWait,
+  type Chain,
+  type ChainContext,
+  type Network,
+  type Signer,
+  type TransactionId,
+  type UnsignedTransaction,
+} from "@wormhole-foundation/sdk";
 import type {
   EvmChains,
   EvmNativeSigner,
   EvmUnsignedTransaction,
 } from "@wormhole-foundation/sdk-evm";
-import {
-  type Network,
-  type Chain,
-  type ChainContext,
-  type UnsignedTransaction,
-  type TransactionId,
-  type Signer,
-  type AccountAddress,
-  signSendWait,
-  chainToPlatform,
-} from "@wormhole-foundation/sdk";
 import { Interface } from "ethers";
 
 export const signSendWaitEvmSpecialOwner = async <N extends Network>(
@@ -71,8 +70,10 @@ export const signSendWaitWithOverride = async <
     // unsafe casts here but we should know by the platform check.
     return signSendWaitEvmSpecialOwner(
       ctx,
+      /* eslint-disable */
       xfer as any,
       signer as any,
+      /* eslint-enable */
       nttOwner.toString()
     );
   }

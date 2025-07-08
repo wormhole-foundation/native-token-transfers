@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "lint": "npm run prettier && eslint --fix ./src",
     "prettier": "prettier --write ./src"
   },
   "devDependencies": {

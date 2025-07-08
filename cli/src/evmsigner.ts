@@ -21,8 +21,8 @@ import {
 } from "@wormhole-foundation/sdk-connect";
 import {
   EvmPlatform,
-  type EvmChains,
   _platform,
+  type EvmChains,
 } from "@wormhole-foundation/sdk-evm";
 import type {
   Signer as EthersSigner,
@@ -75,7 +75,7 @@ export async function getEvmSignerForSigner(
   signer: EthersSigner
 ): Promise<Signer> {
   if (!signer.provider) throw new Error("Signer must have a provider");
-  return getEvmSigner(signer.provider!, signer, {});
+  return getEvmSigner(signer.provider, signer, {});
 }
 
 export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
@@ -145,29 +145,18 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
     // TODO: DIFF ENDS HERE
 
     for (const txn of tx) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { transaction, description } = txn;
       if (this.opts?.debug)
         console.log(`Signing: ${description} for ${this.address()}`);
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const t: TransactionRequest = {
         ...transaction,
         ...gasOpts,
         from: this.address(),
         nonce: await this._signer.getNonce(),
       };
-
-      // try {
-      //   const estimate = await this._signer.provider!.estimateGas(t);
-      //   t.gasLimit = estimate + estimate / 10n; // Add 10% buffer
-      //   if (this.opts?.maxGasLimit && t.gasLimit > this.opts?.maxGasLimit) {
-      //     throw new Error(
-      //       `Gas limit ${t.gasLimit} exceeds maxGasLimit ${this.opts?.maxGasLimit}`,
-      //     );
-      //   }
-      // } catch (e) {
-      //   console.info('Failed to estimate gas for transaction: ', e);
-      //   console.info('Using gas limit: ', t.gasLimit);
-      // }
 
       signed.push(await this._signer.signTransaction(t));
     }
@@ -186,9 +175,11 @@ export function isEvmNativeSigner<N extends Network>(
 }
 
 // No type guard provided by ethers, instanceof checks will fail on even slightly different versions of ethers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isEthersSigner(thing: any): thing is EthersSigner {
   return (
     "provider" in thing &&
+    /* eslint-disable @typescript-eslint/no-unsafe-member-access */
     typeof thing.connect === "function" &&
     typeof thing.getAddress === "function" &&
     typeof thing.getNonce === "function" &&
@@ -201,5 +192,6 @@ function isEthersSigner(thing: any): thing is EthersSigner {
     typeof thing.sendTransaction === "function" &&
     typeof thing.signMessage === "function" &&
     typeof thing.signTypedData === "function"
+    /* eslint-enable @typescript-eslint/no-unsafe-member-access */
   );
 }

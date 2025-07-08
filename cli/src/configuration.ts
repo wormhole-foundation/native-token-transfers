@@ -1,8 +1,8 @@
 import { assertChain, chains, type Chain } from "@wormhole-foundation/sdk";
-import * as yargs from "yargs";
-import fs from "fs";
-import { ensureNttRoot } from ".";
 import chalk from "chalk";
+import fs from "fs";
+import type * as yargs from "yargs";
+import { ensureNttRoot } from ".";
 
 // We support project-local and global configuration.
 // The configuration is stored in JSON files in $HOME/.ntt-cli/config.json (global) and .ntt-cli/config.json (local).
@@ -58,6 +58,7 @@ const options = {
     default: true,
   },
 } as const;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export const command = (args: yargs.Argv<{}>) =>
   args
     .command(
@@ -106,7 +107,7 @@ export const command = (args: yargs.Argv<{}>) =>
         const scope = resolveScope(argv.local, argv.global);
         assertChainConfigKey(argv.key);
         assertChain(argv.chain);
-        const val = getChainConfig(argv.scope as Scope, argv.chain, argv.key);
+        const val = getChainConfig(scope, argv.chain, argv.key);
         if (!val) {
           console.error("undefined");
         } else {
