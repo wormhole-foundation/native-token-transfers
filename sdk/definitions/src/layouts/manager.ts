@@ -1,10 +1,10 @@
-import { layoutItems } from "@wormhole-foundation/sdk-definitions";
 import {
-  CustomizableBytes,
-  Layout,
-  LayoutToType,
   customizableBytes,
+  type CustomizableBytes,
+  type Layout,
+  type LayoutToType,
 } from "@wormhole-foundation/sdk-base";
+import { layoutItems } from "@wormhole-foundation/sdk-definitions";
 
 export type NttManagerMessage<P extends CustomizableBytes = undefined> =
   LayoutToType<ReturnType<typeof nttManagerMessageLayout<P>>>;

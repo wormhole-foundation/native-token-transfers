@@ -1,4 +1,4 @@
-import { Layout, LayoutToType } from "@wormhole-foundation/sdk-base";
+import { type Layout, type LayoutToType } from "@wormhole-foundation/sdk-base";
 
 export type TrimmedAmount = LayoutToType<typeof trimmedAmountLayout>;
 

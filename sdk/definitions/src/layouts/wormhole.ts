@@ -1,6 +1,6 @@
-import type {
-  CustomizableBytes,
-  LayoutToType,
+import {
+  type CustomizableBytes,
+  type LayoutToType,
 } from "@wormhole-foundation/sdk-base";
 import { transceiverMessageLayout } from "./transceiver.js";
 

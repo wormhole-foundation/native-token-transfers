@@ -1,3 +1,4 @@
+import { type PublicKey } from "@solana/web3.js";
 import {
   encoding,
   serializeLayout,
@@ -5,32 +6,31 @@ import {
   type Chain,
   type Network,
 } from "@wormhole-foundation/sdk-base";
-
 import {
-  AccountAddress,
-  ChainAddress,
-  EmptyPlatformMap,
-  ProtocolPayload,
-  ProtocolVAA,
-  UnsignedTransaction,
-  VAA,
   keccak256,
+  type AccountAddress,
+  type ChainAddress,
+  type EmptyPlatformMap,
+  type ProtocolPayload,
+  type ProtocolVAA,
+  type UnsignedTransaction,
+  type VAA,
 } from "@wormhole-foundation/sdk-definitions";
-
 import {
-  NttManagerMessage,
   nativeTokenTransferLayout,
   nttManagerMessageLayout,
-  transceiverInfo,
   transceiverInstructionLayout,
-  transceiverRegistration,
+  type NttManagerMessage,
+  type transceiverInfo,
+  type transceiverRegistration,
 } from "./layouts/index.js";
-import { PublicKey } from "@solana/web3.js";
 
 /**
  * @namespace Ntt
  */
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Ntt {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _protocol = "Ntt";
   export type ProtocolName = typeof _protocol;
 
@@ -398,7 +398,9 @@ export interface NttTransceiver<
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace WormholeNttTransceiver {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _payloads = [
     "WormholeTransfer",
     "WormholeTransferStandardRelayer",
@@ -416,6 +418,7 @@ export namespace WormholeNttTransceiver {
  * The WormholeNttTransceiver is responsible for verifying VAAs against the core
  * bridge and signaling the NttManager that it can mint tokens.
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface WormholeNttTransceiver<N extends Network, C extends Chain>
   extends NttTransceiver<N, C, WormholeNttTransceiver.VAA> {}
 
@@ -427,6 +430,7 @@ export interface SolanaNttTransceiver<
   programId: PublicKey;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface EvmNttTransceiver<
   N extends Network,
   C extends Chain,
@@ -434,6 +438,7 @@ export interface EvmNttTransceiver<
 > extends NttTransceiver<N, C, A> {}
 
 declare module "@wormhole-foundation/sdk-definitions" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   export namespace WormholeRegistry {
     interface ProtocolToInterfaceMapping<N, C> {
       Ntt: Ntt<N, C>;

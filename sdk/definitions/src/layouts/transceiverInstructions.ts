@@ -1,7 +1,7 @@
 import {
-  CustomizableBytes,
-  Layout,
   customizableBytes,
+  type CustomizableBytes,
+  type Layout,
 } from "@wormhole-foundation/sdk-base";
 
 export const transceiverInstructionLayout = <

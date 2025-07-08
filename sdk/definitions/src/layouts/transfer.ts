@@ -1,7 +1,7 @@
 import {
-  CustomConversion,
-  Layout,
-  LayoutToType,
+  type CustomConversion,
+  type Layout,
+  type LayoutToType,
 } from "@wormhole-foundation/sdk-base";
 import { layoutItems } from "@wormhole-foundation/sdk-definitions";
 import { trimmedAmountItem } from "./amount.js";

@@ -1,11 +1,11 @@
-import { layoutItems } from "@wormhole-foundation/sdk-definitions";
 import {
-  CustomizableBytes,
-  Layout,
-  LayoutToType,
   customizableBytes,
+  type CustomizableBytes,
+  type Layout,
+  type LayoutToType,
 } from "@wormhole-foundation/sdk-base";
-import { Prefix, prefixItem } from "./prefix.js";
+import { layoutItems } from "@wormhole-foundation/sdk-definitions";
+import { prefixItem, type Prefix } from "./prefix.js";
 
 export type TransceiverMessage<
   MP extends CustomizableBytes = undefined,

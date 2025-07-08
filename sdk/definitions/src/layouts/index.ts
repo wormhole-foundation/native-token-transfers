@@ -1,7 +1,7 @@
 import {
-  NamedPayloads,
-  RegisterPayloadTypes,
   deliveryInstructionLayout,
+  type NamedPayloads,
+  type RegisterPayloadTypes,
 } from "@wormhole-foundation/sdk-definitions";
 import { nttManagerMessageLayout } from "./manager.js";
 import { transceiverInfo, transceiverRegistration } from "./transceiver.js";
@@ -29,7 +29,9 @@ export const nttNamedPayloads = [
 
 // factory registration:
 declare module "@wormhole-foundation/sdk-definitions" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   export namespace WormholeRegistry {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface PayloadLiteralToLayoutMapping
       extends RegisterPayloadTypes<"Ntt", typeof nttNamedPayloads> {}
   }

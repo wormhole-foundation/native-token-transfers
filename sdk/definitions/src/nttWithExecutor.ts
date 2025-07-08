@@ -1,12 +1,13 @@
-import type { Chain, Network } from "@wormhole-foundation/sdk-base";
+import { type Chain, type Network } from "@wormhole-foundation/sdk-base";
 import {
   type AccountAddress,
   type ChainAddress,
   type EmptyPlatformMap,
-  UnsignedTransaction,
+  type UnsignedTransaction,
 } from "@wormhole-foundation/sdk-definitions";
-import { Ntt } from "./ntt.js";
+import { type Ntt } from "./ntt.js";
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace NttWithExecutor {
   export type Quote = {
     signedQuote: Uint8Array; // The signed quote from the /v0/quote endpoint
@@ -38,6 +39,7 @@ export interface NttWithExecutor<N extends Network, C extends Chain> {
 }
 
 declare module "@wormhole-foundation/sdk-definitions" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   export namespace WormholeRegistry {
     interface ProtocolToInterfaceMapping<N, C> {
       NttWithExecutor: NttWithExecutor<N, C>;
