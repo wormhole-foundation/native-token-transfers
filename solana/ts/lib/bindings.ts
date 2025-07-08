@@ -1,7 +1,7 @@
-import { IdlAccounts, Program } from "@coral-xyz/anchor";
-import { Connection } from "@solana/web3.js";
-import { _1_0_0, _2_0_0, _3_0_0 } from "./anchor-idl/index.js";
+import { Program, type IdlAccounts } from "@coral-xyz/anchor";
+import { type Connection } from "@solana/web3.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { _1_0_0, _2_0_0, _3_0_0 } from "./anchor-idl/index.js";
 
 export interface IdlBinding<V extends IdlVersion> {
   idl: {
@@ -22,6 +22,7 @@ export const IdlVersions = [
 
 export type IdlVersion = (typeof IdlVersions)[number][0];
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace NttBindings {
   export type NativeTokenTransfer<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawExampleNativeTokenTransfers

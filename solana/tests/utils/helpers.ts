@@ -1,21 +1,27 @@
 import * as anchor from "@coral-xyz/anchor";
 import * as spl from "@solana/spl-token";
-import * as fs from "fs";
 import {
-  Chain,
-  ChainAddress,
-  ChainContext,
-  encoding,
-  Signer,
-  signSendWait as ssw,
   UniversalAddress,
+  encoding,
+  signSendWait as ssw,
+  type Chain,
+  type ChainAddress,
 } from "@wormhole-foundation/sdk";
-import { DummyTransferHook } from "../../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
+import * as fs from "fs";
+import { type DummyTransferHook } from "../../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
 import { derivePda } from "../../ts/lib/utils.js";
 
 export interface ErrorConstructor {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   new (...args: any[]): Error;
 }
+
+export const errorHasLogs = (error: unknown): error is { logs?: string[] } => {
+  if (typeof error !== "object" || error === null) return false;
+  return (
+    "logs" in error && (error.logs === undefined || Array.isArray(error.logs))
+  );
+};
 
 /**
  * Assertion utility functions
@@ -131,36 +137,39 @@ export const assert = {
      * @param errorType Expected type for thrown error
      */
     fails: async (errorType?: ErrorConstructor) => {
-      let result: any;
+      let result: unknown;
       try {
         result = await prom;
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (errorType != null) {
           expect(error).toBeInstanceOf(errorType);
         }
         return;
       }
-      throw new Error(`Promise did not fail. Result: ${result}`);
+      throw new Error(
+        `Promise did not fail. Result: ${JSON.stringify(result, null, 2)}`
+      );
     },
     /**
      * Asserts promise throws error containing `message`
      * @param message Expected message contained in thrown error
      */
     failsWith: async (message: string) => {
-      let result: any;
+      let result: unknown;
       try {
         result = await prom;
-      } catch (error: any) {
-        const errorStr: string = error.toString();
+      } catch (error: unknown) {
+        const errorStr: string = String(error);
         if (errorStr.includes(message)) {
           return;
         }
-        throw {
-          message: "Error does not contain the asked message",
-          stack: errorStr,
-        };
+        throw new Error(
+          `Error does not contain the asked message. Expected: ${message}; Actual: ${errorStr}`
+        );
       }
-      throw new Error(`Promise did not fail. Result: ${result}`);
+      throw new Error(
+        `Promise did not fail. Result: ${JSON.stringify(result, null, 2)}`
+      );
     },
     /**
      * Asserts promise throws Anchor error coreesponding to type `errorType` and `errorCode`
@@ -171,16 +180,20 @@ export const assert = {
       errorType: ErrorConstructor,
       errorCode: typeof anchor.AnchorError.prototype.error.errorCode
     ) => {
-      let result: any;
+      let result: unknown;
       try {
         result = await prom;
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error).toBeInstanceOf(errorType);
-        const parsedError = anchor.AnchorError.parse(error.logs ?? []);
-        expect(parsedError?.error.errorCode).toEqual(errorCode);
-        return;
+        if (error instanceof errorType && errorHasLogs(error)) {
+          const parsedError = anchor.AnchorError.parse(error.logs ?? []);
+          expect(parsedError?.error.errorCode).toEqual(errorCode);
+          return;
+        }
       }
-      throw new Error(`Promise did not fail. Result: ${result}`);
+      throw new Error(
+        `Promise did not fail. Result: ${JSON.stringify(result, null, 2)}`
+      );
     },
   }),
 };
@@ -218,7 +231,7 @@ export class TestHelper {
      */
     read: (path: string) =>
       this.keypair.from(
-        JSON.parse(fs.readFileSync(path, { encoding: "utf8" }))
+        JSON.parse(fs.readFileSync(path, { encoding: "utf8" })) as number[]
       ),
     /**
      * Wrapper around `Keypair.fromSecretKey` for number array-like
@@ -601,13 +614,9 @@ export class TestDummyTransferHook {
  * @param txs Generator of unsigned transactions
  * @param signer Signing account required by the transactions
  */
-export const signSendWait = async (
-  chain: ChainContext<any, any, any>,
-  txs: AsyncGenerator<any>,
-  signer: Signer
-) => {
+export const signSendWait = async (...args: Parameters<typeof ssw>) => {
   try {
-    await ssw(chain, txs, signer);
+    await ssw(...args);
   } catch (e) {
     console.error(e);
   }

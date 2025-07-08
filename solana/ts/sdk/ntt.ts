@@ -1,41 +1,45 @@
-import { Program, web3 } from "@coral-xyz/anchor";
+import { web3, type Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import {
-  AddressLookupTableAccount,
-  Connection,
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   Transaction,
-  TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
+  type AddressLookupTableAccount,
+  type Connection,
+  type TransactionInstruction,
 } from "@solana/web3.js";
 
-import { Chain, Network, toChainId } from "@wormhole-foundation/sdk-base";
 import {
-  AccountAddress,
-  ChainAddress,
-  ChainsConfig,
-  Contracts,
-  NativeAddress,
-  UnsignedTransaction,
+  toChainId,
+  type Chain,
+  type Network,
+} from "@wormhole-foundation/sdk-base";
+import {
   toUniversal,
+  type AccountAddress,
+  type ChainAddress,
+  type ChainsConfig,
+  type Contracts,
+  type NativeAddress,
+  type UnsignedTransaction,
 } from "@wormhole-foundation/sdk-definitions";
 import {
-  Ntt,
-  SolanaNttTransceiver,
-  WormholeNttTransceiver,
+  type Ntt,
+  type SolanaNttTransceiver,
+  type WormholeNttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
-  AnySolanaAddress,
   SolanaAddress,
-  SolanaChains,
   SolanaPlatform,
-  SolanaPlatformType,
-  SolanaTransaction,
   SolanaUnsignedTransaction,
+  type AnySolanaAddress,
+  type SolanaChains,
+  type SolanaPlatformType,
+  type SolanaTransaction,
 } from "@wormhole-foundation/sdk-solana";
 import {
   SolanaWormholeCore,
@@ -43,10 +47,10 @@ import {
 } from "@wormhole-foundation/sdk-solana-core";
 import BN from "bn.js";
 import {
-  IdlVersion,
-  NttBindings,
   getNttProgram,
   getTransceiverProgram,
+  type IdlVersion,
+  type NttBindings,
 } from "../lib/bindings.js";
 import { NTT, NttQuoter } from "../lib/index.js";
 import { parseVersion } from "../lib/utils.js";
@@ -71,10 +75,12 @@ export class SolanaNttWormholeTransceiver<
     this.pdas = NTT.transceiverPdas(program.programId);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getPauser(): Promise<AccountAddress<C> | null> {
     return null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await, require-yield, @typescript-eslint/no-unused-vars
   async *setPauser(_newPauser: AccountAddress<C>, _payer: AccountAddress<C>) {
     throw new Error("Method not implemented.");
   }
@@ -370,9 +376,9 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     ) {
       const transceiverTypes = [
         "wormhole", // wormhole xcvr should be ix 0
-        ...Object.keys(contracts.ntt.transceiver).filter((transceiverType) => {
-          transceiverType !== "wormhole";
-        }),
+        ...Object.keys(contracts.ntt.transceiver).filter(
+          (transceiverType) => transceiverType !== "wormhole"
+        ),
       ];
       transceiverTypes.map((transceiverType) => {
         // we currently only support wormhole transceivers
@@ -420,7 +426,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     if (this.contracts.ntt?.quoter)
       this.quoter = new NttQuoter(
         connection,
-        this.contracts.ntt.quoter!,
+        this.contracts.ntt.quoter,
         this.contracts.ntt.manager
       );
 
@@ -433,12 +439,13 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     this.pdas = NTT.pdas(this.program.programId);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getTransceiver<T extends number>(
     ix: T
   ): Promise<
     | (T extends 0
         ? SolanaNttWormholeTransceiver<N, C>
-        : SolanaNttTransceiver<N, C, any>)
+        : SolanaNttTransceiver<N, C, Ntt.Attestation>)
     | null
   > {
     const transceiverProgram = this.transceivers[ix] ?? null;
@@ -505,6 +512,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     return new SolanaAddress(config.owner) as AccountAddress<C>;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getPauser(): Promise<AccountAddress<C> | null> {
     return null;
   }
@@ -521,6 +529,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     yield this.createUnsignedTx({ transaction: tx }, "Ntt.SetOwner");
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await, require-yield, @typescript-eslint/no-unused-vars
   async *setPauser(_newPauser: AnySolanaAddress, _payer: AccountAddress<C>) {
     throw new Error("Pauser role not supported on Solana.");
   }
@@ -532,10 +541,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async quoteDeliveryPrice(
     destination: Chain,
-    options: Ntt.TransferOptions
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _options: Ntt.TransferOptions
   ): Promise<bigint> {
     if (!this.quoter) throw new Error("Quoter not available");
-    if (!this.quoter.isRelayEnabled(destination))
+    if (!(await this.quoter.isRelayEnabled(destination)))
       throw new Error("Relay not enabled");
 
     return await this.quoter.quoteDeliveryPrice(destination, 0n);
@@ -552,12 +562,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       throw new Error(`Network mismatch: ${conf.network} != ${network}`);
 
     if (!("ntt" in conf.contracts)) throw new Error("Ntt contracts not found");
-    const ntt = conf.contracts["ntt"];
+    const ntt = conf.contracts["ntt"] as Ntt.Contracts;
 
     const version = await SolanaNtt.getVersion(
       provider,
-      //@ts-ignore
-      conf.contracts
+      conf.contracts as Contracts & { ntt: Ntt.Contracts }
     );
 
     return new SolanaNtt(
@@ -571,7 +580,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async getConfig(): Promise<NttBindings.Config<IdlVersion>> {
     this.config = this.config ?? (await NTT.getConfig(this.program, this.pdas));
-    return this.config!;
+    return this.config;
   }
 
   async getTokenDecimals(): Promise<number> {
@@ -613,10 +622,10 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     try {
       return await NTT.getVersion(
         connection,
-        new PublicKey(contracts.ntt.manager!),
+        new PublicKey(contracts.ntt.manager),
         sender ? new SolanaAddress(sender).unwrap() : undefined
       );
-    } catch (e) {
+    } catch {
       // This might happen if e.g. the program is not deployed yet.
       const version = "3.0.0";
       return version;
@@ -816,7 +825,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     destination: ChainAddress,
     options: Ntt.TransferOptions,
     outboxItem?: Keypair
-  ): AsyncGenerator<UnsignedTransaction<N, C>, any, unknown> {
+  ): AsyncGenerator<UnsignedTransaction<N, C>> {
     const config = await this.getConfig();
     if (config.paused) throw new Error("Contract is paused");
 
@@ -1061,7 +1070,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           // NOTE: this acts as `revertOnDelay` for versions < 3.x.x
           revertWhenNotReady: false,
         };
-        let releaseIx =
+        const releaseIx =
           config.mode.locking != null
             ? NTT.createReleaseInboundUnlockInstruction(this.program, config, {
                 ...releaseArgs,
@@ -1127,6 +1136,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     return BigInt(rl.rateLimit.capacityAtLastTx.toString());
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getRateLimitDuration(): Promise<bigint> {
     // The rate limit duration is hardcoded to 24 hours on Solana
     return BigInt(24 * 60 * 60);
@@ -1165,8 +1175,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       inboxItem = await this.program.account.inboxItem.fetch(
         this.pdas.inboxItemAccount(attestation.emitterChain, payload)
       );
-    } catch (e: any) {
-      if (e.message?.includes("Account does not exist")) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message?.includes("Account does not exist")) {
         return false;
       }
       throw e;
@@ -1184,8 +1194,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       inboxItem = await this.program.account.inboxItem.fetch(
         this.pdas.inboxItemAccount(attestation.emitterChain, payload)
       );
-    } catch (e: any) {
-      if (e.message?.includes("Account does not exist")) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message?.includes("Account does not exist")) {
         return false;
       }
       throw e;
@@ -1204,8 +1214,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         this.pdas.inboxItemAccount(attestation.emitterChain, payload)
       );
       return inboxItem.init;
-    } catch (e: any) {
-      if (e.message?.includes("Account does not exist")) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message?.includes("Account does not exist")) {
         return false;
       }
       throw e;
@@ -1264,8 +1274,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       inboxItem = await this.program.account.inboxItem.fetch(
         this.pdas.inboxItemAccount(chain, nttMessage)
       );
-    } catch (e: any) {
-      if (e.message?.includes("Account does not exist")) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message?.includes("Account does not exist")) {
         return null;
       }
       throw e;
@@ -1309,11 +1319,15 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       },
     };
 
-    const deleteMatching = (a: any, b: any) => {
+    const deleteMatching = (
+      a: Record<string, unknown>,
+      b: Record<string, unknown>
+    ) => {
       for (const k in a) {
-        if (typeof a[k] === "object") {
-          deleteMatching(a[k], b[k]);
-          if (Object.keys(a[k]).length === 0) delete a[k];
+        if (typeof a[k] === "object" && a[k] !== null) {
+          const aRecord = a[k] as Record<string, unknown>;
+          deleteMatching(aRecord, b[k] as Record<string, unknown>);
+          if (Object.keys(aRecord).length === 0) delete a[k];
         } else if (a[k] === b[k]) {
           delete a[k];
         }

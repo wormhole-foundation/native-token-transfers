@@ -12,10 +12,14 @@ ${process.argv[0]} ${process.argv[1]} <idl.json>`);
 const titleCase = (str: string) =>
   str
     .split("_")
-    .map((word) => word[0].toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) =>
+      word.length > 0 && word[0]
+        ? word[0].toUpperCase() + word.slice(1).toLowerCase()
+        : ""
+    )
     .join("");
 
-const idl: Idl = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+const idl = JSON.parse(fs.readFileSync(jsonPath, "utf8")) as Idl;
 
 const name = titleCase(idl["name"]);
 

@@ -1,10 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import * as spl from "@solana/spl-token";
 import {
-  AccountAddress,
-  ChainAddress,
-  ChainContext,
-  Signer,
   UniversalAddress,
   Wormhole,
   contracts,
@@ -13,6 +9,10 @@ import {
   encoding,
   serialize,
   serializePayload,
+  type AccountAddress,
+  type ChainAddress,
+  type ChainContext,
+  type Signer,
 } from "@wormhole-foundation/sdk";
 import * as testing from "@wormhole-foundation/sdk-definitions/testing";
 import {
@@ -21,8 +21,7 @@ import {
   getSolanaSignAndSendSigner,
 } from "@wormhole-foundation/sdk-solana";
 import { SolanaWormholeCore } from "@wormhole-foundation/sdk-solana-core";
-
-import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
+import { NTT, getTransceiverProgram, type IdlVersion } from "../ts/index.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
@@ -41,16 +40,19 @@ const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
 const CORE_BRIDGE_ADDRESS = contracts.coreBridge("Mainnet", "Solana");
-const NTT_ADDRESS: anchor.web3.PublicKey =
-  anchor.workspace.ExampleNativeTokenTransfers.programId;
-const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
-  anchor.workspace.NttTransceiver.programId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+const NTT_ADDRESS = anchor.workspace.ExampleNativeTokenTransfers
+  .programId as anchor.web3.PublicKey;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+const WH_TRANSCEIVER_ADDRESS = anchor.workspace.NttTransceiver
+  .programId as anchor.web3.PublicKey;
 
 /**
  * Test Helpers
  */
 const $ = new TestHelper("confirmed", TOKEN_PROGRAM);
 const testDummyTransferHook = new TestDummyTransferHook(
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
   anchor.workspace.DummyTransferHook,
   TOKEN_PROGRAM,
   spl.ASSOCIATED_TOKEN_PROGRAM_ID
@@ -178,22 +180,38 @@ describe("example-native-token-transfers", () => {
         mode: "burning",
         multisigTokenAuthority,
       });
-      await signSendWait(ctx, initTxs, signer);
+      await signSendWait(
+        ctx as Parameters<typeof signSendWait>["0"],
+        initTxs,
+        signer
+      );
 
       // register Wormhole xcvr
       const registerTxs = ntt.registerWormholeTransceiver({
         payer: payerAddress,
         owner: payerAddress,
       });
-      await signSendWait(ctx, registerTxs, signer);
+      await signSendWait(
+        ctx as Parameters<typeof signSendWait>["0"],
+        registerTxs,
+        signer
+      );
 
       // set Wormhole xcvr peer
       const setXcvrPeerTxs = ntt.setWormholeTransceiverPeer(remoteXcvr, sender);
-      await signSendWait(ctx, setXcvrPeerTxs, signer);
+      await signSendWait(
+        ctx as Parameters<typeof signSendWait>["0"],
+        setXcvrPeerTxs,
+        signer
+      );
 
       // set manager peer
       const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1_000_000n, sender);
-      await signSendWait(ctx, setPeerTxs, signer);
+      await signSendWait(
+        ctx as Parameters<typeof signSendWait>["0"],
+        setPeerTxs,
+        signer
+      );
     });
 
     it("Create ExtraAccountMetaList Account", async () => {
@@ -218,7 +236,11 @@ describe("example-native-token-transfers", () => {
         { queue: false, automatic: false },
         outboxItem
       );
-      await signSendWait(ctx, xferTxs, signer);
+      await signSendWait(
+        ctx as Parameters<typeof signSendWait>["0"],
+        xferTxs,
+        signer
+      );
 
       // assert that released bitmap has transceiver bits set
       const outboxItemInfo = await ntt.program.account.outboxItem.fetch(
@@ -289,7 +311,11 @@ describe("example-native-token-transfers", () => {
       test("Multisig(owner, TA) -> newAuthority", async () => {
         // retry after pausing contract
         const pauseTxs = ntt.pause(payerAddress);
-        await signSendWait(ctx, pauseTxs, signer);
+        await signSendWait(
+          ctx as Parameters<typeof signSendWait>["0"],
+          pauseTxs,
+          signer
+        );
 
         await $.sendAndConfirm(
           await NTT.createSetTokenAuthorityOneStepUncheckedInstruction(
@@ -461,7 +487,11 @@ describe("example-native-token-transfers", () => {
       afterAll(async () => {
         // unpause
         const unpauseTxs = ntt.unpause(payerAddress);
-        await signSendWait(ctx, unpauseTxs, signer);
+        await signSendWait(
+          ctx as Parameters<typeof signSendWait>["0"],
+          unpauseTxs,
+          signer
+        );
       });
     });
 
@@ -504,7 +534,11 @@ describe("example-native-token-transfers", () => {
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
       const redeemTxs = ntt.redeem([vaa], sender);
-      await signSendWait(ctx, redeemTxs, signer);
+      await signSendWait(
+        ctx as Parameters<typeof signSendWait>["0"],
+        redeemTxs,
+        signer
+      );
 
       assert.bn(await testDummyTransferHook.counter.value()).equal(2);
     });
@@ -548,7 +582,7 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It initializes from constructor", async () => {
+      test("It initializes from constructor", () => {
         const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
           ...ctx.config.contracts,
           ...{ ntt: overrides["Solana"] },
@@ -565,10 +599,10 @@ describe("example-native-token-transfers", () => {
         expect(version).toBe("3.0.0");
       });
 
-      test("It initializes using `emitterAccount` as transceiver address", async () => {
-        const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
+      test("It initializes using `emitterAccount` as transceiver address", () => {
+        const overrideEmitter = JSON.parse(
           JSON.stringify(overrides["Solana"])
-        );
+        ) as (typeof overrides)["Solana"];
         overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(NTT_ADDRESS)
           .emitterAccount()
           .toBase58();

@@ -1,40 +1,70 @@
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Wormhole, signSendWait } from "@wormhole-foundation/sdk";
+import {
+  SolanaPlatform,
+  getSolanaSignAndSendSigner,
+} from "@wormhole-foundation/sdk-solana";
 import "dotenv/config";
-import { NTT } from "../lib";
-import { BN } from "@coral-xyz/anchor";
+import { SolanaNtt } from "../sdk/ntt.js";
 
-main();
-
-async function main() {
-  if (process.env.SOLANA_PRIVATE_KEY === undefined) {
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
+(async function () {
+  if (process.env["SOLANA_PRIVATE_KEY"] === undefined) {
     throw new Error("SOLANA_PRIVATE_KEY is not set");
   }
 
-  if (process.env.MINT === undefined) {
+  if (process.env["MINT"] === undefined) {
     throw new Error("MINT is not set");
   }
+
+  if (process.env["MANAGER"] === undefined) {
+    throw new Error("MANAGER is not set");
+  }
+
+  if (process.env["WH_TRANSCEIVER"] === undefined) {
+    throw new Error("WH_TRANSCEIVER is not set");
+  }
+
+  const payer = Keypair.fromSecretKey(
+    Buffer.from(process.env["SOLANA_PRIVATE_KEY"], "base64")
+  );
+  const mint = new PublicKey(process.env["MINT"]);
+  const manager = new PublicKey(process.env["MANAGER"]);
+  const whTransceiver = new PublicKey(process.env["WH_TRANSCEIVER"]);
 
   const connection = new Connection(
     "https://api.devnet.solana.com",
     "confirmed"
   );
-  const ntt = new NTT(connection, {
-    nttId: "nttiK1SepaQt6sZ4WGW5whvc9tEnGXGxuKeptcQPCcS",
-    wormholeId: "3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSHHF4ssjQ5",
-  });
 
-  const payer = Keypair.fromSecretKey(
-    Buffer.from(process.env.SOLANA_PRIVATE_KEY, "base64")
+  const signer = await getSolanaSignAndSendSigner(connection, payer, {});
+  const sender = Wormhole.parseAddress("Solana", signer.address());
+
+  const w = new Wormhole("Testnet", [SolanaPlatform]);
+  const ctx = w.getPlatform("Solana").getChain("Solana", connection);
+
+  const ntt = new SolanaNtt(
+    "Testnet",
+    "Solana",
+    connection,
+    {
+      ...ctx.config.contracts,
+      ntt: {
+        token: mint.toBase58(),
+        manager: manager.toBase58(),
+        transceiver: {
+          wormhole: whTransceiver.toBase58(),
+        },
+      },
+    },
+    "3.0.0"
   );
-  const owner = payer;
-  const mint = new PublicKey(process.env.MINT);
 
-  await ntt.initialize({
-    payer,
-    owner,
-    chain: "solana",
+  const initTxs = ntt.initialize(sender, {
     mint,
-    outboundLimit: new BN(100),
+    outboundLimit: 100n,
     mode: "locking",
+    multisigTokenAuthority: undefined,
   });
-}
+  await signSendWait(ctx, initTxs, signer);
+})();

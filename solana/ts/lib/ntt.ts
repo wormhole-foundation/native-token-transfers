@@ -1,48 +1,46 @@
 import {
   BN,
-  Program,
   parseIdlErrors,
   translateError,
   web3,
+  type Program,
 } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import {
-  AccountMeta,
-  AddressLookupTableAccount,
   AddressLookupTableProgram,
-  Commitment,
-  Connection,
   PublicKey,
-  PublicKeyInitData,
   SystemProgram,
-  TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
+  type AccountMeta,
+  type AddressLookupTableAccount,
+  type Commitment,
+  type Connection,
+  type PublicKeyInitData,
+  type TransactionInstruction,
 } from "@solana/web3.js";
 import {
-  Chain,
-  ChainId,
   deserializeLayout,
   encoding,
   rpc,
   toChain,
   toChainId,
+  type Chain,
+  type ChainId,
 } from "@wormhole-foundation/sdk-base";
 import {
-  ChainAddress,
-  VAA,
   keccak256,
+  type ChainAddress,
+  type VAA,
 } from "@wormhole-foundation/sdk-definitions";
-
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
-
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { utils } from "@wormhole-foundation/sdk-solana-core";
 import {
-  IdlVersion,
   IdlVersions,
-  NttBindings,
   getNttProgram,
+  type IdlVersion,
+  type NttBindings,
 } from "./bindings.js";
 import {
   BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
@@ -53,6 +51,7 @@ import {
   programVersionLayout,
 } from "./utils.js";
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace NTT {
   /** Arguments for transfer instruction */
   export interface TransferArgs {
@@ -222,7 +221,7 @@ export namespace NTT {
       );
     }
 
-    const data = encoding.b64.decode(txSimulation.value.returnData?.data[0]!);
+    const data = encoding.b64.decode(txSimulation.value.returnData?.data[0]);
     const parsed = deserializeLayout(programVersionLayout, data);
     const version = encoding.bytes.decode(parsed.version);
     for (const [idlVersion] of IdlVersions) {
@@ -248,7 +247,8 @@ export namespace NTT {
     pdas?: Pdas
   ) {
     const [major, , ,] = parseVersion(program.idl.version);
-    const mode: any =
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    const mode: { burning: {} } | { locking: {} } =
       args.mode === "burning" ? { burning: {} } : { locking: {} };
     const chainId = toChainId(args.chain);
 
@@ -304,7 +304,7 @@ export namespace NTT {
     // TODO: find a more robust way of fetching a recent slot
     const slot = (await program.provider.connection.getSlot()) - 1;
 
-    const [_, lutAddress] = web3.AddressLookupTableProgram.createLookupTable({
+    const [, lutAddress] = web3.AddressLookupTableProgram.createLookupTable({
       authority: pdas.lutAuthority(),
       payer: args.payer,
       recentSlot: slot,
@@ -335,7 +335,9 @@ export namespace NTT {
     };
 
     // collect all pubkeys in entries recursively
-    const collectPubkeys = (obj: any): Array<PublicKey> => {
+    const collectPubkeys = (
+      obj: Record<string, PublicKey | Record<string, PublicKey>>
+    ): Array<PublicKey> => {
       const pubkeys = new Array<PublicKey>();
       for (const key in obj) {
         const value = obj[key];
@@ -1130,16 +1132,20 @@ export namespace NTT {
     if (major < 2) return null;
 
     pdas = pdas ?? NTT.pdas(program.programId);
-    // @ts-ignore
+
     // NOTE: lut is 'LUT' in the IDL, but 'lut' in the generated code
     // It needs to be upper-cased in the IDL to compute the anchor
     // account discriminator correctly
-    const lut = await program.account.lut.fetchNullable(pdas.lutAccount());
+    /* eslint-disable */
+    const lut = await (program.account as any).lut.fetchNullable(
+      pdas.lutAccount()
+    );
     if (!lut) return null;
 
     const response = await program.provider.connection.getAddressLookupTable(
       lut.address
     );
+    /* eslint-enable */
     if (response.value === null) throw new Error("Could not fetch LUT");
     return response.value;
   }

@@ -1,44 +1,48 @@
-import { toChainId, type Network } from "@wormhole-foundation/sdk-base";
-import {
-  type AccountAddress,
-  type ChainAddress,
-  type ChainsConfig,
-  Contracts,
-  UnsignedTransaction,
-} from "@wormhole-foundation/sdk-definitions";
-import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
-import {
-  SolanaPlatform,
-  type SolanaPlatformType,
-  type SolanaChains,
-  SolanaAddress,
-} from "@wormhole-foundation/sdk-solana";
-import {
-  AddressLookupTableAccount,
-  AddressLookupTableProgram,
-  Connection,
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  TransactionMessage,
-  VersionedTransaction,
-} from "@solana/web3.js";
-import { SolanaNtt } from "./ntt.js";
+import { BN, Program } from "@coral-xyz/anchor";
 import {
   createAssociatedTokenAccountIdempotentInstruction,
   createTransferInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { BN, Program } from "@coral-xyz/anchor";
 import {
-  ExampleNttWithExecutor,
-  ExampleNttWithExecutorIdl,
-} from "../idl/executor/example_ntt_with_executor.js";
+  AddressLookupTableProgram,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  TransactionMessage,
+  VersionedTransaction,
+  type AddressLookupTableAccount,
+  type Connection,
+  type VersionedMessage,
+} from "@solana/web3.js";
+import { toChainId, type Network } from "@wormhole-foundation/sdk-base";
 import {
-  ExampleNttSvmLut,
+  type AccountAddress,
+  type ChainAddress,
+  type ChainsConfig,
+  type Contracts,
+  type UnsignedTransaction,
+} from "@wormhole-foundation/sdk-definitions";
+import {
+  type Ntt,
+  type NttWithExecutor,
+} from "@wormhole-foundation/sdk-definitions-ntt";
+import {
+  SolanaAddress,
+  SolanaPlatform,
+  type SolanaChains,
+  type SolanaPlatformType,
+} from "@wormhole-foundation/sdk-solana";
+import {
   ExampleNttSvmLutIdl,
+  type ExampleNttSvmLut,
 } from "../idl/executor/example_ntt_svm_lut.js";
+import {
+  ExampleNttWithExecutorIdl,
+  type ExampleNttWithExecutor,
+} from "../idl/executor/example_ntt_with_executor.js";
 import { chainToBytes } from "../lib/utils.js";
+import { type SolanaNtt } from "./ntt.js";
 
 export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
   implements NttWithExecutor<N, C>
@@ -109,12 +113,34 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
         const luts: AddressLookupTableAccount[] = [];
         try {
           luts.push(await ntt.getAddressLookupTable());
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.debug(e);
         }
 
+        if (
+          !tx.transaction ||
+          typeof tx.transaction !== "object" ||
+          !("transaction" in tx.transaction)
+        ) {
+          throw new Error("could not find transaction in tx.transaction");
+        }
+
+        const txTransaction = (tx.transaction as Record<string, unknown>)[
+          "transaction"
+        ];
+        if (
+          !txTransaction ||
+          typeof txTransaction !== "object" ||
+          !("message" in txTransaction) ||
+          !txTransaction["message"]
+        ) {
+          throw new Error(
+            "could not find message in tx.transaction.transaction"
+          );
+        }
+
         const message = TransactionMessage.decompile(
-          tx.transaction.transaction.message,
+          txTransaction["message"] as VersionedMessage,
           { addressLookupTableAccounts: luts }
         );
 
@@ -160,7 +186,7 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
         }
 
         const nttWithExecutorProgram = new Program<ExampleNttWithExecutor>(
-          ExampleNttWithExecutorIdl as ExampleNttWithExecutor,
+          ExampleNttWithExecutorIdl,
           this.nttWithExecutorProgramId,
           { connection: this.connection }
         );
@@ -195,7 +221,7 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
             "no manager lookup table found, checking helper program"
           );
           const nttSvmLutProgram = new Program<ExampleNttSvmLut>(
-            ExampleNttSvmLutIdl as ExampleNttSvmLut,
+            ExampleNttSvmLutIdl,
             this.nttLutProgramId,
             { connection: this.connection }
           );
@@ -205,20 +231,25 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
             nttSvmLutProgram.programId
           )[0];
 
-          let lutPointer =
-            // @ts-ignore
-            await nttSvmLutProgram.account.lut.fetchNullable(lutPointerAddress);
+          // NOTE: lut is 'LUT' in the IDL, but 'lut' in the generated code
+          // It needs to be upper-cased in the IDL to compute the anchor
+          // account discriminator correctly
+          /* eslint-disable */
+          let lutPointer = await (
+            nttSvmLutProgram.account as any
+          ).lut.fetchNullable(lutPointerAddress);
+          /* eslint-enable */
 
           if (!lutPointer) {
             console.debug(
               "no helper program lookup table found, initializing..."
             );
-            const [nttConfigPDA] = await PublicKey.findProgramAddressSync(
+            const [nttConfigPDA] = PublicKey.findProgramAddressSync(
               [Buffer.from("config")],
               nttProgramId
             );
 
-            const [authorityPDA] = await PublicKey.findProgramAddressSync(
+            const [authorityPDA] = PublicKey.findProgramAddressSync(
               [Buffer.from("lut_authority")],
               nttSvmLutProgram.programId
             );
@@ -226,7 +257,7 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
             const recentSlot =
               (await this.connection.getSlot("finalized")) - 10;
 
-            const [lutAddressPDA] = await PublicKey.findProgramAddressSync(
+            const [lutAddressPDA] = PublicKey.findProgramAddressSync(
               [
                 authorityPDA.toBuffer(),
                 new BN(recentSlot).toArrayLike(Buffer, "le", 8),
@@ -234,7 +265,7 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
               AddressLookupTableProgram.programId
             );
 
-            const [lutPDA] = await PublicKey.findProgramAddressSync(
+            const [lutPDA] = PublicKey.findProgramAddressSync(
               [Buffer.from("lut"), nttProgramId.toBuffer()],
               nttSvmLutProgram.programId
             );
@@ -266,31 +297,40 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
               "NttSvmLut.InitializeLut"
             );
 
-            console.debug(`initialized lookup table: ${tx}`);
+            console.debug(
+              `initialized lookup table: ${JSON.stringify(tx, null, 2)}`
+            );
 
             let retries = 0;
             while (!lutPointer && retries < 10) {
               // wait for lut to warm up
               await new Promise((resolve) => setTimeout(resolve, 2000));
-              lutPointer =
-                // @ts-ignore
-                await nttSvmLutProgram.account.lut.fetchNullable(
-                  lutPointerAddress
-                );
+              // NOTE: lut is 'LUT' in the IDL, but 'lut' in the generated code
+              // It needs to be upper-cased in the IDL to compute the anchor
+              // account discriminator correctly
+              /* eslint-disable */
+              lutPointer = await (
+                nttSvmLutProgram.account as any
+              ).lut.fetchNullable(lutPointerAddress);
               retries++;
             }
+          }
+
+          if (!lutPointer) {
+            throw new Error("unable to fetch lookup table pointer");
           }
 
           const response = await this.connection.getAddressLookupTable(
             lutPointer.address
           );
+          /* eslint-enable */
           if (!response.value) {
             throw new Error("unable to fetch lookup table");
           }
           luts.push(response.value);
         }
 
-        tx.transaction.transaction.message = message.compileToV0Message(luts);
+        txTransaction.message = message.compileToV0Message(luts);
         yield tx;
       } else {
         yield tx;

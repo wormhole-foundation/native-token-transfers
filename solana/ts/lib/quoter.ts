@@ -1,19 +1,20 @@
 import { Program } from "@coral-xyz/anchor";
 import {
-  Connection,
   LAMPORTS_PER_SOL,
   PublicKey,
-  PublicKeyInitData,
   SystemProgram,
+  type Connection,
+  type PublicKeyInitData,
 } from "@solana/web3.js";
-import { amount, chainToPlatform } from "@wormhole-foundation/sdk-base";
 import {
-  Chain,
+  amount,
+  chainToPlatform,
   deserializeLayout,
   toChainId,
+  type Chain,
 } from "@wormhole-foundation/sdk-base";
 import IDL from "../idl/2_0_0/json/ntt_quoter.json";
-import { NttQuoter as Idl } from "../idl/2_0_0/ts/ntt_quoter.js";
+import { type NttQuoter as Idl } from "../idl/2_0_0/ts/ntt_quoter.js";
 import {
   U64,
   chainToBytes,
@@ -44,7 +45,6 @@ export class NttQuoter {
     programId: PublicKeyInitData,
     nttProgramId: PublicKeyInitData
   ) {
-    // @ts-ignore
     this.program = new Program<Idl>(IDL as Idl, new PublicKey(programId), {
       connection,
     });
@@ -59,8 +59,8 @@ export class NttQuoter {
     try {
       const { paused } = await this.getRegisteredChain(destination);
       return !paused;
-    } catch (e: any) {
-      if (e.message?.includes("Account does not exist")) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message?.includes("Account does not exist")) {
         return false;
       }
       throw e;
@@ -214,7 +214,7 @@ export class NttQuoter {
   }
 
   async createInitalizeInstruction(feeRecipient: PublicKey) {
-    if (!this.program.account.instance.fetchNullable(this.instance))
+    if (!(await this.program.account.instance.fetchNullable(this.instance)))
       throw new Error("Already initialized");
 
     const programData = programDataAddress(this.program.programId);
