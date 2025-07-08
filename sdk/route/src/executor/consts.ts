@@ -1,9 +1,9 @@
 import {
-  Chain,
-  ChainAddress,
-  chainToPlatform,
-  Network,
   Wormhole,
+  chainToPlatform,
+  type Chain,
+  type ChainAddress,
+  type Network,
 } from "@wormhole-foundation/sdk-connect";
 
 export const apiBaseUrl: Partial<Record<Network, string>> = {

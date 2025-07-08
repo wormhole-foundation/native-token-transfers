@@ -1,18 +1,6 @@
 import {
-  AttestedTransferReceipt,
-  Chain,
-  ChainAddress,
-  ChainContext,
-  CompletedTransferReceipt,
-  DestinationQueuedTransferReceipt,
-  Network,
-  RedeemedTransferReceipt,
-  Signer,
-  TokenId,
-  TransactionId,
   TransferState,
   Wormhole,
-  WormholeMessageId,
   amount,
   canonicalAddress,
   chainToPlatform,
@@ -26,6 +14,18 @@ import {
   isSourceInitiated,
   routes,
   signSendWait,
+  type AttestedTransferReceipt,
+  type Chain,
+  type ChainAddress,
+  type ChainContext,
+  type CompletedTransferReceipt,
+  type DestinationQueuedTransferReceipt,
+  type Network,
+  type RedeemedTransferReceipt,
+  type Signer,
+  type TokenId,
+  type TransactionId,
+  type WormholeMessageId,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "./types.js";
@@ -54,10 +54,11 @@ export class NttAutomaticRoute<N extends Network>
   // ntt does not support gas drop-off currently
   static NATIVE_GAS_DROPOFF_SUPPORTED: boolean = false;
 
-  // @ts-ignore
   // Since we set the config on the static class, access it with this param
   // the NttManualRoute.config will always be empty
-  readonly staticConfig = this.constructor.config;
+  /* eslint-disable */
+  readonly staticConfig = (this.constructor as any).config;
+  /* eslint-enable */
   static config: NttRoute.Config = { tokens: {} };
 
   static meta = { name: "AutomaticNtt" };
@@ -70,12 +71,14 @@ export class NttAutomaticRoute<N extends Network>
     return NttRoute.resolveSupportedChains(this.config, network);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   static async supportedSourceTokens(
     fromChain: ChainContext<Network>
   ): Promise<TokenId[]> {
     return NttRoute.resolveSourceTokens(this.config, fromChain);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   static async supportedDestinationTokens<N extends Network>(
     sourceToken: TokenId,
     fromChain: ChainContext<N>,
@@ -101,6 +104,7 @@ export class NttAutomaticRoute<N extends Network>
 
   async isAvailable(request: routes.RouteTransferRequest<N>): Promise<boolean> {
     const { srcContracts } = NttRoute.resolveNttContracts(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       this.staticConfig,
       request.source.id,
       request.destination.id
@@ -113,6 +117,7 @@ export class NttAutomaticRoute<N extends Network>
     return ntt.isRelayingAvailable(request.toChain.chain);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async validate(
     request: routes.RouteTransferRequest<N>,
     params: Tp
@@ -129,6 +134,7 @@ export class NttAutomaticRoute<N extends Network>
     );
 
     const { srcContracts, dstContracts } = NttRoute.resolveNttContracts(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       this.staticConfig,
       request.source.id,
       request.destination.id
@@ -284,6 +290,7 @@ export class NttAutomaticRoute<N extends Network>
           });
 
     const dstInfo = NttRoute.resolveDestinationNttContracts(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       this.staticConfig,
       {
         chain: vaa.emitterChain,

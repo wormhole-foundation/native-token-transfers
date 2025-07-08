@@ -1,22 +1,10 @@
 import {
-  AttestedTransferReceipt,
-  Chain,
-  ChainAddress,
-  ChainContext,
-  CompletedTransferReceipt,
-  DestinationQueuedTransferReceipt,
-  Network,
-  RedeemedTransferReceipt,
-  Signer,
-  TokenId,
-  TransactionId,
-  TransferReceipt as _TransferReceipt,
   TransferState,
   UniversalAddress,
   Wormhole,
-  WormholeMessageId,
   amount,
   canonicalAddress,
+  chainToPlatform,
   deserializeLayout,
   encoding,
   finality,
@@ -32,26 +20,42 @@ import {
   serializeLayout,
   signSendWait,
   toChainId,
-  Platform,
-  chainToPlatform,
+  type AttestedTransferReceipt,
+  type Chain,
+  type ChainAddress,
+  type ChainContext,
+  type CompletedTransferReceipt,
+  type DestinationQueuedTransferReceipt,
+  type Network,
+  type Platform,
+  type RedeemedTransferReceipt,
+  type Signer,
+  type TokenId,
+  type TransactionId,
+  type WormholeMessageId,
+  type TransferReceipt as _TransferReceipt,
 } from "@wormhole-foundation/sdk-connect";
-import "@wormhole-foundation/sdk-definitions-ntt";
-import { NttRoute } from "../types.js";
-import {
-  calculateReferrerFee,
-  fetchCapabilities,
-  fetchSignedQuote,
-  fetchStatus,
-  RelayStatus,
-} from "./utils.js";
-import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   isNative,
   relayInstructionsLayout,
   signedQuoteLayout,
 } from "@wormhole-foundation/sdk-definitions";
+import "@wormhole-foundation/sdk-definitions-ntt";
+import {
+  type Ntt,
+  type NttWithExecutor,
+} from "@wormhole-foundation/sdk-definitions-ntt";
+import { NttRoute } from "../types.js";
 import { getDefaultReferrerAddress } from "./consts.js";
+import {
+  RelayStatus,
+  calculateReferrerFee,
+  fetchCapabilities,
+  fetchSignedQuote,
+  fetchStatus,
+} from "./utils.js";
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace NttExecutorRoute {
   export type Config = {
     ntt: NttRoute.Config;
@@ -128,10 +132,12 @@ export class NttExecutorRoute<N extends Network>
   // executor supports gas drop-off
   static NATIVE_GAS_DROPOFF_SUPPORTED: boolean = true;
 
-  // @ts-ignore
   // Since we set the config on the static class, access it with this param
   // the NttExecutorRoute.config will always be empty
-  readonly staticConfig: NttExecutorRoute.Config = this.constructor.config;
+  /* eslint-disable */
+  readonly staticConfig: NttExecutorRoute.Config = (this.constructor as any)
+    .config;
+  /* eslint-enable */
   static config: NttExecutorRoute.Config = { ntt: { tokens: {} } };
 
   static meta = { name: "NttExecutorRoute" };
@@ -144,12 +150,14 @@ export class NttExecutorRoute<N extends Network>
     return NttRoute.resolveSupportedChains(this.config.ntt, network);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   static async supportedSourceTokens(
     fromChain: ChainContext<Network>
   ): Promise<TokenId[]> {
     return NttRoute.resolveSourceTokens(this.config.ntt, fromChain);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   static async supportedDestinationTokens<N extends Network>(
     sourceToken: TokenId,
     fromChain: ChainContext<N>,
@@ -175,6 +183,7 @@ export class NttExecutorRoute<N extends Network>
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async validate(
     request: routes.RouteTransferRequest<N>,
     params: Tp
@@ -368,8 +377,10 @@ export class NttExecutorRoute<N extends Network>
           100n
         : 0n;
 
-    let { msgValue, gasLimit } =
+    const msgValueAndGasLimit =
       await dstNttWithExec.estimateMsgValueAndGasLimit(recipient);
+    let { gasLimit } = msgValueAndGasLimit;
+    const { msgValue } = msgValueAndGasLimit;
 
     // Check for overrides in the config.
     if (this.staticConfig.referrerFee?.perTokenOverrides) {
@@ -508,7 +519,7 @@ export class NttExecutorRoute<N extends Network>
           if (txStatus) {
             break;
           }
-        } catch (_) {
+        } catch {
           // is ok we just try again!
         }
         statusAttempts++;
@@ -519,6 +530,7 @@ export class NttExecutorRoute<N extends Network>
     // Spawn a loop in the background that will status this transfer until
     // the API gives a successful response. We don't await the result
     // here because we don't need it for the return value.
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     statusTransferImmediately();
 
     return {
@@ -705,7 +717,7 @@ export class NttExecutorRoute<N extends Network>
       );
       if (!txStatus) throw new Error("No transaction status found");
 
-      const relayStatus = txStatus.status;
+      const relayStatus = txStatus.status as RelayStatus;
       if (
         relayStatus === RelayStatus.Failed || // this could happen if simulation fails
         relayStatus === RelayStatus.Underpaid || // only happens if you don't pay at least the costEstimate

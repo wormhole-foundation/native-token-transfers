@@ -1,13 +1,13 @@
 import {
-  Chain,
-  Network,
-  toChainId,
   amount as sdkAmount,
+  toChainId,
+  type Chain,
+  type Network,
 } from "@wormhole-foundation/sdk-base";
-import { SignedQuote } from "@wormhole-foundation/sdk-definitions";
+import { type SignedQuote } from "@wormhole-foundation/sdk-definitions";
 import axios from "axios";
-import { apiBaseUrl } from "./consts.js";
 import { NttRoute } from "../types.js";
+import { apiBaseUrl } from "./consts.js";
 
 export enum RelayStatus {
   Pending = "pending",
@@ -77,7 +77,7 @@ export async function fetchCapabilities(
   try {
     const response = await axios.get<CapabilitiesResponse>(url);
     return response.data;
-  } catch (error) {
+  } catch {
     throw new Error(`Failed to fetch capabilities for network: ${network}.`);
   }
 }
@@ -102,7 +102,7 @@ export async function fetchSignedQuote(
       relayInstructions,
     });
     return response.data;
-  } catch (error) {
+  } catch {
     throw new Error(`Failed to fetch signed quote.`);
   }
 }
@@ -126,7 +126,7 @@ export async function fetchStatus(
       chainId: toChainId(chain),
     });
     return response.data;
-  } catch (error) {
+  } catch {
     throw new Error(`Failed to fetch status for txHash: ${txHash}.`);
   }
 }

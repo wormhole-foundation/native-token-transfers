@@ -1,8 +1,8 @@
 import {
-  Network,
   Wormhole,
   canonicalAddress,
   routes,
+  type Network,
 } from "@wormhole-foundation/sdk-connect";
 
 import "@wormhole-foundation/sdk-definitions-ntt";
@@ -11,9 +11,9 @@ import "@wormhole-foundation/sdk-solana-ntt";
 
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
-import { nttAutomaticRoute, NttAutomaticRoute } from "../src/automatic.js";
-import { nttManualRoute, NttManualRoute } from "../src/manual.js";
-import { NttRoute } from "../src/types.js";
+import { nttAutomaticRoute, type NttAutomaticRoute } from "../src/automatic.js";
+import { nttManualRoute, type NttManualRoute } from "../src/manual.js";
+import { type NttRoute } from "../src/types.js";
 
 const SOL_TOKEN = "EetppHswYvV1jjRWoQKC1hejdeBDHR9NNzNtCyRQfrrQ";
 const SEPOLIA_TOKEN = "0x738141EFf659625F2eAD4feECDfCD94155C67f18";
@@ -49,10 +49,13 @@ const conf: NttRoute.Config = {
 };
 const network: Network = "Testnet";
 
-const dummyGetProtocol = async function (name: string, params: any) {
+// eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unused-vars
+const dummyGetProtocol = async function (name: string, params: unknown) {
   if (name !== "Ntt") throw new Error("Unexpected protocol");
   return {
+    // eslint-disable-next-line @typescript-eslint/require-await
     getRateLimitDuration: async () => 0n,
+    // eslint-disable-next-line @typescript-eslint/require-await
     getCurrentInboundCapacity: async () => 0n,
   };
 };
@@ -91,7 +94,7 @@ describe("Manual Route Tests", function () {
   });
 
   let resolver: routes.RouteResolver<Network>;
-  it("Should satisfy resolver", async function () {
+  it("Should satisfy resolver", function () {
     resolver = new routes.RouteResolver(wh, [rt]);
   });
 
@@ -113,7 +116,7 @@ describe("Manual Route Tests", function () {
   });
 
   let op: ReturnType<typeof found.getDefaultOptions>;
-  it("Should provide default options", async function () {
+  it("Should provide default options", function () {
     op = found.getDefaultOptions();
     expect(op).toBeTruthy();
   });
@@ -128,10 +131,11 @@ describe("Manual Route Tests", function () {
   let qr: Awaited<ReturnType<typeof found.quote>>;
   it("Should fetch a quote given the validated parameters", async function () {
     if (!vp.valid) throw new Error("Invalid transfer params used");
+    /* eslint-disable */
     const getProtocol = request.toChain.getProtocol;
-    // @ts-ignore
     // TODO: mock instead of monkey patch
-    request.toChain.getProtocol = dummyGetProtocol;
+    request.toChain.getProtocol = dummyGetProtocol as any;
+    /* eslint-enable */
     qr = await found.quote(request, vp.params);
     request.toChain.getProtocol = getProtocol;
     if (!qr.success) throw new Error("Failed to fetch quote");
@@ -189,7 +193,7 @@ describe("Automatic Route Tests", function () {
   });
 
   let resolver: routes.RouteResolver<Network>;
-  it("Should satisfy resolver", async function () {
+  it("Should satisfy resolver", function () {
     resolver = new routes.RouteResolver(wh, [rt]);
   });
 
@@ -211,7 +215,7 @@ describe("Automatic Route Tests", function () {
   });
 
   let op: ReturnType<typeof found.getDefaultOptions>;
-  it("Should provide default options", async function () {
+  it("Should provide default options", function () {
     op = found.getDefaultOptions();
     expect(op).toBeTruthy();
   });
@@ -226,10 +230,11 @@ describe("Automatic Route Tests", function () {
   let qr: Awaited<ReturnType<typeof found.quote>>;
   it("Should fetch a quote given the validated parameters", async function () {
     if (!vp.valid) throw new Error("Invalid transfer params used");
+    /* eslint-disable */
     const getProtocol = request.toChain.getProtocol;
-    // @ts-ignore
     // TODO: mock instead of monkey patch
-    request.toChain.getProtocol = dummyGetProtocol;
+    request.toChain.getProtocol = dummyGetProtocol as any;
+    /* eslint-enable */
     qr = await found.quote(request, vp.params);
     request.toChain.getProtocol = getProtocol;
     if (!qr.success) throw new Error("Failed to fetch quote");

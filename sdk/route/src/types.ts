@@ -1,21 +1,22 @@
 import {
-  Chain,
-  ChainAddress,
-  ChainContext,
-  Network,
-  TokenId,
-  VAA,
   Wormhole,
-  WormholeMessageId,
-  TransferReceipt as _TransferReceipt,
   amount,
   canonicalAddress,
   isNative,
   nativeTokenId,
-  routes,
+  type Chain,
+  type ChainAddress,
+  type ChainContext,
+  type Network,
+  type TokenId,
+  type VAA,
+  type WormholeMessageId,
+  type TransferReceipt as _TransferReceipt,
+  type routes,
 } from "@wormhole-foundation/sdk-connect";
-import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { type Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace NttRoute {
   // Currently only wormhole attestations supported
   export type TransceiverType = "wormhole";
@@ -92,12 +93,14 @@ export namespace NttRoute {
     params: ValidatedParams;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   export function resolveSupportedNetworks(config: Config): Network[] {
     return ["Mainnet", "Testnet"];
   }
 
   export function resolveSupportedChains(
     config: Config,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     network: Network
   ): Chain[] {
     const configs = Object.values(config.tokens);
