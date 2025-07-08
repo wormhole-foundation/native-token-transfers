@@ -42,6 +42,7 @@
     "generate": "npm run generate:slim",
     "build:contracts": "cd ../.. && make build-evm-prod",
     "test": "jest --config ./jest.config.ts",
+    "lint": "npm run prettier && eslint --fix ./src",
     "prettier": "prettier --write ./src ./__tests__"
   },
   "dependencies": {

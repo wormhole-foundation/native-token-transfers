@@ -7,18 +7,21 @@ import {
   type AccountAddress,
   type ChainAddress,
   type ChainsConfig,
-  Contracts,
-  UnsignedTransaction,
+  type Contracts,
+  type UnsignedTransaction,
 } from "@wormhole-foundation/sdk-definitions";
-import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
-  EvmPlatform,
-  type EvmPlatformType,
-  type EvmChains,
+  Ntt,
+  type NttWithExecutor,
+} from "@wormhole-foundation/sdk-definitions-ntt";
+import {
   EvmAddress,
+  EvmPlatform,
+  type EvmChains,
+  type EvmPlatformType,
 } from "@wormhole-foundation/sdk-evm";
-import { Provider, Interface } from "ethers";
-import { EvmNtt } from "./ntt.js";
+import { Interface, type Provider } from "ethers";
+import { type EvmNtt } from "./ntt.js";
 
 const nttManagerWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
@@ -190,7 +193,9 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     yield ntt.createUnsignedTx(txReq, "NttWithExecutor.transfer");
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async estimateMsgValueAndGasLimit(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     recipient: ChainAddress | undefined
   ): Promise<{ msgValue: bigint; gasLimit: bigint }> {
     const gasLimit = gasLimitOverrides[this.network]?.[this.chain] ?? 500_000n;

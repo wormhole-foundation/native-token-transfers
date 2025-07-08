@@ -1,46 +1,48 @@
 import {
-  Chain,
-  Network,
   encoding,
   nativeChainIds,
   toChainId,
+  type Chain,
+  type Network,
 } from "@wormhole-foundation/sdk-base";
 import {
-  AccountAddress,
-  ChainAddress,
-  ChainsConfig,
-  Contracts,
   canonicalAddress,
   serialize,
   toUniversal,
   universalAddress,
+  type AccountAddress,
+  type ChainAddress,
+  type ChainsConfig,
+  type Contracts,
 } from "@wormhole-foundation/sdk-definitions";
-import type {
-  AnyEvmAddress,
-  EvmChains,
-  EvmPlatformType,
-} from "@wormhole-foundation/sdk-evm";
+import {
+  Ntt,
+  type EvmNttTransceiver,
+  type NttTransceiver,
+  type WormholeNttTransceiver,
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   EvmAddress,
   EvmPlatform,
   EvmUnsignedTransaction,
   addChainId,
   addFrom,
+  type AnyEvmAddress,
+  type EvmChains,
+  type EvmPlatformType,
 } from "@wormhole-foundation/sdk-evm";
 import "@wormhole-foundation/sdk-evm-core";
-
 import {
-  EvmNttTransceiver,
-  Ntt,
-  NttTransceiver,
-  WormholeNttTransceiver,
-} from "@wormhole-foundation/sdk-definitions-ntt";
-import { Contract, type Provider, type TransactionRequest } from "ethers";
+  Contract,
+  type BigNumberish,
+  type Provider,
+  type TransactionRequest,
+} from "ethers";
 import {
-  NttBindings,
-  NttManagerBindings,
-  NttTransceiverBindings,
   loadAbiVersion,
+  type NttBindings,
+  type NttManagerBindings,
+  type NttTransceiverBindings,
 } from "./bindings.js";
 
 export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
@@ -60,6 +62,7 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getTransceiverType(): Promise<string> {
     // NOTE: We hardcode the type here as transceiver type is only available for versions >1.1.0
     // For those versions, we can return `this.transceiver.getTransceiverType()` directly
@@ -85,7 +88,9 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
       ["function messageFee() public view returns (uint256)"],
       this.manager.provider
     );
-    const messageFee = await coreBridge.getFunction("messageFee").staticCall();
+    const messageFee = (await coreBridge
+      .getFunction("messageFee")
+      .staticCall()) as BigNumberish;
     const tx = await this.transceiver.setWormholePeer.populateTransaction(
       toChainId(peer.chain),
       universalAddress(peer)
@@ -232,9 +237,9 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     ) {
       const transceiverTypes = [
         "wormhole", // wormhole xcvr should be ix 0
-        ...Object.keys(contracts.ntt.transceiver).filter((transceiverType) => {
-          transceiverType !== "wormhole";
-        }),
+        ...Object.keys(contracts.ntt.transceiver).filter(
+          (transceiverType) => transceiverType !== "wormhole"
+        ),
       ];
       transceiverTypes.map((transceiverType) => {
         // we currently only support wormhole transceivers
@@ -247,14 +252,17 @@ export class EvmNtt<N extends Network, C extends EvmChains>
           new EvmNttWormholeTranceiver(
             this,
             contracts.ntt!.transceiver[transceiverType]!,
-            abiBindings!
+            abiBindings
           )
         );
       });
     }
   }
 
-  async getTransceiver(ix: number): Promise<NttTransceiver<N, C, any> | null> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getTransceiver(
+    ix: number
+  ): Promise<NttTransceiver<N, C, Ntt.Attestation> | null> {
     // TODO: should we make an RPC call here, or just trust that the xcvrs are set up correctly?
     return this.xcvrs[ix] || null;
   }
@@ -418,9 +426,9 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       provider
     );
     try {
-      const abiVersion = await contract
+      const abiVersion = (await contract
         .getFunction("NTT_MANAGER_VERSION")
-        .staticCall();
+        .staticCall()) as string;
       if (!abiVersion) {
         throw new Error("NTT_MANAGER_VERSION not found");
       }
@@ -433,6 +441,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getCustodyAddress() {
     return this.managerAddress;
   }
@@ -559,6 +568,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
         "Not enough attestations for the registered Transceivers"
       );
 
+    // eslint-disable-next-line @typescript-eslint/no-for-in-array
     for (const idx in this.xcvrs) {
       const xcvr = this.xcvrs[idx]!;
       const attestation = attestations[idx];
@@ -638,6 +648,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
   async *completeInboundQueuedTransfer(
     fromChain: Chain,
     transceiverMessage: Ntt.Message,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     payer?: AccountAddress<C>
   ) {
     const tx =
@@ -665,6 +676,8 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       },
     };
 
+    // TODO: fix eslint errors
+    /* eslint-disable */
     const deleteMatching = (a: any, b: any) => {
       for (const k in a) {
         if (typeof a[k] === "object") {
@@ -675,6 +688,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
         }
       }
     };
+    /* eslint-enable */
 
     deleteMatching(remote, local);
 

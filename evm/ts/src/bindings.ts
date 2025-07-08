@@ -1,7 +1,6 @@
-import { Provider } from "ethers";
-
-import { _0_1_0, _1_0_0, _1_1_0 } from "./ethers-contracts/index.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { type Provider } from "ethers";
+import { _0_1_0, _1_0_0, _1_1_0 } from "./ethers-contracts/index.js";
 
 // This is a descending list of all ABI versions the SDK is aware of.
 // We check for the first match in descending order, allowing for higher minor and patch versions
@@ -18,6 +17,7 @@ export interface NttBindings {
   NttTransceiver: NttTransceiverBindings;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace NttTransceiverBindings {
   // Note: this is hardcoded to 0.1.0 so we should be warned if there are changes
   // that would affect the interface
@@ -31,6 +31,7 @@ export interface NttTransceiverBindings {
   ): NttTransceiverBindings.NttTransceiver;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace NttManagerBindings {
   export type NttManager = ReturnType<typeof _0_1_0.NttManager.connect>;
 }
