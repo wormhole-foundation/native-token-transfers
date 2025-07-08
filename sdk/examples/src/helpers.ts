@@ -1,14 +1,13 @@
 import {
-  Chain,
-  ChainAddress,
-  ChainContext,
-  Network,
-  Signer,
   Wormhole,
   chainToPlatform,
   encoding,
+  type Chain,
+  type ChainAddress,
+  type ChainContext,
+  type Network,
+  type Signer,
 } from "@wormhole-foundation/sdk";
-
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 
@@ -66,7 +65,7 @@ export async function getSigner<N extends Network, C extends Chain>(
 // for funded accounts on the relevant chain+network combos to run the example
 function getEnv(key: string, dev?: string): string {
   // If we're in the browser, return empty string
-  if (typeof process === undefined) return "";
+  if (typeof process === "undefined") return "";
   // Otherwise, return the env var or error
   const val = process.env[key];
   if (!val) {

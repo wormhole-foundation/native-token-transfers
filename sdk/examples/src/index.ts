@@ -1,8 +1,8 @@
 import {
-  TransactionId,
   Wormhole,
   amount,
   signSendWait,
+  type TransactionId,
 } from "@wormhole-foundation/sdk";
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
@@ -11,6 +11,7 @@ import solana from "@wormhole-foundation/sdk/platforms/solana";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TEST_NTT_SPL22_TOKENS, TEST_NTT_TOKENS } from "./consts.js";
 import { getSigner } from "./helpers.js";
 
@@ -28,6 +29,7 @@ const recoverTxids: TransactionId[] = [
   //{chain: "Sepolia", txid: "0x1aff02ed4bf9d51a424626187e3e331304229fc0d422b7abfe8025452b166180"}
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async function () {
   const wh = new Wormhole("Testnet", [solana.Platform, evm.Platform]);
   const src = wh.getChain("Sepolia");
@@ -51,7 +53,6 @@ const recoverTxids: TransactionId[] = [
     srcNtt.transfer(srcSigner.address.address, amt, dstSigner.address, {
       queue: false,
       automatic: false,
-      gasDropoff: 0n,
     });
 
   // Initiate the transfer (or set to recoverTxids to complete transfer)

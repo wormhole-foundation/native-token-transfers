@@ -1,4 +1,9 @@
-import { canonicalAddress, routes, wormhole } from "@wormhole-foundation/sdk";
+import {
+  Wormhole,
+  canonicalAddress,
+  routes,
+  wormhole,
+} from "@wormhole-foundation/sdk";
 import evm from "@wormhole-foundation/sdk/evm";
 import solana from "@wormhole-foundation/sdk/solana";
 
@@ -13,6 +18,7 @@ import {
 import { NttTokens } from "./consts.js";
 import { getSigner } from "./helpers.js";
 
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async function () {
   const wh = await wormhole("Testnet", [solana, evm]);
 
@@ -27,13 +33,7 @@ import { getSigner } from "./helpers.js";
     nttAutomaticRoute({ tokens: NttTokens }),
   ]);
 
-  const srcTokens = await resolver.supportedSourceTokens(src);
-  console.log(
-    "Allowed source tokens: ",
-    srcTokens.map((t) => canonicalAddress(t))
-  );
-  // Just grab the first one
-  const sendToken = srcTokens[0]!;
+  const sendToken = Wormhole.tokenId(src.chain, "native");
 
   // given the send token, what can we possibly get on the destination chain?
   const destTokens = await resolver.supportedDestinationTokens(

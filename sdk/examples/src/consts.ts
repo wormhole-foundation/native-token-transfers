@@ -1,6 +1,6 @@
-import { Chain } from "@wormhole-foundation/sdk-base";
-import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
-import { NttRoute } from "@wormhole-foundation/sdk-route-ntt";
+import { type Chain } from "@wormhole-foundation/sdk-base";
+import { type Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { type NttRoute } from "@wormhole-foundation/sdk-route-ntt";
 export type NttContracts = {
   [key in Chain]?: Ntt.Contracts;
 };
@@ -65,9 +65,9 @@ export const TEST_NTT_SPL22_TOKENS: NttContracts = {
 };
 
 // Reformat NTT contracts to fit TokenConfig for Route
-function reformat(contracts: NttContracts) {
-  return Object.entries(TEST_NTT_TOKENS).map(([chain, contracts]) => {
-    const { token, manager, transceiver: xcvrs, quoter } = contracts!;
+function reformat(nttContracts: NttContracts = TEST_NTT_TOKENS) {
+  return Object.entries(nttContracts).map(([chain, contracts]) => {
+    const { token, manager, transceiver: xcvrs, quoter } = contracts;
     const transceiver = Object.entries(xcvrs).map(([k, v]) => {
       return { type: k as NttRoute.TransceiverType, address: v };
     });
