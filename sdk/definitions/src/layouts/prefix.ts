@@ -5,4 +5,4 @@ export const prefixItem = (prefix: Prefix) =>
     binary: "bytes",
     custom: Uint8Array.from(prefix),
     omit: true,
-  } as const);
+  }) as const;

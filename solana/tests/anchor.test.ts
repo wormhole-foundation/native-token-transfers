@@ -233,9 +233,8 @@ describe("example-native-token-transfers", () => {
       const wormholeMessage = wormholeXcvr!.pdas.wormholeMessageAccount(
         outboxItem.publicKey
       );
-      const unsignedVaa = await coreBridge.parsePostMessageAccount(
-        wormholeMessage
-      );
+      const unsignedVaa =
+        await coreBridge.parsePostMessageAccount(wormholeMessage);
 
       const transceiverMessage = deserializePayload(
         "Ntt:WormholeTransfer",
@@ -588,9 +587,8 @@ describe("example-native-token-transfers", () => {
         });
         const whTransceiver = await ntt.getWormholeTransceiver();
         expect(whTransceiver).toBeTruthy();
-        const transceiverType = await whTransceiver!.getTransceiverType(
-          payerAddress
-        );
+        const transceiverType =
+          await whTransceiver!.getTransceiverType(payerAddress);
         expect(transceiverType).toBe("wormhole");
       });
     });
