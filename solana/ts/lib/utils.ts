@@ -1,5 +1,8 @@
-import { BN } from "@coral-xyz/anchor";
-import { PublicKey, PublicKeyInitData } from "@solana/web3.js";
+import {
+  PublicKey,
+  PublicKeyInitData,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import {
   Chain,
   ChainId,
@@ -8,6 +11,7 @@ import {
   encoding,
   toChainId,
 } from "@wormhole-foundation/sdk-base";
+import BN from "bn.js";
 
 export const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
@@ -115,3 +119,41 @@ export const quoterAddresses = (programId: PublicKeyInitData) => {
     registeredNttAccount,
   };
 };
+
+// governance utils
+
+export function serializeInstruction(ix: TransactionInstruction): Buffer {
+  const programId = ix.programId.toBuffer();
+  const accountsLen = Buffer.alloc(2);
+  accountsLen.writeUInt16BE(ix.keys.length);
+  const accounts = Buffer.concat(
+    ix.keys.map((account) => {
+      const isSigner = Buffer.alloc(1);
+      isSigner.writeUInt8(account.isSigner ? 1 : 0);
+      const isWritable = Buffer.alloc(1);
+      isWritable.writeUInt8(account.isWritable ? 1 : 0);
+      const pubkey = account.pubkey.toBuffer();
+      return Buffer.concat([pubkey, isSigner, isWritable]);
+    })
+  );
+  const dataLen = Buffer.alloc(2);
+  dataLen.writeUInt16BE(ix.data.length);
+  return Buffer.concat([programId, accountsLen, accounts, dataLen, ix.data]);
+}
+
+export function appendGovernanceHeader(
+  data: Buffer,
+  governanceProgramId: PublicKey
+): Buffer {
+  const module = Buffer.from("GeneralPurposeGovernance".padStart(32, "\0"));
+  const action = Buffer.alloc(1);
+  action.writeUInt8(2); // SolanaCall
+  const chainId = Buffer.alloc(2);
+  chainId.writeUInt16BE(1); // solana
+  const programId = governanceProgramId.toBuffer();
+  return Buffer.concat([module, action, chainId, programId, data]);
+}
+
+// sentinel values used in governance
+export const OWNER = new PublicKey(Buffer.from("owner".padEnd(32, "\0")));
+export const PAYER = new PublicKey(Buffer.from("payer".padEnd(32, "\0")));

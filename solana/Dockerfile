@@ -1,4 +1,4 @@
-FROM backpackapp/build:v0.29.0@sha256:9aee169b2d8b89b4a4243419ae35c176773136e78d751b3e439eff692c9c1293 as anchor
+FROM backpackapp/build:v0.29.0@sha256:9aee169b2d8b89b4a4243419ae35c176773136e78d751b3e439eff692c9c1293 AS anchor
 
 WORKDIR /usr/src/solana/
 
@@ -43,7 +43,7 @@ COPY solana/scripts scripts
 
 RUN make target/idl/example_native_token_transfers.json
 
-FROM scratch as export
+FROM scratch AS export
 
 COPY --from=builder /opt/solana/deps /opt/solana/deps
 COPY --from=builder /usr/src/solana/ts /usr/src/solana/ts
@@ -52,3 +52,24 @@ COPY --from=builder /usr/src/solana/tsconfig.esm.json /usr/src/solana/tsconfig.e
 COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.cjs.json
 COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl 
 COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types
+
+FROM node:lts-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS governance
+
+WORKDIR /app
+
+# RUN apk add python3
+RUN apk add --no-cache make python3 gcc g++
+
+COPY tsconfig.json tsconfig.json
+COPY tsconfig.cjs.json tsconfig.cjs.json
+COPY tsconfig.esm.json tsconfig.esm.json
+COPY package.json package.json
+COPY package-lock.json package-lock.json
+COPY sdk sdk
+RUN npm ci
+RUN npm run build
+
+WORKDIR /app/solana
+COPY solana/ts ts
+
+ENTRYPOINT [ "npx", "tsx" ]

@@ -47,6 +47,7 @@ function setNestedValue(obj: any, path: string[], value: any): void {
     }, obj);
     target[lastKey] = value;
 }
+
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { EvmNtt, EvmNttWormholeTranceiver } from "@wormhole-foundation/sdk-evm-ntt";
 import type { EvmChains, EvmNativeSigner, EvmUnsignedTransaction } from "@wormhole-foundation/sdk-evm";
@@ -1659,6 +1660,8 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 ): Promise<ChainAddress<C>> {
     ensureNttRoot(pwd);
 
+    checkSolanaVersion(pwd);
+
     // TODO: if the binary is provided, we should not check addresses in the source tree. (so we should move around the control flow a bit)
     // TODO: factor out some of this into separate functions to help readability of this function (maybe even move to a different file)
 
@@ -1792,7 +1795,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
         } else {
             // build the program
             // TODO: build with docker
-            checkAnchorVersion();
+            checkAnchorVersion(pwd);
             const proc = Bun.spawn(
                 ["anchor",
                     "build",
@@ -2419,22 +2422,120 @@ export function ensureNttRoot(pwd: string = ".") {
     }
 }
 
-function checkAnchorVersion() {
-    const expected = "0.29.0";
+// Check Solana toolchain version against Anchor.toml requirements
+function checkSolanaVersion(pwd: string): void {
     try {
-        execSync("which anchor");
-    } catch {
-        console.error("Anchor CLI is not installed.\nSee https://www.anchor-lang.com/docs/installation")
-        process.exit(1);
-    }
-    const version = execSync("anchor --version").toString().trim();
-    // version looks like "anchor-cli 0.14.0"
-    const [_, v] = version.split(" ");
-    if (v !== expected) {
-        console.error(`Anchor CLI version must be ${expected} but is ${v}`);
-        process.exit(1);
+        // Read required version from Anchor.toml
+        const anchorToml = fs.readFileSync(`${pwd}/solana/Anchor.toml`, 'utf8');
+        const versionMatch = anchorToml.match(/solana_version = "(.+)"/);
+
+        if (!versionMatch) {
+            console.warn(chalk.yellow("Warning: Could not find solana_version in Anchor.toml"));
+            return;
+        }
+
+        const requiredVersion = versionMatch[1];
+
+        // Get current Solana version and detect client type
+        let currentVersion: string;
+        let clientType: 'agave' | 'solanalabs';
+        try {
+            const output = execSync('solana --version', { encoding: 'utf8', stdio: 'pipe' });
+            const versionMatch = output.match(/solana-cli (\d+\.\d+\.\d+)/);
+            if (!versionMatch) {
+                console.error(chalk.red("Error: Could not parse solana CLI version"));
+                process.exit(1);
+            }
+            currentVersion = versionMatch[1];
+
+            // Detect client type
+            if (output.includes('Agave')) {
+                clientType = 'agave';
+            } else if (output.includes('SolanaLabs')) {
+                clientType = 'solanalabs';
+            } else {
+                // Default to agave if we can't detect
+                clientType = 'agave';
+            }
+        } catch (error) {
+            console.error(chalk.red("Error: solana CLI not found. Please install the Solana toolchain."));
+            console.error(chalk.yellow("Install with: sh -c \"$(curl -sSfL https://release.anza.xyz/stable/install)\""));
+            process.exit(1);
+        }
+
+        if (currentVersion !== requiredVersion) {
+            console.log(chalk.yellow(`Solana version mismatch detected:`));
+            console.log(chalk.yellow(`  Required: ${requiredVersion} (from Anchor.toml)`));
+            console.log(chalk.yellow(`  Current:  ${currentVersion}`));
+            console.log(chalk.yellow(`\nSwitching to required version...`));
+
+            // Run the appropriate version switch command
+            const installCommand = clientType === 'agave'
+                ? `agave-install init ${requiredVersion}`
+                : `solana-install init ${requiredVersion}`;
+
+            try {
+                execSync(installCommand, { stdio: 'inherit' });
+                console.log(chalk.green(`Successfully switched to Solana version ${requiredVersion}`));
+            } catch (error) {
+                console.error(chalk.red(`Failed to switch Solana version using ${installCommand}`));
+                console.error(chalk.red(`Please run manually: ${installCommand}`));
+                process.exit(1);
+            }
+        }
+    } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+            console.warn(chalk.yellow("Warning: Could not read Anchor.toml file"));
+        } else {
+            console.warn(chalk.yellow(`Warning: Failed to check Solana version: ${error instanceof Error ? error.message : error}`));
+        }
     }
 }
+
+function checkAnchorVersion(pwd: string) {
+    try {
+        // Read required version from Anchor.toml
+        const anchorToml = fs.readFileSync(`${pwd}/solana/Anchor.toml`, 'utf8');
+        const versionMatch = anchorToml.match(/anchor_version = "(.+)"/);
+
+        if (!versionMatch) {
+            console.error(chalk.red("Error: Could not find anchor_version in Anchor.toml"));
+            process.exit(1);
+        }
+
+        const expected = versionMatch[1];
+
+        // Check if Anchor CLI is installed
+        try {
+            execSync("which anchor");
+        } catch {
+            console.error("Anchor CLI is not installed.\nSee https://www.anchor-lang.com/docs/installation")
+            process.exit(1);
+        }
+
+        // Get current Anchor version
+        const version = execSync("anchor --version").toString().trim();
+        // version looks like "anchor-cli 0.14.0"
+        const [_, v] = version.split(" ");
+        if (v !== expected) {
+            console.error(chalk.red(`Anchor CLI version mismatch!`));
+            console.error(chalk.red(`  Required: ${expected} (from Anchor.toml)`));
+            console.error(chalk.red(`  Current:  ${v}`));
+            console.error(chalk.yellow(`\nTo fix this, install the correct version of Anchor`));
+            console.error(chalk.gray("See https://www.anchor-lang.com/docs/installation"));
+            process.exit(1);
+        }
+    } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+            console.error(chalk.red("Error: Could not read Anchor.toml file"));
+            console.error(chalk.yellow(`Expected file at: ${pwd}/solana/Anchor.toml`));
+            process.exit(1);
+        } else {
+            throw error;
+        }
+    }
+}
+
 function loadConfig(path: string): Config {
     if (!fs.existsSync(path)) {
         console.error(`File not found: ${path}`);
