@@ -51,7 +51,7 @@
   },
   "peerDependencies": {
     "@wormhole-foundation/sdk-connect": "^2.4.0",
-    "axios": "^1.9.0"
+    "axios": "^1.10.0"
   },
   "type": "module",
   "exports": {
