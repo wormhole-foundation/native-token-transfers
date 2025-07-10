@@ -274,13 +274,13 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
 
     create_mint(ctx, &mint, &mint_authority.pubkey(), 9)
         .await
-        .submit(ctx)
+        .submit_with_signers(&[&mint], ctx)
         .await
         .unwrap();
 
     create_mint(ctx, &bad_mint, &bad_mint_authority.pubkey(), 9)
         .await
-        .submit(ctx)
+        .submit_with_signers(&[&bad_mint], ctx)
         .await
         .unwrap();
 
@@ -371,13 +371,13 @@ pub async fn setup_accounts_with_transfer_fee(
 
     create_mint_with_transfer_fee(ctx, &mint, &mint_authority.pubkey(), 9, 500, 5000)
         .await
-        .submit(ctx)
+        .submit_with_signers(&[&mint], ctx)
         .await
         .unwrap();
 
     create_mint_with_transfer_fee(ctx, &bad_mint, &bad_mint_authority.pubkey(), 9, 500, 5000)
         .await
-        .submit(ctx)
+        .submit_with_signers(&[&bad_mint], ctx)
         .await
         .unwrap();
 
