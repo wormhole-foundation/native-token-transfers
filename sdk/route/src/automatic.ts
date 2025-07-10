@@ -276,7 +276,7 @@ export class NttAutomaticRoute<N extends Network>
       address: payload["sourceNttManager"],
     });
     const whTransceiver =
-      vaa.emitterChain === "Solana"
+      chainToPlatform(vaa.emitterChain) === "Solana"
         ? manager
         : canonicalAddress({
             chain: vaa.emitterChain,

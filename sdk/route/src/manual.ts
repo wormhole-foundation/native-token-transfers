@@ -25,6 +25,7 @@ import {
   finality,
   isNative,
   guardians,
+  chainToPlatform,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "./types.js";
@@ -256,7 +257,7 @@ export class NttManualRoute<N extends Network>
       address: vaa.payload["sourceNttManager"],
     });
     const whTransceiver =
-      vaa.emitterChain === "Solana"
+      chainToPlatform(vaa.emitterChain) === "Solana"
         ? manager
         : canonicalAddress({
             chain: vaa.emitterChain,

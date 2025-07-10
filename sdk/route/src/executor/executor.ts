@@ -580,7 +580,7 @@ export class NttExecutorRoute<N extends Network>
       address: vaa.payload["sourceNttManager"],
     });
     const whTransceiver =
-      vaa.emitterChain === "Solana"
+      chainToPlatform(vaa.emitterChain) === "Solana"
         ? manager
         : canonicalAddress({
             chain: vaa.emitterChain,
