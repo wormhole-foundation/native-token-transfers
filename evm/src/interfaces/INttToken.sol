@@ -27,6 +27,8 @@ interface INttToken {
     function mint(address account, uint256 amount) external;
 
     // NOTE: the `setMinter` method is not present in the standard ERC20 interface.
+    //       This is not a required function for integration with NTT. It is recommended to provide flexibility to change the minter in the future,
+    //       or allow for setting multiple token minter addresses.
     function setMinter(
         address newMinter
     ) external;
