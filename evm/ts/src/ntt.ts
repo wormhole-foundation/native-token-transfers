@@ -288,17 +288,17 @@ export class EvmNtt<N extends Network, C extends EvmChains>
 
   async *setOwner(owner: AnyEvmAddress) {
     const canonicalOwner = new EvmAddress(owner).toString();
-    const tx =
-      await this.manager.transferOwnership.populateTransaction(canonicalOwner);
+    const tx = await this.manager.transferOwnership.populateTransaction(
+      canonicalOwner
+    );
     yield this.createUnsignedTx(tx, "Ntt.setOwner");
   }
 
   async *setPauser(pauser: AnyEvmAddress) {
     const canonicalPauser = new EvmAddress(pauser).toString();
-    const tx =
-      await this.manager.transferPauserCapability.populateTransaction(
-        canonicalPauser
-      );
+    const tx = await this.manager.transferPauserCapability.populateTransaction(
+      canonicalPauser
+    );
     yield this.createUnsignedTx(tx, "Ntt.setPauser");
   }
 
@@ -432,7 +432,9 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       return abiVersion;
     } catch (e) {
       console.error(
-        `Failed to get NTT_MANAGER_VERSION from contract ${contracts.ntt?.manager} on ${(await provider.getNetwork()).name}`
+        `Failed to get NTT_MANAGER_VERSION from contract ${
+          contracts.ntt?.manager
+        } on ${(await provider.getNetwork()).name}`
       );
       throw e;
     }
