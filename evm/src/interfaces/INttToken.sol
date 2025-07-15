@@ -24,11 +24,15 @@ interface INttToken {
     event NewMinter(address previousMinter, address newMinter);
 
     // NOTE: the `mint` method is not present in the standard ERC20 interface.
+    //       If using NTT in hub-and-spoke mode, this function is required in the token contract for all spoke chains.
+    //       If using NTT in burn-and-mint mode, this function is required in the token contract for all chains.
     function mint(address account, uint256 amount) external;
 
     // NOTE: the `setMinter` method is not present in the standard ERC20 interface.
     //       This is not a required function for integration with NTT. It is recommended to provide flexibility to change the minter in the future,
     //       or allow for setting multiple token minter addresses.
+    //       There are also other legitimate ways to implement minter management, such as using role-based access control or a custom approach,
+    //       as opposed to the example of using a single setter that's presented here.
     function setMinter(
         address newMinter
     ) external;
