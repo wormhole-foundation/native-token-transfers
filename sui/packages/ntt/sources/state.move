@@ -103,6 +103,10 @@ module ntt::state {
         self.threshold
     }
 
+    public fun get_next_sequence<T>(self: &State<T>): Bytes32 {
+        bytes32::from_u256_be(self.next_sequence as u256)
+    }
+
     public(package) fun borrow_treasury_cap_mut<T>(self: &mut State<T>): &mut TreasuryCap<T> {
         self.treasury_cap.borrow_mut()
     }
