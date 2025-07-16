@@ -82,6 +82,7 @@ module ntt::setup {
             chain_id,
             mode,
             treasury_cap,
+            object::id(&upgrade_cap),
             ctx
         );
 
