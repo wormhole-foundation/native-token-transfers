@@ -154,6 +154,16 @@ export type NttTransceiver = {
               "isSigner": false
             },
             {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
               "name": "clock",
               "isMut": false,
               "isSigner": false
@@ -206,7 +216,7 @@ export type NttTransceiver = {
         {
           "name": "wormholeMessage",
           "isMut": true,
-          "isSigner": true
+          "isSigner": false
         },
         {
           "name": "emitter",
@@ -246,6 +256,16 @@ export type NttTransceiver = {
               "isSigner": false
             },
             {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
               "name": "clock",
               "isMut": false,
               "isSigner": false
@@ -281,7 +301,7 @@ export type NttTransceiver = {
         {
           "name": "wormholeMessage",
           "isMut": true,
-          "isSigner": true
+          "isSigner": false
         },
         {
           "name": "emitter",
@@ -313,6 +333,16 @@ export type NttTransceiver = {
             },
             {
               "name": "systemProgram",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
               "isMut": false,
               "isSigner": false
             },
@@ -856,6 +886,16 @@ export const IDL: NttTransceiver = {
               "isSigner": false
             },
             {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
               "name": "clock",
               "isMut": false,
               "isSigner": false
@@ -908,7 +948,7 @@ export const IDL: NttTransceiver = {
         {
           "name": "wormholeMessage",
           "isMut": true,
-          "isSigner": true
+          "isSigner": false
         },
         {
           "name": "emitter",
@@ -948,6 +988,16 @@ export const IDL: NttTransceiver = {
               "isSigner": false
             },
             {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
               "name": "clock",
               "isMut": false,
               "isSigner": false
@@ -983,7 +1033,7 @@ export const IDL: NttTransceiver = {
         {
           "name": "wormholeMessage",
           "isMut": true,
-          "isSigner": true
+          "isSigner": false
         },
         {
           "name": "emitter",
@@ -1015,6 +1065,16 @@ export const IDL: NttTransceiver = {
             },
             {
               "name": "systemProgram",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
               "isMut": false,
               "isSigner": false
             },
