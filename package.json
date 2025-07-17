@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@solana/spl-token": "0.4.0",
-    "@solana/web3.js": "^1.98.2",
+    "@solana/web3.js": "^1.95.8",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.2",
     "@wormhole-foundation/sdk": "^2.4.0",
@@ -38,7 +38,7 @@
     "cli"
   ],
   "resolutions": {
-    "@solana/web3.js": "^1.98.2",
+    "@solana/web3.js": "^1.95.8",
     "@solana/spl-token": "0.4.0"
   }
 }
