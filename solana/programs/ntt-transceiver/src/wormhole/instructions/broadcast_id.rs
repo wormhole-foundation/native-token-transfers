@@ -18,7 +18,7 @@ pub struct BroadcastId<'info> {
 
     /// CHECK: initialized and written to by wormhole core bridge
     #[account(mut, seeds = [&emitter.key.to_bytes()], bump, seeds::program = wormhole_svm_definitions::solana::POST_MESSAGE_SHIM_PROGRAM_ID)]
-    pub wormhole_message: Signer<'info>,
+    pub wormhole_message: UncheckedAccount<'info>,
 
     #[account(
         seeds = [b"emitter"],
