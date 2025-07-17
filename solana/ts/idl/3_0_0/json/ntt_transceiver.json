@@ -154,6 +154,16 @@
               "isSigner": false
             },
             {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
               "name": "clock",
               "isMut": false,
               "isSigner": false
@@ -206,7 +216,7 @@
         {
           "name": "wormholeMessage",
           "isMut": true,
-          "isSigner": true
+          "isSigner": false
         },
         {
           "name": "emitter",
@@ -246,6 +256,16 @@
               "isSigner": false
             },
             {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
               "name": "clock",
               "isMut": false,
               "isSigner": false
@@ -281,7 +301,7 @@
         {
           "name": "wormholeMessage",
           "isMut": true,
-          "isSigner": true
+          "isSigner": false
         },
         {
           "name": "emitter",
@@ -313,6 +333,16 @@
             },
             {
               "name": "systemProgram",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "postMessageShim",
+              "isMut": false,
+              "isSigner": false
+            },
+            {
+              "name": "wormholePostMessageShimEa",
               "isMut": false,
               "isSigner": false
             },
