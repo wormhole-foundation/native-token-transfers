@@ -213,6 +213,42 @@ export class SolanaNttWormholeTransceiver<
     );
   }
 
+  async *setPeerWithShim(
+    peer: ChainAddress<C>,
+    payer: AccountAddress<C>,
+    postMessageShim: PublicKey,
+    wormholePostMessageShimEa: PublicKey
+  ) {
+    const sender = new SolanaAddress(payer).unwrap();
+    const ix = await this.program.methods
+      .setWormholePeer({
+        chainId: { id: toChainId(peer.chain) },
+        address: Array.from(peer.address.toUniversalAddress().toUint8Array()),
+      })
+      .accounts({
+        payer: sender,
+        owner: sender,
+        config: this.manager.pdas.configAccount(),
+        peer: this.pdas.transceiverPeerAccount(peer.chain),
+      })
+      .instruction();
+
+    const broadcastIx = await this.createBroadcastWormholePeerWithShimIx(
+      peer.chain,
+      sender,
+      postMessageShim,
+      wormholePostMessageShimEa
+    );
+
+    const tx = new Transaction();
+    tx.feePayer = sender;
+    tx.add(ix, broadcastIx);
+    yield this.manager.createUnsignedTx(
+      { transaction: tx, signers: [] },
+      "Ntt.SetWormholeTransceiverPeer"
+    );
+  }
+
   async getPeer<C extends Chain>(chain: C): Promise<ChainAddress<C> | null> {
     const peer =
       await this.manager.program.account.transceiverPeer.fetchNullable(
@@ -258,6 +294,41 @@ export class SolanaNttWormholeTransceiver<
       .instruction();
   }
 
+  async createBroadcastWormholeIdWithShimIx(
+    payer: PublicKey,
+    config: NttBindings.Config<IdlVersion>,
+    postMessageShim: PublicKey,
+    wormholePostMessageShimEa: PublicKey
+  ): Promise<web3.TransactionInstruction> {
+    const whAccs = utils.getWormholeDerivedAccounts(
+      this.program.programId,
+      this.manager.core.address
+    );
+
+    return this.program.methods
+      .broadcastWormholeId()
+      .accountsStrict({
+        payer,
+        config: this.manager.pdas.configAccount(),
+        mint: config.mint,
+        wormholeMessage:
+          this.pdas.wormholeMessageWithShimAccount(postMessageShim),
+        emitter: whAccs.wormholeEmitter,
+        wormhole: {
+          bridge: whAccs.wormholeBridge,
+          feeCollector: whAccs.wormholeFeeCollector,
+          sequence: whAccs.wormholeSequence,
+          program: this.manager.core.address,
+          systemProgram: SystemProgram.programId,
+          clock: web3.SYSVAR_CLOCK_PUBKEY,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+          postMessageShim,
+          wormholePostMessageShimEa,
+        },
+      })
+      .instruction();
+  }
+
   async createBroadcastWormholePeerIx(
     chain: Chain,
     payer: PublicKey,
@@ -281,6 +352,38 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
+        },
+      })
+      .instruction();
+  }
+
+  async createBroadcastWormholePeerWithShimIx(
+    chain: Chain,
+    payer: PublicKey,
+    postMessageShim: PublicKey,
+    wormholePostMessageShimEa: PublicKey
+  ): Promise<web3.TransactionInstruction> {
+    const whAccs = utils.getWormholeDerivedAccounts(
+      this.program.programId,
+      this.manager.core.address
+    );
+
+    return this.program.methods
+      .broadcastWormholePeer({ chainId: toChainId(chain) })
+      .accounts({
+        payer: payer,
+        config: this.manager.pdas.configAccount(),
+        peer: this.pdas.transceiverPeerAccount(chain),
+        wormholeMessage:
+          this.pdas.wormholeMessageWithShimAccount(postMessageShim),
+        emitter: whAccs.wormholeEmitter,
+        wormhole: {
+          bridge: whAccs.wormholeBridge,
+          feeCollector: whAccs.wormholeFeeCollector,
+          sequence: whAccs.wormholeSequence,
+          program: this.manager.core.address,
+          postMessageShim,
+          wormholePostMessageShimEa,
         },
       })
       .instruction();
@@ -315,6 +418,51 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
+        },
+        // NOTE: baked-in transceiver case is handled separately
+        // due to tx size error when LUT is not configured
+        ...(major >= 3 && {
+          manager: this.manager.program.programId,
+          outboxItemSigner: this.pdas.outboxItemSigner(),
+        }),
+      })
+      .instruction();
+  }
+
+  async createReleaseWormholeOutboundWithShimIx(
+    payer: PublicKey,
+    outboxItem: PublicKey,
+    revertOnDelay: boolean,
+    postMessageShim: PublicKey,
+    wormholePostMessageShimEa: PublicKey
+  ): Promise<web3.TransactionInstruction> {
+    const [major, , ,] = parseVersion(this.version);
+    const whAccs = utils.getWormholeDerivedAccounts(
+      this.program.programId,
+      this.manager.core.address
+    );
+
+    return this.program.methods
+      .releaseWormholeOutbound({
+        revertOnDelay: revertOnDelay,
+      })
+      .accounts({
+        payer,
+        config: { config: this.manager.pdas.configAccount() },
+        outboxItem,
+        wormholeMessage:
+          this.pdas.wormholeMessageWithShimAccount(postMessageShim),
+        emitter: whAccs.wormholeEmitter,
+        transceiver: this.manager.pdas.registeredTransceiver(
+          this.program.programId
+        ),
+        wormhole: {
+          bridge: whAccs.wormholeBridge,
+          feeCollector: whAccs.wormholeFeeCollector,
+          sequence: whAccs.wormholeSequence,
+          program: this.manager.core.address,
+          postMessageShim,
+          wormholePostMessageShimEa,
         },
         // NOTE: baked-in transceiver case is handled separately
         // due to tx size error when LUT is not configured
@@ -740,6 +888,37 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     );
   }
 
+  async *registerWormholeTransceiverWithShim(args: {
+    payer: AccountAddress<C>;
+    owner: AccountAddress<C>;
+    postMessageShim: PublicKey;
+    wormholePostMessageShimEa: PublicKey;
+  }) {
+    const payer = new SolanaAddress(args.payer).unwrap();
+    const owner = new SolanaAddress(args.owner).unwrap();
+
+    const config = await this.getConfig();
+    if (config.paused) throw new Error("Contract is paused");
+
+    const ix = await this.createRegisterTransceiverIx(0, payer, owner);
+
+    const whTransceiver = (await this.getWormholeTransceiver())!;
+    const broadcastIx = await whTransceiver.createBroadcastWormholeIdWithShimIx(
+      payer,
+      config,
+      args.postMessageShim,
+      args.wormholePostMessageShimEa
+    );
+
+    const tx = new Transaction();
+    tx.feePayer = payer;
+    tx.add(ix, broadcastIx);
+    yield this.createUnsignedTx(
+      { transaction: tx, signers: [] },
+      "Ntt.RegisterTransceiver"
+    );
+  }
+
   // TODO: maybe add to Ntt interface
   async createRegisterTransceiverIx(
     ix: number,
@@ -794,6 +973,21 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     yield* this.setTransceiverPeer(0, peer, payer);
   }
 
+  async *setWormholeTransceiverPeerWithShim(
+    peer: ChainAddress,
+    payer: AccountAddress<C>,
+    postMessageShim: PublicKey,
+    wormholePostMessageShimEa: PublicKey
+  ) {
+    yield* this.setTransceiverPeerWithShim(
+      0,
+      peer,
+      payer,
+      postMessageShim,
+      wormholePostMessageShimEa
+    );
+  }
+
   async *setTransceiverPeer(
     ix: number,
     peer: ChainAddress,
@@ -804,6 +998,25 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       throw new Error("Transceiver not found");
     }
     yield* transceiver.setPeer(peer, payer);
+  }
+
+  async *setTransceiverPeerWithShim(
+    ix: number,
+    peer: ChainAddress,
+    payer: AccountAddress<C>,
+    postMessageShim: PublicKey,
+    wormholePostMessageShimEa: PublicKey
+  ) {
+    const transceiver = await this.getTransceiver(ix);
+    if (!transceiver) {
+      throw new Error("Transceiver not found");
+    }
+    if (!("setPeerWithShim" in transceiver)) {
+      throw new Error("setPeerWithShim not found");
+    }
+    yield* (
+      transceiver.setPeerWithShim as typeof SolanaNttWormholeTransceiver.prototype.setPeerWithShim
+    )(peer, payer, postMessageShim, wormholePostMessageShimEa);
   }
 
   async *setPeer(
@@ -942,6 +1155,169 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           payerAddress,
           outboxItem.publicKey,
           !options.queue
+        );
+        asyncIxs.push(releaseIx);
+      }
+    }
+
+    const tx = new Transaction();
+    tx.feePayer = payerAddress;
+    tx.add(approveIx, ...(await Promise.all(asyncIxs)));
+
+    if (options.automatic) {
+      if (!this.quoter)
+        throw new Error(
+          "No quoter available, cannot initiate an automatic transfer."
+        );
+
+      const fee = await this.quoteDeliveryPrice(destination.chain, options);
+
+      const relayIx = await this.quoter.createRequestRelayInstruction(
+        payerAddress,
+        outboxItem.publicKey,
+        destination.chain,
+        Number(fee) / LAMPORTS_PER_SOL,
+        0
+      );
+      tx.add(relayIx);
+    }
+
+    const luts: AddressLookupTableAccount[] = [];
+    try {
+      luts.push(await this.getAddressLookupTable());
+    } catch {}
+
+    const messageV0 = new TransactionMessage({
+      payerKey: payerAddress,
+      instructions: tx.instructions,
+      recentBlockhash: (await this.connection.getLatestBlockhash()).blockhash,
+    }).compileToV0Message(luts);
+
+    const vtx = new VersionedTransaction(messageV0);
+
+    yield this.createUnsignedTx(
+      { transaction: vtx, signers: [outboxItem] },
+      "Ntt.Transfer"
+    );
+  }
+
+  async *transferWithShim(
+    sender: AccountAddress<C>,
+    amount: bigint,
+    destination: ChainAddress,
+    options: Ntt.TransferOptions,
+    postMessageShim: PublicKey,
+    wormholePostMessageShimEa: PublicKey,
+    outboxItem?: Keypair
+  ): AsyncGenerator<UnsignedTransaction<N, C>, any, unknown> {
+    const config = await this.getConfig();
+    if (config.paused) throw new Error("Contract is paused");
+
+    outboxItem = outboxItem ?? Keypair.generate();
+
+    const payerAddress = new SolanaAddress(sender).unwrap();
+    const fromAuthority = payerAddress;
+    const from = await this.getTokenAccount(fromAuthority);
+
+    if (options.wrapNative) {
+      if (this.tokenAddress !== splToken.NATIVE_MINT.toBase58()) {
+        throw new Error("Configured token must be native mint for wrapping");
+      }
+
+      const associatedTokenAccount = splToken.getAssociatedTokenAddressSync(
+        splToken.NATIVE_MINT,
+        payerAddress
+      );
+
+      const accountExists = await this.connection.getAccountInfo(
+        associatedTokenAccount
+      );
+
+      const instructions: TransactionInstruction[] = [
+        // Create the associated token account if it doesn't exist
+        ...(accountExists
+          ? []
+          : [
+              splToken.createAssociatedTokenAccountInstruction(
+                payerAddress,
+                associatedTokenAccount,
+                payerAddress,
+                splToken.NATIVE_MINT
+              ),
+            ]),
+
+        SystemProgram.transfer({
+          fromPubkey: payerAddress,
+          toPubkey: associatedTokenAccount,
+          lamports: amount,
+        }),
+
+        // Sync the native token account
+        splToken.createSyncNativeInstruction(associatedTokenAccount),
+      ];
+
+      const { blockhash } = await this.connection.getLatestBlockhash();
+
+      const messageV0 = new TransactionMessage({
+        payerKey: payerAddress,
+        instructions,
+        recentBlockhash: blockhash,
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // NOTE: wrap native is handled separately due to tx size error
+      yield this.createUnsignedTx({ transaction }, "Ntt.WrapNative");
+    }
+
+    const transferArgs = NTT.transferArgs(amount, destination, options.queue);
+
+    const txArgs = {
+      transferArgs,
+      payer: payerAddress,
+      from,
+      fromAuthority,
+      outboxItem: outboxItem.publicKey,
+    };
+
+    const approveIx = splToken.createApproveInstruction(
+      from,
+      this.pdas.sessionAuthority(fromAuthority, transferArgs),
+      fromAuthority,
+      amount,
+      [],
+      config.tokenProgram
+    );
+
+    const asyncIxs: Promise<web3.TransactionInstruction>[] = [];
+    const transferIx =
+      config.mode.locking != null
+        ? NTT.createTransferLockInstruction(
+            this.program,
+            config,
+            txArgs,
+            this.pdas
+          )
+        : NTT.createTransferBurnInstruction(
+            this.program,
+            config,
+            txArgs,
+            this.pdas
+          );
+    asyncIxs.push(transferIx);
+
+    for (let ix = 0; ix < this.transceivers.length; ++ix) {
+      if (ix === 0) {
+        const whTransceiver = await this.getWormholeTransceiver();
+        if (!whTransceiver) {
+          throw new Error("wormhole transceiver not found");
+        }
+        const releaseIx = whTransceiver.createReleaseWormholeOutboundWithShimIx(
+          payerAddress,
+          outboxItem.publicKey,
+          !options.queue,
+          postMessageShim,
+          wormholePostMessageShimEa
         );
         asyncIxs.push(releaseIx);
       }
