@@ -20,7 +20,10 @@ import {
   SolanaPlatform,
   getSolanaSignAndSendSigner,
 } from "@wormhole-foundation/sdk-solana";
-import { SolanaWormholeCore } from "@wormhole-foundation/sdk-solana-core";
+import {
+  SolanaWormholeCore,
+  utils,
+} from "@wormhole-foundation/sdk-solana-core";
 
 import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
@@ -28,6 +31,7 @@ import {
   TestDummyTransferHook,
   TestHelper,
   TestMint,
+  TestWormholePostMessageShim,
   assert,
   signSendWait,
 } from "./utils/helpers.js";
@@ -55,6 +59,7 @@ const testDummyTransferHook = new TestDummyTransferHook(
   TOKEN_PROGRAM,
   spl.ASSOCIATED_TOKEN_PROGRAM_ID
 );
+const testWormholePostMessageShim = new TestWormholePostMessageShim();
 let testMint: TestMint;
 
 /**
@@ -181,14 +186,21 @@ describe("example-native-token-transfers", () => {
       await signSendWait(ctx, initTxs, signer);
 
       // register Wormhole xcvr
-      const registerTxs = ntt.registerWormholeTransceiver({
+      const registerTxs = ntt.registerWormholeTransceiverWithShim({
         payer: payerAddress,
         owner: payerAddress,
+        postMessageShim: testWormholePostMessageShim.programId,
+        wormholePostMessageShimEa: testWormholePostMessageShim.eventAuthority(),
       });
       await signSendWait(ctx, registerTxs, signer);
 
       // set Wormhole xcvr peer
-      const setXcvrPeerTxs = ntt.setWormholeTransceiverPeer(remoteXcvr, sender);
+      const setXcvrPeerTxs = ntt.setWormholeTransceiverPeerWithShim(
+        remoteXcvr,
+        sender,
+        testWormholePostMessageShim.programId,
+        testWormholePostMessageShim.eventAuthority()
+      );
       await signSendWait(ctx, setXcvrPeerTxs, signer);
 
       // set manager peer
@@ -208,17 +220,32 @@ describe("example-native-token-transfers", () => {
       const amount = 100_000n;
       const receiver = testing.utils.makeUniversalChainAddress("Ethereum");
 
+      const wormholeXcvr = await ntt.getWormholeTransceiver();
+      expect(wormholeXcvr).toBeTruthy();
+      const sequenceTracker = await utils.getSequenceTracker(
+        $.connection,
+        wormholeXcvr!.pdas.emitterAccount(),
+        coreBridge.address
+      );
+      const expectedSequence = sequenceTracker.sequence;
+
       // TODO: keep or remove the `outboxItem` param?
       // added as a way to keep tests the same but it technically breaks the Ntt interface
       const outboxItem = $.keypair.generate();
-      const xferTxs = ntt.transfer(
+      const wrapNative = false;
+      const xferTxs = ntt.transferWithShim(
         sender,
         amount,
         receiver,
-        { queue: false, automatic: false },
+        { queue: false, automatic: false, wrapNative },
+        testWormholePostMessageShim.programId,
+        testWormholePostMessageShim.eventAuthority(),
         outboxItem
       );
-      await signSendWait(ctx, xferTxs, signer);
+      const txIds = await signSendWait(ctx, xferTxs, signer);
+      expect(txIds).toBeTruthy();
+      expect(txIds!.length).toEqual(1 + Number(wrapNative));
+      const txId = txIds![Number(wrapNative)]!;
 
       // assert that released bitmap has transceiver bits set
       const outboxItemInfo = await ntt.program.account.outboxItem.fetch(
@@ -228,18 +255,26 @@ describe("example-native-token-transfers", () => {
         Object.keys(nttTransceivers).length
       );
 
-      const wormholeXcvr = await ntt.getWormholeTransceiver();
-      expect(wormholeXcvr).toBeTruthy();
-      const wormholeMessage = wormholeXcvr!.pdas.wormholeMessageAccount(
-        outboxItem.publicKey
+      // parse event and instruction data to re-build message
+      const [data] = await testWormholePostMessageShim.getMessageData(
+        $.connection,
+        txId
       );
-      const unsignedVaa = await coreBridge.parsePostMessageAccount(
-        wormholeMessage
+
+      // assert that the event is correctly emitted
+      expect(data!.emitter).toMatchObject(wormholeXcvr!.pdas.emitterAccount());
+      assert.bn(data!.sequence).equal(expectedSequence);
+      expect(data!.submissionTime).toEqual(await $.currentTime());
+
+      // assert instruction data is correct
+      expect(data!.nonce).toBe(0); // hardcoded in `post_message`
+      expect(JSON.stringify(data!.consistencyLevel)).toEqual(
+        JSON.stringify({ finalized: {} }) // hardcoded in `post_message`
       );
 
       const transceiverMessage = deserializePayload(
         "Ntt:WormholeTransfer",
-        unsignedVaa.payload
+        data!.payload
       );
 
       // assert that amount is what we expect
