@@ -995,6 +995,13 @@ yargs(hideBin(process.argv))
             const token = argv["token"];
             const network = deployments.network as Network;
 
+            // Check that the platform is SVM (Solana)
+            const platform = chainToPlatform(chain);
+            if (platform !== "Solana") {
+                console.error(`set-mint-authority is only supported for SVM chains. Got platform: ${platform}`);
+                process.exit(1);
+            }
+
             if (!fs.existsSync(argv["payer"])) {
                 console.error("Payer not found. Specify with --payer");
                 process.exit(1);
