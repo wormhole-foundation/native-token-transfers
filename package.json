@@ -18,7 +18,7 @@
     "version": "tsx setSdkVersion.ts"
   },
   "devDependencies": {
-    "@solana/spl-token": "0.3.9",
+    "@solana/spl-token": "0.4.0",
     "@solana/web3.js": "^1.95.8",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.2",
@@ -36,5 +36,9 @@
     "sdk/route",
     "sdk/examples",
     "cli"
-  ]
+  ],
+  "resolutions": {
+    "@solana/web3.js": "^1.95.8",
+    "@solana/spl-token": "0.4.0"
+  }
 }
