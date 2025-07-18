@@ -44,13 +44,14 @@ module ntt_common::validated_transceiver_message {
         }
     }
 
-    public fun destruct_recipient_only<TransceiverAuth, ManagerAuth, A>(
+    public fun destruct_recipient_only<TransceiverAuth, ManagerAuth, State: key, A>(
         message: ValidatedTransceiverMessage<TransceiverAuth, A>,
-        auth: &ManagerAuth, // only the recipient mangaer can destruct
+        auth: &ManagerAuth, // only the recipient manager can destruct
+        state: &State
     ): (u16, ExternalAddress, NttManagerMessage<A>) {
         let ValidatedTransceiverMessage { from_chain, message } = message;
         let (source_ntt_manager, recipient_ntt_manager, ntt_manager_message) = message.destruct();
-        let caller_manager = ntt_common::contract_auth::assert_auth_type(auth, b"ManagerAuth");
+        let caller_manager = ntt_common::contract_auth::auth_as(auth, b"ManagerAuth", state);
         assert!(external_address::from_address(caller_manager) == recipient_ntt_manager, EInvalidRecipientManager);
         (from_chain, source_ntt_manager, ntt_manager_message)
     }

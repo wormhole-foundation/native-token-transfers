@@ -26,6 +26,20 @@
 ///
 /// The `assert_auth_type` function checks that a reference to such a value is
 /// indeed an "auth type", and returns the <ADDRESS> component if it is.
+///
+/// In some cases, a contract might want to authenticate itself by its state
+/// object (or any other object created by it for that mattter). In this case,
+/// the `auth_as` function is used.
+/// Why would we want to do that? Because a contract is *actually* identified by
+/// its state object, not its (current) implementation. Given the state object,
+/// a client can always look up the latest implementation of the contract (much
+/// more easily so if the state object holds a reference to its deployer
+/// cap...), but the reverse is not true.
+///
+/// So NTT managers are registered by their state object on other chains. This
+/// way, a relayer can peek inside the NTT message, find the address of the
+/// state object that belongs to the recipient manager, and then look up the
+/// implementation address it needs to invoke.
 module ntt_common::contract_auth {
     use std::type_name;
     use sui::address;
@@ -66,6 +80,15 @@ module ntt_common::contract_auth {
             abort EInvalidAuthType
         };
         *maybe_addy.borrow()
+    }
+
+    public fun auth_as<Auth, State: key>(_auth: &Auth, type_name: vector<u8>, obj: &State): address {
+        let package_id = assert_auth_type<Auth>(_auth, type_name);
+        let fqt = type_name::get<State>();
+        let state_package_id = address::from_bytes(hex::decode(fqt.get_address().into_bytes()));
+        assert!(package_id == state_package_id, EInvalidAuthType);
+
+        object::id_address(obj)
     }
 }
 

@@ -221,7 +221,7 @@ module ntt::ntt_tests {
         assert!(source_manager_a == source_manager_b);
         assert!(recipient_manager_a == recipient_manager_b);
 
-        assert!(source_manager_a == external_address::from_address(@ntt));
+        assert!(source_manager_a == external_address::from_address(object::id_address(&state)));
 
         let manager_message = ntt_manager_message::map!(manager_message_a, |x| native_token_transfer::parse(x));
 
@@ -341,7 +341,7 @@ module ntt::ntt_tests {
             ntt_scenario::peer_chain_id(),
             ntt_common::transceiver_message_data::new(
                 ntt_scenario::peer_manager_address(),
-                external_address::from_address(@ntt),
+                external_address::from_address(object::id_address(&state)),
                 manager_message_encoded
             )
         );
@@ -351,7 +351,7 @@ module ntt::ntt_tests {
             ntt_scenario::peer_chain_id(),
             ntt_common::transceiver_message_data::new(
                 ntt_scenario::peer_manager_address(),
-                external_address::from_address(@ntt),
+                external_address::from_address(object::id_address(&state)),
                 manager_message_encoded
             )
         );
@@ -428,7 +428,7 @@ module ntt::ntt_tests {
             ntt_scenario::peer_chain_id(),
             ntt_common::transceiver_message_data::new(
                 ntt_scenario::peer_manager_address(),
-                external_address::from_address(@ntt),
+                external_address::from_address(object::id_address(&state)),
                 manager_message_encoded
             )
         );
@@ -490,7 +490,7 @@ module ntt::ntt_tests {
             ntt_scenario::peer_chain_id(),
             ntt_common::transceiver_message_data::new(
                 ntt_scenario::peer_manager_address(),
-                external_address::from_address(@ntt),
+                external_address::from_address(object::id_address(&state)),
                 manager_message_encoded
             )
         );
@@ -509,7 +509,7 @@ module ntt::ntt_tests {
             ntt_scenario::peer_chain_id(),
             ntt_common::transceiver_message_data::new(
                 ntt_scenario::peer_manager_address(),
-                external_address::from_address(@ntt),
+                external_address::from_address(object::id_address(&state)),
                 manager_message_encoded
             )
         );
@@ -571,7 +571,7 @@ module ntt::ntt_tests {
             ntt_scenario::peer_chain_id(),
             ntt_common::transceiver_message_data::new(
                 ntt_scenario::peer_manager_address(),
-                external_address::from_address(@ntt),
+                external_address::from_address(object::id_address(&state)),
                 manager_message_encoded
             )
         );

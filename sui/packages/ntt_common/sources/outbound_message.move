@@ -32,12 +32,13 @@ module ntt_common::outbound_message {
         recipient_ntt_manager: ExternalAddress,
     }
 
-    public fun new<ManagerAuth, TransceiverAuth>(
+    public fun new<ManagerAuth, TransceiverAuth, State: key>(
         auth: &ManagerAuth,
+        state: &State,
         message: NttManagerMessage<vector<u8>>,
         recipient_ntt_manager: ExternalAddress,
     ): OutboundMessage<ManagerAuth, TransceiverAuth> {
-        let manager_address = contract_auth::assert_auth_type(auth, b"ManagerAuth");
+        let manager_address = contract_auth::auth_as(auth, b"ManagerAuth", state);
         let source_ntt_manager = external_address::from_address(manager_address);
         OutboundMessage { message, source_ntt_manager, recipient_ntt_manager }
     }
