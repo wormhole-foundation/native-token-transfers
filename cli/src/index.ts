@@ -959,11 +959,7 @@ yargs(hideBin(process.argv))
     .command("set-mint-authority",
         "set token mint authority to token authority (or valid SPL Multisig if --multisig flag is provided)",
         (yargs) => yargs
-            .option("chain", {
-                describe: "Chain to operate on",
-                type: "string",
-                demandOption: true,
-            })
+            .option("chain", options.chain)
             .option("manager", {
                 describe: "Manager address",
                 type: "string",
