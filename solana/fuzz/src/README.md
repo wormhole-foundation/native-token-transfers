@@ -1,28 +1,29 @@
 # Fuzzing
 
-Requires honggfuzz. Fuzz tests will not run on Apple Silicon.
+Requires cargo-afl.
 
 ## Install
 
 ```bash
-cargo install honggfuzz
+cargo install cargo-afl
 ```
 
 ## Build
 
 ```bash
 # in solana/fuzz/src
-cargo hfuzz build
+cargo afl build
 ```
 
 ## Run
 
 ```bash
-cargo hfuzz run ntt-fuzz
+cargo afl fuzz target/debug/ntt-fuzz
 ```
 
 As more targets are added, other targets for `run` can be found and added as `bins` defined in `Cargo.toml`.
-`name` corresponds to the binary used by `cargo hfuzz run`.
+`name` corresponds to the binary used by `cargo afl fuzz`.
+
 ```toml
 ...
 [[bin]]
