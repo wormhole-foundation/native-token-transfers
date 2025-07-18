@@ -1231,7 +1231,7 @@ yargs(hideBin(process.argv))
                     // NOTE: the `acceptTokenAuthority` instruction would have done this check normally.
                     // However, since the program is not yet deployed, we do this check here.
                     const isMultisigTokenAuthority =
-                        await checkSolanaValidSplMultisig(
+                        await checkSvmValidSplMultisig(
                             connection,
                             multisigTokenAuthority,
                             mintInfo.owner,
