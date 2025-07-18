@@ -193,7 +193,7 @@ module ntt::ntt {
         version_gated.check_version(state);
 
         let (chain_id, source_ntt_manager, ntt_manager_message) =
-            validated_message.destruct_recipient_only(&ntt::auth::new_auth());
+            validated_message.destruct_recipient_only(&ntt::auth::new_auth(), state);
 
         let ntt_manager_message = ntt_common::ntt_manager_message::map!(ntt_manager_message, |buf| {
             native_token_transfer::parse(buf)

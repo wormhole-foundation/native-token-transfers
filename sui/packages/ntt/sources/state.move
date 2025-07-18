@@ -183,7 +183,7 @@ module ntt::state {
         let message = *outbox_item.borrow_data();
         let recipient_ntt_manager = *outbox_item.borrow_recipient_ntt_manager_address();
         let message = ntt_manager_message::map!(message, |m| m.to_bytes());
-        ntt_common::outbound_message::new(&ntt::auth::new_auth(), message, recipient_ntt_manager)
+        ntt_common::outbound_message::new(&ntt::auth::new_auth(), self, message, recipient_ntt_manager)
     }
 
     // TODO: this currently allows a disabled transceiver to vote. should we disallow that?
