@@ -37,8 +37,9 @@ ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "has
 anchor-lang.workspace = true
 anchor-spl.workspace = true
 solana-program.workspace = true
-wormhole-post-message-shim-interface = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr", features = ["no-entrypoint", "cpi"] }
-wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr"}
+wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
+wormhole-verify-vaa-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
+wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
 cfg-if = "1.0.0"
 
 wormhole-anchor-sdk.workspace = true
