@@ -1078,7 +1078,7 @@ yargs(hideBin(process.argv))
             }
 
             // verify current mint authority is not valid SPL Multisig
-            const isMultisigTokenAuthority = await checkSolanaValidSplMultisig(
+            const isMultisigTokenAuthority = await checkSvmValidSplMultisig(
                 connection,
                 mint.mintAuthority,
                 mintInfo.owner,
@@ -1941,7 +1941,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
         // verify mint authority is token authority or valid SPL Multisig
         const actualMintAuthority: string | null = mint.mintAuthority?.toBase58() ?? null;
         if (actualMintAuthority !== tokenAuthority.toBase58()) {
-            const isValidSplMultisig = actualMintAuthority && await checkSolanaValidSplMultisig(
+            const isValidSplMultisig = actualMintAuthority && await checkSvmValidSplMultisig(
                 connection,
                 new PublicKey(actualMintAuthority),
                 mintInfo.owner,
@@ -2803,7 +2803,7 @@ function nttVersion(): { version: string, commit: string, path: string, remote: 
     }
 }
 
-async function checkSolanaValidSplMultisig(
+async function checkSvmValidSplMultisig(
     connection: Connection,
     address: PublicKey,
     programId: PublicKey,
