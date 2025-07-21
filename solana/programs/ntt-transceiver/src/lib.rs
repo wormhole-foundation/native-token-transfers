@@ -36,8 +36,11 @@ pub mod ntt_transceiver {
         set_transceiver_peer(ctx, args)
     }
 
-    pub fn receive_wormhole_message(ctx: Context<ReceiveMessage>) -> Result<()> {
-        wormhole::instructions::receive_message(ctx)
+    pub fn receive_wormhole_message(
+        ctx: Context<ReceiveMessage>,
+        args: ReceiveMessageArgs,
+    ) -> Result<()> {
+        wormhole::instructions::receive_message(ctx, args)
     }
 
     pub fn release_wormhole_outbound(
