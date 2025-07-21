@@ -2002,7 +2002,10 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
             console.error("Core bridge address not found in Solana config");
             process.exit(1);
         }
-        await patchSolanaBinary(binary, wormhole, solanaAddress);
+        
+        if (ch.chain !== "Solana") {
+            await patchSolanaBinary(binary, wormhole, solanaAddress);
+        }
         await checkSolanaBinary(binary, wormhole, providedProgramId, version ?? undefined);
 
         // if buffer.json doesn't exist, create it
