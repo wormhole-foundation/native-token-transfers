@@ -1,5 +1,5 @@
-use crate::{messages::ValidatedTransceiverMessage, peer::TransceiverPeer};
 use anchor_lang::prelude::*;
+
 use example_native_token_transfers::{
     config::{anchor_reexports::*, *},
     error::NTTError,
@@ -12,34 +12,27 @@ use ntt_messages::{
     transceivers::wormhole::WormholeTransceiver,
 };
 use wormhole_anchor_sdk::wormhole::PostedVaa;
+use wormhole_verify_vaa_shim_interface::program::WormholeVerifyVaaShim;
+
+use crate::{messages::ValidatedTransceiverMessage, peer::TransceiverPeer};
 
 #[derive(Accounts)]
+#[instruction(args: ReceiveMessageArgs)]
 pub struct ReceiveMessage<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    #[account(
+        constraint = args.vaa.message().ntt_manager_payload.payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
+    )]
     pub config: NotPausedConfig<'info>,
 
     #[account(
-        seeds = [TransceiverPeer::SEED_PREFIX, vaa.emitter_chain().to_be_bytes().as_ref()],
-        constraint = peer.address == *vaa.emitter_address() @ NTTError::InvalidTransceiverPeer,
+        seeds = [TransceiverPeer::SEED_PREFIX, args.vaa.emitter_chain().to_be_bytes().as_ref()],
+        constraint = peer.address == *args.vaa.emitter_address() @ NTTError::InvalidTransceiverPeer,
         bump = peer.bump,
     )]
     pub peer: Account<'info, TransceiverPeer>,
-
-    // TODO: Consider using VaaAccount from wormhole-solana-vaa crate. Using a zero-copy reader
-    // will allow this instruction to be generic (instead of strictly specifying NativeTokenTransfer
-    // as the message type).
-    #[account(
-        // check that the messages is targeted to this chain
-        constraint = vaa.message().ntt_manager_payload.payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
-        // NOTE: we don't replay protect VAAs. Instead, we replay protect
-        // executing the messages themselves with the [`released`] flag.
-    )]
-    pub vaa: Account<
-        'info,
-        PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>>,
-    >,
 
     #[account(
         init,
@@ -47,8 +40,8 @@ pub struct ReceiveMessage<'info> {
         space = 8 + ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::INIT_SPACE,
         seeds = [
             ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::SEED_PREFIX,
-            vaa.emitter_chain().to_be_bytes().as_ref(),
-            vaa.message().ntt_manager_payload.id.as_ref(),
+            args.vaa.emitter_chain().to_be_bytes().as_ref(),
+            args.vaa.message().ntt_manager_payload.id.as_ref(),
         ],
         bump,
     )]
@@ -59,12 +52,44 @@ pub struct ReceiveMessage<'info> {
     pub transceiver_message:
         Account<'info, ValidatedTransceiverMessage<NativeTokenTransfer<Payload>>>,
 
+    /// CHECK: Guardian set used for signature verification by shim.
+    /// Derivation is checked by the shim.
+    pub guardian_set: UncheckedAccount<'info>,
+
+    /// CHECK: Stored guardian signatures to be verified by shim.
+    /// Ownership ownership and discriminator is checked by the shim.
+    pub guardian_signatures: UncheckedAccount<'info>,
+
+    pub verify_vaa_shim: Program<'info, WormholeVerifyVaaShim>,
+
     pub system_program: Program<'info, System>,
 }
 
-pub fn receive_message(ctx: Context<ReceiveMessage>) -> Result<()> {
-    let message = ctx.accounts.vaa.message().message_data.clone();
-    let chain_id = ctx.accounts.vaa.emitter_chain();
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct ReceiveMessageArgs {
+    pub vaa: PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>>,
+    pub guardian_set_bump: u8,
+}
+
+pub fn receive_message(ctx: Context<ReceiveMessage>, args: ReceiveMessageArgs) -> Result<()> {
+    // Verify the hash against the signatures
+    let vec_body = &args.vaa.try_to_vec()?[..];
+    let message_hash = &solana_program::keccak::hashv(&[vec_body]).to_bytes();
+    let digest = solana_program::keccak::hash(message_hash.as_slice()).to_bytes();
+    wormhole_verify_vaa_shim_interface::cpi::verify_hash(
+        CpiContext::new(
+            ctx.accounts.verify_vaa_shim.to_account_info(),
+            wormhole_verify_vaa_shim_interface::cpi::accounts::VerifyHash {
+                guardian_set: ctx.accounts.guardian_set.to_account_info(),
+                guardian_signatures: ctx.accounts.guardian_signatures.to_account_info(),
+            },
+        ),
+        args.guardian_set_bump,
+        digest,
+    )?;
+
+    let message = args.vaa.message().message_data.clone();
+    let chain_id = args.vaa.emitter_chain();
     ctx.accounts
         .transceiver_message
         .set_inner(ValidatedTransceiverMessage {
