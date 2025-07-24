@@ -12,7 +12,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-
+import { IDL as WormholeVerifyVaaShimIdl } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 import { Chain, Network, toChainId } from "@wormhole-foundation/sdk-base";
 import {
   AccountAddress,
@@ -21,6 +21,7 @@ import {
   Contracts,
   NativeAddress,
   UnsignedTransaction,
+  serialize,
   toUniversal,
 } from "@wormhole-foundation/sdk-definitions";
 import {
@@ -49,7 +50,7 @@ import {
   getTransceiverProgram,
 } from "../lib/bindings.js";
 import { NTT, NttQuoter } from "../lib/index.js";
-import { parseVersion } from "../lib/utils.js";
+import { parseVersion, vaaBody } from "../lib/utils.js";
 
 export class SolanaNttWormholeTransceiver<
   N extends Network,
@@ -116,6 +117,41 @@ export class SolanaNttWormholeTransceiver<
           chain,
           nttMessage.id
         ),
+      })
+      .instruction();
+  }
+
+  async createReceiveWithShimIx(
+    attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">,
+    payer: PublicKey,
+    guardianSignatures: PublicKey,
+    verifyVaaShim: PublicKey
+  ) {
+    const nttMessage = attestation.payload.nttManagerPayload;
+    const chain = attestation.emitterChain;
+
+    const indexBuffer = Buffer.alloc(4); // guardian_set_index is a u32
+    indexBuffer.writeUInt32BE(attestation.guardianSet);
+    const [guardianSet, guardianSetBump] = PublicKey.findProgramAddressSync(
+      [Buffer.from("GuardianSet"), indexBuffer],
+      this.manager.core.coreBridge.programId
+    );
+
+    return this.program.methods
+      .receiveWormholeMessageInstructionData(guardianSetBump, {
+        span: vaaBody(serialize(attestation)),
+      })
+      .accounts({
+        payer,
+        config: { config: this.manager.pdas.configAccount() },
+        peer: this.pdas.transceiverPeerAccount(chain),
+        transceiverMessage: this.pdas.transceiverMessageAccount(
+          chain,
+          nttMessage.id
+        ),
+        guardianSet,
+        guardianSignatures,
+        verifyVaaShim,
       })
       .instruction();
   }
