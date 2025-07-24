@@ -1524,6 +1524,138 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     }
   }
 
+  async *redeemWithShim(
+    attestations: Ntt.Attestation[],
+    payer: AccountAddress<C>
+  ) {
+    const config = await this.getConfig();
+    if (config.paused) throw new Error("Contract is paused");
+
+    if (attestations.length !== this.transceivers.length) {
+      throw new Error("Not enough attestations provided");
+    }
+
+    for (const { attestation, ix } of attestations.map((attestation, ix) => ({
+      attestation,
+      ix,
+    }))) {
+      if (ix === 0) {
+        const wormholeNTT = attestation;
+        if (wormholeNTT.payloadName !== "WormholeTransfer") {
+          throw new Error("Invalid attestation payload");
+        }
+        const whTransceiver = await this.getWormholeTransceiver();
+        if (!whTransceiver) {
+          throw new Error("wormhole transceiver not found");
+        }
+
+        // Create the vaa if necessary
+        yield* this.createAta(payer);
+
+        const senderAddress = new SolanaAddress(payer).unwrap();
+
+        // Post signatures for the VAA we intend to redeem
+        const wormholeVerifyVaaShimProgram = new Program(
+          WormholeVerifyVaaShimIdl,
+          "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"
+        );
+        const signatureKeypair = Keypair.generate();
+        const postSignaturesTx = new Transaction().add(
+          await wormholeVerifyVaaShimProgram.methods
+            .postSignatures(
+              wormholeNTT.guardianSet,
+              wormholeNTT.signatures.length,
+              wormholeNTT.signatures.map((s) => [
+                s.guardianIndex,
+                ...s.signature.encode(),
+              ])
+            )
+            .accounts({ guardianSignatures: signatureKeypair.publicKey })
+            .signers([signatureKeypair])
+            .instruction()
+        );
+        postSignaturesTx.feePayer = senderAddress;
+        yield this.createUnsignedTx(
+          { transaction: postSignaturesTx, signers: [signatureKeypair] },
+          "VerifyVAAShim.PostSignatures"
+        );
+
+        // Verify VAA hash and receive message
+        const receiveMessageIx = whTransceiver.createReceiveWithShimIx(
+          wormholeNTT,
+          senderAddress,
+          signatureKeypair.publicKey,
+          wormholeVerifyVaaShimProgram.programId
+        );
+
+        // Close guardian signatures
+        const closeSignaturesIx = wormholeVerifyVaaShimProgram.methods
+          .closeSignatures()
+          .accounts({ guardianSignatures: signatureKeypair.publicKey })
+          .instruction();
+
+        const redeemIx = NTT.createRedeemInstruction(
+          this.program,
+          config,
+          whTransceiver.program.programId,
+          {
+            payer: senderAddress,
+            vaa: wormholeNTT,
+          }
+        );
+
+        const nttMessage = wormholeNTT.payload.nttManagerPayload;
+        const emitterChain = wormholeNTT.emitterChain;
+        const releaseArgs = {
+          payer: senderAddress,
+          config,
+          nttMessage,
+          recipient: new PublicKey(
+            nttMessage.payload.recipientAddress.toUint8Array()
+          ),
+          chain: emitterChain,
+          // NOTE: this acts as `revertOnDelay` for versions < 3.x.x
+          revertWhenNotReady: false,
+        };
+        let releaseIx =
+          config.mode.locking != null
+            ? NTT.createReleaseInboundUnlockInstruction(this.program, config, {
+                ...releaseArgs,
+              })
+            : NTT.createReleaseInboundMintInstruction(this.program, config, {
+                ...releaseArgs,
+              });
+
+        const tx = new Transaction();
+        tx.feePayer = senderAddress;
+        tx.add(
+          ...(await Promise.all([
+            receiveMessageIx,
+            closeSignaturesIx,
+            redeemIx,
+            releaseIx,
+          ]))
+        );
+
+        const luts: AddressLookupTableAccount[] = [];
+        try {
+          luts.push(await this.getAddressLookupTable());
+        } catch {}
+
+        const messageV0 = new TransactionMessage({
+          payerKey: senderAddress,
+          instructions: tx.instructions,
+          recentBlockhash: (await this.connection.getLatestBlockhash())
+            .blockhash,
+        }).compileToV0Message(luts);
+
+        const vtx = new VersionedTransaction(messageV0);
+
+        yield this.createUnsignedTx({ transaction: vtx }, "Ntt.Redeem");
+      }
+    }
+  }
+
   async getCurrentOutboundCapacity(): Promise<bigint> {
     const rl = await this.program.account.outboxRateLimit.fetch(
       this.pdas.outboxRateLimitAccount()
