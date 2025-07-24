@@ -61,7 +61,9 @@ const gasLimitOverrides: Partial<
   Mainnet: {
     Arbitrum: 800_000n,
   },
-  Testnet: {},
+  Testnet: {
+    ArbitrumSepolia: 800_000n,
+  },
 };
 
 export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
