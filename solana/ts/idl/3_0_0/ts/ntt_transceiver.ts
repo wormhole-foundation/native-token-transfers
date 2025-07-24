@@ -47,7 +47,7 @@ export type NttTransceiver = {
       ]
     },
     {
-      "name": "receiveWormholeMessage",
+      "name": "receiveWormholeMessageInstructionData",
       "accounts": [
         {
           "name": "payer",
@@ -70,13 +70,29 @@ export type NttTransceiver = {
           "isSigner": false
         },
         {
-          "name": "vaa",
-          "isMut": false,
+          "name": "transceiverMessage",
+          "isMut": true,
           "isSigner": false
         },
         {
-          "name": "transceiverMessage",
-          "isMut": true,
+          "name": "guardianSet",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Derivation is checked by the shim."
+          ]
+        },
+        {
+          "name": "guardianSignatures",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Ownership ownership and discriminator is checked by the shim."
+          ]
+        },
+        {
+          "name": "verifyVaaShim",
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -85,7 +101,18 @@ export type NttTransceiver = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "guardianSetBump",
+          "type": "u8"
+        },
+        {
+          "name": "vaaBody",
+          "type": {
+            "defined": "VaaBody"
+          }
+        }
+      ]
     },
     {
       "name": "releaseWormholeOutbound",
@@ -653,6 +680,18 @@ export type NttTransceiver = {
           {
             "name": "decimals",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaaBody",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "span",
+            "type": "bytes"
           }
         ]
       }
@@ -779,7 +818,7 @@ export const IDL: NttTransceiver = {
       ]
     },
     {
-      "name": "receiveWormholeMessage",
+      "name": "receiveWormholeMessageInstructionData",
       "accounts": [
         {
           "name": "payer",
@@ -802,13 +841,29 @@ export const IDL: NttTransceiver = {
           "isSigner": false
         },
         {
-          "name": "vaa",
-          "isMut": false,
+          "name": "transceiverMessage",
+          "isMut": true,
           "isSigner": false
         },
         {
-          "name": "transceiverMessage",
-          "isMut": true,
+          "name": "guardianSet",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Derivation is checked by the shim."
+          ]
+        },
+        {
+          "name": "guardianSignatures",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Ownership ownership and discriminator is checked by the shim."
+          ]
+        },
+        {
+          "name": "verifyVaaShim",
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -817,7 +872,18 @@ export const IDL: NttTransceiver = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "guardianSetBump",
+          "type": "u8"
+        },
+        {
+          "name": "vaaBody",
+          "type": {
+            "defined": "VaaBody"
+          }
+        }
+      ]
     },
     {
       "name": "releaseWormholeOutbound",
@@ -1385,6 +1451,18 @@ export const IDL: NttTransceiver = {
           {
             "name": "decimals",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaaBody",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "span",
+            "type": "bytes"
           }
         ]
       }
