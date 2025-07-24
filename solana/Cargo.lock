@@ -699,7 +699,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4114279215a005bc675e386011e594e1d9b800918cea18fcadadcce864a2046b"
 dependencies = [
  "borsh-derive 0.10.3",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -2527,7 +2527,8 @@ dependencies = [
  "wormhole-io",
  "wormhole-post-message-shim-interface",
  "wormhole-sdk",
- "wormhole-svm-definitions",
+ "wormhole-svm-definitions 0.1.0 (git+https://github.com/wormholelabs-xyz/wormhole?branch=svm-shims-fr-env-addr)",
+ "wormhole-verify-vaa-shim-interface",
 ]
 
 [[package]]
@@ -6452,7 +6453,7 @@ checksum = "b021a14ea7bcef9517ed9f81d4466c4a663dd90e726c5724707a976fa83ad8f3"
 [[package]]
 name = "wormhole-post-message-shim-interface"
 version = "0.0.0"
-source = "git+https://github.com/wormholelabs-xyz/wormhole?branch=svm-shims-fr-env-addr#085a45eefb279b42f17d5b880fce7b96f092290f"
+source = "git+https://github.com/wormhole-foundation/wormhole?branch=svm/anchor-v0.29.0-shim-interface#63481c6486f8747529f7df692bab8b7fdf85146b"
 dependencies = [
  "anchor-lang",
 ]
@@ -6496,6 +6497,25 @@ dependencies = [
  "const-crypto",
  "sha2-const-stable",
  "solana-program",
+]
+
+[[package]]
+name = "wormhole-svm-definitions"
+version = "0.1.0"
+source = "git+https://github.com/wormhole-foundation/wormhole?branch=svm/anchor-v0.29.0-shim-interface#63481c6486f8747529f7df692bab8b7fdf85146b"
+dependencies = [
+ "cfg-if",
+ "sha2-const-stable",
+ "solana-program",
+]
+
+[[package]]
+name = "wormhole-verify-vaa-shim-interface"
+version = "0.0.0"
+source = "git+https://github.com/wormhole-foundation/wormhole?branch=svm/anchor-v0.29.0-shim-interface#63481c6486f8747529f7df692bab8b7fdf85146b"
+dependencies = [
+ "anchor-lang",
+ "wormhole-svm-definitions 0.1.0 (git+https://github.com/wormhole-foundation/wormhole?branch=svm/anchor-v0.29.0-shim-interface)",
 ]
 
 [[package]]
