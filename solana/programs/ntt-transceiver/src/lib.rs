@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
 pub mod messages;
 pub mod peer;
+pub mod vaa_body;
 pub mod wormhole;
 
+use vaa_body::VaaBody;
 use wormhole::instructions::*;
 
 #[macro_use]
@@ -36,11 +38,12 @@ pub mod ntt_transceiver {
         set_transceiver_peer(ctx, args)
     }
 
-    pub fn receive_wormhole_message(
+    pub fn receive_wormhole_message_instruction_data(
         ctx: Context<ReceiveMessage>,
-        args: ReceiveMessageArgs,
+        guardian_set_bump: u8,
+        vaa_body: VaaBody,
     ) -> Result<()> {
-        wormhole::instructions::receive_message(ctx, args)
+        wormhole::instructions::receive_message_instruction_data(ctx, guardian_set_bump, vaa_body)
     }
 
     pub fn release_wormhole_outbound(

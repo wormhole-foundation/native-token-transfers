@@ -6,30 +6,27 @@ use example_native_token_transfers::{
     transfer::Payload,
 };
 use ntt_messages::{
-    chain_id::ChainId,
-    ntt::NativeTokenTransfer,
-    transceiver::{TransceiverMessage, TransceiverMessageData},
+    chain_id::ChainId, ntt::NativeTokenTransfer, transceiver::TransceiverMessageData,
     transceivers::wormhole::WormholeTransceiver,
 };
-use wormhole_anchor_sdk::wormhole::PostedVaa;
 use wormhole_verify_vaa_shim_interface::program::WormholeVerifyVaaShim;
 
-use crate::{messages::ValidatedTransceiverMessage, peer::TransceiverPeer};
+use crate::{messages::ValidatedTransceiverMessage, peer::TransceiverPeer, vaa_body::VaaBody};
 
 #[derive(Accounts)]
-#[instruction(args: ReceiveMessageArgs)]
+#[instruction(_guardian_set_bump: u8, vaa_body: VaaBody)]
 pub struct ReceiveMessage<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
     #[account(
-        constraint = args.vaa.message().ntt_manager_payload.payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
+        constraint = vaa_body.to_chain() == config.chain_id @ NTTError::InvalidChainId,
     )]
     pub config: NotPausedConfig<'info>,
 
     #[account(
-        seeds = [TransceiverPeer::SEED_PREFIX, args.vaa.emitter_chain().to_be_bytes().as_ref()],
-        constraint = peer.address == *args.vaa.emitter_address() @ NTTError::InvalidTransceiverPeer,
+        seeds = [TransceiverPeer::SEED_PREFIX, vaa_body.emitter_chain().to_be_bytes().as_ref()],
+        constraint = peer.address == *vaa_body.emitter_address() @ NTTError::InvalidTransceiverPeer,
         bump = peer.bump,
     )]
     pub peer: Account<'info, TransceiverPeer>,
@@ -40,8 +37,8 @@ pub struct ReceiveMessage<'info> {
         space = 8 + ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::INIT_SPACE,
         seeds = [
             ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::SEED_PREFIX,
-            args.vaa.emitter_chain().to_be_bytes().as_ref(),
-            args.vaa.message().ntt_manager_payload.id.as_ref(),
+            vaa_body.emitter_chain().to_be_bytes().as_ref(),
+            vaa_body.id(),
         ],
         bump,
     )]
@@ -65,16 +62,13 @@ pub struct ReceiveMessage<'info> {
     pub system_program: Program<'info, System>,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct ReceiveMessageArgs {
-    pub vaa: PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>>,
-    pub guardian_set_bump: u8,
-}
-
-pub fn receive_message(ctx: Context<ReceiveMessage>, args: ReceiveMessageArgs) -> Result<()> {
-    // Verify the hash against the signatures
-    let vec_body = &args.vaa.try_to_vec()?[..];
-    let message_hash = &solana_program::keccak::hashv(&[vec_body]).to_bytes();
+pub fn receive_message_instruction_data(
+    ctx: Context<ReceiveMessage>,
+    guardian_set_bump: u8,
+    vaa_body: VaaBody,
+) -> Result<()> {
+    // verify the hash against the signatures
+    let message_hash = &solana_program::keccak::hashv(&[&vaa_body]).to_bytes();
     let digest = solana_program::keccak::hash(message_hash.as_slice()).to_bytes();
     wormhole_verify_vaa_shim_interface::cpi::verify_hash(
         CpiContext::new(
@@ -84,16 +78,20 @@ pub fn receive_message(ctx: Context<ReceiveMessage>, args: ReceiveMessageArgs) -
                 guardian_signatures: ctx.accounts.guardian_signatures.to_account_info(),
             },
         ),
-        args.guardian_set_bump,
+        guardian_set_bump,
         digest,
     )?;
 
-    let message = args.vaa.message().message_data.clone();
-    let chain_id = args.vaa.emitter_chain();
+    // update transceiver_message
+    let message = vaa_body
+        .transceiver_message_data::<WormholeTransceiver, NativeTokenTransfer<Payload>>()?
+        .clone();
     ctx.accounts
         .transceiver_message
         .set_inner(ValidatedTransceiverMessage {
-            from_chain: ChainId { id: chain_id },
+            from_chain: ChainId {
+                id: vaa_body.emitter_chain(),
+            },
             message,
         });
 
