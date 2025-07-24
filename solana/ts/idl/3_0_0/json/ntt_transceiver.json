@@ -47,7 +47,7 @@
       ]
     },
     {
-      "name": "receiveWormholeMessage",
+      "name": "receiveWormholeMessageInstructionData",
       "accounts": [
         {
           "name": "payer",
@@ -70,13 +70,29 @@
           "isSigner": false
         },
         {
-          "name": "vaa",
-          "isMut": false,
+          "name": "transceiverMessage",
+          "isMut": true,
           "isSigner": false
         },
         {
-          "name": "transceiverMessage",
-          "isMut": true,
+          "name": "guardianSet",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Derivation is checked by the shim."
+          ]
+        },
+        {
+          "name": "guardianSignatures",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Ownership ownership and discriminator is checked by the shim."
+          ]
+        },
+        {
+          "name": "verifyVaaShim",
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -85,7 +101,18 @@
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "guardianSetBump",
+          "type": "u8"
+        },
+        {
+          "name": "vaaBody",
+          "type": {
+            "defined": "VaaBody"
+          }
+        }
+      ]
     },
     {
       "name": "releaseWormholeOutbound",
@@ -653,6 +680,18 @@
           {
             "name": "decimals",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaaBody",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "span",
+            "type": "bytes"
           }
         ]
       }
