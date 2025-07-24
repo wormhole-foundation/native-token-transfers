@@ -44,8 +44,10 @@ const nttManagerWithExecutorAddresses: Partial<
     Worldchain: "0x66b1644400D51e104272337226De3EF1A820eC79",
   },
   Testnet: {
+    ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
     Avalanche: "0x4e9Af03fbf1aa2b79A2D4babD3e22e09f18Bb8EE",
     BaseSepolia: "0x5845E08d890E21687F7Ebf7CbAbD360cD91c6245",
+    OptimismSepolia: "0xaDB1C56D363FF5A75260c3bd27dd7C1fC8421EF5",
     Sepolia: "0x54DD7080aE169DD923fE56d0C4f814a0a17B8f41",
   },
 };
@@ -59,7 +61,9 @@ const gasLimitOverrides: Partial<
   Mainnet: {
     Arbitrum: 800_000n,
   },
-  Testnet: {},
+  Testnet: {
+    ArbitrumSepolia: 800_000n,
+  },
 };
 
 export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
