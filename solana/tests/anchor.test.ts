@@ -157,7 +157,8 @@ describe("example-native-token-transfers", () => {
           },
         },
       },
-      VERSION
+      VERSION,
+      {}
     );
   });
 
@@ -189,17 +190,13 @@ describe("example-native-token-transfers", () => {
       const registerTxs = ntt.registerWormholeTransceiverWithShim({
         payer: payerAddress,
         owner: payerAddress,
-        postMessageShim: testWormholePostMessageShim.programId,
-        wormholePostMessageShimEa: testWormholePostMessageShim.eventAuthority(),
       });
       await signSendWait(ctx, registerTxs, signer);
 
       // set Wormhole xcvr peer
       const setXcvrPeerTxs = ntt.setWormholeTransceiverPeerWithShim(
         remoteXcvr,
-        sender,
-        testWormholePostMessageShim.programId,
-        testWormholePostMessageShim.eventAuthority()
+        sender
       );
       await signSendWait(ctx, setXcvrPeerTxs, signer);
 
@@ -238,8 +235,6 @@ describe("example-native-token-transfers", () => {
         amount,
         receiver,
         { queue: false, automatic: false, wrapNative },
-        testWormholePostMessageShim.programId,
-        testWormholePostMessageShim.eventAuthority(),
         outboxItem
       );
       const txIds = await signSendWait(ctx, xferTxs, signer);
@@ -539,7 +534,7 @@ describe("example-native-token-transfers", () => {
       const published = emitter.publishMessage(0, serialized, 200);
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
-      const redeemTxs = ntt.redeemWithShim([vaa], sender);
+      const redeemTxs = ntt.redeemWithShim([vaa], sender, false);
       await signSendWait(ctx, redeemTxs, signer);
 
       assert.bn(await testDummyTransferHook.counter.value()).equal(2);
