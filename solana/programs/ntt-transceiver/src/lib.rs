@@ -4,7 +4,7 @@ pub mod peer;
 pub mod vaa_body;
 pub mod wormhole;
 
-use vaa_body::VaaBody;
+use vaa_body::VaaBodyData;
 use wormhole::instructions::*;
 
 #[macro_use]
@@ -39,11 +39,31 @@ pub mod ntt_transceiver {
     }
 
     pub fn receive_wormhole_message_instruction_data(
-        ctx: Context<ReceiveMessage>,
+        ctx: Context<ReceiveMessageInstructionData>,
         guardian_set_bump: u8,
-        vaa_body: VaaBody,
+        vaa_body: VaaBodyData,
     ) -> Result<()> {
         wormhole::instructions::receive_message_instruction_data(ctx, guardian_set_bump, vaa_body)
+    }
+
+    pub fn post_unverified_wormhole_message_account(
+        ctx: Context<PostUnverifiedMessageAccount>,
+        args: PostUnverifiedMessageAccountArgs,
+    ) -> Result<()> {
+        wormhole::instructions::post_unverified_message_account(ctx, args)
+    }
+
+    pub fn close_unverified_wormhole_message_account(
+        ctx: Context<CloseUnverifiedMessageAccount>,
+    ) -> Result<()> {
+        wormhole::instructions::close_unverified_message_account(ctx)
+    }
+
+    pub fn receive_wormhole_message_account(
+        ctx: Context<ReceiveMessageAccount>,
+        guardian_set_bump: u8,
+    ) -> Result<()> {
+        wormhole::instructions::receive_message_account(ctx, guardian_set_bump)
     }
 
     pub fn release_wormhole_outbound(
