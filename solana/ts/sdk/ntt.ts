@@ -65,10 +65,23 @@ export class SolanaNttWormholeTransceiver<
   constructor(
     readonly manager: SolanaNtt<N, C>,
     readonly program: Program<NttBindings.Transceiver<IdlVersion>>,
-    readonly version: string = "3.0.0"
+    readonly version: string = "3.0.0",
+    readonly shimOverrides: WormholeShimOverrides | null = null
   ) {
     this.programId = program.programId;
     this.pdas = NTT.transceiverPdas(program.programId);
+    if (shimOverrides) {
+      this.postMessageShim = new Program(
+        WormholePostMessageShimIdl,
+        shimOverrides.postMessageShimOverride ??
+          new PublicKey("EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX")
+      );
+      this.verifyVaaShim = new Program(
+        WormholeVerifyVaaShimIdl,
+        shimOverrides.verifyVaaShimOverride ??
+          new PublicKey("EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at")
+      );
+    }
   }
 
   async getPauser(): Promise<AccountAddress<C> | null> {
@@ -125,8 +138,11 @@ export class SolanaNttWormholeTransceiver<
     attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">,
     payer: PublicKey,
     guardianSignatures: PublicKey,
-    verifyVaaShim: PublicKey
+    useMessageAccount = false
   ) {
+    if (!this.verifyVaaShim) {
+      throw new Error("Wormhole Verify VAA Shim not configured in constructor");
+    }
     const nttMessage = attestation.payload.nttManagerPayload;
     const chain = attestation.emitterChain;
 
@@ -137,23 +153,116 @@ export class SolanaNttWormholeTransceiver<
       this.manager.core.coreBridge.programId
     );
 
-    return this.program.methods
-      .receiveWormholeMessageInstructionData(guardianSetBump, {
-        span: vaaBody(serialize(attestation)),
-      })
-      .accounts({
-        payer,
-        config: { config: this.manager.pdas.configAccount() },
-        peer: this.pdas.transceiverPeerAccount(chain),
-        transceiverMessage: this.pdas.transceiverMessageAccount(
-          chain,
-          nttMessage.id
-        ),
-        guardianSet,
-        guardianSignatures,
-        verifyVaaShim,
-      })
-      .instruction();
+    if (useMessageAccount) {
+      return this.program.methods
+        .receiveWormholeMessageAccount(guardianSetBump)
+        .accounts({
+          payer,
+          config: { config: this.manager.pdas.configAccount() },
+          peer: this.pdas.transceiverPeerAccount(chain),
+          message: this.pdas.unverifiedMessageAccount(payer),
+          transceiverMessage: this.pdas.transceiverMessageAccount(
+            chain,
+            nttMessage.id
+          ),
+          guardianSet,
+          guardianSignatures,
+          verifyVaaShim: this.verifyVaaShim.programId,
+        })
+        .instruction();
+    } else {
+      return this.program.methods
+        .receiveWormholeMessageInstructionData(guardianSetBump, {
+          span: vaaBody(serialize(attestation)),
+        })
+        .accounts({
+          payer,
+          config: { config: this.manager.pdas.configAccount() },
+          peer: this.pdas.transceiverPeerAccount(chain),
+          transceiverMessage: this.pdas.transceiverMessageAccount(
+            chain,
+            nttMessage.id
+          ),
+          guardianSet,
+          guardianSignatures,
+          verifyVaaShim: this.verifyVaaShim.programId,
+        })
+        .instruction();
+    }
+  }
+
+  async *postUnverifiedMessageAccount(
+    attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">,
+    payer: PublicKey,
+    chunkSize = 300, // number of bytes to write per instruction
+    batchSize = 3 // number of instructions per transaction
+  ) {
+    if (chunkSize <= 0 || batchSize <= 0) {
+      throw new Error("Chunks and batches should be positive integers");
+    }
+
+    const message = vaaBody(serialize(attestation));
+    const messageSize = message.length;
+    const instructions: Promise<web3.TransactionInstruction>[] = [];
+    let offset = 0;
+    while (offset < messageSize) {
+      const chunk = message.subarray(offset, offset + chunkSize);
+      instructions.push(
+        this.program.methods
+          .postUnverifiedWormholeMessageAccount({
+            offset,
+            chunk,
+            messageSize,
+          })
+          .accounts({
+            payer,
+            message: this.pdas.unverifiedMessageAccount(payer),
+          })
+          .instruction()
+      );
+
+      if (instructions.length === batchSize) {
+        const tx = new Transaction();
+        tx.feePayer = payer;
+        tx.add(...(await Promise.all(instructions)));
+        yield this.manager.createUnsignedTx(
+          { transaction: tx },
+          "Ntt.PostUnverifiedWormholeMessageAccount"
+        );
+        instructions.length = 0;
+      }
+
+      offset += chunkSize;
+    }
+
+    if (instructions.length > 0) {
+      const tx = new Transaction();
+      tx.feePayer = payer;
+      tx.add(...(await Promise.all(instructions)));
+      yield this.manager.createUnsignedTx(
+        { transaction: tx },
+        "Ntt.PostUnverifiedWormholeMessageAccount"
+      );
+    }
+  }
+
+  async *closeUnverifiedMessageAccount(payer: PublicKey) {
+    const tx = new Transaction();
+    tx.feePayer = payer;
+    tx.add(
+      await this.program.methods
+        .closeUnverifiedWormholeMessageAccount()
+        .accounts({
+          payer,
+          message: this.pdas.unverifiedMessageAccount(payer),
+        })
+        .instruction()
+    );
+
+    yield this.manager.createUnsignedTx(
+      { transaction: tx },
+      "Ntt.CloseUnverifiedWormholeMessageAccount"
+    );
   }
 
   async getTransceiverType(payer: AccountAddress<C>): Promise<string> {
