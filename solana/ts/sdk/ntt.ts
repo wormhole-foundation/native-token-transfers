@@ -12,7 +12,6 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { IDL as WormholeVerifyVaaShimIdl } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 import { Chain, Network, toChainId } from "@wormhole-foundation/sdk-base";
 import {
   AccountAddress,
@@ -50,7 +49,16 @@ import {
   getTransceiverProgram,
 } from "../lib/bindings.js";
 import { NTT, NttQuoter } from "../lib/index.js";
-import { parseVersion, vaaBody } from "../lib/utils.js";
+import { derivePda, parseVersion, vaaBody } from "../lib/utils.js";
+import { type WormholePostMessageShim } from "../idl/wormhole_shim/ts/wormhole_post_message_shim.js";
+import { IDL as WormholePostMessageShimIdl } from "../idl/wormhole_shim/ts/wormhole_post_message_shim.js";
+import { type WormholeVerifyVaaShim } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
+import { IDL as WormholeVerifyVaaShimIdl } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
+
+type WormholeShimOverrides = {
+  postMessageShimOverride?: PublicKey;
+  verifyVaaShimOverride?: PublicKey;
+};
 
 export class SolanaNttWormholeTransceiver<
   N extends Network,
@@ -61,6 +69,8 @@ export class SolanaNttWormholeTransceiver<
 {
   programId: PublicKey;
   pdas: NTT.TransceiverPdas;
+  postMessageShim?: Program<WormholePostMessageShim>;
+  verifyVaaShim?: Program<WormholeVerifyVaaShim>;
 
   constructor(
     readonly manager: SolanaNtt<N, C>,
@@ -358,12 +368,12 @@ export class SolanaNttWormholeTransceiver<
     );
   }
 
-  async *setPeerWithShim(
-    peer: ChainAddress<C>,
-    payer: AccountAddress<C>,
-    postMessageShim: PublicKey,
-    wormholePostMessageShimEa: PublicKey
-  ) {
+  async *setPeerWithShim(peer: ChainAddress<C>, payer: AccountAddress<C>) {
+    if (!this.postMessageShim) {
+      throw new Error(
+        "Wormhole Post Message Shim not configured in constructor"
+      );
+    }
     const sender = new SolanaAddress(payer).unwrap();
     const ix = await this.program.methods
       .setWormholePeer({
@@ -380,9 +390,7 @@ export class SolanaNttWormholeTransceiver<
 
     const broadcastIx = await this.createBroadcastWormholePeerWithShimIx(
       peer.chain,
-      sender,
-      postMessageShim,
-      wormholePostMessageShimEa
+      sender
     );
 
     const tx = new Transaction();
@@ -441,10 +449,14 @@ export class SolanaNttWormholeTransceiver<
 
   async createBroadcastWormholeIdWithShimIx(
     payer: PublicKey,
-    config: NttBindings.Config<IdlVersion>,
-    postMessageShim: PublicKey,
-    wormholePostMessageShimEa: PublicKey
+    config: NttBindings.Config<IdlVersion>
   ): Promise<web3.TransactionInstruction> {
+    if (!this.postMessageShim) {
+      throw new Error(
+        "Wormhole Post Message Shim not configured in constructor"
+      );
+    }
+
     const whAccs = utils.getWormholeDerivedAccounts(
       this.program.programId,
       this.manager.core.address
@@ -456,8 +468,9 @@ export class SolanaNttWormholeTransceiver<
         payer,
         config: this.manager.pdas.configAccount(),
         mint: config.mint,
-        wormholeMessage:
-          this.pdas.wormholeMessageWithShimAccount(postMessageShim),
+        wormholeMessage: this.pdas.wormholeMessageWithShimAccount(
+          this.postMessageShim.programId
+        ),
         emitter: whAccs.wormholeEmitter,
         wormhole: {
           bridge: whAccs.wormholeBridge,
@@ -467,8 +480,11 @@ export class SolanaNttWormholeTransceiver<
           systemProgram: SystemProgram.programId,
           clock: web3.SYSVAR_CLOCK_PUBKEY,
           rent: web3.SYSVAR_RENT_PUBKEY,
-          postMessageShim,
-          wormholePostMessageShimEa,
+          postMessageShim: this.postMessageShim.programId,
+          wormholePostMessageShimEa: derivePda(
+            ["__event_authority"],
+            this.postMessageShim.programId
+          ),
         },
       })
       .instruction();
@@ -504,10 +520,13 @@ export class SolanaNttWormholeTransceiver<
 
   async createBroadcastWormholePeerWithShimIx(
     chain: Chain,
-    payer: PublicKey,
-    postMessageShim: PublicKey,
-    wormholePostMessageShimEa: PublicKey
+    payer: PublicKey
   ): Promise<web3.TransactionInstruction> {
+    if (!this.postMessageShim) {
+      throw new Error(
+        "Wormhole Post Message Shim not configured in constructor"
+      );
+    }
     const whAccs = utils.getWormholeDerivedAccounts(
       this.program.programId,
       this.manager.core.address
@@ -519,16 +538,20 @@ export class SolanaNttWormholeTransceiver<
         payer: payer,
         config: this.manager.pdas.configAccount(),
         peer: this.pdas.transceiverPeerAccount(chain),
-        wormholeMessage:
-          this.pdas.wormholeMessageWithShimAccount(postMessageShim),
+        wormholeMessage: this.pdas.wormholeMessageWithShimAccount(
+          this.postMessageShim.programId
+        ),
         emitter: whAccs.wormholeEmitter,
         wormhole: {
           bridge: whAccs.wormholeBridge,
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-          postMessageShim,
-          wormholePostMessageShimEa,
+          postMessageShim: this.postMessageShim.programId,
+          wormholePostMessageShimEa: derivePda(
+            ["__event_authority"],
+            this.postMessageShim.programId
+          ),
         },
       })
       .instruction();
@@ -577,10 +600,14 @@ export class SolanaNttWormholeTransceiver<
   async createReleaseWormholeOutboundWithShimIx(
     payer: PublicKey,
     outboxItem: PublicKey,
-    revertOnDelay: boolean,
-    postMessageShim: PublicKey,
-    wormholePostMessageShimEa: PublicKey
+    revertOnDelay: boolean
   ): Promise<web3.TransactionInstruction> {
+    if (!this.postMessageShim) {
+      throw new Error(
+        "Wormhole Post Message Shim not configured in constructor"
+      );
+    }
+
     const [major, , ,] = parseVersion(this.version);
     const whAccs = utils.getWormholeDerivedAccounts(
       this.program.programId,
@@ -595,8 +622,9 @@ export class SolanaNttWormholeTransceiver<
         payer,
         config: { config: this.manager.pdas.configAccount() },
         outboxItem,
-        wormholeMessage:
-          this.pdas.wormholeMessageWithShimAccount(postMessageShim),
+        wormholeMessage: this.pdas.wormholeMessageWithShimAccount(
+          this.postMessageShim.programId
+        ),
         emitter: whAccs.wormholeEmitter,
         transceiver: this.manager.pdas.registeredTransceiver(
           this.program.programId
@@ -606,8 +634,11 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-          postMessageShim,
-          wormholePostMessageShimEa,
+          postMessageShim: this.postMessageShim.programId,
+          wormholePostMessageShimEa: derivePda(
+            ["__event_authority"],
+            this.postMessageShim.programId
+          ),
         },
         // NOTE: baked-in transceiver case is handled separately
         // due to tx size error when LUT is not configured
