@@ -109,8 +109,124 @@ export type NttTransceiver = {
         {
           "name": "vaaBody",
           "type": {
-            "defined": "VaaBody"
+            "defined": "VaaBodyData"
           }
+        }
+      ]
+    },
+    {
+      "name": "postUnverifiedWormholeMessageAccount",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "message",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": "PostUnverifiedMessageAccountArgs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "closeUnverifiedWormholeMessageAccount",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "message",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "receiveWormholeMessageAccount",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "peer",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "message",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "transceiverMessage",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "guardianSet",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Derivation is checked by the shim."
+          ]
+        },
+        {
+          "name": "guardianSignatures",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Ownership ownership and discriminator is checked by the shim."
+          ]
+        },
+        {
+          "name": "verifyVaaShim",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "guardianSetBump",
+          "type": "u8"
         }
       ]
     },
@@ -598,6 +714,18 @@ export type NttTransceiver = {
       }
     },
     {
+      "name": "vaaBody",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "span",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
       "name": "bridgeData",
       "type": {
         "kind": "struct",
@@ -685,7 +813,7 @@ export type NttTransceiver = {
       }
     },
     {
-      "name": "VaaBody",
+      "name": "VaaBodyData",
       "type": {
         "kind": "struct",
         "fields": [
@@ -739,6 +867,26 @@ export type NttTransceiver = {
           {
             "name": "revertOnDelay",
             "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PostUnverifiedMessageAccountArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "offset",
+            "type": "u32"
+          },
+          {
+            "name": "chunk",
+            "type": "bytes"
+          },
+          {
+            "name": "messageSize",
+            "type": "u32"
           }
         ]
       }
@@ -880,8 +1028,124 @@ export const IDL: NttTransceiver = {
         {
           "name": "vaaBody",
           "type": {
-            "defined": "VaaBody"
+            "defined": "VaaBodyData"
           }
+        }
+      ]
+    },
+    {
+      "name": "postUnverifiedWormholeMessageAccount",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "message",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": "PostUnverifiedMessageAccountArgs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "closeUnverifiedWormholeMessageAccount",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "message",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "receiveWormholeMessageAccount",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
+        },
+        {
+          "name": "peer",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "message",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "transceiverMessage",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "guardianSet",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Derivation is checked by the shim."
+          ]
+        },
+        {
+          "name": "guardianSignatures",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Ownership ownership and discriminator is checked by the shim."
+          ]
+        },
+        {
+          "name": "verifyVaaShim",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "guardianSetBump",
+          "type": "u8"
         }
       ]
     },
@@ -1369,6 +1633,18 @@ export const IDL: NttTransceiver = {
       }
     },
     {
+      "name": "vaaBody",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "span",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
       "name": "bridgeData",
       "type": {
         "kind": "struct",
@@ -1456,7 +1732,7 @@ export const IDL: NttTransceiver = {
       }
     },
     {
-      "name": "VaaBody",
+      "name": "VaaBodyData",
       "type": {
         "kind": "struct",
         "fields": [
@@ -1510,6 +1786,26 @@ export const IDL: NttTransceiver = {
           {
             "name": "revertOnDelay",
             "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PostUnverifiedMessageAccountArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "offset",
+            "type": "u32"
+          },
+          {
+            "name": "chunk",
+            "type": "bytes"
+          },
+          {
+            "name": "messageSize",
+            "type": "u32"
           }
         ]
       }
