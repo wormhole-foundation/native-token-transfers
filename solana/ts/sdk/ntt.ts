@@ -676,7 +676,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     readonly chain: C,
     readonly connection: Connection,
     readonly contracts: Contracts & { ntt?: Ntt.Contracts },
-    readonly version: string = "3.0.0"
+    readonly version: string = "3.0.0",
+    readonly shimOverrides: WormholeShimOverrides | null = null
   ) {
     if (!contracts.ntt) throw new Error("Ntt contracts not found");
 
@@ -715,7 +716,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
               contracts.ntt!.manager,
               version as IdlVersion
             ),
-            version
+            version,
+            shimOverrides
           );
           if (!whTransceiver.pdas.emitterAccount().equals(transceiverKey)) {
             throw new Error(
@@ -770,7 +772,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       return new SolanaNttWormholeTransceiver(
         this,
         transceiverProgram,
-        this.version
+        this.version,
+        this.shimOverrides
       );
     return null;
   }
@@ -1067,8 +1070,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   async *registerWormholeTransceiverWithShim(args: {
     payer: AccountAddress<C>;
     owner: AccountAddress<C>;
-    postMessageShim: PublicKey;
-    wormholePostMessageShimEa: PublicKey;
   }) {
     const payer = new SolanaAddress(args.payer).unwrap();
     const owner = new SolanaAddress(args.owner).unwrap();
@@ -1081,9 +1082,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const whTransceiver = (await this.getWormholeTransceiver())!;
     const broadcastIx = await whTransceiver.createBroadcastWormholeIdWithShimIx(
       payer,
-      config,
-      args.postMessageShim,
-      args.wormholePostMessageShimEa
+      config
     );
 
     const tx = new Transaction();
@@ -1151,17 +1150,9 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async *setWormholeTransceiverPeerWithShim(
     peer: ChainAddress,
-    payer: AccountAddress<C>,
-    postMessageShim: PublicKey,
-    wormholePostMessageShimEa: PublicKey
+    payer: AccountAddress<C>
   ) {
-    yield* this.setTransceiverPeerWithShim(
-      0,
-      peer,
-      payer,
-      postMessageShim,
-      wormholePostMessageShimEa
-    );
+    yield* this.setTransceiverPeerWithShim(0, peer, payer);
   }
 
   async *setTransceiverPeer(
@@ -1179,9 +1170,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   async *setTransceiverPeerWithShim(
     ix: number,
     peer: ChainAddress,
-    payer: AccountAddress<C>,
-    postMessageShim: PublicKey,
-    wormholePostMessageShimEa: PublicKey
+    payer: AccountAddress<C>
   ) {
     const transceiver = await this.getTransceiver(ix);
     if (!transceiver) {
@@ -1192,7 +1181,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     }
     yield* (
       transceiver.setPeerWithShim as typeof SolanaNttWormholeTransceiver.prototype.setPeerWithShim
-    )(peer, payer, postMessageShim, wormholePostMessageShimEa);
+    )(peer, payer);
   }
 
   async *setPeer(
@@ -1382,8 +1371,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     amount: bigint,
     destination: ChainAddress,
     options: Ntt.TransferOptions,
-    postMessageShim: PublicKey,
-    wormholePostMessageShimEa: PublicKey,
     outboxItem?: Keypair
   ): AsyncGenerator<UnsignedTransaction<N, C>, any, unknown> {
     const config = await this.getConfig();
@@ -1491,9 +1478,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         const releaseIx = whTransceiver.createReleaseWormholeOutboundWithShimIx(
           payerAddress,
           outboxItem.publicKey,
-          !options.queue,
-          postMessageShim,
-          wormholePostMessageShimEa
+          !options.queue
         );
         asyncIxs.push(releaseIx);
       }
@@ -1666,7 +1651,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async *redeemWithShim(
     attestations: Ntt.Attestation[],
-    payer: AccountAddress<C>
+    payer: AccountAddress<C>,
+    useMessageAccount: boolean = false
   ) {
     const config = await this.getConfig();
     if (config.paused) throw new Error("Contract is paused");
@@ -1689,19 +1675,21 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           throw new Error("wormhole transceiver not found");
         }
 
+        if (!whTransceiver.verifyVaaShim) {
+          throw new Error(
+            "Wormhole Verify VAA Shim not configured in constructor"
+          );
+        }
+
         // Create the vaa if necessary
         yield* this.createAta(payer);
 
         const senderAddress = new SolanaAddress(payer).unwrap();
 
         // Post signatures for the VAA we intend to redeem
-        const wormholeVerifyVaaShimProgram = new Program(
-          WormholeVerifyVaaShimIdl,
-          "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"
-        );
         const signatureKeypair = Keypair.generate();
         const postSignaturesTx = new Transaction().add(
-          await wormholeVerifyVaaShimProgram.methods
+          await whTransceiver.verifyVaaShim.methods
             .postSignatures(
               wormholeNTT.guardianSet,
               wormholeNTT.signatures.length,
@@ -1720,16 +1708,24 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           "VerifyVAAShim.PostSignatures"
         );
 
+        // Post the unverified VAA data to an account
+        if (useMessageAccount) {
+          yield* whTransceiver.postUnverifiedMessageAccount(
+            wormholeNTT,
+            senderAddress
+          );
+        }
+
         // Verify VAA hash and receive message
         const receiveMessageIx = whTransceiver.createReceiveWithShimIx(
           wormholeNTT,
           senderAddress,
           signatureKeypair.publicKey,
-          wormholeVerifyVaaShimProgram.programId
+          useMessageAccount
         );
 
         // Close guardian signatures
-        const closeSignaturesIx = wormholeVerifyVaaShimProgram.methods
+        const closeSignaturesIx = whTransceiver.verifyVaaShim.methods
           .closeSignatures()
           .accounts({ guardianSignatures: signatureKeypair.publicKey })
           .instruction();
