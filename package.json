@@ -4,10 +4,11 @@
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present && npm run typecheck:cli",
     "rebuild": "npm run rebuild --workspaces --if-present",
     "build:solana": "npm run build --workspace=sdk/definitions --workspace=solana",
     "build:evm": "npm run build --workspace=sdk/definitions --workspace=sdk/evm",
+    "build:sui": "npm run build --workspace=sdk/definitions --workspace=sui/ts",
     "typecheck:cli": "npm run typecheck --workspace=cli",
     "generate": "npm run generate --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -33,8 +34,12 @@
     "sdk/definitions",
     "evm/ts",
     "solana",
+    "sui/ts",
     "sdk/route",
     "sdk/examples",
     "cli"
-  ]
+  ],
+  "resolutions": {
+    "@mysten/sui": "1.26.1"
+  }
 }
