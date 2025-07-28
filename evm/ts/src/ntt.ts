@@ -66,7 +66,7 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
     return "wormhole";
   }
 
-  getAddress(): ChainAddress<C> {
+  async getAddress(): Promise<ChainAddress<C>> {
     return {
       chain: this.manager.chain,
       address: toUniversal(this.manager.chain, this.address),
@@ -304,6 +304,11 @@ export class EvmNtt<N extends Network, C extends EvmChains>
 
   async getThreshold(): Promise<number> {
     return Number(await this.manager.getThreshold());
+  }
+
+  async *setThreshold(threshold: number, payer?: AccountAddress<EvmChains>) {
+    const tx = await this.manager.setThreshold.populateTransaction(threshold);
+    yield this.createUnsignedTx(tx, "Ntt.setThreshold");
   }
 
   async isRelayingAvailable(destination: Chain): Promise<boolean> {
