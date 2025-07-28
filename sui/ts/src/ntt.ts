@@ -73,6 +73,34 @@ interface SuiNttState {
 
 export class SuiNtt<N extends Network, C extends SuiChains> implements Ntt<N, C> {
 
+  // Helper function to extract token type from Sui state object
+  static async extractTokenTypeFromSuiState(
+    provider: SuiClient,
+    stateObjectId: string
+  ): Promise<string> {
+    const response = await provider.getObject({
+      id: stateObjectId,
+      options: { showType: true }
+    });
+
+    if (!response.data?.type) {
+      throw new Error("Failed to fetch state object type");
+    }
+
+    // Parse the generic type parameter from the state object type
+    // Format: "packageId::ntt::State<TokenType>"
+    const objectType = response.data.type;
+    const genericStart = objectType.indexOf('<');
+    const genericEnd = objectType.lastIndexOf('>');
+
+    if (genericStart === -1 || genericEnd === -1) {
+      throw new Error(`No generic type parameter found in state object type: ${objectType}`);
+    }
+
+    const tokenType = objectType.substring(genericStart + 1, genericEnd);
+    return tokenType;
+  }
+
   // Helper method to fetch and validate NTT state object with proper typing
   private async getNttState(): Promise<SuiNttState> {
     const response = await this.provider.getObject({
@@ -287,15 +315,15 @@ export class SuiNtt<N extends Network, C extends SuiChains> implements Ntt<N, C>
   }
 
   async getTokenDecimals(): Promise<number> {
+    const coinMetadata = await this.provider.getCoinMetadata({
+      coinType: this.contracts.ntt!["token"]
+    });
 
-    // For SUI token, decimals are always 9
-    if (this.contracts.ntt!["token"] === "0x2::sui::SUI") {
-      return 9;
+    if (!coinMetadata?.decimals) {
+      throw new Error(`CoinMetadata not found for ${this.contracts.ntt!["token"]}`);
     }
 
-    // For other tokens, we'd need to fetch from coin metadata
-    // This requires knowing the token type parameter and querying the CoinMetadata object
-    throw new Error(`getTokenDecimals not yet implemented for token: ${this.contracts.ntt!["token"]}`);
+    return coinMetadata.decimals;
   }
 
   async getCustodyAddress(): Promise<string> {
@@ -590,20 +618,16 @@ export class SuiNtt<N extends Network, C extends SuiChains> implements Ntt<N, C>
 
     // Query the CoinMetadata object ID dynamically
     let coinMetadataId: string;
-    if (this.contracts.ntt!["token"] === "0x2::sui::SUI") {
-      try {
-        const coinMetadata = await this.provider.getCoinMetadata({
-          coinType: this.contracts.ntt!["token"]
-        });
-        if (!coinMetadata?.id) {
-          throw new Error("CoinMetadata not found for SUI");
-        }
-        coinMetadataId = coinMetadata.id;
-      } catch (error) {
-        throw new Error(`Failed to get CoinMetadata for ${this.contracts.ntt!["token"]}: ${error instanceof Error ? error.message : String(error)}`);
+    try {
+      const coinMetadata = await this.provider.getCoinMetadata({
+        coinType: this.contracts.ntt!["token"]
+      });
+      if (!coinMetadata?.id) {
+        throw new Error(`CoinMetadata not found for ${this.contracts.ntt!["token"]}`);
       }
-    } else {
-      throw new Error(`Transfer not yet implemented for token: ${this.contracts.ntt!["token"]}`);
+      coinMetadataId = coinMetadata.id;
+    } catch (error) {
+      throw new Error(`Failed to get CoinMetadata for ${this.contracts.ntt!["token"]}: ${error instanceof Error ? error.message : String(error)}`);
     }
 
 
