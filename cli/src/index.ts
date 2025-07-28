@@ -56,7 +56,7 @@ function setNestedValue(obj: any, path: string[], value: any): void {
 
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { EvmNtt, EvmNttWormholeTranceiver } from "@wormhole-foundation/sdk-evm-ntt";
-import type { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
+import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
 import type { EvmChains, EvmNativeSigner, EvmUnsignedTransaction } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
@@ -3548,6 +3548,7 @@ function getVersion<N extends Network, C extends Chain>(chain: C, ntt: Ntt<N, C>
     }
 }
 
+
 // TODO: there should be a more elegant way to do this, than creating a
 // "dummy" NTT, then calling verifyAddresses to get the contract diff, then
 // finally reconstructing the "real" NTT object from that
@@ -3556,12 +3557,10 @@ async function nttFromManager<N extends Network, C extends Chain>(
     nativeManagerAddress: string,
 ): Promise<{ ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> }> {
     // For Sui, we need to set the token type to enable proper functionality
-    // TODO: rip out this shit
     let token: string | null = null;
     if (ch.chain === "Sui") {
-        // For this implementation, we're using SUI token
-        // In a full implementation, this should be detected from the NTT state
-        token = "0x2::sui::SUI";
+        // Extract the actual token type from the state object
+        token = await SuiNtt.extractTokenTypeFromSuiState(await ch.getRpc(), nativeManagerAddress);
     }
 
     const onlyManager = await ch.getProtocol("Ntt", {
