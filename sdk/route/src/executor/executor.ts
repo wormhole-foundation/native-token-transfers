@@ -72,6 +72,8 @@ export namespace NttExecutorRoute {
             referrerFeeDbps?: bigint;
             // Some tokens may require more gas to redeem than the default.
             gasLimit?: bigint;
+            // Some tokens may require more msgValue than the default.
+            msgValue?: bigint;
           }
         >
       >
@@ -380,6 +382,9 @@ export class NttExecutorRoute<N extends Network>
         ]?.[dstTokenAddress];
       if (override?.gasLimit !== undefined) {
         gasLimit = override.gasLimit;
+      }
+      if (override?.msgValue !== undefined) {
+        msgValue = override.msgValue;
       }
     }
 
