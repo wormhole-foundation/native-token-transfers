@@ -491,7 +491,7 @@ yargs(hideBin(process.argv))
             .option("sui-gas-budget", {
                 describe: "Gas budget for Sui deployment",
                 type: "number",
-                default: 100000000,
+                default: 500000000,
             })
             .option("sui-package-path", {
                 describe: "Path to Sui Move package directory (relative to project root)",
@@ -499,7 +499,7 @@ yargs(hideBin(process.argv))
                 default: "sui",
             })
             .option("sui-wormhole-state", {
-                describe: "Wormhole state object ID for Sui (required for wormhole transceiver setup)",
+                describe: "Wormhole state object ID for Sui (optional, will lookup from SDK if not provided)",
                 type: "string",
             })
             .option("sui-treasury-cap", {
@@ -3039,7 +3039,20 @@ async function deploySui<N extends Network, C extends Chain>(
             wormholeStateObjectId = wormholeStateId;
             console.log(`Using provided Wormhole State ID: ${wormholeStateObjectId}`);
         } else {
-            console.log("No wormhole state ID provided, will skip wormhole transceiver setup");
+            // Try to get the Wormhole state from the SDK configuration
+            try {
+                console.log("No wormhole state ID provided, looking up from SDK configuration...");
+                const wormholeConfig = ch.config.contracts?.coreBridge;
+                if (wormholeConfig) {
+                    wormholeStateObjectId = wormholeConfig;
+                    console.log(`Using Wormhole State ID from SDK: ${wormholeStateObjectId}`);
+                } else {
+                    console.log("No Wormhole core bridge contract found in SDK configuration, will skip wormhole transceiver setup");
+                }
+            } catch (error) {
+                console.log("Failed to lookup Wormhole state from SDK, will skip wormhole transceiver setup");
+                console.log("Error:", error instanceof Error ? error.message : String(error));
+            }
         }
 
         // 4. Call setup::complete_burning or setup::complete_locking to initialize the NTT manager state
@@ -3294,8 +3307,8 @@ async function deploySui<N extends Network, C extends Chain>(
                 throw error;
             }
         } else {
-            console.log("Skipping Wormhole Transceiver setup (no wormhole state ID provided)...");
-            console.log("Note: To use wormhole transceivers, provide --sui-wormhole-state parameter.");
+            console.log("Skipping Wormhole Transceiver setup (no wormhole state available)...");
+            console.log("Note: Wormhole state not found in SDK configuration. To manually specify, use --sui-wormhole-state parameter.");
         }
 
         console.log(chalk.green("Sui NTT deployment completed successfully!"));
@@ -3722,17 +3735,9 @@ async function nttFromManager<N extends Network, C extends Chain>(
     ch: ChainContext<N, C>,
     nativeManagerAddress: string,
 ): Promise<{ ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> }> {
-    // For Sui, we need to set the token type to enable proper functionality
-    let token: string | null = null;
-    if (ch.chain === "Sui") {
-        // Extract the actual token type from the state object
-        token = await SuiNtt.extractTokenTypeFromSuiState(await ch.getRpc(), nativeManagerAddress);
-    }
-
     const onlyManager = await ch.getProtocol("Ntt", {
         ntt: {
             manager: nativeManagerAddress,
-            token: token,
             transceiver: {},
         }
     });
@@ -3740,7 +3745,6 @@ async function nttFromManager<N extends Network, C extends Chain>(
 
     const addresses: Partial<Ntt.Contracts> = {
         manager: nativeManagerAddress,
-        token: token || undefined,
         ...diff
     };
 
