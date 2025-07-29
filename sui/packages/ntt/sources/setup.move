@@ -3,11 +3,10 @@
 /// This module implements the mechanism to publish the NTT contract and
 /// initialize `State` as a shared object.
 module ntt::setup {
-    use sui::package;
     use sui::coin::{TreasuryCap};
 
     use ntt::state;
-    use ntt::mode::Mode;
+    use ntt::mode::{Mode, Self};
 
     /// Capability created at `init`, which will be destroyed once
     /// `complete` is called. This ensures only the deployer can
@@ -30,15 +29,38 @@ module ntt::setup {
         // This will be created and sent to the transaction sender
         // automatically when the contract is published.
         transfer::public_transfer(
-            package::test_publish(object::id_from_address(@ntt), ctx),
+            sui::package::test_publish(object::id_from_address(@ntt), ctx),
             tx_context::sender(ctx)
         );
+    }
+
+    /// Only the owner of the `DeployerCap` can call this method. This
+    /// method destroys the capability and shares the `State` object.
+    public fun complete_locking<CoinType>(
+        deployer: DeployerCap,
+        upgrade_cap: sui::package::UpgradeCap,
+        chain_id: u16,
+        ctx: &mut TxContext
+    ): (state::AdminCap, ntt::upgrades::UpgradeCap) {
+        complete<CoinType>(deployer, upgrade_cap, chain_id, mode::locking(), std::option::none<TreasuryCap<CoinType>>(), ctx)
+    }
+
+    /// Only the owner of the `DeployerCap` can call this method. This
+    /// method destroys the capability and shares the `State` object.
+    public fun complete_burning<CoinType>(
+        deployer: DeployerCap,
+        upgrade_cap: sui::package::UpgradeCap,
+        chain_id: u16,
+        treasury_cap: TreasuryCap<CoinType>,
+        ctx: &mut TxContext
+    ): (state::AdminCap, ntt::upgrades::UpgradeCap) {
+        complete<CoinType>(deployer, upgrade_cap, chain_id, mode::burning(), std::option::some(treasury_cap), ctx)
     }
 
     #[allow(lint(share_owned))]
     /// Only the owner of the `DeployerCap` can call this method. This
     /// method destroys the capability and shares the `State` object.
-    public fun complete<CoinType>(
+    fun complete<CoinType>(
         deployer: DeployerCap,
         upgrade_cap: sui::package::UpgradeCap,
         chain_id: u16,
