@@ -502,6 +502,10 @@ yargs(hideBin(process.argv))
                 describe: "Wormhole state object ID for Sui (required for wormhole transceiver setup)",
                 type: "string",
             })
+            .option("sui-treasury-cap", {
+                describe: "Treasury cap object ID for Sui burning mode deployment",
+                type: "string",
+            })
             .option("signer-type", options.signerType)
             .option("skip-verify", options.skipVerify)
             .option("ver", options.version)
@@ -517,7 +521,8 @@ yargs(hideBin(process.argv))
             .example("$0 add-chain Ethereum --token 0x1234... --mode burning --latest", "Add Ethereum chain with the latest contract version in burning mode")
             .example("$0 add-chain Solana --token Sol1234... --mode locking --ver 1.0.0", "Add Solana chain with a specific contract version in locking mode")
             .example("$0 add-chain Avalanche --token 0xabcd... --mode burning --local", "Add Avalanche chain using the local contract version")
-            .example("$0 add-chain Base --token 0xdef... --mode burning --executor", "Add Base chain with executor mode enabled"),
+            .example("$0 add-chain Base --token 0xdef... --mode burning --executor", "Add Base chain with executor mode enabled")
+            .example("$0 add-chain Sui --token 0x123::mycoin::MYCOIN --mode burning --sui-treasury-cap 0xabc123... --latest", "Add Sui chain in burning mode with treasury cap"),
         async (argv) => {
             const path = argv["path"];
             const deployments: Config = loadConfig(path);
@@ -575,7 +580,7 @@ yargs(hideBin(process.argv))
             const ch = wh.getChain(chain);
 
             // TODO: make manager configurable
-            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["executor"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"], argv["sui-gas-budget"], argv["sui-package-path"], argv["sui-wormhole-state"]);
+            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["executor"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"], argv["sui-gas-budget"], argv["sui-package-path"], argv["sui-wormhole-state"], argv["sui-treasury-cap"]);
 
             const [config, _ctx, _ntt, decimals] =
                 await pullChainConfig(network, deployedManager, overrides);
@@ -2445,7 +2450,8 @@ async function deploy<N extends Network, C extends Chain>(
     solanaPriorityFee?: number,
     suiGasBudget?: number,
     suiPackagePath?: string,
-    suiWormholeState?: string
+    suiWormholeState?: string,
+    suiTreasuryCap?: string
 ): Promise<ChainAddress<C> | SuiDeploymentResult<C>> {
     if (version === null) {
         await warnLocalDeployment(yes);
@@ -2464,7 +2470,7 @@ async function deploy<N extends Network, C extends Chain>(
             return await deploySolana(worktree, version, mode, solanaCtx, token, solanaPayer, true, solanaProgramKeyPath, solanaBinaryPath, solanaPriorityFee) as ChainAddress<C>;
         case "Sui":
             const suiCtx = ch as ChainContext<N, Chain>; // TODO: Use proper SuiChains type
-            return await deploySui(worktree, version, mode, suiCtx, token, signerType, true, evmVerify, suiGasBudget, suiPackagePath, suiWormholeState) as any;
+            return await deploySui(worktree, version, mode, suiCtx, token, signerType, true, evmVerify, suiGasBudget, suiPackagePath, suiWormholeState, suiTreasuryCap) as any;
         default:
             throw new Error("Unsupported platform");
     }
@@ -2860,7 +2866,8 @@ async function deploySui<N extends Network, C extends Chain>(
     skipVerify?: boolean,
     gasBudget?: number,
     packagePath?: string,
-    wormholeStateId?: string
+    wormholeStateId?: string,
+    treasuryCapId?: string
 ): Promise<SuiDeploymentResult<C>> {
     const finalPackagePath = packagePath || "sui";
     const finalGasBudget = gasBudget || 100000000;
@@ -3035,7 +3042,7 @@ async function deploySui<N extends Network, C extends Chain>(
             console.log("No wormhole state ID provided, will skip wormhole transceiver setup");
         }
 
-        // 4. Call setup::complete to initialize the NTT manager state
+        // 4. Call setup::complete_burning or setup::complete_locking to initialize the NTT manager state
         const chainId = ch.config.chainId; // Get numeric chain ID from config
         const modeArg = mode === "locking" ? "Locking" : "Burning";
 
@@ -3044,23 +3051,53 @@ async function deploySui<N extends Network, C extends Chain>(
         // Build the transaction using Sui SDK
         const tx = new Transaction();
 
-        // Call setup::complete with simplified bool parameter
-        console.log("Attempting to call setup::complete...");
-        console.log("Package ID:", nttPackageId);
-        console.log("Function target:", `${nttPackageId}::setup::complete`);
-        console.log("Token type:", token);
-        console.log("Mode (burning):", mode === "burning");
+        if (mode === "burning") {
+            // Call setup::complete_burning (which now requires treasury cap)
+            console.log("Attempting to call setup::complete_burning...");
+            console.log("Package ID:", nttPackageId);
+            console.log("Function target:", `${nttPackageId}::setup::complete_burning`);
+            console.log("Token type:", token);
 
-        tx.moveCall({
-            target: `${nttPackageId}::setup::complete`,
-            typeArguments: [token], // Use the original token format
-            arguments: [
-                tx.object(nttDeployerCapId),
-                tx.object(nttUpgradeCapId),
-                tx.pure.u16(chainId),
-                tx.pure.bool(mode === "burning") // Use actual mode from CLI parameter
-            ],
-        });
+            // For burning mode, we need a treasury cap
+            if (!treasuryCapId) {
+                throw new Error("Burning mode deployment requires a treasury cap. Please provide --sui-treasury-cap <TREASURY_CAP_ID>");
+            }
+
+            console.log("Treasury Cap ID:", treasuryCapId);
+
+            const [adminCap, upgradeCapNtt] = tx.moveCall({
+                target: `${nttPackageId}::setup::complete_burning`,
+                typeArguments: [token],
+                arguments: [
+                    tx.object(nttDeployerCapId),
+                    tx.object(nttUpgradeCapId),
+                    tx.pure.u16(chainId),
+                    tx.object(treasuryCapId)
+                ],
+            });
+            
+            // Transfer both capability objects to the transaction sender
+            tx.transferObjects([adminCap, upgradeCapNtt], tx.pure.address(signer.address.address.toString()));
+        } else {
+            // Call setup::complete_locking
+            console.log("Attempting to call setup::complete_locking...");
+            console.log("Package ID:", nttPackageId);
+            console.log("Function target:", `${nttPackageId}::setup::complete_locking`);
+            console.log("Token type:", token);
+
+            const [adminCap, upgradeCapNtt] = tx.moveCall({
+                target: `${nttPackageId}::setup::complete_locking`,
+                typeArguments: [token], // Use the original token format
+                arguments: [
+                    tx.object(nttDeployerCapId),
+                    tx.object(nttUpgradeCapId),
+                    tx.pure.u16(chainId)
+                ],
+            });
+            
+            // Transfer both capability objects to the transaction sender
+            tx.transferObjects([adminCap, upgradeCapNtt], tx.pure.address(signer.address.address.toString()));
+        }
 
         // Set gas budget
         tx.setGasBudget(finalGasBudget);
