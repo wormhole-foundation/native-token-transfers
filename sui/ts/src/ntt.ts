@@ -1159,7 +1159,7 @@ export class SuiNtt<N extends Network, C extends SuiChains> implements Ntt<N, C>
 
       const result: Partial<Ntt.Contracts> = {
         manager: this.contracts.ntt!["manager"],
-        token: this.contracts.ntt!["token"], // TODO: parse this from the state object generic parameter (that's the remote version)
+        token: await SuiNtt.extractTokenTypeFromSuiState(this.provider, this.contracts.ntt!["manager"]),
         transceiver: {},
       };
 
