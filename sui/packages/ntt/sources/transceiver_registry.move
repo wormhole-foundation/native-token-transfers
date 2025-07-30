@@ -36,14 +36,15 @@ module ntt::transceiver_registry {
 
     // TODO: do we want to put anything here?
     public struct TransceiverInfo has copy, drop, store {
-        id: u8
+        id: u8,
+        state_object_id: ID,
     }
 
     public struct Key<phantom T> has copy, drop, store {}
 
-    public fun register_transceiver<Transceiver>(registry: &mut TransceiverRegistry) {
+    public fun register_transceiver<Transceiver>(registry: &mut TransceiverRegistry, state_object_id: ID) {
         let id = next_id(registry);
-        registry.add<Transceiver>(id);
+        registry.add<Transceiver>(id, state_object_id);
         registry.enable_transceiver(id);
     }
 
@@ -60,8 +61,8 @@ module ntt::transceiver_registry {
     }
 
     // helpers
-    fun add<Transceiver>(registry: &mut TransceiverRegistry, id: u8) {
-        dynamic_field::add(&mut registry.id, Key<Transceiver> {}, TransceiverInfo { id });
+    fun add<Transceiver>(registry: &mut TransceiverRegistry, id: u8, state_object_id: ID) {
+        dynamic_field::add(&mut registry.id, Key<Transceiver> {}, TransceiverInfo { id, state_object_id });
     }
 
     fun borrow<Transceiver>(registry: &TransceiverRegistry): &TransceiverInfo {
