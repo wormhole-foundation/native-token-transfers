@@ -73,7 +73,7 @@ async fn test_reregister_all_transceivers() {
     // Transceivers are expected to be executable which requires them to be added on setup
     // Thus, we pass all available executable program IDs as dummy_transceivers
     let dummy_transceivers = vec![
-        wormhole_anchor_sdk::wormhole::program::ID,
+        wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
         wormhole_governance::ID,
     ];
     let num_dummy_transceivers: u8 = dummy_transceivers.len().try_into().unwrap();

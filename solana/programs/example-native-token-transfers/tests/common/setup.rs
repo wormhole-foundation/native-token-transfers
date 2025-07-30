@@ -128,7 +128,7 @@ pub async fn setup_programs(program_owner: Pubkey) -> Result<ProgramTest, Error>
     add_program_upgradeable(
         &mut program_test,
         "mainnet_core_bridge",
-        wormhole_anchor_sdk::wormhole::program::ID,
+        wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
         None,
     );
 

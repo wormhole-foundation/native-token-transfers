@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "example_native_token_transfers"
 
 [features]
-default = []
+default = ["mainnet"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
