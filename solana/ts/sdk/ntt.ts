@@ -1252,112 +1252,13 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         // Create the vaa if necessary
         yield* this.createAta(payer);
 
-        // Post the VAA that we intend to redeem
-        yield* this.core.postVaa(payer, wormholeNTT);
-
         const senderAddress = new SolanaAddress(payer).unwrap();
 
-        const receiveMessageIx = whTransceiver.createReceiveIx(
-          wormholeNTT,
-          senderAddress
-        );
-
-        const redeemIx = NTT.createRedeemInstruction(
-          this.program,
-          config,
-          whTransceiver.program.programId,
-          {
-            payer: senderAddress,
-            vaa: wormholeNTT,
-          }
-        );
-
-        const nttMessage = wormholeNTT.payload.nttManagerPayload;
-        const emitterChain = wormholeNTT.emitterChain;
-        const releaseArgs = {
-          payer: senderAddress,
-          config,
-          nttMessage,
-          recipient: new PublicKey(
-            nttMessage.payload.recipientAddress.toUint8Array()
-          ),
-          chain: emitterChain,
-          // NOTE: this acts as `revertOnDelay` for versions < 3.x.x
-          revertWhenNotReady: false,
-        };
-        let releaseIx =
-          config.mode.locking != null
-            ? NTT.createReleaseInboundUnlockInstruction(this.program, config, {
-                ...releaseArgs,
-              })
-            : NTT.createReleaseInboundMintInstruction(this.program, config, {
-                ...releaseArgs,
-              });
-
-        const tx = new Transaction();
-        tx.feePayer = senderAddress;
-        tx.add(...(await Promise.all([receiveMessageIx, redeemIx, releaseIx])));
-
-        const luts: AddressLookupTableAccount[] = [];
-        try {
-          luts.push(await this.getAddressLookupTable());
-        } catch {}
-
-        const messageV0 = new TransactionMessage({
-          payerKey: senderAddress,
-          instructions: tx.instructions,
-          recentBlockhash: (await this.connection.getLatestBlockhash())
-            .blockhash,
-        }).compileToV0Message(luts);
-
-        const vtx = new VersionedTransaction(messageV0);
-
-        yield this.createUnsignedTx({ transaction: vtx }, "Ntt.Redeem");
-      }
-    }
-  }
-
-  async *redeemWithShim(
-    attestations: Ntt.Attestation[],
-    payer: AccountAddress<C>,
-    useMessageAccount: boolean = false
-  ) {
-    const config = await this.getConfig();
-    if (config.paused) throw new Error("Contract is paused");
-
-    if (attestations.length !== this.transceivers.length) {
-      throw new Error("Not enough attestations provided");
-    }
-
-    for (const { attestation, ix } of attestations.map((attestation, ix) => ({
-      attestation,
-      ix,
-    }))) {
-      if (ix === 0) {
-        const wormholeNTT = attestation;
-        if (wormholeNTT.payloadName !== "WormholeTransfer") {
-          throw new Error("Invalid attestation payload");
-        }
-        const whTransceiver = await this.getWormholeTransceiver();
-        if (!whTransceiver) {
-          throw new Error("wormhole transceiver not found");
-        }
-
-        if (!whTransceiver.verifyVaaShim) {
-          throw new Error(
-            "Wormhole Verify VAA Shim not configured in constructor"
-          );
-        }
-
-        // Create the vaa if necessary
-        yield* this.createAta(payer);
-
-        const senderAddress = new SolanaAddress(payer).unwrap();
-
-        // Post signatures for the VAA we intend to redeem
-        const signatureKeypair = Keypair.generate();
-        const postSignaturesTx = new Transaction().add(
-          await whTransceiver.verifyVaaShim.methods
+        const receiveIxs: Promise<TransactionInstruction>[] = [];
+        if (whTransceiver.verifyVaaShim) {
+          // Post signatures for the VAA we intend to redeem
+          const signatureKeypair = Keypair.generate();
+          const ix = await whTransceiver.verifyVaaShim.methods
             .postSignatures(
               wormholeNTT.guardianSet,
               wormholeNTT.signatures.length,
@@ -1368,35 +1269,53 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
             )
             .accounts({ guardianSignatures: signatureKeypair.publicKey })
             .signers([signatureKeypair])
-            .instruction()
-        );
-        postSignaturesTx.feePayer = senderAddress;
-        yield this.createUnsignedTx(
-          { transaction: postSignaturesTx, signers: [signatureKeypair] },
-          "VerifyVAAShim.PostSignatures"
-        );
+            .instruction();
 
-        // Post the unverified VAA data to an account
-        if (useMessageAccount) {
-          yield* whTransceiver.postUnverifiedMessageAccount(
-            wormholeNTT,
-            senderAddress
+          const tx = new Transaction();
+          tx.feePayer = senderAddress;
+          tx.add(ix);
+          yield this.createUnsignedTx(
+            { transaction: tx, signers: [signatureKeypair] },
+            "VerifyVAAShim.PostSignature"
+          );
+
+          // NOTE: As the VAA body is small enough to fit into instruction data,
+          // we use the `receive_wormhole_message_instruction_data` instruction.
+          //
+          // In case the VAA body is too large, then first post the unverified
+          // VAA body to a message account via:
+          // ```
+          // yield* whTransceiver.postUnverifiedMessageAccount(...);
+          // ```
+          // followed by the `receive_wormhole_message_account` instruction using
+          // `whTransciever.createReceiveIx(...)` with `useMessageAccount = true`
+          const useMessageAccount = false;
+
+          // Verify VAA hash and receive message
+          receiveIxs.push(
+            whTransceiver.createReceiveIx(
+              wormholeNTT,
+              senderAddress,
+              signatureKeypair.publicKey,
+              useMessageAccount
+            )
+          );
+
+          // Close guardian signatures
+          receiveIxs.push(
+            whTransceiver.verifyVaaShim.methods
+              .closeSignatures()
+              .accounts({ guardianSignatures: signatureKeypair.publicKey })
+              .instruction()
+          );
+        } else {
+          // Post the VAA that we intend to redeem
+          yield* this.core.postVaa(payer, wormholeNTT);
+
+          receiveIxs.push(
+            whTransceiver.createReceiveIx(wormholeNTT, senderAddress)
           );
         }
-
-        // Verify VAA hash and receive message
-        const receiveMessageIx = whTransceiver.createReceiveWithShimIx(
-          wormholeNTT,
-          senderAddress,
-          signatureKeypair.publicKey,
-          useMessageAccount
-        );
-
-        // Close guardian signatures
-        const closeSignaturesIx = whTransceiver.verifyVaaShim.methods
-          .closeSignatures()
-          .accounts({ guardianSignatures: signatureKeypair.publicKey })
-          .instruction();
 
         const redeemIx = NTT.createRedeemInstruction(
           this.program,
@@ -1432,14 +1351,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
         const tx = new Transaction();
         tx.feePayer = senderAddress;
-        tx.add(
-          ...(await Promise.all([
-            receiveMessageIx,
-            closeSignaturesIx,
-            redeemIx,
-            releaseIx,
-          ]))
-        );
+        tx.add(...(await Promise.all([...receiveIxs, redeemIx, releaseIx])));
 
         const luts: AddressLookupTableAccount[] = [];
         try {
