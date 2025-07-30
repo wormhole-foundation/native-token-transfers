@@ -355,52 +355,20 @@ export class SolanaNttWormholeTransceiver<
       })
       .instruction();
 
-    const wormholeMessage = Keypair.generate();
+    const wormholeMessage: Keypair | undefined = this.postMessageShim
+      ? Keypair.generate()
+      : undefined;
     const broadcastIx = await this.createBroadcastWormholePeerIx(
       peer.chain,
       sender,
-      wormholeMessage.publicKey
+      wormholeMessage?.publicKey
     );
 
     const tx = new Transaction();
     tx.feePayer = sender;
     tx.add(ix, broadcastIx);
     yield this.manager.createUnsignedTx(
-      { transaction: tx, signers: [wormholeMessage] },
-      "Ntt.SetWormholeTransceiverPeer"
-    );
-  }
-
-  async *setPeerWithShim(peer: ChainAddress<C>, payer: AccountAddress<C>) {
-    if (!this.postMessageShim) {
-      throw new Error(
-        "Wormhole Post Message Shim not configured in constructor"
-      );
-    }
-    const sender = new SolanaAddress(payer).unwrap();
-    const ix = await this.program.methods
-      .setWormholePeer({
-        chainId: { id: toChainId(peer.chain) },
-        address: Array.from(peer.address.toUniversalAddress().toUint8Array()),
-      })
-      .accounts({
-        payer: sender,
-        owner: sender,
-        config: this.manager.pdas.configAccount(),
-        peer: this.pdas.transceiverPeerAccount(peer.chain),
-      })
-      .instruction();
-
-    const broadcastIx = await this.createBroadcastWormholePeerWithShimIx(
-      peer.chain,
-      sender
-    );
-
-    const tx = new Transaction();
-    tx.feePayer = sender;
-    tx.add(ix, broadcastIx);
-    yield this.manager.createUnsignedTx(
-      { transaction: tx, signers: [] },
+      { transaction: tx, signers: wormholeMessage ? [wormholeMessage] : [] },
       "Ntt.SetWormholeTransceiverPeer"
     );
   }
