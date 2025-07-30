@@ -1,4 +1,4 @@
-use anchor_lang::prelude::Pubkey;
+use anchor_lang::{prelude::Pubkey, Id};
 use example_native_token_transfers::{
     config::Config,
     instructions::TransferArgs,
@@ -76,7 +76,7 @@ pub trait NTTAccounts {
 
     fn wormhole(&self) -> Wormhole {
         Wormhole {
-            program: wormhole_anchor_sdk::wormhole::program::ID,
+            program: wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
         }
     }
 
