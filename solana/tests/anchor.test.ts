@@ -26,7 +26,7 @@ import {
 } from "@wormhole-foundation/sdk-solana-core";
 
 import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
-import { SolanaNtt } from "../ts/sdk/index.js";
+import { SolanaNtt, WormholeShimOverrides } from "../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
   TestHelper,
@@ -49,6 +49,7 @@ const NTT_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.ExampleNativeTokenTransfers.programId;
 const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.NttTransceiver.programId;
+const USE_WORMHOLE_SHIMS: WormholeShimOverrides = {};
 
 /**
  * Test Helpers
@@ -158,7 +159,7 @@ describe("example-native-token-transfers", () => {
         },
       },
       VERSION,
-      {}
+      USE_WORMHOLE_SHIMS
     );
   });
 
