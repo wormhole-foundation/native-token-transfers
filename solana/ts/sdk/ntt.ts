@@ -122,90 +122,93 @@ export class SolanaNttWormholeTransceiver<
 
   async createReceiveIx(
     attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">,
-    payer: PublicKey
-  ) {
-    const nttMessage = attestation.payload.nttManagerPayload;
-    const chain = attestation.emitterChain;
-    return this.program.methods
-      .receiveWormholeMessage()
-      .accounts({
-        payer,
-        config: { config: this.manager.pdas.configAccount() },
-        peer: this.pdas.transceiverPeerAccount(chain),
-        vaa: utils.derivePostedVaaKey(
-          this.manager.core.address,
-          Buffer.from(attestation.hash)
-        ),
-        transceiverMessage: this.pdas.transceiverMessageAccount(
-          chain,
-          nttMessage.id
-        ),
-      })
-      .instruction();
-  }
-
-  async createReceiveWithShimIx(
-    attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">,
     payer: PublicKey,
-    guardianSignatures: PublicKey,
+    guardianSignatures?: PublicKey,
     useMessageAccount = false
   ) {
-    if (!this.verifyVaaShim) {
-      throw new Error("Wormhole Verify VAA Shim not configured in constructor");
-    }
     const nttMessage = attestation.payload.nttManagerPayload;
     const chain = attestation.emitterChain;
 
-    const indexBuffer = Buffer.alloc(4); // guardian_set_index is a u32
-    indexBuffer.writeUInt32BE(attestation.guardianSet);
-    const [guardianSet, guardianSetBump] = PublicKey.findProgramAddressSync(
-      [Buffer.from("GuardianSet"), indexBuffer],
-      this.manager.core.coreBridge.programId
-    );
+    if (this.verifyVaaShim) {
+      if (!guardianSignatures) {
+        throw new Error(
+          "guardianSignatures must be passed in if Wormhole Verify VAA Shim is used"
+        );
+      }
 
-    if (useMessageAccount) {
-      return this.program.methods
-        .receiveWormholeMessageAccount(guardianSetBump)
-        .accounts({
-          payer,
-          config: { config: this.manager.pdas.configAccount() },
-          peer: this.pdas.transceiverPeerAccount(chain),
-          message: this.pdas.unverifiedMessageAccount(payer),
-          transceiverMessage: this.pdas.transceiverMessageAccount(
-            chain,
-            nttMessage.id
-          ),
-          guardianSet,
-          guardianSignatures,
-          verifyVaaShim: this.verifyVaaShim.programId,
-        })
-        .instruction();
+      const indexBuffer = Buffer.alloc(4); // guardian_set_index is a u32
+      indexBuffer.writeUInt32BE(attestation.guardianSet);
+      const [guardianSet, guardianSetBump] = PublicKey.findProgramAddressSync(
+        [Buffer.from("GuardianSet"), indexBuffer],
+        this.manager.core.coreBridge.programId
+      );
+
+      if (!useMessageAccount) {
+        return this.program.methods
+          .receiveWormholeMessageInstructionData(guardianSetBump, {
+            span: vaaBody(serialize(attestation)),
+          })
+          .accounts({
+            payer,
+            config: { config: this.manager.pdas.configAccount() },
+            peer: this.pdas.transceiverPeerAccount(chain),
+            transceiverMessage: this.pdas.transceiverMessageAccount(
+              chain,
+              nttMessage.id
+            ),
+            guardianSet,
+            guardianSignatures,
+            verifyVaaShim: this.verifyVaaShim.programId,
+          })
+          .instruction();
+      } else {
+        return this.program.methods
+          .receiveWormholeMessageAccount(guardianSetBump)
+          .accounts({
+            payer,
+            config: { config: this.manager.pdas.configAccount() },
+            peer: this.pdas.transceiverPeerAccount(chain),
+            message: this.pdas.unverifiedMessageAccount(payer),
+            transceiverMessage: this.pdas.transceiverMessageAccount(
+              chain,
+              nttMessage.id
+            ),
+            guardianSet,
+            guardianSignatures,
+            verifyVaaShim: this.verifyVaaShim.programId,
+          })
+          .instruction();
+      }
     } else {
       return this.program.methods
-        .receiveWormholeMessageInstructionData(guardianSetBump, {
-          span: vaaBody(serialize(attestation)),
-        })
+        .receiveWormholeMessage()
         .accounts({
           payer,
           config: { config: this.manager.pdas.configAccount() },
           peer: this.pdas.transceiverPeerAccount(chain),
+          vaa: utils.derivePostedVaaKey(
+            this.manager.core.address,
+            Buffer.from(attestation.hash)
+          ),
           transceiverMessage: this.pdas.transceiverMessageAccount(
             chain,
             nttMessage.id
           ),
-          guardianSet,
-          guardianSignatures,
-          verifyVaaShim: this.verifyVaaShim.programId,
         })
         .instruction();
     }
   }
 
+  // NOTE: this method is not currently used as we are able to pass in
+  // the entire VAA body as instruction data.
+  // In case the VAA body is too large, then use this to first post the
+  // VAA body into the message account and call `createReceiveIx` with
+  // with the `useMessageAccount` argument set to `true`
   async *postUnverifiedMessageAccount(
     attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">,
     payer: PublicKey,
-    chunkSize = 300, // number of bytes to write per instruction
-    batchSize = 3 // number of instructions per transaction
+    chunkSize = 500, // number of bytes to write per instruction
+    batchSize = 2 // number of instructions per transaction
   ) {
     if (chunkSize <= 0 || batchSize <= 0) {
       throw new Error("Chunks and batches should be positive integers");
