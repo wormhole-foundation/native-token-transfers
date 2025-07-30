@@ -187,17 +187,14 @@ describe("example-native-token-transfers", () => {
       await signSendWait(ctx, initTxs, signer);
 
       // register Wormhole xcvr
-      const registerTxs = ntt.registerWormholeTransceiverWithShim({
+      const registerTxs = ntt.registerWormholeTransceiver({
         payer: payerAddress,
         owner: payerAddress,
       });
       await signSendWait(ctx, registerTxs, signer);
 
       // set Wormhole xcvr peer
-      const setXcvrPeerTxs = ntt.setWormholeTransceiverPeerWithShim(
-        remoteXcvr,
-        sender
-      );
+      const setXcvrPeerTxs = ntt.setWormholeTransceiverPeer(remoteXcvr, sender);
       await signSendWait(ctx, setXcvrPeerTxs, signer);
 
       // set manager peer
@@ -230,7 +227,7 @@ describe("example-native-token-transfers", () => {
       // added as a way to keep tests the same but it technically breaks the Ntt interface
       const outboxItem = $.keypair.generate();
       const wrapNative = false;
-      const xferTxs = ntt.transferWithShim(
+      const xferTxs = ntt.transfer(
         sender,
         amount,
         receiver,
@@ -534,7 +531,7 @@ describe("example-native-token-transfers", () => {
       const published = emitter.publishMessage(0, serialized, 200);
       const rawVaa = guardians.addSignatures(published, [0]);
       const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
-      const redeemTxs = ntt.redeemWithShim([vaa], sender, false);
+      const redeemTxs = ntt.redeem([vaa], sender);
       await signSendWait(ctx, redeemTxs, signer);
 
       assert.bn(await testDummyTransferHook.counter.value()).equal(2);
