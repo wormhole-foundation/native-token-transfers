@@ -260,18 +260,17 @@ export class SolanaNttWormholeTransceiver<
   }
 
   async *closeUnverifiedMessageAccount(payer: PublicKey) {
+    const ix = await this.program.methods
+      .closeUnverifiedWormholeMessageAccount()
+      .accounts({
+        payer,
+        message: this.pdas.unverifiedMessageAccount(payer),
+      })
+      .instruction();
+
     const tx = new Transaction();
     tx.feePayer = payer;
-    tx.add(
-      await this.program.methods
-        .closeUnverifiedWormholeMessageAccount()
-        .accounts({
-          payer,
-          message: this.pdas.unverifiedMessageAccount(payer),
-        })
-        .instruction()
-    );
-
+    tx.add(ix);
     yield this.manager.createUnsignedTx(
       { transaction: tx },
       "Ntt.CloseUnverifiedWormholeMessageAccount"
