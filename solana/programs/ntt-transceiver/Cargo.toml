@@ -24,10 +24,10 @@ wormhole-transceiver = []
 transceiver-type-from-env = []
 
 bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env" ]
-mainnet = [ "wormhole-anchor-sdk/mainnet" ]
-solana-devnet = [ "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet" ]
-tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet" ]
-tilt-devnet2 = [ "tilt-devnet", "wormhole-svm-definitions/localnet" ]
+mainnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/mainnet" ]
+solana-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet" ]
+tilt-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet" ]
+tilt-devnet2 = [ "wormhole-transceiver", "tilt-devnet", "wormhole-svm-definitions/localnet" ]
 
 [lints]
 workspace = true
