@@ -242,8 +242,8 @@ module ntt::state {
         state.threshold = threshold
     }
 
-    public fun register_transceiver<Transceiver, T>(self: &mut State<T>, _: &AdminCap) {
-        self.transceivers.register_transceiver<Transceiver>();
+    public fun register_transceiver<Transceiver, T>(self: &mut State<T>, state_object_id: ID, _: &AdminCap) {
+        self.transceivers.register_transceiver<Transceiver>(state_object_id);
     }
 
     public fun enable_transceiver<T>(self: &mut State<T>, _: &AdminCap, id: u8) {
