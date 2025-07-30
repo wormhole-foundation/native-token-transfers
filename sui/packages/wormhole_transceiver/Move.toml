@@ -13,8 +13,8 @@ override = true
 # git = "https://github.com/wormhole-foundation/wormhole.git"
 # rev = "sui/mainnet"
 # TODO: we're using this fork temporarily which allows us to create VAAs for testing
-git = "https://github.com/wormholelabs-xyz/wormhole.git"
-rev = "sui/vaa-new-test-only"
+git = "https://github.com/wormhole-foundation/wormhole.git"
+rev = "sui/testnet"
 subdir = "sui/wormhole"
 
 [dependencies.NttCommon]
