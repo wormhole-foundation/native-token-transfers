@@ -354,7 +354,7 @@ export class SolanaNttWormholeTransceiver<
       })
       .instruction();
 
-    const wormholeMessage: Keypair | undefined = this.postMessageShim
+    const wormholeMessage: Keypair | undefined = !this.postMessageShim
       ? Keypair.generate()
       : undefined;
     const broadcastIx = await this.createBroadcastWormholePeerIx(
@@ -926,7 +926,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const ix = await this.createRegisterTransceiverIx(0, payer, owner);
 
     const whTransceiver = (await this.getWormholeTransceiver())!;
-    const wormholeMessage: Keypair | undefined = whTransceiver.postMessageShim
+    const wormholeMessage: Keypair | undefined = !whTransceiver.postMessageShim
       ? Keypair.generate()
       : undefined;
     const broadcastIx = await whTransceiver.createBroadcastWormholeIdIx(
