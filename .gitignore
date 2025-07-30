@@ -2,6 +2,7 @@
 cache/
 out/
 target/
+build/
 
 # Ignores development broadcast logs
 !/broadcast
