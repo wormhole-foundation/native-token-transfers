@@ -891,7 +891,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
     const whTransceiver = await this.getWormholeTransceiver();
     if (!whTransceiver) {
-      throw new Error("wormhole transceiver not found");
+      throw new Error("Wormhole transceiver not found");
     }
     const whTransceiverProgramId = whTransceiver.programId;
 
@@ -1246,7 +1246,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         }
         const whTransceiver = await this.getWormholeTransceiver();
         if (!whTransceiver) {
-          throw new Error("wormhole transceiver not found");
+          throw new Error("Wormhole transceiver not found");
         }
 
         // Create the vaa if necessary
