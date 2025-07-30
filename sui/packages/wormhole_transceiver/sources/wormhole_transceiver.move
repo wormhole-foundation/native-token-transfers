@@ -21,18 +21,24 @@ module wormhole_transceiver::wormhole_transceiver {
         id: UID,
         peers: Table<u16, ExternalAddress>,
         emitter_cap: EmitterCap,
+        admin_cap_id: ID,
     }
 
     public(package) fun new<ManagerAuth>(
         wormhole_state: &wormhole::state::State,
         ctx: &mut TxContext
-    ): State<ManagerAuth> {
+    ): (State<ManagerAuth>, AdminCap) {
         assert!(ntt_common::contract_auth::is_auth_type<ManagerAuth>(b"ManagerAuth"));
-        State {
+        let admin_cap = AdminCap {
+            id: object::new(ctx)
+        };
+        let state = State {
             id: object::new(ctx),
             peers: table::new(ctx),
             emitter_cap: wormhole::emitter::new(wormhole_state, ctx), // Creates a new emitter cap for WH core. Acts as the *peer* on the other side.
-        }
+            admin_cap_id: admin_cap.id.to_inner(),
+        };
+        (state, admin_cap)
     }
 
     public struct DeployerCap has key, store {
@@ -50,10 +56,10 @@ module wormhole_transceiver::wormhole_transceiver {
         let DeployerCap { id } = deployer;
         object::delete(id); // Deletion means that nothing can redeploy this again...
 
-        let state = new<ManagerAuth>(wormhole_state, ctx);
+        let (state, admin_cap) = new<ManagerAuth>(wormhole_state, ctx);
         transfer::public_share_object(state);
 
-        AdminCap { id: object::new(ctx) }
+        admin_cap
     }
 
     public fun release_outbound<ManagerAuth>(
