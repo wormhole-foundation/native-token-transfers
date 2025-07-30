@@ -390,58 +390,28 @@ export class SolanaNttWormholeTransceiver<
   async createBroadcastWormholeIdIx(
     payer: PublicKey,
     config: NttBindings.Config<IdlVersion>,
-    wormholeMessage: PublicKey
+    wormholeMessage?: PublicKey
   ): Promise<web3.TransactionInstruction> {
-    const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
-      this.manager.core.address
-    );
-
-    return this.program.methods
-      .broadcastWormholeId()
-      .accountsStrict({
-        payer,
-        config: this.manager.pdas.configAccount(),
-        mint: config.mint,
-        wormholeMessage: wormholeMessage,
-        emitter: whAccs.wormholeEmitter,
-        wormhole: {
-          bridge: whAccs.wormholeBridge,
-          feeCollector: whAccs.wormholeFeeCollector,
-          sequence: whAccs.wormholeSequence,
-          program: this.manager.core.address,
-          systemProgram: SystemProgram.programId,
-          clock: web3.SYSVAR_CLOCK_PUBKEY,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        },
-      })
-      .instruction();
-  }
-
-  async createBroadcastWormholeIdWithShimIx(
-    payer: PublicKey,
-    config: NttBindings.Config<IdlVersion>
-  ): Promise<web3.TransactionInstruction> {
-    if (!this.postMessageShim) {
+    if (!this.postMessageShim && !wormholeMessage) {
       throw new Error(
-        "Wormhole Post Message Shim not configured in constructor"
+        "wormholeMessage must be passed in if Wormhole Post Message Shim is not configured"
       );
     }
-
     const whAccs = utils.getWormholeDerivedAccounts(
       this.program.programId,
       this.manager.core.address
     );
 
+    wormholeMessage = this.postMessageShim
+      ? this.pdas.wormholeMessageWithShimAccount(this.postMessageShim.programId)
+      : wormholeMessage!;
     return this.program.methods
       .broadcastWormholeId()
       .accountsStrict({
         payer,
         config: this.manager.pdas.configAccount(),
         mint: config.mint,
-        wormholeMessage: this.pdas.wormholeMessageWithShimAccount(
-          this.postMessageShim.programId
-        ),
+        wormholeMessage,
         emitter: whAccs.wormholeEmitter,
         wormhole: {
           bridge: whAccs.wormholeBridge,
@@ -451,11 +421,13 @@ export class SolanaNttWormholeTransceiver<
           systemProgram: SystemProgram.programId,
           clock: web3.SYSVAR_CLOCK_PUBKEY,
           rent: web3.SYSVAR_RENT_PUBKEY,
-          postMessageShim: this.postMessageShim.programId,
-          wormholePostMessageShimEa: derivePda(
-            ["__event_authority"],
-            this.postMessageShim.programId
-          ),
+          ...(this.postMessageShim && {
+            postMessageShim: this.postMessageShim.programId,
+            wormholePostMessageShimEa: derivePda(
+              ["__event_authority"],
+              this.postMessageShim.programId
+            ),
+          }),
         },
       })
       .instruction();
@@ -464,38 +436,11 @@ export class SolanaNttWormholeTransceiver<
   async createBroadcastWormholePeerIx(
     chain: Chain,
     payer: PublicKey,
-    wormholeMessage: PublicKey
+    wormholeMessage?: PublicKey
   ): Promise<web3.TransactionInstruction> {
-    const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
-      this.manager.core.address
-    );
-
-    return this.program.methods
-      .broadcastWormholePeer({ chainId: toChainId(chain) })
-      .accounts({
-        payer: payer,
-        config: this.manager.pdas.configAccount(),
-        peer: this.pdas.transceiverPeerAccount(chain),
-        wormholeMessage: wormholeMessage,
-        emitter: whAccs.wormholeEmitter,
-        wormhole: {
-          bridge: whAccs.wormholeBridge,
-          feeCollector: whAccs.wormholeFeeCollector,
-          sequence: whAccs.wormholeSequence,
-          program: this.manager.core.address,
-        },
-      })
-      .instruction();
-  }
-
-  async createBroadcastWormholePeerWithShimIx(
-    chain: Chain,
-    payer: PublicKey
-  ): Promise<web3.TransactionInstruction> {
-    if (!this.postMessageShim) {
+    if (!this.postMessageShim && !wormholeMessage) {
       throw new Error(
-        "Wormhole Post Message Shim not configured in constructor"
+        "wormholeMessage must be passed in if Wormhole Post Message Shim is not configured"
       );
     }
     const whAccs = utils.getWormholeDerivedAccounts(
@@ -503,26 +448,29 @@ export class SolanaNttWormholeTransceiver<
       this.manager.core.address
     );
 
+    wormholeMessage = this.postMessageShim
+      ? this.pdas.wormholeMessageWithShimAccount(this.postMessageShim.programId)
+      : wormholeMessage!;
     return this.program.methods
       .broadcastWormholePeer({ chainId: toChainId(chain) })
       .accounts({
         payer: payer,
         config: this.manager.pdas.configAccount(),
         peer: this.pdas.transceiverPeerAccount(chain),
-        wormholeMessage: this.pdas.wormholeMessageWithShimAccount(
-          this.postMessageShim.programId
-        ),
+        wormholeMessage,
         emitter: whAccs.wormholeEmitter,
         wormhole: {
           bridge: whAccs.wormholeBridge,
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-          postMessageShim: this.postMessageShim.programId,
-          wormholePostMessageShimEa: derivePda(
-            ["__event_authority"],
-            this.postMessageShim.programId
-          ),
+          ...(this.postMessageShim && {
+            postMessageShim: this.postMessageShim.programId,
+            wormholePostMessageShimEa: derivePda(
+              ["__event_authority"],
+              this.postMessageShim.programId
+            ),
+          }),
         },
       })
       .instruction();
