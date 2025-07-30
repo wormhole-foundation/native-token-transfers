@@ -487,6 +487,9 @@ export class SolanaNttWormholeTransceiver<
       this.manager.core.address
     );
 
+    const wormholeMessage = this.postMessageShim
+      ? this.pdas.wormholeMessageWithShimAccount(this.postMessageShim.programId)
+      : this.pdas.wormholeMessageAccount(outboxItem);
     return this.program.methods
       .releaseWormholeOutbound({
         revertOnDelay: revertOnDelay,
@@ -495,7 +498,7 @@ export class SolanaNttWormholeTransceiver<
         payer,
         config: { config: this.manager.pdas.configAccount() },
         outboxItem,
-        wormholeMessage: this.pdas.wormholeMessageAccount(outboxItem),
+        wormholeMessage,
         emitter: whAccs.wormholeEmitter,
         transceiver: this.manager.pdas.registeredTransceiver(
           this.program.programId
@@ -505,59 +508,13 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-        },
-        // NOTE: baked-in transceiver case is handled separately
-        // due to tx size error when LUT is not configured
-        ...(major >= 3 && {
-          manager: this.manager.program.programId,
-          outboxItemSigner: this.pdas.outboxItemSigner(),
-        }),
-      })
-      .instruction();
-  }
-
-  async createReleaseWormholeOutboundWithShimIx(
-    payer: PublicKey,
-    outboxItem: PublicKey,
-    revertOnDelay: boolean
-  ): Promise<web3.TransactionInstruction> {
-    if (!this.postMessageShim) {
-      throw new Error(
-        "Wormhole Post Message Shim not configured in constructor"
-      );
-    }
-
-    const [major, , ,] = parseVersion(this.version);
-    const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
-      this.manager.core.address
-    );
-
-    return this.program.methods
-      .releaseWormholeOutbound({
-        revertOnDelay: revertOnDelay,
-      })
-      .accounts({
-        payer,
-        config: { config: this.manager.pdas.configAccount() },
-        outboxItem,
-        wormholeMessage: this.pdas.wormholeMessageWithShimAccount(
-          this.postMessageShim.programId
-        ),
-        emitter: whAccs.wormholeEmitter,
-        transceiver: this.manager.pdas.registeredTransceiver(
-          this.program.programId
-        ),
-        wormhole: {
-          bridge: whAccs.wormholeBridge,
-          feeCollector: whAccs.wormholeFeeCollector,
-          sequence: whAccs.wormholeSequence,
-          program: this.manager.core.address,
-          postMessageShim: this.postMessageShim.programId,
-          wormholePostMessageShimEa: derivePda(
-            ["__event_authority"],
-            this.postMessageShim.programId
-          ),
+          ...(this.postMessageShim && {
+            postMessageShim: this.postMessageShim.programId,
+            wormholePostMessageShimEa: derivePda(
+              ["__event_authority"],
+              this.postMessageShim.programId
+            ),
+          }),
         },
         // NOTE: baked-in transceiver case is handled separately
         // due to tx size error when LUT is not configured
