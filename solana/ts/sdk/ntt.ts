@@ -999,13 +999,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     yield* this.setTransceiverPeer(0, peer, payer);
   }
 
-  async *setWormholeTransceiverPeerWithShim(
-    peer: ChainAddress,
-    payer: AccountAddress<C>
-  ) {
-    yield* this.setTransceiverPeerWithShim(0, peer, payer);
-  }
-
   async *setTransceiverPeer(
     ix: number,
     peer: ChainAddress,
@@ -1016,23 +1009,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       throw new Error("Transceiver not found");
     }
     yield* transceiver.setPeer(peer, payer);
-  }
-
-  async *setTransceiverPeerWithShim(
-    ix: number,
-    peer: ChainAddress,
-    payer: AccountAddress<C>
-  ) {
-    const transceiver = await this.getTransceiver(ix);
-    if (!transceiver) {
-      throw new Error("Transceiver not found");
-    }
-    if (!("setPeerWithShim" in transceiver)) {
-      throw new Error("setPeerWithShim not found");
-    }
-    yield* (
-      transceiver.setPeerWithShim as typeof SolanaNttWormholeTransceiver.prototype.setPeerWithShim
-    )(peer, payer);
   }
 
   async *setPeer(
