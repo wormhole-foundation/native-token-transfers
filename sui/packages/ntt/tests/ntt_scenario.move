@@ -72,12 +72,16 @@ module ntt::ntt_scenario {
             CHAIN_ID,
             mode::burning(),
             option::some(treasury_cap),
+            object::id_from_address(@0x10), // dummy upgrade cap ID
             ts::ctx(scenario)
         );
 
+        let id1 = object::id_from_address(@0x100);
+        let id2 = object::id_from_address(@0x101);
+
         // Register transceivers
-        state::register_transceiver<ntt::test_transceiver_a::TransceiverAuth, _>(&mut state, &admin_cap);
-        state::register_transceiver<ntt::test_transceiver_b::TransceiverAuth, _>(&mut state, &admin_cap);
+        state::register_transceiver<ntt::test_transceiver_a::TransceiverAuth, _>(&mut state, id1, &admin_cap);
+        state::register_transceiver<ntt::test_transceiver_b::TransceiverAuth, _>(&mut state, id2, &admin_cap);
 
         // Create clock for rate limiting
         let clock = take_clock(scenario);
