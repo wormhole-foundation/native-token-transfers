@@ -70,7 +70,7 @@ module ntt_common::contract_auth {
 }
 
 #[test_only]
-module ntt_common::auth {
+module ntt_common::my_auth {
     public struct MyAuth {}
 }
 
@@ -87,7 +87,7 @@ module ntt_common::contract_auth_test {
 
     #[test]
     public fun test_is_auth_type() {
-        assert!(is_auth_type<ntt_common::auth::MyAuth>(b"MyAuth"));
+        assert!(is_auth_type<ntt_common::my_auth::MyAuth>(b"MyAuth"));
         assert!(is_auth_type<ntt_common::other_auth::Auth>(b"Auth"));
         assert!(!is_auth_type<NotAuth>(b"SomeAuth"));
     }
