@@ -927,45 +927,20 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const ix = await this.createRegisterTransceiverIx(0, payer, owner);
 
     const whTransceiver = (await this.getWormholeTransceiver())!;
-    const wormholeMessage = Keypair.generate();
+    const wormholeMessage: Keypair | undefined = whTransceiver.postMessageShim
+      ? Keypair.generate()
+      : undefined;
     const broadcastIx = await whTransceiver.createBroadcastWormholeIdIx(
       payer,
       config,
-      wormholeMessage.publicKey
+      wormholeMessage?.publicKey
     );
 
     const tx = new Transaction();
     tx.feePayer = payer;
     tx.add(ix, broadcastIx);
     yield this.createUnsignedTx(
-      { transaction: tx, signers: [wormholeMessage] },
-      "Ntt.RegisterTransceiver"
-    );
-  }
-
-  async *registerWormholeTransceiverWithShim(args: {
-    payer: AccountAddress<C>;
-    owner: AccountAddress<C>;
-  }) {
-    const payer = new SolanaAddress(args.payer).unwrap();
-    const owner = new SolanaAddress(args.owner).unwrap();
-
-    const config = await this.getConfig();
-    if (config.paused) throw new Error("Contract is paused");
-
-    const ix = await this.createRegisterTransceiverIx(0, payer, owner);
-
-    const whTransceiver = (await this.getWormholeTransceiver())!;
-    const broadcastIx = await whTransceiver.createBroadcastWormholeIdWithShimIx(
-      payer,
-      config
-    );
-
-    const tx = new Transaction();
-    tx.feePayer = payer;
-    tx.add(ix, broadcastIx);
-    yield this.createUnsignedTx(
-      { transaction: tx, signers: [] },
+      { transaction: tx, signers: wormholeMessage ? [wormholeMessage] : [] },
       "Ntt.RegisterTransceiver"
     );
   }
