@@ -55,7 +55,7 @@ import { IDL as WormholePostMessageShimIdl } from "../idl/wormhole_shim/ts/wormh
 import { type WormholeVerifyVaaShim } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 import { IDL as WormholeVerifyVaaShimIdl } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 
-type WormholeShimOverrides = {
+export type WormholeShimOverrides = {
   postMessageShimOverride?: PublicKey;
   verifyVaaShimOverride?: PublicKey;
 };
