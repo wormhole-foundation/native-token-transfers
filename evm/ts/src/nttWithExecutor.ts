@@ -53,6 +53,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Converge: "0x3d8c26b67BDf630FBB44F09266aFA735F1129197",
     Plume: "0x6Eb53371f646788De6B4D0225a4Ed1d9267188AD",
     Monad: "0x93FE94Ad887a1B04DBFf1f736bfcD1698D4cfF66",
+    Celo: "0x3d69869fcB9e1CD1F4020b637fb8256030BAc8fC",
   },
 };
 
