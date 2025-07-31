@@ -406,7 +406,7 @@ export class SolanaNttWormholeTransceiver<
       : wormholeMessage!;
     return this.program.methods
       .broadcastWormholeId()
-      .accountsStrict({
+      .accounts({
         payer,
         config: this.manager.pdas.configAccount(),
         mint: config.mint,
@@ -417,9 +417,6 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-          systemProgram: SystemProgram.programId,
-          clock: web3.SYSVAR_CLOCK_PUBKEY,
-          rent: web3.SYSVAR_RENT_PUBKEY,
           ...(this.postMessageShim && {
             postMessageShim: this.postMessageShim.programId,
             wormholePostMessageShimEa: derivePda(
