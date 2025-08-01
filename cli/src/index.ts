@@ -2663,7 +2663,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
             execSync(`solana-keygen new -o buffer.json --no-bip39-passphrase`);
         } else {
             console.info("buffer.json already exists.")
-            askForConfirmation("Do you want continue an exiting deployment? If not, delete the buffer.json file and run the command again.");
+            await askForConfirmation("Do you want continue an exiting deployment? If not, delete the buffer.json file and run the command again.");
         }
 
         const deployCommand = [
