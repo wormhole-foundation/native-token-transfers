@@ -64,12 +64,7 @@ contract DeployWormholeNttBase is ParseNttConfig {
     ) public returns (address) {
         // Deploy the Wormhole Transceiver.
         WormholeTransceiver implementation = new WormholeTransceiver(
-            nttManager,
-            params.wormholeCoreBridge,
-            params.wormholeRelayerAddr,
-            params.specialRelayerAddr,
-            params.consistencyLevel,
-            params.gasLimit
+            nttManager, params.wormholeCoreBridge, params.consistencyLevel, params.gasLimit
         );
 
         WormholeTransceiver transceiverProxy =
