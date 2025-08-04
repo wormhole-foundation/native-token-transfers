@@ -2855,6 +2855,68 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     return { chain: ch.chain, address: toUniversal(ch.chain, providedProgramId) };
 }
 
+// Helper function to update Move.toml files for network-specific dependencies
+function updateMoveTomlForNetwork(packagesPath: string, networkType: Network): { restore: () => void } {
+    const packages = ['ntt_common', 'ntt', 'wormhole_transceiver'];
+    const backups: { [key: string]: string } = {};
+
+    // Determine the correct revisions based on network (with environment variable overrides)
+    const wormholeRev = process.env.WORMHOLE_REV ||
+        (networkType === 'Mainnet' ? 'sui/mainnet' : 'sui/testnet');
+
+    // localhost not supported for now, because the
+    if (networkType === 'Devnet') {
+        throw new Error("devnet not supported yet");
+    }
+
+    console.log(`Updating Move.toml files for ${networkType} network...`);
+    console.log(`  Wormhole revision: ${wormholeRev}`);
+
+    for (const packageName of packages) {
+        const moveTomlPath = `${packagesPath}/${packageName}/Move.toml`;
+
+        try {
+            // Backup original content
+            const originalContent = fs.readFileSync(moveTomlPath, 'utf8');
+            backups[moveTomlPath] = originalContent;
+
+            let content = originalContent;
+
+            // Update Wormhole revision
+            content = content.replace(
+                /rev = "sui\/(testnet|mainnet)"/g,
+                `rev = "${wormholeRev}"`
+            );
+
+            // Only write if content actually changed
+            if (content !== originalContent) {
+                fs.writeFileSync(moveTomlPath, content, 'utf8');
+                console.log(`  Updated ${packageName}/Move.toml`);
+            } else {
+                console.log(`  No changes needed for ${packageName}/Move.toml`);
+            }
+
+        } catch (error) {
+            console.warn(`  Warning: Could not update ${packageName}/Move.toml: ${error}`);
+            // Don't throw error here to allow deployment to continue
+        }
+    }
+
+    // Return restore function
+    return {
+        restore: () => {
+            console.log("Restoring original Move.toml files...");
+            for (const [filePath, content] of Object.entries(backups)) {
+                try {
+                    fs.writeFileSync(filePath, content, 'utf8');
+                } catch (error) {
+                    console.warn(`  Warning: Could not restore ${filePath}: ${error}`);
+                }
+            }
+        }
+    };
+}
+
 async function deploySui<N extends Network, C extends Chain>(
     pwd: string,
     version: string | null,
@@ -2885,6 +2947,13 @@ async function deploySui<N extends Network, C extends Chain>(
         // Build the Move packages
         console.log("Building Move packages...");
         const packagesPath = `${pwd}/${finalPackagePath}/packages`;
+
+        // Detect network type and update Move.toml files accordingly
+        const networkType = ch.network;
+        const { restore } = updateMoveTomlForNetwork(packagesPath, networkType);
+
+        // Ensure we restore files if deployment fails
+        try {
 
         // Build ntt_common first (dependency)
         try {
@@ -3088,7 +3157,7 @@ async function deploySui<N extends Network, C extends Chain>(
                     tx.object(treasuryCapId)
                 ],
             });
-            
+
             // Transfer both capability objects to the transaction sender
             tx.transferObjects([adminCap, upgradeCapNtt], tx.pure.address(signer.address.address.toString()));
         } else {
@@ -3107,7 +3176,7 @@ async function deploySui<N extends Network, C extends Chain>(
                     tx.pure.u16(chainId)
                 ],
             });
-            
+
             // Transfer both capability objects to the transaction sender
             tx.transferObjects([adminCap, upgradeCapNtt], tx.pure.address(signer.address.address.toString()));
         }
@@ -3317,6 +3386,9 @@ async function deploySui<N extends Network, C extends Chain>(
         console.log(`Wormhole Transceiver Package ID: ${whTransceiverPackageId}`);
         console.log(`Wormhole Transceiver State ID: ${transceiverStateId || "Not deployed (skipped)"}`);
 
+        // Restore original Move.toml files after successful deployment
+        restore();
+
         // Return the deployment information including AdminCaps and package IDs
         return {
             chain: ch.chain,
@@ -3333,6 +3405,12 @@ async function deploySui<N extends Network, C extends Chain>(
                 wormholeTransceiver: whTransceiverPackageId
             },
         };
+
+        } catch (deploymentError) {
+            // Restore original Move.toml files if deployment fails
+            restore();
+            throw deploymentError;
+        }
     });
 }
 
