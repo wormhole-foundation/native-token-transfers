@@ -12,16 +12,7 @@ contract MockWormholeTransceiverContract is WormholeTransceiver {
         address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
-    )
-        WormholeTransceiver(
-            nttManager,
-            wormholeCoreBridge,
-            wormholeRelayerAddr,
-            specialRelayerAddr,
-            _consistencyLevel,
-            _gasLimit
-        )
-    {}
+    ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
 
     /// @dev Override the [`transferOwnership`] method from OwnableUpgradeable
     /// to ensure owner of this contract is in sync with the onwer of the NttManager contract.
@@ -40,16 +31,7 @@ contract MockWormholeTransceiverMigrateBasic is WormholeTransceiver {
         address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
-    )
-        WormholeTransceiver(
-            nttManager,
-            wormholeCoreBridge,
-            wormholeRelayerAddr,
-            specialRelayerAddr,
-            _consistencyLevel,
-            _gasLimit
-        )
-    {}
+    ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
 
     function _migrate() internal pure override {
         revert("Proper migrate called");
@@ -64,16 +46,7 @@ contract MockWormholeTransceiverImmutableAllow is WormholeTransceiver {
         address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
-    )
-        WormholeTransceiver(
-            nttManager,
-            wormholeCoreBridge,
-            wormholeRelayerAddr,
-            specialRelayerAddr,
-            _consistencyLevel,
-            _gasLimit
-        )
-    {}
+    ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
 
     // Allow for the immutables to be migrated
     function _migrate() internal override {
@@ -94,16 +67,7 @@ contract MockWormholeTransceiverLayoutChange is WormholeTransceiver {
         address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
-    )
-        WormholeTransceiver(
-            nttManager,
-            wormholeCoreBridge,
-            wormholeRelayerAddr,
-            specialRelayerAddr,
-            _consistencyLevel,
-            _gasLimit
-        )
-    {}
+    ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
 
     function setData() public {
         a = address(0x1);

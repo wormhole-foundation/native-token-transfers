@@ -483,9 +483,6 @@ contract TestEndToEndRelayer is IntegrationHelpers, IRateLimiterEvents, Wormhole
         // setup token
         DummyToken token2 = DummyTokenMintAndBurn(nttManagerChain2.token());
 
-        // enable standard relaying
-        _enableSR([wormholeTransceiverChain2, wormholeTransceiverChain2Other], chainId1);
-
         // set the manager and transceiver peers
         vm.selectFork(sourceFork);
         _setTransceiverPeers(
@@ -499,9 +496,6 @@ contract TestEndToEndRelayer is IntegrationHelpers, IRateLimiterEvents, Wormhole
 
         DummyToken token1 = DummyToken(nttManagerChain1.token());
         uint8 decimals = token1.decimals();
-
-        // enable standard relaying
-        _enableSR([wormholeTransceiverChain1, wormholeTransceiverChain1Other], chainId2);
 
         uint256 sendingAmount = 5 * 10 ** token1.decimals();
         _prepareTransfer(token1, userA, address(nttManagerChain1), sendingAmount);
