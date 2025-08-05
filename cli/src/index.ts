@@ -414,6 +414,7 @@ yargs(hideBin(process.argv))
                 console.log(chalk.yellow("⚠️  HyperEVM Deployment Requirements:"));
                 console.log(chalk.yellow("Before proceeding with the HyperEVM deployment, please ensure:"));
                 console.log(chalk.yellow("1. You have created a verified account by depositing into Hyperliquid from the deployer wallet"));
+                console.log(chalk.white("Hyperliquid app: https://app.hyperliquid.xyz/"));
                 console.log(chalk.yellow("2. You have enabled larger blocks to be used for the deployment"));
                 console.log(chalk.white("Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture"));
                 console.log(chalk.yellow(""));
