@@ -409,6 +409,18 @@ yargs(hideBin(process.argv))
                 process.exit(1);
             }
 
+            // HyperEVM confirmation
+            if (chain === "HyperEVM" && !argv["yes"]) {
+                console.log(chalk.yellow("⚠️  HyperEVM Deployment Requirements:"));
+                console.log(chalk.yellow("Before proceeding with the HyperEVM deployment, please ensure:"));
+                console.log(chalk.yellow("1. You have created a verified account by depositing into Hyperliquid from the deployer wallet"));
+                console.log(chalk.yellow("2. You have enabled larger blocks to be used for the deployment"));
+                console.log(chalk.white("Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture"));
+                console.log(chalk.yellow(""));
+                
+                await askForConfirmation("Did you make sure to do steps 1 & 2 mentioned above?");
+            }
+
             // let's deploy
 
             // TODO: factor out to function to get chain context
@@ -2640,7 +2652,7 @@ function searchBufferInBinary(binaryPath: string, searchBuffer: Buffer): boolean
 }
 
 function getSlowFlag(chain: Chain): string {
-    return chain === "Mezo" ? "--slow" : "";
+    return chain === "Mezo" || chain === "HyperEVM" ? "--slow" : "";
 }
 
 export function ensureNttRoot(pwd: string = ".") {
