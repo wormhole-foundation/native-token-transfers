@@ -157,8 +157,6 @@ function install_cli {
   cd cli
 
   bun link
-
-  bun link @wormhole-foundation/ntt-cli
 }
 
 main "$@"
