@@ -60,7 +60,9 @@ const testDummyTransferHook = new TestDummyTransferHook(
   TOKEN_PROGRAM,
   spl.ASSOCIATED_TOKEN_PROGRAM_ID
 );
-const testWormholePostMessageShim = new TestWormholePostMessageShim();
+const testWormholePostMessageShim = new TestWormholePostMessageShim(
+  $.connection
+);
 let testMint: TestMint;
 
 /**
@@ -249,10 +251,7 @@ describe("example-native-token-transfers", () => {
       );
 
       // parse event and instruction data to re-build message
-      const [data] = await testWormholePostMessageShim.getMessageData(
-        $.connection,
-        txId
-      );
+      const [data] = await testWormholePostMessageShim.getMessageData(txId);
 
       // assert that the event is correctly emitted
       expect(data!.emitter).toMatchObject(wormholeXcvr!.pdas.emitterAccount());
