@@ -1246,7 +1246,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
               ])
             )
             .accounts({ guardianSignatures: signatureKeypair.publicKey })
-            .signers([signatureKeypair])
             .instruction();
 
           const tx = new Transaction();
