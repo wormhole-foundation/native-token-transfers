@@ -19,7 +19,7 @@ idl-build = [
 ]
 no-log-ix-name = []
 cpi = ["no-entrypoint", "example-native-token-transfers/cpi"]
-default = ["wormhole-transceiver"]
+default = ["mainnet"]
 wormhole-transceiver = ["example-native-token-transfers/cpi"]
 transceiver-type-from-env = []
 
