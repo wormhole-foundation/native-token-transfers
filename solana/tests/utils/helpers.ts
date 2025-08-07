@@ -631,11 +631,14 @@ export class TestWormholePostMessageShim {
   );
 
   constructor(
+    readonly connection: anchor.web3.Connection,
     readonly programId = new anchor.web3.PublicKey(
       "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"
     )
   ) {
-    this.program = new anchor.Program(WormholePostMessageShimIdl, programId);
+    this.program = new anchor.Program(WormholePostMessageShimIdl, programId, {
+      connection,
+    });
   }
 
   /**
@@ -646,15 +649,13 @@ export class TestWormholePostMessageShim {
   /**
    * Busy-waits on the transaction and parses the data necessary to re-build the message from the
    * Post Message Shim program input instruction data and the self-CPI `MessageEvent`
-   * @param connection Connection to use
    * @param tx Transaction hash to poll
    * @returns Parsed `PostMessageShimMessageData`
    */
   getMessageData = async (
-    connection: anchor.web3.Connection,
     tx: string
   ): Promise<PostMessageShimMessageData[]> => {
-    const postMessageShimIxs = await this.getInstructions(connection, tx);
+    const postMessageShimIxs = await this.getInstructions(tx);
 
     const parsedShimMessages = [];
 
@@ -730,12 +731,11 @@ export class TestWormholePostMessageShim {
 
   /**
    * Busy-waits on the transaction and filters the `innerInstructions` to return only the Post Message Shim instructions
-   * @param connection Connection to use
    * @param tx Transaction hash to poll
    * @returns Post Message Shim instructions
    */
-  getInstructions = async (connection: anchor.web3.Connection, tx: string) => {
-    const txDetails = await getTransactionDetails(connection, tx);
+  getInstructions = async (tx: string) => {
+    const txDetails = await getTransactionDetails(this.connection, tx);
 
     expect(txDetails.meta).toBeTruthy();
     const txMeta = txDetails.meta!;
