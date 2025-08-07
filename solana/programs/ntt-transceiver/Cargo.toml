@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "ntt_transceiver"
 
 [features]
-no-entrypoint = []
+no-entrypoint = ["example-native-token-transfers/no-entrypoint"]
 no-idl = []
 idl-build = [
   "anchor-lang/idl-build",
@@ -23,11 +23,11 @@ default = ["wormhole-transceiver"]
 wormhole-transceiver = ["example-native-token-transfers/cpi"]
 transceiver-type-from-env = []
 
-bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env" ]
-mainnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/mainnet" ]
-solana-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet" ]
-tilt-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet" ]
-tilt-devnet2 = [ "wormhole-transceiver", "tilt-devnet", "wormhole-svm-definitions/localnet" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env", "example-native-token-transfers/bridge-address-from-env" ]
+mainnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/mainnet", "example-native-token-transfers/mainnet" ]
+solana-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet", "example-native-token-transfers/solana-devnet" ]
+tilt-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet" ]
+tilt-devnet2 = [ "wormhole-transceiver", "tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet2" ]
 
 [lints]
 workspace = true
