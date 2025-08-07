@@ -875,10 +875,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const tx = new Transaction();
     tx.feePayer = payer;
     tx.add(ix);
-    yield this.createUnsignedTx(
-      { transaction: tx, signers: [] },
-      "Ntt.Initialize"
-    );
+    yield this.createUnsignedTx({ transaction: tx }, "Ntt.Initialize");
 
     yield* this.initializeOrUpdateLUT({ payer, owner: payer });
   }
