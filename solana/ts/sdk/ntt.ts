@@ -1261,9 +1261,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
                 ...s.signature.encode(),
               ])
             )
-            .accounts({ guardianSignatures: signatureKeypair.publicKey })
+            .accounts({
+              payer: senderAddress,
+              guardianSignatures: signatureKeypair.publicKey,
+            })
             .instruction();
-
           const tx = new Transaction();
           tx.feePayer = senderAddress;
           tx.add(ix);
@@ -1298,7 +1300,10 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           receiveIxs.push(
             whTransceiver.verifyVaaShim.methods
               .closeSignatures()
-              .accounts({ guardianSignatures: signatureKeypair.publicKey })
+              .accounts({
+                guardianSignatures: signatureKeypair.publicKey,
+                refundRecipient: senderAddress,
+              })
               .instruction()
           );
         } else {
