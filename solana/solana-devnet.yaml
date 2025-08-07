@@ -52,10 +52,10 @@ spec:
             - /opt/solana/deps/guardian_set.json
             - --bpf-program
             - EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX
-            - /opt/solana/deps/post_message_shim.so
+            - /opt/solana/deps/wormhole_post_message_shim.so
             - --bpf-program
             - EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at
-            - /opt/solana/deps/verify_vaa_shim.so
+            - /opt/solana/deps/wormhole_verify_vaa_shim.so
             - --upgradeable-program
             - NTTManager111111111111111111111111111111111
             - /opt/solana/deps/example_native_token_transfers.so
