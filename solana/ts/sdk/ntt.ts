@@ -76,20 +76,22 @@ export class SolanaNttWormholeTransceiver<
     readonly manager: SolanaNtt<N, C>,
     readonly program: Program<NttBindings.Transceiver<IdlVersion>>,
     readonly version: string = "3.0.0",
-    readonly shimOverrides: WormholeShimOverrides | null = null
+    readonly shimOverrides: WormholeShimOverrides | null = {}
   ) {
     this.programId = program.programId;
     this.pdas = NTT.transceiverPdas(program.programId);
     if (shimOverrides) {
-      this.postMessageShim = new Program(
+      this.postMessageShim = new Program<WormholePostMessageShim>(
         WormholePostMessageShimIdl,
         shimOverrides.postMessageShimOverride ??
-          new PublicKey("EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX")
+          new PublicKey("EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"),
+        { connection: this.program.provider.connection }
       );
-      this.verifyVaaShim = new Program(
+      this.verifyVaaShim = new Program<WormholeVerifyVaaShim>(
         WormholeVerifyVaaShimIdl,
         shimOverrides.verifyVaaShimOverride ??
-          new PublicKey("EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at")
+          new PublicKey("EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"),
+        { connection: this.program.provider.connection }
       );
     }
   }
@@ -549,7 +551,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     readonly connection: Connection,
     readonly contracts: Contracts & { ntt?: Ntt.Contracts },
     readonly version: string = "3.0.0",
-    readonly shimOverrides: WormholeShimOverrides | null = null
+    readonly shimOverrides: WormholeShimOverrides | null = {}
   ) {
     if (!contracts.ntt) throw new Error("Ntt contracts not found");
 
@@ -576,11 +578,17 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           throw new Error(`Unsupported transceiver type: ${transceiverType}`);
         }
 
+        const managerKey = new PublicKey(contracts.ntt!.manager);
         const transceiverKey = new PublicKey(
           contracts.ntt!.transceiver[transceiverType]!
         );
         // handle emitterAccount case separately
-        if (!PublicKey.isOnCurve(transceiverKey)) {
+        if (
+          NTT.transceiverPdas(managerKey)
+            .emitterAccount()
+            .equals(transceiverKey) ||
+          managerKey.equals(transceiverKey)
+        ) {
           const whTransceiver = new SolanaNttWormholeTransceiver(
             this,
             getTransceiverProgram(
@@ -591,13 +599,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
             version,
             shimOverrides
           );
-          if (!whTransceiver.pdas.emitterAccount().equals(transceiverKey)) {
-            throw new Error(
-              `Invalid emitterAccount provided. Expected: ${whTransceiver.pdas
-                .emitterAccount()
-                .toBase58()}; Actual: ${transceiverKey.toBase58()}`
-            );
-          }
           this.transceivers.push(whTransceiver.program);
         } else {
           this.transceivers.push(
