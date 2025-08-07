@@ -495,7 +495,8 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
   console.log(`Using public key: ${address}`);
 
   const signature = await connection.requestAirdrop(address, 1000000000000);
-  await connection.confirmTransaction(signature);
+  const latestBlockhash = await connection.getLatestBlockhash();
+  await connection.confirmTransaction({ ...latestBlockhash, signature });
   console.log(`Airdropped 1000 SOL`);
 
   const mint = await spl.createMint(connection, keypair, address, null, 9);
