@@ -18,9 +18,9 @@ idl-build = [
   "wormhole-anchor-sdk/mainnet" # TODO: is this kosher? builds idl without passing on our feature flags
 ]
 no-log-ix-name = []
-cpi = ["no-entrypoint"]
-default = [ "wormhole-transceiver" ]
-wormhole-transceiver = []
+cpi = ["no-entrypoint", "example-native-token-transfers/cpi"]
+default = ["wormhole-transceiver"]
+wormhole-transceiver = ["example-native-token-transfers/cpi"]
 transceiver-type-from-env = []
 
 bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env" ]
@@ -46,7 +46,7 @@ wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true
 wormhole-sdk.workspace = true
 
-example-native-token-transfers = { path = "../example-native-token-transfers", features = ["no-entrypoint", "cpi"] }
+example-native-token-transfers = { path = "../example-native-token-transfers", default-features = false }
 
 [dev-dependencies]
 hex.workspace = true
