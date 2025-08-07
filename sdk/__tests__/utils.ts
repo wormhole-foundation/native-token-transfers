@@ -520,14 +520,16 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     ctx.mode === "locking"
       ? "NTTManager222222222222222222222222222222222"
       : "NTTManager111111111111111111111111111111111";
+  const transceiverProgramId =
+    ctx.mode === "locking"
+      ? "NTTTransceiver22222222222222222222222222222"
+      : "NTTTransceiver11111111111111111111111111111";
 
   ctx.contracts = {
     token: mint.toBase58(),
     manager: managerProgramId,
     transceiver: {
-      wormhole: NTT.transceiverPdas(managerProgramId)
-        .emitterAccount()
-        .toString(),
+      wormhole: transceiverProgramId,
     },
   };
 
@@ -578,13 +580,16 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     console.log("Registered transceiver with self");
   }
 
+  const whTransceiver = await manager.getWormholeTransceiver();
+  if (!whTransceiver) {
+    throw new Error("Wormhole transceiver not found");
+  }
+
   return {
     ...ctx,
     contracts: {
       transceiver: {
-        wormhole: NTT.transceiverPdas(manager.program.programId)
-          .emitterAccount()
-          .toString(),
+        wormhole: whTransceiver.programId.toString(),
       },
       manager: manager.program.programId.toString(),
       token: mint.toString(),
