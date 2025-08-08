@@ -119,11 +119,18 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
   const hub = chainInfos[0]!;
   const hubChain = hub.context.chain;
 
+  // handle Solana emitter account case separately
+  const whTransceiver =
+    chainToPlatform(hubChain) === "Solana"
+      ? NTT.transceiverPdas(hub.contracts!.transceiver["wormhole"]!)
+          .emitterAccount()
+          .toString()
+      : hub.contracts!.transceiver["wormhole"]!;
   const msgId: WormholeMessageId = {
     chain: hubChain,
     emitter: Wormhole.chainAddress(
       hubChain,
-      hub.contracts!.transceiver["wormhole"]!
+      whTransceiver
     ).address.toUniversalAddress(),
     sequence: 0n,
   };
@@ -606,7 +613,11 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
   } = peerCtx.contracts!;
 
   const peerManager = Wormhole.chainAddress(peer.chain, manager);
-  const peerTransceiver = Wormhole.chainAddress(peer.chain, transceiver!);
+  const whTransceiver =
+    chainToPlatform(peer.chain) === "Solana"
+      ? NTT.transceiverPdas(transceiver!).emitterAccount().toString()
+      : transceiver!;
+  const peerTransceiver = Wormhole.chainAddress(peer.chain, whTransceiver);
 
   const tokenDecimals = target.config.nativeTokenDecimals;
   const inboundLimit = amount.units(amount.parse("1000", tokenDecimals));
