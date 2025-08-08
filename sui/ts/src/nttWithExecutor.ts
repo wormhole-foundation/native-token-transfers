@@ -9,6 +9,7 @@ import {
 } from "@wormhole-foundation/sdk-definitions";
 import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
+  isSameType,
   SuiAddress,
   SuiChains,
   SuiPlatform,
@@ -23,6 +24,14 @@ import { SuiNtt } from "./ntt.js";
 
 // TODO: Add Mainnet addresses when available
 const SUI_ADDRESSES = {
+  Mainnet: {
+    executorId:
+      "0xdb0fe8bb1e2b5be628adbea0636063325073e1070ee11e4281457dfd7f158235",
+    executorRequestsId:
+      "0xa55f6f81649b071b5967dc56227bbee289e4c411ab610caeec7abce499e262b8",
+    coreBridgeStateId:
+      "0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c",
+  },
   Testnet: {
     executorId:
       "0x4000cfe2955d8355b3d3cf186f854fea9f787a457257056926fde1ec977670eb",
@@ -197,8 +206,8 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
           sender,
           coinType
         );
-        const [primaryCoin, ...mergeCoins] = coins.filter(
-          (coin) => coin.coinType === coinType
+        const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
+          isSameType(coin.coinType, coinType)
         );
         if (primaryCoin === undefined) {
           throw new Error(
