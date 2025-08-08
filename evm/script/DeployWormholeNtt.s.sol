@@ -32,9 +32,9 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             token.staticcall(abi.encodeWithSignature("decimals()"));
 
         if (success) {
-            uint8 queriedDecimals = abi.decode(queriedDecimals, (uint8));
-            if (queriedDecimals != decimals) {
-                console.log("Decimals mismatch: ", queriedDecimals, " != ", decimals);
+            uint8 actualDecimals = abi.decode(queriedDecimals, (uint8));
+            if (actualDecimals != decimals) {
+                console.log("Decimals mismatch: ", actualDecimals, " != ", decimals);
                 vm.stopBroadcast();
                 return;
             }

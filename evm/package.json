@@ -1,0 +1,32 @@
+{
+  "name": "ntt-evm-contracts",
+  "version": "1.0.0",
+  "description": "Native Token Transfers EVM contracts for Quai Network",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node contracts/import-dependencies.js",
+    "compile": "npm run postinstall && hardhat compile",
+    "test": "hardhat test",
+    "deploy-quai": "node scripts/deploy-ntt-quai.js",
+    "test-quai": "node scripts/test-ntt-quai.js",
+    "clean": "hardhat clean && rm -rf node_modules/@openzeppelin node_modules/wormhole-solidity-sdk node_modules/forge-std"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.3.1",
+    "hardhat": "^2.19.0",
+    "quais": "^1.0.0-alpha.50"
+  },
+  "dependencies": {
+    "@quai/hardhat-deploy-metadata": "^1.0.8"
+  },
+  "keywords": [
+    "wormhole",
+    "ntt",
+    "quai",
+    "bridge",
+    "cross-chain"
+  ],
+  "author": "",
+  "license": "Apache-2.0"
+}
