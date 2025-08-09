@@ -121,7 +121,7 @@ function install_cli {
 
   # if 'ntt' is already installed, uninstall it
   # just check with 'which'
-  if which ntt > /dev/null; then
+  if which ntt > /dev/null 2>&1; then
     echo "Removing existing ntt CLI"
     rm $(which ntt)
   fi
