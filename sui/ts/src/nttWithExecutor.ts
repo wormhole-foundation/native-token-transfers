@@ -100,8 +100,8 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     }
 
     // Validate destination chain is supported (Solana and Evm only for executor)
-    const platform = chainToPlatform(destination.chain);
-    if (platform !== "Solana" && platform !== "Evm") {
+    const supportedDestChains = await this.getSupportedDestinationChains();
+    if (!supportedDestChains.includes(destination.chain)) {
       throw new Error(
         "Executor only supports Solana and EVM destination chains"
       );
@@ -366,7 +366,8 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
 
     // Split coins for executor fee
     const [executorCoin] = tx.splitCoins(tx.gas, [
-      tx.pure.u64(quote.estimatedCost),
+      //tx.pure.u64(quote.estimatedCost),
+      tx.pure.u64(0n),
     ]);
 
     // Handle destination address for Solana and other chains

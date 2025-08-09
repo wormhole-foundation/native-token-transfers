@@ -3,6 +3,7 @@ cache/
 out/
 target/
 build/
+tsconfig.tsbuildinfo
 
 # Ignores development broadcast logs
 !/broadcast
