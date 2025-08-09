@@ -1,0 +1,16 @@
+{
+    "chains": [
+      {
+        "description" : "Ethereum", 
+        "rpc" : "https://ethereum-rpc.publicnode.com",
+        "networkType" : "evm",
+        "managerAddress" : "0xeBdCe9a913d9400EE75ef31Ce8bd34462D01a1c1"
+      },
+      {
+        "description": "Fantom",
+        "rpc": "https://rpc.fantom.network",
+        "networkType" : "evm",
+        "managerAddress" : "0x68dB2f05Aa2d77DEf981fd2be32661340c9222FB"
+      }
+    ]
+  }
