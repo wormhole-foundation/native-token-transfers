@@ -867,26 +867,28 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     limit: bigint,
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
-    // Build transaction to set outbound limit
+    const adminCapId = await this.getAdminCapId();
+    if (!adminCapId) {
+      throw new Error("AdminCap ID not found");
+    }
+
+    const packageId = await this.getPackageId();
+    if (!packageId) {
+      throw new Error("Package ID not found");
+    }
+
+    // Build the transaction to set the outbound rate limit
     const txb = new Transaction();
-
-    // TODO: This would call state::set_outbound_rate_limit
-    // We need:
-    // 1. AdminCap object ID
-    // 2. NTT state object ID (this.contracts.ntt!["manager"])
-    // 3. Clock object ID (usually 0x6)
-    // 4. Package ID for the NTT contracts
-
-    // txb.moveCall({
-    //   target: `${nttPackageId}::state::set_outbound_rate_limit`,
-    //   typeArguments: [tokenType],
-    //   arguments: [
-    //     adminCap,
-    //     state,
-    //     limit.toString(),
-    //     clock
-    //   ]
-    // });
+    txb.moveCall({
+      target: `${packageId}::state::set_outbound_rate_limit`,
+      typeArguments: [this.contracts.ntt!["token"]], // Use the token type from contracts
+      arguments: [
+        txb.object(adminCapId), // AdminCap
+        txb.object(this.contracts.ntt!["manager"]), // NTT state
+        txb.pure.u64(limit.toString()), // New outbound limit
+        txb.object(SUI_CLOCK_OBJECT_ID), // Clock object
+      ],
+    });
 
     const unsignedTx = new SuiUnsignedTransaction(
       txb,
@@ -901,13 +903,81 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   async getCurrentInboundCapacity<PC extends Chain>(
     fromChain: PC
   ): Promise<bigint> {
-    // TODO: Implement getCurrentInboundCapacity
-    return 100_000_000n; // Placeholder value for current inbound capacity
+    const state = await this.provider.getObject({
+      id: this.contracts.ntt!["manager"],
+      options: {
+        showContent: true,
+      },
+    });
+
+    if (!state.data?.content || state.data.content.dataType !== "moveObject") {
+      throw new Error("Failed to fetch NTT state object");
+    }
+
+    const fields = (state.data.content as SuiMoveObject).fields;
+    const peersTable = fields.peers;
+
+    // Convert chain to wormhole chain ID
+    const chainId = chainToChainId(fromChain);
+
+    try {
+      // Query the dynamic field for this chain ID in the peers table
+      const peerField = await this.provider.getDynamicFieldObject({
+        parentId: peersTable.fields.id.id,
+        name: {
+          type: "u16",
+          value: chainId,
+        },
+      });
+
+      if (
+        !peerField.data?.content ||
+        peerField.data.content.dataType !== "moveObject"
+      ) {
+        throw new Error(`No peer found for chain ${fromChain}`);
+      }
+
+      const peerData = (peerField.data.content as SuiMoveObject).fields.value
+        .fields;
+
+      // Extract inbound rate limit state
+      const inboundRateLimit = peerData.inbound_rate_limit.fields;
+
+      // Get current timestamp (this would ideally come from Clock object)
+      const currentTime = Date.now();
+
+      // Calculate capacity using the rate limit formula
+      const limit = BigInt(inboundRateLimit.limit);
+      const capacityAtLastTx = BigInt(inboundRateLimit.capacity_at_last_tx);
+      const lastTxTimestamp = BigInt(inboundRateLimit.last_tx_timestamp);
+
+      // Simplified capacity calculation (same formula as outbound)
+      const timePassed = BigInt(currentTime) - lastTxTimestamp;
+      const rateLimitDuration = BigInt(24 * 60 * 60 * 1000); // 24 hours in ms
+
+      const additionalCapacity = (timePassed * limit) / rateLimitDuration;
+      const currentCapacity = capacityAtLastTx + additionalCapacity;
+
+      return currentCapacity > limit ? limit : currentCapacity;
+    } catch (error) {
+      throw new Error(
+        `Failed to get inbound capacity for chain ${fromChain}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   async getInboundLimit<PC extends Chain>(fromChain: PC): Promise<bigint> {
-    // TODO: Implement getInboundLimit
-    return 100_000_000n; // Placeholder value for current inbound limit
+    const peer = await this.getPeer(fromChain);
+
+    if (!peer) {
+      throw new Error(
+        `No peer found for chain ${fromChain}. Set up the peer first using setPeer.`
+      );
+    }
+
+    return peer.inboundLimit;
   }
 
   async *setInboundLimit<PC extends Chain>(
