@@ -385,12 +385,9 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
 
     // Get destination manager address from NTT peer
     let destinationManagerAddress: string | undefined;
-    const destPlatform = chainToPlatform(destination.chain);
-    if (destPlatform === "Solana" || destPlatform === "Evm") {
-      const peer = (await ntt.getPeer(destination.chain))?.address;
-      if (peer) {
-        destinationManagerAddress = peer.address.toString();
-      }
+    const peer = (await ntt.getPeer(destination.chain))?.address;
+    if (peer) {
+      destinationManagerAddress = peer.address.toString();
     }
 
     let executorDestAddress: string;
