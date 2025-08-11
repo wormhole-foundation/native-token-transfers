@@ -17,6 +17,7 @@ import {
 } from "@wormhole-foundation/sdk-sui";
 import { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
+import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
 
 // TypeScript types matching the Move structs
 interface SuiMoveObject {
@@ -430,7 +431,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
           externalAddress, // ExternalAddress object (properly created)
           txb.pure.u8(tokenDecimals), // Token decimals
           txb.pure.u64(inboundLimit.toString()), // Inbound limit
-          txb.object("0x6"), // Clock object (standard Sui clock)
+          txb.object(SUI_CLOCK_OBJECT_ID),
         ],
       });
     } catch (error) {
@@ -618,7 +619,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
           txb.object(wormholeStateId), // Wormhole state
           messageFee, // Message fee (0 SUI)
           messageTicket, // MessageTicket from set_peer
-          txb.object("0x6"), // Clock
+          txb.object(SUI_CLOCK_OBJECT_ID),
         ],
       });
     } catch (error) {
@@ -739,7 +740,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
         versionGated, // version_gated
         txb.object(coinMetadataId), // coin_meta
         ticket as any, // Just the TransferTicket from the tuple
-        txb.object("0x6"), // clock (standard Sui clock)
+        txb.object(SUI_CLOCK_OBJECT_ID),
       ],
     });
 
@@ -966,7 +967,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
           externalAddress, // ExternalAddress object (reuse existing address)
           txb.pure.u8(existingPeer.tokenDecimals), // Keep existing token decimals
           txb.pure.u64(limit.toString()), // New inbound limit
-          txb.object("0x6"), // Clock object (standard Sui clock)
+          txb.object(SUI_CLOCK_OBJECT_ID),
         ],
       });
     } catch (error) {
