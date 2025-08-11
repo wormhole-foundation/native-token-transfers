@@ -366,8 +366,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
 
     // Split coins for executor fee
     const [executorCoin] = tx.splitCoins(tx.gas, [
-      //tx.pure.u64(quote.estimatedCost),
-      tx.pure.u64(0n),
+      tx.pure.u64(quote.estimatedCost),
     ]);
 
     // Handle destination address for Solana and other chains
