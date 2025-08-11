@@ -1,5 +1,5 @@
 import type { Chain, Network } from "@wormhole-foundation/sdk-base";
-import { chainToChainId, chainToPlatform } from "@wormhole-foundation/sdk-base";
+import { chainToChainId } from "@wormhole-foundation/sdk-base";
 import {
   Contracts,
   UnsignedTransaction,
