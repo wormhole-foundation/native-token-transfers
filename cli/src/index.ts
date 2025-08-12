@@ -1359,7 +1359,12 @@ yargs(hideBin(process.argv))
                 }
 
                 if (!argv["yes"]) {
-                    await askForConfirmation(`Are you sure you want to move the ownership over the NTT contracts over to ${destination}?`);
+                    console.log("\n⚠️  ⚠️  ⚠️  CRITICAL WARNING ⚠️  ⚠️  ⚠️");
+                    console.log("This ownership transfer is IRREVERSIBLE!");
+                    console.log("Please TRIPLE-CHECK that the destination address is correct:");
+                    console.log(`   ${destination}`);
+                    console.log("");
+                    await askForConfirmation(`Are you absolutely certain you want to transfer ownership to ${destination}?`);
                 }
 
                 try {
@@ -1386,6 +1391,7 @@ yargs(hideBin(process.argv))
                                 console.log(`✅ Ownership transferred successfully to ${destination}`);
                             } else {
                                 console.error(`❌ Ownership transfer verification failed`);
+                                console.error(`   New owner:        ${newOwnerFromContract}`);
                                 process.exit(1);
                             }
                     
@@ -2649,7 +2655,7 @@ async function askForConfirmation(prompt: string = "Do you want to continue?"): 
         output: process.stdout,
     });
     const answer = await new Promise<string>((resolve) => {
-        rl.question(`${prompt} [y/n]`, resolve);
+        rl.question(`${prompt} [y/N]`, resolve);
     });
     rl.close();
 
