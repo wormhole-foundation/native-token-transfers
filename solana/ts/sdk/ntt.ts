@@ -55,11 +55,6 @@ import { IDL as WormholePostMessageShimIdl } from "../idl/wormhole_shim/ts/wormh
 import { type WormholeVerifyVaaShim } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 import { IDL as WormholeVerifyVaaShimIdl } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 
-export type WormholeShimOverrides = {
-  postMessageShimOverride?: PublicKey;
-  verifyVaaShimOverride?: PublicKey;
-};
-
 export class SolanaNttWormholeTransceiver<
   N extends Network,
   C extends SolanaChains
@@ -75,22 +70,22 @@ export class SolanaNttWormholeTransceiver<
   constructor(
     readonly manager: SolanaNtt<N, C>,
     readonly program: Program<NttBindings.Transceiver<IdlVersion>>,
-    readonly version: string = "3.0.0",
-    readonly shimOverrides: WormholeShimOverrides | null = {}
+    readonly version: string = "4.0.0"
   ) {
     this.programId = program.programId;
     this.pdas = NTT.transceiverPdas(program.programId);
-    if (shimOverrides) {
+
+    // NOTE: transceivers with versions >= 4.x.x utilize the shims
+    const [major, , ,] = parseVersion(version);
+    if (major >= 4) {
       this.postMessageShim = new Program<WormholePostMessageShim>(
         WormholePostMessageShimIdl,
-        shimOverrides.postMessageShimOverride ??
-          new PublicKey("EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"),
+        new PublicKey("EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"),
         { connection: this.program.provider.connection }
       );
       this.verifyVaaShim = new Program<WormholeVerifyVaaShim>(
         WormholeVerifyVaaShimIdl,
-        shimOverrides.verifyVaaShimOverride ??
-          new PublicKey("EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"),
+        new PublicKey("EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"),
         { connection: this.program.provider.connection }
       );
     }
@@ -216,6 +211,11 @@ export class SolanaNttWormholeTransceiver<
       throw new Error("Chunks and batches should be positive integers");
     }
 
+    const [major, , ,] = parseVersion(this.version);
+    if (major < 4) {
+      throw new Error("This method is not implemented for versions < 4.x.x");
+    }
+
     const message = vaaBody(serialize(attestation));
     const messageSize = message.length;
     const instructions: Promise<web3.TransactionInstruction>[] = [];
@@ -262,6 +262,11 @@ export class SolanaNttWormholeTransceiver<
   }
 
   async *closeUnverifiedMessageAccount(payer: PublicKey) {
+    const [major, , ,] = parseVersion(this.version);
+    if (major < 4) {
+      throw new Error("This method is not implemented for versions < 4.x.x");
+    }
+
     const ix = await this.program.methods
       .closeUnverifiedWormholeMessageAccount()
       .accounts({
@@ -393,10 +398,9 @@ export class SolanaNttWormholeTransceiver<
     config: NttBindings.Config<IdlVersion>,
     wormholeMessage?: PublicKey
   ): Promise<web3.TransactionInstruction> {
-    if (!this.postMessageShim && !wormholeMessage) {
-      throw new Error(
-        "wormholeMessage must be passed in if Wormhole Post Message Shim is not configured"
-      );
+    const [major, , ,] = parseVersion(this.version);
+    if (major < 4 && !wormholeMessage) {
+      throw new Error("wormholeMessage must be passed in for versions < 4.x.x");
     }
     const whAccs = utils.getWormholeDerivedAccounts(
       this.program.programId,
@@ -436,10 +440,9 @@ export class SolanaNttWormholeTransceiver<
     payer: PublicKey,
     wormholeMessage?: PublicKey
   ): Promise<web3.TransactionInstruction> {
-    if (!this.postMessageShim && !wormholeMessage) {
-      throw new Error(
-        "wormholeMessage must be passed in if Wormhole Post Message Shim is not configured"
-      );
+    const [major, , ,] = parseVersion(this.version);
+    if (major < 4 && !wormholeMessage) {
+      throw new Error("wormholeMessage must be passed in for versions < 4.x.x");
     }
     const whAccs = utils.getWormholeDerivedAccounts(
       this.program.programId,
@@ -550,8 +553,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     readonly chain: C,
     readonly connection: Connection,
     readonly contracts: Contracts & { ntt?: Ntt.Contracts },
-    readonly version: string = "3.0.0",
-    readonly shimOverrides: WormholeShimOverrides | null = {}
+    readonly version: string = "4.0.0"
   ) {
     if (!contracts.ntt) throw new Error("Ntt contracts not found");
 
@@ -596,8 +598,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
               contracts.ntt!.manager,
               version as IdlVersion
             ),
-            version,
-            shimOverrides
+            version
           );
           this.transceivers.push(whTransceiver.program);
         } else {
@@ -645,8 +646,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       return new SolanaNttWormholeTransceiver(
         this,
         transceiverProgram,
-        this.version,
-        this.shimOverrides
+        this.version
       );
     return null;
   }
@@ -818,7 +818,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       );
     } catch (e) {
       // This might happen if e.g. the program is not deployed yet.
-      const version = "3.0.0";
+      const version = "4.0.0";
       return version;
     }
   }
@@ -928,7 +928,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   ): Promise<web3.TransactionInstruction> {
     const transceiver = await this.getTransceiver(ix);
     if (!transceiver) {
-      throw new Error(`Transceiver not found`);
+      throw new Error("Transceiver not found");
     }
     const transceiverProgramId = transceiver.programId;
 
@@ -952,7 +952,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   ): Promise<web3.TransactionInstruction> {
     const transceiver = await this.getTransceiver(ix);
     if (!transceiver) {
-      throw new Error(`Transceiver not found`);
+      throw new Error("Transceiver not found");
     }
     const transceiverProgramId = transceiver.programId;
 
