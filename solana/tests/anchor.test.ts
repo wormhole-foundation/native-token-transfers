@@ -26,7 +26,7 @@ import {
 } from "@wormhole-foundation/sdk-solana-core";
 
 import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
-import { SolanaNtt, WormholeShimOverrides } from "../ts/sdk/index.js";
+import { SolanaNtt } from "../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
   TestHelper,
@@ -40,7 +40,7 @@ import {
  * Test Config Constants
  */
 const SOLANA_ROOT_DIR = `${__dirname}/../`;
-const VERSION: IdlVersion = "3.0.0";
+const VERSION: IdlVersion = "4.0.0";
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
@@ -49,7 +49,6 @@ const NTT_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.ExampleNativeTokenTransfers.programId;
 const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.NttTransceiver.programId;
-const USE_WORMHOLE_SHIMS: WormholeShimOverrides = {};
 
 /**
  * Test Helpers
@@ -160,8 +159,7 @@ describe("example-native-token-transfers", () => {
           },
         },
       },
-      VERSION,
-      USE_WORMHOLE_SHIMS
+      VERSION
     );
   });
 
@@ -590,7 +588,7 @@ describe("example-native-token-transfers", () => {
           { ntt: overrides["Solana"] },
           payerAddress
         );
-        expect(version).toBe("3.0.0");
+        expect(version).toBe("4.0.0");
       });
 
       test("It initializes using `emitterAccount` as transceiver address", async () => {
