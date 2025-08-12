@@ -161,7 +161,12 @@ export type NttTransceiver = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "seed",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "receiveWormholeMessageAccount",
@@ -227,6 +232,10 @@ export type NttTransceiver = {
         {
           "name": "guardianSetBump",
           "type": "u8"
+        },
+        {
+          "name": "seed",
+          "type": "u64"
         }
       ]
     },
@@ -876,6 +885,10 @@ export type NttTransceiver = {
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "seed",
+            "type": "u64"
+          },
           {
             "name": "offset",
             "type": "u32"
@@ -1080,7 +1093,12 @@ export const IDL: NttTransceiver = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "seed",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "receiveWormholeMessageAccount",
@@ -1146,6 +1164,10 @@ export const IDL: NttTransceiver = {
         {
           "name": "guardianSetBump",
           "type": "u8"
+        },
+        {
+          "name": "seed",
+          "type": "u64"
         }
       ]
     },
@@ -1795,6 +1817,10 @@ export const IDL: NttTransceiver = {
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "seed",
+            "type": "u64"
+          },
           {
             "name": "offset",
             "type": "u32"
