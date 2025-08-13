@@ -81,7 +81,10 @@ module ntt::ntt_scenario {
 
         // Register transceivers
         state::register_transceiver<ntt::test_transceiver_a::TransceiverAuth, _>(&mut state, id1, &admin_cap);
+        assert!(state.threshold() == 1, 0); // ensure threshold is set to 1
+
         state::register_transceiver<ntt::test_transceiver_b::TransceiverAuth, _>(&mut state, id2, &admin_cap);
+        assert!(state.threshold() == 1, 0); // ensure threshold is still 1
 
         // Create clock for rate limiting
         let clock = take_clock(scenario);
