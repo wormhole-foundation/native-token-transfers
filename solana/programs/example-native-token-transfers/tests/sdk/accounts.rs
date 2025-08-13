@@ -45,12 +45,16 @@ impl Wormhole {
         sequence
     }
 
-    pub fn guardian_set(&self, guardian_set_index: u32) -> Pubkey {
-        let (guardian_set, _) = Pubkey::find_program_address(
+    pub fn guardian_set_with_bump(&self, guardian_set_index: u32) -> (Pubkey, u8) {
+        let (guardian_set, guardian_set_bump) = Pubkey::find_program_address(
             &[b"GuardianSet", &guardian_set_index.to_be_bytes()],
             &self.program,
         );
-        guardian_set
+        (guardian_set, guardian_set_bump)
+    }
+
+    pub fn guardian_set(&self, guardian_set_index: u32) -> Pubkey {
+        self.guardian_set_with_bump(guardian_set_index).0
     }
 
     pub fn posted_vaa(&self, vaa_hash: &[u8]) -> Pubkey {
@@ -174,8 +178,8 @@ pub trait NTTAccounts {
         )
     }
 
-    pub fn wormhole_sequence(&self, ntt_transceiver: &NTTTransceiver) -> Pubkey {
-        self.wormhole.sequence(&ntt_transceiver.emitter())
+    fn wormhole_sequence(&self, ntt_transceiver: &NTTTransceiver) -> Pubkey {
+        self.wormhole().sequence(&ntt_transceiver.emitter())
     }
 
     fn program_data(&self) -> Pubkey {
@@ -247,6 +251,14 @@ pub trait NTTTransceiverAccounts {
         wormhole_message
     }
 
+    fn wormhole_message_with_shim(&self) -> Pubkey {
+        let (wormhole_message, _) = Pubkey::find_program_address(
+            &[self.emitter().as_ref()],
+            &self.post_message_shim().program,
+        );
+        wormhole_message
+    }
+
     fn transceiver_peer(&self, chain: u16) -> Pubkey {
         let (peer, _) = Pubkey::find_program_address(
             &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
@@ -261,6 +273,12 @@ pub trait NTTTransceiverAccounts {
             &self.program(),
         );
         transceiver_message
+    }
+
+    fn unverified_message_account(&self, payer: &Pubkey) -> Pubkey {
+        let (unverified_message_account, _) =
+            Pubkey::find_program_address(&[b"vaa_body".as_ref(), payer.as_ref()], &self.program());
+        unverified_message_account
     }
 }
 
