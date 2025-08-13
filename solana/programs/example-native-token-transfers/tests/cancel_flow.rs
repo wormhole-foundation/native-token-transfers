@@ -1,6 +1,20 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
+use anchor_lang::prelude::*;
+use example_native_token_transfers::{
+    instructions::{RedeemArgs, TransferArgs},
+    queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit},
+    transfer::Payload,
+};
+use ntt_messages::{
+    chain_id::ChainId, mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
+};
+use solana_program::instruction::InstructionError;
+use solana_program_test::*;
+use solana_sdk::{signature::Keypair, signer::Signer, transaction::TransactionError};
+use wormhole_sdk::{Address, Vaa};
+
 use crate::{
     common::{
         query::GetAccountDataAnchor,
@@ -18,19 +32,6 @@ use crate::{
         transceivers::wormhole::instructions::receive_message::{receive_message, ReceiveMessage},
     },
 };
-use anchor_lang::prelude::*;
-use example_native_token_transfers::{
-    instructions::{RedeemArgs, TransferArgs},
-    queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit},
-    transfer::Payload,
-};
-use ntt_messages::{
-    chain_id::ChainId, mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
-};
-use solana_program::instruction::InstructionError;
-use solana_program_test::*;
-use solana_sdk::{signature::Keypair, signer::Signer, transaction::TransactionError};
-use wormhole_sdk::{Address, Vaa};
 
 pub mod common;
 pub mod sdk;

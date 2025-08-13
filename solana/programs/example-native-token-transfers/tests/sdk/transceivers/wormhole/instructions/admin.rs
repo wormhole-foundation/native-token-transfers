@@ -1,7 +1,8 @@
-use crate::sdk::accounts::{NTTTransceiver, NTT};
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
 use ntt_transceiver::wormhole::instructions::SetTransceiverPeerArgs;
 use solana_sdk::instruction::Instruction;
+
+use crate::sdk::accounts::{NTTTransceiver, NTT};
 
 pub struct SetTransceiverPeer {
     pub payer: Pubkey,

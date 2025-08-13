@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use wormhole_anchor_sdk::wormhole;
-use wormhole_post_message_shim_interface::{program::WormholePostMessageShim, Finality};
+use wormhole_post_message_shim_interface::program::WormholePostMessageShim;
 
 use crate::error::NTTError;
 

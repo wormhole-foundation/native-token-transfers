@@ -1,6 +1,14 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
+use anchor_lang::{prelude::Pubkey, system_program::System, Id};
+use example_native_token_transfers::{
+    config::Config, error::NTTError, registered_transceiver::RegisteredTransceiver,
+};
+use ntt_messages::mode::Mode;
+use solana_program_test::*;
+use solana_sdk::{instruction::InstructionError, signer::Signer, transaction::TransactionError};
+
 use crate::{
     common::{
         query::GetAccountDataAnchor,
@@ -12,13 +20,6 @@ use crate::{
         RegisterTransceiver, SetThreshold,
     },
 };
-use anchor_lang::{prelude::Pubkey, system_program::System, Id};
-use example_native_token_transfers::{
-    config::Config, error::NTTError, registered_transceiver::RegisteredTransceiver,
-};
-use ntt_messages::mode::Mode;
-use solana_program_test::*;
-use solana_sdk::{instruction::InstructionError, signer::Signer, transaction::TransactionError};
 
 pub mod common;
 pub mod sdk;
@@ -78,6 +79,8 @@ async fn test_reregister_all_transceivers() {
         example_native_token_transfers::ID,
         wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
         wormhole_governance::ID,
+        POST_MESSAGE_SHIM_PROGRAM_ID,
+        VERIFY_VAA_SHIM_PROGRAM_ID,
     ];
     let num_dummy_transceivers: u8 = dummy_transceivers.len().try_into().unwrap();
 
@@ -97,7 +100,7 @@ async fn test_reregister_all_transceivers() {
         assert_transceiver_id(&mut ctx, transceiver, idx as u8 + 1).await;
     }
 
-    // set threshold = 1 (for baked-in transceiver) + num_dummy_transceivers
+    // set threshold = 1 (for ntt_transceiver) + num_dummy_transceivers
     set_threshold(
         &good_ntt,
         SetThreshold {
