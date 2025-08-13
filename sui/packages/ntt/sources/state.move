@@ -14,6 +14,14 @@ module ntt::state {
     use ntt_common::native_token_transfer::NativeTokenTransfer;
     use ntt_common::ntt_manager_message::{Self, NttManagerMessage};
 
+    #[error]
+    const EZeroThreshold: vector<u8> =
+        b"Threshold cannot be zero";
+
+    #[error]
+    const EThresholdTooHigh: vector<u8> =
+        b"Threshold too high";
+
     /// NOTE: this is a shared object, so anyone can grab a mutable reference to
     /// it. Thus, functions are access-controlled by (package) visibility.
     public struct State<phantom T> has key, store {
@@ -244,19 +252,40 @@ module ntt::state {
         state: &mut State<T>,
         threshold: u8
     ) {
-        state.threshold = threshold
+        assert!(threshold > 0, EZeroThreshold);
+        state.threshold = threshold;
+        check_threshold_invariants(state);
     }
 
     public fun register_transceiver<Transceiver, T>(self: &mut State<T>, state_object_id: ID, _: &AdminCap) {
         self.transceivers.register_transceiver<Transceiver>(state_object_id);
+
+        // If threshold is 0 (initial case), set it to 1
+        // We do not automatically increase the threshold when adding subsequent transceivers
+        // to avoid invalidating in-flight messages, matching EVM implementation behavior
+        if (self.threshold == 0) {
+            self.threshold = 1;
+        };
+
+        check_threshold_invariants(self);
     }
 
     public fun enable_transceiver<T>(self: &mut State<T>, _: &AdminCap, id: u8) {
         self.transceivers.enable_transceiver(id);
+        check_threshold_invariants(self);
     }
 
     public fun disable_transceiver<T>(self: &mut State<T>, _: &AdminCap, id: u8) {
         self.transceivers.disable_transceiver(id);
+
+        // After disabling a transceiver, check if the threshold needs to be reduced
+        // to ensure it doesn't exceed the number of enabled transceivers
+        let enabled_count = self.transceivers.get_enabled_transceivers().count_ones();
+        if (enabled_count < self.threshold) {
+            self.threshold = enabled_count;
+        };
+
+        check_threshold_invariants(self);
     }
 
     /// Pause the contract - stops all transfers and redemptions
@@ -278,5 +307,25 @@ module ntt::state {
     /// Check if the contract is currently paused
     public fun is_paused<T>(state: &State<T>): bool {
         state.paused
+    }
+
+    /// Get the current threshold value
+    public fun threshold<T>(state: &State<T>): u8 {
+        state.threshold
+    }
+
+    /// Check threshold invariants to ensure consistency
+    fun check_threshold_invariants<T>(state: &State<T>) {
+        let threshold = state.threshold;
+        let enabled_count = state.transceivers.get_enabled_transceivers().count_ones();
+
+        // Invariant: threshold <= enabled transceivers count
+        assert!(threshold <= enabled_count, EThresholdTooHigh);
+
+        // If there are enabled transceivers, threshold must be > 0
+        // (If all transceivers are disabled, threshold can be 0)
+        if (enabled_count > 0) {
+            assert!(threshold > 0, EZeroThreshold);
+        }
     }
 }
