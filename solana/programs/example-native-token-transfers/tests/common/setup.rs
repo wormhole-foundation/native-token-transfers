@@ -13,7 +13,6 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 use std::path::PathBuf;
 use wormhole_anchor_sdk::wormhole::{BridgeData, FeeCollector};
-use wormhole_post_message_shim_interface::wormhole_post_message_shim;
 use wormhole_svm_definitions::solana::{POST_MESSAGE_SHIM_PROGRAM_ID, VERIFY_VAA_SHIM_PROGRAM_ID};
 
 use crate::{
@@ -22,7 +21,7 @@ use crate::{
         submit::Submittable,
     },
     sdk::{
-        accounts::{good_ntt, Governance, NTTAccounts, NTTTransceiver},
+        accounts::{good_ntt, good_ntt_transceiver, Governance, NTTAccounts},
         instructions::{
             admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
             initialize::{initialize_with_token_program_id, Initialize},
@@ -48,7 +47,6 @@ pub const ANOTHER_CHAIN: u16 = 3;
 pub const UNREGISTERED_CHAIN: u16 = u16::MAX;
 
 pub struct TestData {
-    pub ntt_transceiver: NTTTransceiver,
     pub governance: Governance,
     pub program_owner: Keypair,
     pub mint_authority: Keypair,
@@ -142,14 +140,14 @@ pub async fn setup_programs(program_owner: Pubkey) -> Result<ProgramTest, Error>
 
     add_program_upgradeable(
         &mut program_test,
-        "post_message_shim",
+        "mainnet_wormhole_post_message_shim",
         POST_MESSAGE_SHIM_PROGRAM_ID,
         None,
     );
 
     add_program_upgradeable(
         &mut program_test,
-        "verify_vaa_shim",
+        "mainnet_wormhole_verify_vaa_shim",
         VERIFY_VAA_SHIM_PROGRAM_ID,
         None,
     );
@@ -235,7 +233,7 @@ pub async fn setup_ntt_with_token_program_id(
 
     set_transceiver_peer(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         SetTransceiverPeer {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
@@ -364,9 +362,6 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     .unwrap();
 
     TestData {
-        ntt_transceiver: NTTTransceiver {
-            program: ntt_transceiver::ID,
-        },
         governance: Governance {
             program: wormhole_governance::ID,
         },
@@ -467,9 +462,6 @@ pub async fn setup_accounts_with_transfer_fee(
     .unwrap();
 
     TestData {
-        ntt_transceiver: NTTTransceiver {
-            program: ntt_transceiver::ID,
-        },
         governance: Governance {
             program: wormhole_governance::ID,
         },
