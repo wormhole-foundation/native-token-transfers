@@ -34,7 +34,7 @@ pub struct ReleaseOutbound<'info> {
     )]
     pub transceiver: Account<'info, RegisteredTransceiver>,
 
-    #[account(mut, seeds = [&emitter.key.to_bytes()], bump, seeds::program = wormhole_svm_definitions::solana::POST_MESSAGE_SHIM_PROGRAM_ID)]
+    #[account(mut, seeds = [&wormhole.emitter.key.to_bytes()], bump, seeds::program = wormhole_svm_definitions::solana::POST_MESSAGE_SHIM_PROGRAM_ID)]
     /// CHECK: initialized and written to by wormhole core bridge (empty, with the shim)
     pub wormhole_message: UncheckedAccount<'info>,
 
