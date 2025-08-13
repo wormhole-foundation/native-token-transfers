@@ -125,6 +125,19 @@ library TransceiverHelpersLib {
         bytes32 recipientNttManager,
         bytes memory payload
     ) internal pure returns (TransceiverStructs.NttManagerMessage memory, bytes memory) {
+        return buildTransceiverMessageWithNttManagerPayload(
+            id, sender, sourceNttManager, recipientNttManager, payload, SENDING_CHAIN_ID
+        );
+    }
+
+    function buildTransceiverMessageWithNttManagerPayload(
+        bytes32 id,
+        bytes32 sender,
+        bytes32 sourceNttManager,
+        bytes32 recipientNttManager,
+        bytes memory payload,
+        uint16 sourceChainId
+    ) internal pure returns (TransceiverStructs.NttManagerMessage memory, bytes memory) {
         TransceiverStructs.NttManagerMessage memory m =
             TransceiverStructs.NttManagerMessage(id, sender, payload);
         bytes memory nttManagerMessage = TransceiverStructs.encodeNttManagerMessage(m);
@@ -137,12 +150,20 @@ library TransceiverHelpersLib {
             new bytes(0)
         );
 
-        // Wrap in DummyTransceiverMessage format
-        DummyTransceiver.DummyTransceiverMessage memory dummyMessage = DummyTransceiver
-            .DummyTransceiverMessage({
-            sourceChainId: SENDING_CHAIN_ID,
-            transceiverMessage: transceiverMessage
-        });
-        return (m, abi.encode(dummyMessage));
+        // Wrap in DummyTransceiverMessage format that DummyTransceiver expects
+        bytes memory dummyTransceiverMessage = abi.encode(
+            DummyTransceiverMessage({
+                sourceChainId: sourceChainId,
+                transceiverMessage: transceiverMessage
+            })
+        );
+
+        return (m, dummyTransceiverMessage);
+    }
+
+    // Add struct definition for DummyTransceiverMessage
+    struct DummyTransceiverMessage {
+        uint16 sourceChainId;
+        bytes transceiverMessage;
     }
 }
