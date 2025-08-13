@@ -820,4 +820,88 @@ module ntt::ntt_tests {
         sui::test_utils::destroy(dust);
         scenario.end();
     }
+
+    #[test, expected_failure(abort_code = ::ntt::state::EZeroThreshold)]
+    fun test_set_threshold_zero_fails() {
+        let (admin, _, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(admin);
+        ntt_scenario::setup(&mut scenario);
+
+        let admin_cap = scenario.take_from_address<state::AdminCap>(admin);
+        let mut state = ntt_scenario::take_state(&scenario);
+
+        // This should fail with EZeroThreshold
+        state::set_threshold(&admin_cap, &mut state, 0);
+
+        ntt_scenario::return_state(state);
+        test_scenario::return_to_address(admin, admin_cap);
+        scenario.end();
+    }
+
+    #[test]
+    fun test_disable_transceiver_adjusts_threshold() {
+        let (admin, _, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(admin);
+        ntt_scenario::setup(&mut scenario);
+
+        let admin_cap = scenario.take_from_address<state::AdminCap>(admin);
+        let mut state = ntt_scenario::take_state(&scenario);
+
+        // Setup has 2 transceivers enabled with threshold 2
+        assert!(state::threshold(&state) == 2);
+
+        // Disable one transceiver (id 1, the second one)
+        state::disable_transceiver(&mut state, &admin_cap, 1);
+
+        // Threshold should be reduced to 1 since we now have only 1 enabled transceiver
+        assert!(state::threshold(&state) == 1);
+
+        // Disable the remaining transceiver (id 0)
+        state::disable_transceiver(&mut state, &admin_cap, 0);
+
+        // Threshold should be reduced to 0 since we have no enabled transceivers
+        assert!(state::threshold(&state) == 0);
+
+        ntt_scenario::return_state(state);
+        test_scenario::return_to_address(admin, admin_cap);
+        scenario.end();
+    }
+
+    #[test]
+    fun test_threshold_validation_with_valid_values() {
+        let (admin, _, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(admin);
+        ntt_scenario::setup(&mut scenario);
+
+        let admin_cap = scenario.take_from_address<state::AdminCap>(admin);
+        let mut state = ntt_scenario::take_state(&scenario);
+
+        // Test setting valid threshold values (setup has 2 enabled transceivers)
+        state::set_threshold(&admin_cap, &mut state, 1);
+        assert!(state::threshold(&state) == 1);
+
+        state::set_threshold(&admin_cap, &mut state, 2); // max for 2 transceivers
+        assert!(state::threshold(&state) == 2);
+
+        ntt_scenario::return_state(state);
+        test_scenario::return_to_address(admin, admin_cap);
+        scenario.end();
+    }
+
+    #[test, expected_failure(abort_code = ::ntt::state::EThresholdTooHigh)]
+    fun test_set_threshold_too_high_fails() {
+        let (admin, _, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(admin);
+        ntt_scenario::setup(&mut scenario);
+
+        let admin_cap = scenario.take_from_address<state::AdminCap>(admin);
+        let mut state = ntt_scenario::take_state(&scenario);
+
+        // Setup has 2 enabled transceivers, so threshold > 2 should fail
+        state::set_threshold(&admin_cap, &mut state, 3);
+
+        ntt_scenario::return_state(state);
+        test_scenario::return_to_address(admin, admin_cap);
+        scenario.end();
+    }
 }

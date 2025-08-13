@@ -34,6 +34,10 @@ module ntt::transceiver_registry {
         registry.enabled_bitmap
     }
 
+    public fun get_next_id(registry: &TransceiverRegistry): u8 {
+        registry.next_id
+    }
+
     // TODO: do we want to put anything here?
     public struct TransceiverInfo has copy, drop, store {
         id: u8,
