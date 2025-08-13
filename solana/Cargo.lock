@@ -1590,9 +1590,12 @@ dependencies = [
  "wormhole-anchor-sdk",
  "wormhole-governance",
  "wormhole-io",
+ "wormhole-post-message-shim-interface",
  "wormhole-raw-vaas",
  "wormhole-sdk",
  "wormhole-solana-utils",
+ "wormhole-svm-definitions 0.1.0 (git+https://github.com/wormholelabs-xyz/wormhole?branch=svm-shims-fr-env-addr)",
+ "wormhole-verify-vaa-shim-interface",
 ]
 
 [[package]]

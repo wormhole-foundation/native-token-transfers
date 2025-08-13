@@ -33,6 +33,8 @@ workspace = true
 [dependencies]
 
 ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
+wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
+wormhole-verify-vaa-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 bitmaps = "3.2.1"
@@ -47,6 +49,7 @@ wormhole-solana-utils.workspace = true
 
 [dev-dependencies]
 ntt-transceiver = { path = "../ntt-transceiver" }
+wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
 wormhole-governance = { path = "../wormhole-governance", features = ["no-entrypoint"] }
 solana-program-test.workspace = true
 serde_json = "1.0.113"
