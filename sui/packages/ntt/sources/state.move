@@ -30,6 +30,7 @@ module ntt::state {
         transceivers: TransceiverRegistry,
         chain_id: u16,
         next_sequence: u64,
+        paused: bool,
 
         version: u64,
 
@@ -64,8 +65,8 @@ module ntt::state {
             transceivers: transceiver_registry::new(ctx),
             chain_id,
             next_sequence: 1,
+            paused: false,
             version: 0,
-
             admin_cap_id: admin_cap.id.to_inner(),
             upgrade_cap_id,
         };
@@ -256,5 +257,26 @@ module ntt::state {
 
     public fun disable_transceiver<T>(self: &mut State<T>, _: &AdminCap, id: u8) {
         self.transceivers.disable_transceiver(id);
+    }
+
+    /// Pause the contract - stops all transfers and redemptions
+    public fun pause<T>(
+        _: &AdminCap,
+        state: &mut State<T>
+    ) {
+        state.paused = true;
+    }
+
+    /// Unpause the contract - resumes normal operations
+    public fun unpause<T>(
+        _: &AdminCap,
+        state: &mut State<T>
+    ) {
+        state.paused = false;
+    }
+
+    /// Check if the contract is currently paused
+    public fun is_paused<T>(state: &State<T>): bool {
+        state.paused
     }
 }
