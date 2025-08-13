@@ -641,4 +641,183 @@ module ntt::ntt_tests {
         ntt_scenario::return_coin_metadata(coin_meta);
         scenario.end();
     }
+
+    #[test, expected_failure(abort_code = ::ntt::ntt::EPaused)]
+    fun test_transfer_when_paused() {
+        let (admin, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(admin);
+        ntt_scenario::setup(&mut scenario);
+
+        // Take admin cap and state to pause the contract
+        let admin_cap = scenario.take_from_address<state::AdminCap>(admin);
+        let mut state = ntt_scenario::take_state(&scenario);
+
+        // Pause the contract
+        state::pause(&admin_cap, &mut state);
+        assert!(state::is_paused(&state));
+
+        ntt_scenario::return_state(state);
+        test_scenario::return_to_address(admin, admin_cap);
+
+        // Switch to user and try to transfer
+        scenario.next_tx(user_a);
+
+        let mut state = ntt_scenario::take_state(&scenario);
+        let clock = ntt_scenario::take_clock(&mut scenario);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+        let ntt_coin = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            ntt_coin,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(),
+            recipient,
+            option::none(),
+            false
+        );
+
+        // This should fail with EPaused
+        ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        sui::test_utils::destroy(dust);
+        scenario.end();
+    }
+
+    #[test, expected_failure(abort_code = ::ntt::ntt::EPaused)]
+    fun test_redeem_when_paused() {
+        let (admin, user_a, user_b, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(admin);
+        ntt_scenario::setup(&mut scenario);
+
+        // Take admin cap and state to pause the contract
+        let admin_cap = scenario.take_from_address<state::AdminCap>(admin);
+        let mut state = ntt_scenario::take_state(&scenario);
+
+        // Pause the contract
+        state::pause(&admin_cap, &mut state);
+
+        ntt_scenario::return_state(state);
+        test_scenario::return_to_address(admin, admin_cap);
+
+        // Switch to user and try to redeem
+        scenario.next_tx(user_a);
+
+        let mut state = ntt_scenario::take_state(&scenario);
+        let clock = ntt_scenario::take_clock(&mut scenario);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        let message_id = wormhole::bytes32::from_u256_be(100);
+        let manager_message = ntt_manager_message::new(
+            message_id,
+            external_address::from_address(user_a),
+            native_token_transfer::new(
+                ntt_common::trimmed_amount::new(
+                    TEST_AMOUNT / 10,
+                    8
+                ),
+                external_address::from_id(object::id(&coin_meta)),
+                external_address::from_address(user_b),
+                ntt_scenario::chain_id(),
+                option::none()
+            )
+        );
+
+        let manager_message_encoded = ntt_manager_message::map!(manager_message, |x| x.to_bytes());
+
+        let validated_transceiver_message = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_a::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        // This should fail with EPaused
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message,
+            &clock
+        );
+
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        scenario.end();
+    }
+
+    #[test]
+    fun test_pause_unpause() {
+        let (admin, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(admin);
+        ntt_scenario::setup(&mut scenario);
+
+        // Take admin cap and state
+        let admin_cap = scenario.take_from_address<state::AdminCap>(admin);
+        let mut state = ntt_scenario::take_state(&scenario);
+
+        // Initially not paused
+        assert!(!state::is_paused(&state));
+
+        // Pause the contract
+        state::pause(&admin_cap, &mut state);
+        assert!(state::is_paused(&state));
+
+        // Unpause the contract
+        state::unpause(&admin_cap, &mut state);
+        assert!(!state::is_paused(&state));
+
+        ntt_scenario::return_state(state);
+        test_scenario::return_to_address(admin, admin_cap);
+
+        // After unpause, transfers should work
+        scenario.next_tx(user_a);
+
+        let mut state = ntt_scenario::take_state(&scenario);
+        let clock = ntt_scenario::take_clock(&mut scenario);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+        let ntt_coin = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            ntt_coin,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(),
+            recipient,
+            option::none(),
+            false
+        );
+
+        // This should succeed after unpause
+        ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        sui::test_utils::destroy(dust);
+        scenario.end();
+    }
 }
