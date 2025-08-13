@@ -4,31 +4,30 @@ use solana_program::instruction::Instruction;
 
 use crate::sdk::{
     accounts::{NTTTransceiver, NTT},
-    wormhole_accounts,
+    wormhole_accounts::wormhole_accounts,
 };
 
 pub struct BroadcastPeer {
     pub payer: Pubkey,
-    pub wormhole_message: Pubkey,
     pub chain_id: u16,
 }
 
 pub fn broadcast_peer(
     ntt: &NTT,
     ntt_transceiver: &NTTTransceiver,
-    accs: BroadcastPeer,
+    accounts: BroadcastPeer,
 ) -> Instruction {
     let data = ntt_transceiver::instruction::BroadcastWormholePeer {
         args: BroadcastPeerArgs {
-            chain_id: accs.chain_id,
+            chain_id: accounts.chain_id,
         },
     };
 
     let accounts = ntt_transceiver::accounts::BroadcastPeer {
-        payer: accs.payer,
+        payer: accounts.payer,
         config: ntt.config(),
-        peer: ntt_transceiver.transceiver_peer(accs.chain_id),
-        wormhole_message: accs.wormhole_message,
+        peer: ntt_transceiver.transceiver_peer(accounts.chain_id),
+        wormhole_message: ntt_transceiver.wormhole_message_with_shim(),
         wormhole: wormhole_accounts(ntt, ntt_transceiver),
     };
 
