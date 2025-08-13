@@ -806,5 +806,81 @@ describe("SuiNtt", () => {
         expect(unsignedTx.chain).toBe("Sui");
       });
     });
+
+    describe("pause", () => {
+      beforeEach(() => {
+        // Mock admin cap and package ID retrieval
+        mockClient.getObject
+          .mockResolvedValueOnce(
+            mockNttState({
+              adminCapId:
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            })
+          )
+          .mockResolvedValueOnce(
+            mockSuiObject(
+              "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State",
+              {}
+            )
+          );
+      });
+
+      it("should create pause transaction", async () => {
+        const txGenerator = suiNtt.pause();
+        const { value: unsignedTx } = await txGenerator.next();
+
+        expect(unsignedTx).toBeDefined();
+        expect(unsignedTx.description).toBe("Pause Contract");
+        expect(unsignedTx.network).toBe("Testnet");
+        expect(unsignedTx.chain).toBe("Sui");
+      });
+    });
+
+    describe("unpause", () => {
+      beforeEach(() => {
+        // Mock admin cap and package ID retrieval
+        mockClient.getObject
+          .mockResolvedValueOnce(
+            mockNttState({
+              adminCapId:
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            })
+          )
+          .mockResolvedValueOnce(
+            mockSuiObject(
+              "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State",
+              {}
+            )
+          );
+      });
+
+      it("should create unpause transaction", async () => {
+        const txGenerator = suiNtt.unpause();
+        const { value: unsignedTx } = await txGenerator.next();
+
+        expect(unsignedTx).toBeDefined();
+        expect(unsignedTx.description).toBe("Unpause Contract");
+        expect(unsignedTx.network).toBe("Testnet");
+        expect(unsignedTx.chain).toBe("Sui");
+      });
+    });
+
+    describe("isPaused", () => {
+      it("should return false when contract is not paused", async () => {
+        const state = mockNttState({ paused: false });
+        mockClient.getObject.mockResolvedValue(state);
+
+        const isPaused = await suiNtt.isPaused();
+        expect(isPaused).toBe(false);
+      });
+
+      it("should return true when contract is paused", async () => {
+        const state = mockNttState({ paused: true });
+        mockClient.getObject.mockResolvedValue(state);
+
+        const isPaused = await suiNtt.isPaused();
+        expect(isPaused).toBe(true);
+      });
+    });
   });
 });
