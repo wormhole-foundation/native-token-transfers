@@ -22,7 +22,16 @@ library TransceiverHelpersLib {
         DummyTransceiver e2 = new DummyTransceiver(address(nttManager));
         nttManager.setTransceiver(address(e1));
         nttManager.setTransceiver(address(e2));
-        nttManager.setThreshold(2);
+
+        // Configure transceivers for common chains used in tests
+        nttManager.setReceiveTransceiverForChain(SENDING_CHAIN_ID, address(e1));
+        nttManager.setReceiveTransceiverForChain(SENDING_CHAIN_ID, address(e2));
+        nttManager.setThreshold(SENDING_CHAIN_ID, 2);
+
+        // Configure send transceivers for all common chains
+        nttManager.setSendTransceiverForChain(SENDING_CHAIN_ID, address(e1));
+        nttManager.setSendTransceiverForChain(SENDING_CHAIN_ID, address(e2));
+
         return (e1, e2);
     }
 

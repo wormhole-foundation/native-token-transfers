@@ -81,6 +81,10 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         nttManagerChain1.setOutboundLimit(type(uint64).max);
         nttManagerChain1.setInboundLimit(type(uint64).max, chainId2);
 
+        // Configure per-chain transceivers for chain1
+        nttManagerChain1.setSendTransceiverForChain(chainId2, address(wormholeTransceiverChain1));
+        nttManagerChain1.setReceiveTransceiverForChain(chainId2, address(wormholeTransceiverChain1));
+
         // Chain 2 setup
         vm.chainId(chainId2);
         DummyToken t2 = new DummyTokenMintAndBurn();
@@ -104,6 +108,10 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         nttManagerChain2.setOutboundLimit(type(uint64).max);
         nttManagerChain2.setInboundLimit(type(uint64).max, chainId1);
 
+        // Configure per-chain transceivers for chain2
+        nttManagerChain2.setSendTransceiverForChain(chainId1, address(wormholeTransceiverChain2));
+        nttManagerChain2.setReceiveTransceiverForChain(chainId1, address(wormholeTransceiverChain2));
+
         // Register peer contracts for the nttManager and transceiver. Transceivers and nttManager each have the concept of peers here.
         nttManagerChain1.setPeer(
             chainId2,
@@ -125,8 +133,8 @@ contract TestUpgrades is Test, IRateLimiterEvents {
             chainId1, bytes32(uint256(uint160(address(wormholeTransceiverChain1))))
         );
 
-        nttManagerChain1.setThreshold(1);
-        nttManagerChain2.setThreshold(1);
+        nttManagerChain1.setThreshold(chainId2, 1);
+        nttManagerChain2.setThreshold(chainId1, 1);
         vm.chainId(chainId1);
     }
 

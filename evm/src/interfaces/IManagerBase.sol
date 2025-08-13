@@ -52,6 +52,23 @@ interface IManagerBase {
     /// @param threshold The current threshold of transceivers.
     event TransceiverRemoved(address transceiver, uint8 threshold);
 
+    /// @notice Emitted when a send transceiver is updated for a specific chain.
+    /// @param targetChain The chain ID.
+    /// @param transceiver The transceiver address.
+    /// @param enabled Whether the transceiver is enabled or disabled.
+    event SendTransceiverUpdatedForChain(uint16 targetChain, address transceiver, bool enabled);
+
+    /// @notice Emitted when a receive transceiver is updated for a specific chain.
+    /// @param sourceChain The chain ID.
+    /// @param transceiver The transceiver address.
+    /// @param enabled Whether the transceiver is enabled or disabled.
+    event ReceiveTransceiverUpdatedForChain(uint16 sourceChain, address transceiver, bool enabled);
+
+    /// @notice Emitted when the threshold is updated for a specific chain.
+    /// @param sourceChain The chain ID.
+    /// @param threshold The new threshold.
+    event ThresholdUpdatedForChain(uint16 sourceChain, uint8 threshold);
+
     /// @notice payment for a transfer is too low.
     /// @param requiredPayment The required payment.
     /// @param providedPayment The provided payment.
@@ -155,12 +172,11 @@ interface IManagerBase {
     ) external view returns (uint256[] memory, uint256);
 
     /// @notice Sets the threshold for the number of attestations required for a message
-    /// to be considered valid.
+    /// from a specific source chain to be considered valid.
+    /// @param sourceChain The chain ID to set the threshold for.
     /// @param threshold The new threshold (number of attestations).
     /// @dev This method can only be executed by the `owner`.
-    function setThreshold(
-        uint8 threshold
-    ) external;
+    function setThreshold(uint16 sourceChain, uint8 threshold) external;
 
     /// @notice Sets the transceiver for the given chain.
     /// @param transceiver The address of the transceiver.
@@ -176,13 +192,13 @@ interface IManagerBase {
         address transceiver
     ) external;
 
-    /// @notice Checks if a message has been approved. The message should have at least
-    /// the minimum threshold of attestations from distinct endpoints.
+    /// @param sourceChain The chain ID of the message source.
     /// @param digest The digest of the message.
-    /// @return - Boolean indicating if message has been approved.
-    function isMessageApproved(
+    /// @return approved Boolean indicating if the message is approved for execution.
+    function isMessageApprovedForChain(
+        uint16 sourceChain,
         bytes32 digest
-    ) external view returns (bool);
+    ) external view returns (bool approved);
 
     /// @notice Checks if a message has been executed.
     /// @param digest The digest of the message.
@@ -206,8 +222,12 @@ interface IManagerBase {
     function pause() external;
 
     /// @notice Returns the number of Transceivers that must attest to a msgId for
-    /// it to be considered valid and acted upon.
-    function getThreshold() external view returns (uint8);
+    /// it to be considered valid and acted upon from a particular source chain.
+    /// @param sourceChain The chain ID.
+    /// @return threshold The threshold for this chain.
+    function getThreshold(
+        uint16 sourceChain
+    ) external view returns (uint8 threshold);
 
     /// @notice Returns a boolean indicating if the transceiver has attested to the message.
     /// @param digest The digest of the message.

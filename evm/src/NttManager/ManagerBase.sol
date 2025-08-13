@@ -46,7 +46,7 @@ abstract contract ManagerBase is
     }
 
     function _migrate() internal virtual override {
-        _checkThresholdInvariants();
+        // Note: _checkThresholdInvariants() removed since we don't maintain global thresholds
         _checkTransceiversInvariants();
     }
 
@@ -58,16 +58,13 @@ abstract contract ManagerBase is
     bytes32 private constant MESSAGE_SEQUENCE_SLOT =
         bytes32(uint256(keccak256("ntt.messageSequence")) - 1);
 
-    bytes32 private constant THRESHOLD_SLOT = bytes32(uint256(keccak256("ntt.threshold")) - 1);
+    // Note: THRESHOLD_SLOT removed - we now use per-chain thresholds only
+    // TODO: come up with a backwards compatible way so this contract can be
+    // merged upstream (probably some simple abstract class hierarchy)
 
     // =============== Storage Getters/Setters ==============================================
 
-    function _getThresholdStorage() private pure returns (_Threshold storage $) {
-        uint256 slot = uint256(THRESHOLD_SLOT);
-        assembly ("memory-safe") {
-            $.slot := slot
-        }
-    }
+    // Note: _getThresholdStorage() removed - we now use per-chain thresholds only
 
     function _getMessageAttestationsStorage()
         internal
@@ -99,7 +96,7 @@ abstract contract ManagerBase is
         // Compute manager message digest and record transceiver attestation.
         bytes32 nttManagerMessageHash = _recordTransceiverAttestation(sourceChainId, payload);
 
-        if (isMessageApproved(nttManagerMessageHash)) {
+        if (isMessageApprovedForChain(sourceChainId, nttManagerMessageHash)) {
             this.executeMsg(sourceChainId, sourceNttManagerAddress, payload);
         }
     }
@@ -109,7 +106,7 @@ abstract contract ManagerBase is
         uint16 recipientChain,
         bytes memory transceiverInstructions
     ) public view returns (uint256[] memory, uint256) {
-        address[] memory enabledTransceivers = _getEnabledTransceiversStorage();
+        address[] memory enabledTransceivers = getSendTransceiversForChain(recipientChain);
 
         TransceiverStructs.TransceiverInstruction[] memory instructions = TransceiverStructs
             .parseTransceiverInstructions(transceiverInstructions, enabledTransceivers.length);
@@ -171,7 +168,7 @@ abstract contract ManagerBase is
     ) internal returns (bytes32, bool) {
         bytes32 digest = TransceiverStructs.nttManagerMessageDigest(sourceChainId, message);
 
-        if (!isMessageApproved(digest)) {
+        if (!isMessageApprovedForChain(sourceChainId, digest)) {
             revert MessageNotApproved(digest);
         }
 
@@ -233,8 +230,7 @@ abstract contract ManagerBase is
             uint256
         )
     {
-        // cache enabled transceivers to avoid multiple storage reads
-        address[] memory enabledTransceivers = _getEnabledTransceiversStorage();
+        address[] memory enabledTransceivers = getSendTransceiversForChain(recipientChain);
 
         TransceiverStructs.TransceiverInstruction[] memory instructions;
 
@@ -283,17 +279,21 @@ abstract contract ManagerBase is
 
     // =============== Public Getters ========================================================
 
-    /// @inheritdoc IManagerBase
-    function getThreshold() public view returns (uint8) {
-        return _getThresholdStorage().num;
+    /// @notice Check if a message has enough attestations for a specific source chain
+    function isMessageApprovedForChain(
+        uint16 sourceChain,
+        bytes32 digest
+    ) public view returns (bool) {
+        uint8 threshold = _getThresholdForChain(sourceChain);
+        uint8 attestations = messageAttestationsForChain(sourceChain, digest);
+        return attestations >= threshold && threshold > 0;
     }
 
     /// @inheritdoc IManagerBase
-    function isMessageApproved(
-        bytes32 digest
-    ) public view returns (bool) {
-        uint8 threshold = getThreshold();
-        return messageAttestations(digest) >= threshold && threshold > 0;
+    function getThreshold(
+        uint16 sourceChain
+    ) external view returns (uint8) {
+        return _getThresholdForChain(sourceChain);
     }
 
     /// @inheritdoc IManagerBase
@@ -319,6 +319,14 @@ abstract contract ManagerBase is
         bytes32 digest
     ) public view returns (uint8 count) {
         return countSetBits(_getMessageAttestations(digest));
+    }
+
+    /// @notice Get the number of attestations for a message from a specific source chain
+    function messageAttestationsForChain(
+        uint16 sourceChain,
+        bytes32 digest
+    ) public view returns (uint8 count) {
+        return countSetBits(_getMessageAttestationsForChain(sourceChain, digest));
     }
 
     // =============== Admin ==============================================================
@@ -359,62 +367,83 @@ abstract contract ManagerBase is
     ) external onlyOwner {
         _setTransceiver(transceiver);
 
-        _Threshold storage _threshold = _getThresholdStorage();
-        // We do not automatically increase the threshold here.
-        // Automatically increasing the threshold can result in a scenario
-        // where in-flight messages can't be redeemed.
-        // For example: Assume there is 1 Transceiver and the threshold is 1.
-        // If we were to add a new Transceiver, the threshold would increase to 2.
-        // However, all messages that are either in-flight or that are sent on
-        // a source chain that does not yet have 2 Transceivers will only have been
-        // sent from a single transceiver, so they would never be able to get
-        // redeemed.
-        // Instead, we leave it up to the owner to manually update the threshold
-        // after some period of time, ideally once all chains have the new Transceiver
-        // and transfers that were sent via the old configuration are all complete.
-        // However if the threshold is 0 (the initial case) we do increment to 1.
-        if (_threshold.num == 0) {
-            _threshold.num = 1;
-        }
+        // Note: Global threshold is no longer maintained since we use per-chain thresholds.
+        // Per-chain thresholds must be configured separately using setThreshold(uint16, uint8).
 
-        emit TransceiverAdded(transceiver, _getNumTransceiversStorage().enabled, _threshold.num);
+        emit TransceiverAdded(transceiver, _getNumTransceiversStorage().enabled, 0);
 
-        _checkThresholdInvariants();
+        // Note: _checkThresholdInvariants() removed since we don't maintain global thresholds
     }
 
     /// @inheritdoc IManagerBase
     function removeTransceiver(
         address transceiver
     ) external onlyOwner {
-        _removeTransceiver(transceiver);
-
-        _Threshold storage _threshold = _getThresholdStorage();
         uint8 numEnabledTransceivers = _getNumTransceiversStorage().enabled;
 
-        if (numEnabledTransceivers < _threshold.num) {
-            _threshold.num = numEnabledTransceivers;
+        // Prevent removing the last transceiver - you need at least one for the system to work
+        if (numEnabledTransceivers <= 1) {
+            revert ZeroThreshold(); // Reusing this error since it's about threshold requirements
         }
 
-        emit TransceiverRemoved(transceiver, _threshold.num);
+        _removeTransceiver(transceiver);
 
-        _checkThresholdInvariants();
+        // Note: Global threshold is no longer maintained since we use per-chain thresholds.
+        // Per-chain thresholds are automatically adjusted in _removeReceiveTransceiverForChain().
+
+        emit TransceiverRemoved(transceiver, 0);
     }
 
-    /// @inheritdoc IManagerBase
-    function setThreshold(
-        uint8 threshold
+    /// @notice Add a transceiver for sending to a specific chain
+    /// @param targetChain The chain ID to send to
+    /// @param transceiver The transceiver to enable for sending to this chain
+    function setSendTransceiverForChain(
+        uint16 targetChain,
+        address transceiver
     ) external onlyOwner {
-        if (threshold == 0) {
-            revert ZeroThreshold();
-        }
+        _setSendTransceiverForChain(targetChain, transceiver);
+        emit SendTransceiverUpdatedForChain(targetChain, transceiver, true);
+    }
 
-        _Threshold storage _threshold = _getThresholdStorage();
-        uint8 oldThreshold = _threshold.num;
+    /// @notice Remove a transceiver for sending to a specific chain
+    /// @param targetChain The chain ID
+    /// @param transceiver The transceiver to disable for sending to this chain
+    function removeSendTransceiverForChain(
+        uint16 targetChain,
+        address transceiver
+    ) external onlyOwner {
+        _removeSendTransceiverForChain(targetChain, transceiver);
+        emit SendTransceiverUpdatedForChain(targetChain, transceiver, false);
+    }
 
-        _threshold.num = threshold;
-        _checkThresholdInvariants();
+    /// @notice Add a transceiver for receiving from a specific chain
+    /// @param sourceChain The chain ID to receive from
+    /// @param transceiver The transceiver to enable for receiving from this chain
+    function setReceiveTransceiverForChain(
+        uint16 sourceChain,
+        address transceiver
+    ) external onlyOwner {
+        _setReceiveTransceiverForChain(sourceChain, transceiver);
+        emit ReceiveTransceiverUpdatedForChain(sourceChain, transceiver, true);
+    }
 
-        emit ThresholdChanged(oldThreshold, threshold);
+    /// @notice Remove a transceiver for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @param transceiver The transceiver to disable for receiving from this chain
+    function removeReceiveTransceiverForChain(
+        uint16 sourceChain,
+        address transceiver
+    ) external onlyOwner {
+        _removeReceiveTransceiverForChain(sourceChain, transceiver);
+        emit ReceiveTransceiverUpdatedForChain(sourceChain, transceiver, false);
+    }
+
+    /// @notice Set the threshold for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @param threshold The threshold for receiving from this chain
+    function setThreshold(uint16 sourceChain, uint8 threshold) external onlyOwner {
+        _setThresholdForChain(sourceChain, threshold);
+        emit ThresholdUpdatedForChain(sourceChain, threshold);
     }
 
     // =============== Internal ==============================================================
@@ -438,6 +467,16 @@ abstract contract ManagerBase is
         bytes32 digest
     ) internal view returns (uint64) {
         uint64 enabledTransceiverBitmap = _getEnabledTransceiversBitmap();
+        return
+            _getMessageAttestationsStorage()[digest].attestedTransceivers & enabledTransceiverBitmap;
+    }
+
+    /// @dev Returns the bitmap of attestations from enabled transceivers for a given message and source chain.
+    function _getMessageAttestationsForChain(
+        uint16 sourceChain,
+        bytes32 digest
+    ) internal view returns (uint64) {
+        uint64 enabledTransceiverBitmap = _getReceiveTransceiversBitmapForChain(sourceChain);
         return
             _getMessageAttestationsStorage()[digest].attestedTransceivers & enabledTransceiverBitmap;
     }
@@ -485,19 +524,6 @@ abstract contract ManagerBase is
         }
     }
 
-    function _checkThresholdInvariants() internal view {
-        uint8 threshold = _getThresholdStorage().num;
-        _NumTransceivers memory numTransceivers = _getNumTransceiversStorage();
-
-        // invariant: threshold <= enabledTransceivers.length
-        if (threshold > numTransceivers.enabled) {
-            revert ThresholdTooHigh(threshold, numTransceivers.enabled);
-        }
-
-        if (numTransceivers.registered > 0) {
-            if (threshold == 0) {
-                revert ZeroThreshold();
-            }
-        }
-    }
+    // Note: _checkThresholdInvariants() function removed since we don't maintain global thresholds
+    // Per-chain threshold validation is handled in _setThresholdForChain()
 }

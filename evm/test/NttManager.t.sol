@@ -108,6 +108,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
         DummyTransceiver e = new DummyTransceiver(address(nttManagerZeroRateLimiter));
         nttManagerZeroRateLimiter.setTransceiver(address(e));
 
+        // Configure transceiver for chain 8 (chainId2)
+        nttManagerZeroRateLimiter.setSendTransceiverForChain(chainId2, address(e));
+        nttManagerZeroRateLimiter.setReceiveTransceiverForChain(chainId2, address(e));
+        nttManagerZeroRateLimiter.setThreshold(chainId2, 1);
+
         address user_A = address(0x123);
         address user_B = address(0x456);
 
@@ -140,7 +145,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         // Test incoming transfer completes successfully with rate limit disabled
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerZeroRateLimiter);
-        nttManagerZeroRateLimiter.setThreshold(2);
+        nttManagerZeroRateLimiter.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         // register nttManager peer
         bytes32 peer = toWormholeFormat(address(nttManager));
@@ -372,7 +377,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         token.approve(address(newNttManager), 3 * 10 ** decimals);
 
-        vm.expectRevert(abi.encodeWithSelector(IManagerBase.NoEnabledTransceivers.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TransceiverRegistry.NoTransceiversConfiguredForChain.selector, chainId2
+            )
+        );
         newNttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
@@ -417,6 +426,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
         DummyTransceiver e = new DummyTransceiver(address(nttManager));
         nttManager.setTransceiver(address(e));
         nttManager.removeTransceiver(address(dummyTransceiver));
+
+        // Configure per-chain transceiver for chainId2
+        nttManager.setSendTransceiverForChain(chainId2, address(e));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e));
+        nttManager.setThreshold(chainId2, 1);
 
         address user_A = address(0x123);
         address user_B = address(0x456);
@@ -521,9 +535,10 @@ contract TestNttManager is Test, IRateLimiterEvents {
     // == threshold
 
     function test_cantSetThresholdTooHigh() public {
-        // 1 transceiver set, so can't set threshold to 2
+        // Configure 1 transceiver for the chain, so can't set threshold to 2
+        nttManager.setReceiveTransceiverForChain(chainId2, address(dummyTransceiver));
         vm.expectRevert(abi.encodeWithSelector(IManagerBase.ThresholdTooHigh.selector, 2, 1));
-        nttManager.setThreshold(2);
+        nttManager.setThreshold(chainId2, 2);
     }
 
     function test_canSetThreshold() public {
@@ -532,27 +547,35 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.setTransceiver(address(e1));
         nttManager.setTransceiver(address(e2));
 
-        nttManager.setThreshold(1);
-        nttManager.setThreshold(2);
-        nttManager.setThreshold(1);
+        // Configure transceivers for the specific chain
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e1));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e2));
+
+        nttManager.setThreshold(chainId2, 1);
+        nttManager.setThreshold(chainId2, 2);
+        nttManager.setThreshold(chainId2, 1);
     }
 
     function test_cantSetThresholdToZero() public {
         DummyTransceiver e = new DummyTransceiver(address(nttManager));
         nttManager.setTransceiver(address(e));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e));
 
         vm.expectRevert(abi.encodeWithSelector(IManagerBase.ZeroThreshold.selector));
-        nttManager.setThreshold(0);
+        nttManager.setThreshold(chainId2, 0);
     }
 
     function test_onlyOwnerCanSetThreshold() public {
+        // Set up transceivers for the chain first
+        nttManager.setReceiveTransceiverForChain(chainId2, address(dummyTransceiver));
+
         address notOwner = address(0x123);
         vm.startPrank(notOwner);
 
         vm.expectRevert(
             abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, notOwner)
         );
-        nttManager.setThreshold(1);
+        nttManager.setThreshold(chainId2, 1);
     }
 
     // == threshold
@@ -593,7 +616,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
     function test_onlyPeerNttManagerCanAttest() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         bytes32 peer = toWormholeFormat(address(nttManager));
 
@@ -614,7 +637,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
     function test_attestSimple() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         // register nttManager peer
         bytes32 peer = toWormholeFormat(address(nttManager));
@@ -637,7 +660,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
     function test_attestTwice() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         // register nttManager peer
         bytes32 peer = toWormholeFormat(address(nttManager));
@@ -666,7 +689,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
     function test_attestDisabled() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         bytes32 peer = toWormholeFormat(address(nttManager));
         nttManagerOther.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max);
@@ -709,6 +732,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
         nttManager.setOutboundLimit(packTrimmedAmount(type(uint64).max, 8).untrim(decimals));
 
+        // Configure per-chain transceiver for chainId2
+        nttManager.setSendTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setThreshold(chainId2, 1);
+
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
 
         vm.startPrank(user_A);
@@ -748,6 +776,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
     function test_transferWithAmountAndDecimalsThatCouldOverflow() public {
         // The source chain has 18 decimals trimmed to 8, and the peer has 6 decimals trimmed to 6
         nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 6, type(uint64).max);
+
+        // Configure per-chain transceiver for chainId2
+        nttManager.setSendTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setThreshold(chainId2, 1);
 
         address user_A = address(0x123);
         address user_B = address(0x456);
@@ -861,6 +894,15 @@ contract TestNttManager is Test, IRateLimiterEvents {
             type(uint64).max
         );
         nttManager.setOutboundLimit(0);
+
+        // Configure per-chain transceiver for SENDING_CHAIN_ID
+        nttManager.setSendTransceiverForChain(
+            TransceiverHelpersLib.SENDING_CHAIN_ID, address(dummyTransceiver)
+        );
+        nttManager.setReceiveTransceiverForChain(
+            TransceiverHelpersLib.SENDING_CHAIN_ID, address(dummyTransceiver)
+        );
+        nttManager.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 1);
 
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
 
@@ -1128,6 +1170,14 @@ contract TestNttManager is Test, IRateLimiterEvents {
         {
             DummyTransceiver e = new DummyTransceiver(address(newNttManager));
             newNttManager.setTransceiver(address(e));
+            // Configure per-chain transceiver for SENDING_CHAIN_ID
+            newNttManager.setSendTransceiverForChain(
+                TransceiverHelpersLib.SENDING_CHAIN_ID, address(e)
+            );
+            newNttManager.setReceiveTransceiverForChain(
+                TransceiverHelpersLib.SENDING_CHAIN_ID, address(e)
+            );
+            newNttManager.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 1);
         }
 
         address user_A = address(0x123);
@@ -1149,7 +1199,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         // Check that we can receive a transfer
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(newNttManager);
-        newNttManager.setThreshold(1);
+        newNttManager.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 1);
 
         bytes memory transceiverMessage;
         bytes memory tokenTransferMessage;
@@ -1246,6 +1296,11 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
         nttManager.setOutboundLimit(packTrimmedAmount(type(uint64).max, 8).untrim(decimals));
+
+        // Configure per-chain transceiver for chainId2
+        nttManager.setSendTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setThreshold(chainId2, 1);
 
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
 

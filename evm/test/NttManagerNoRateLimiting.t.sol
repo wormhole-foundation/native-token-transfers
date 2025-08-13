@@ -71,6 +71,12 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
 
         dummyTransceiver = new DummyTransceiver(address(nttManager));
         nttManager.setTransceiver(address(dummyTransceiver));
+
+        // Configure transceiver for commonly used chains in tests
+        nttManager.setReceiveTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setSendTransceiverForChain(chainId2, address(dummyTransceiver));
+        nttManager.setReceiveTransceiverForChain(1, address(dummyTransceiver));
+        nttManager.setSendTransceiverForChain(1, address(dummyTransceiver));
     }
 
     // === pure unit tests
@@ -298,7 +304,11 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
 
         token.approve(address(newNttManagerNoRateLimiting), 3 * 10 ** decimals);
 
-        vm.expectRevert(abi.encodeWithSelector(IManagerBase.NoEnabledTransceivers.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TransceiverRegistry.NoTransceiversConfiguredForChain.selector, chainId2
+            )
+        );
         newNttManagerNoRateLimiting.transfer(
             1 * 10 ** decimals,
             chainId2,
@@ -344,6 +354,11 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
         nttManager.setTransceiver(address(e));
         nttManager.removeTransceiver(address(dummyTransceiver));
 
+        // Configure per-chain transceiver for chainId2
+        nttManager.setSendTransceiverForChain(chainId2, address(e));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e));
+        nttManager.setThreshold(chainId2, 1);
+
         address user_A = address(0x123);
         address user_B = address(0x456);
 
@@ -384,7 +399,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
     function test_cantSetThresholdTooHigh() public {
         // 1 transceiver set, so can't set threshold to 2
         vm.expectRevert(abi.encodeWithSelector(IManagerBase.ThresholdTooHigh.selector, 2, 1));
-        nttManager.setThreshold(2);
+        nttManager.setThreshold(chainId2, 2);
     }
 
     function test_canSetThreshold() public {
@@ -393,9 +408,13 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
         nttManager.setTransceiver(address(e1));
         nttManager.setTransceiver(address(e2));
 
-        nttManager.setThreshold(1);
-        nttManager.setThreshold(2);
-        nttManager.setThreshold(1);
+        // Configure transceivers for chainId2
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e1));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e2));
+
+        nttManager.setThreshold(chainId2, 1);
+        nttManager.setThreshold(chainId2, 2);
+        nttManager.setThreshold(chainId2, 1);
     }
 
     function test_cantSetThresholdToZero() public {
@@ -403,7 +422,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
         nttManager.setTransceiver(address(e));
 
         vm.expectRevert(abi.encodeWithSelector(IManagerBase.ZeroThreshold.selector));
-        nttManager.setThreshold(0);
+        nttManager.setThreshold(chainId2, 0);
     }
 
     function test_onlyOwnerCanSetThreshold() public {
@@ -413,7 +432,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
         vm.expectRevert(
             abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, notOwner)
         );
-        nttManager.setThreshold(1);
+        nttManager.setThreshold(chainId2, 1);
     }
 
     // == threshold
@@ -454,7 +473,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
 
     function test_onlyPeerNttManagerNoRateLimitingCanAttest() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         bytes32 peer = toWormholeFormat(address(nttManager));
 
@@ -475,7 +494,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
 
     function test_attestSimple() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         // register nttManager peer
         bytes32 peer = toWormholeFormat(address(nttManager));
@@ -498,7 +517,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
 
     function test_attestTwice() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         // register nttManager peer
         bytes32 peer = toWormholeFormat(address(nttManager));
@@ -527,7 +546,7 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
 
     function test_attestDisabled() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
-        nttManagerOther.setThreshold(2);
+        nttManagerOther.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 2);
 
         bytes32 peer = toWormholeFormat(address(nttManager));
         nttManagerOther.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max);
@@ -1040,6 +1059,14 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
         {
             DummyTransceiver e = new DummyTransceiver(address(newNttManagerNoRateLimiting));
             newNttManagerNoRateLimiting.setTransceiver(address(e));
+            // Configure transceiver for SENDING_CHAIN_ID
+            newNttManagerNoRateLimiting.setSendTransceiverForChain(
+                TransceiverHelpersLib.SENDING_CHAIN_ID, address(e)
+            );
+            newNttManagerNoRateLimiting.setReceiveTransceiverForChain(
+                TransceiverHelpersLib.SENDING_CHAIN_ID, address(e)
+            );
+            newNttManagerNoRateLimiting.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 1);
         }
 
         address user_A = address(0x123);
@@ -1060,9 +1087,20 @@ contract TestNttManagerNoRateLimiting is Test, IRateLimiterEvents {
         vm.stopPrank();
 
         // Check that we can receive a transfer
-        (DummyTransceiver e1,) =
-            TransceiverHelpersLib.setup_transceivers(newNttManagerNoRateLimiting);
-        newNttManagerNoRateLimiting.setThreshold(1);
+        DummyTransceiver e1;
+        {
+            (DummyTransceiver _e1, DummyTransceiver _e2) =
+                TransceiverHelpersLib.setup_transceivers(newNttManagerNoRateLimiting);
+            e1 = _e1;
+            newNttManagerNoRateLimiting.setThreshold(TransceiverHelpersLib.SENDING_CHAIN_ID, 1);
+
+            // Configure transceivers for chainId2 before setting threshold
+            newNttManagerNoRateLimiting.setReceiveTransceiverForChain(chainId2, address(_e1));
+            newNttManagerNoRateLimiting.setReceiveTransceiverForChain(chainId2, address(_e2));
+            newNttManagerNoRateLimiting.setSendTransceiverForChain(chainId2, address(_e1));
+            newNttManagerNoRateLimiting.setSendTransceiverForChain(chainId2, address(_e2));
+            newNttManagerNoRateLimiting.setThreshold(chainId2, 1);
+        }
 
         bytes memory transceiverMessage;
         bytes memory tokenTransferMessage;

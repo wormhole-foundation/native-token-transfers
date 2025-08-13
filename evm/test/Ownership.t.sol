@@ -12,6 +12,7 @@ import {DummyToken} from "./NttManager.t.sol";
 contract OwnershipTests is Test {
     NttManager nttManager;
     uint16 constant chainId = 7;
+    uint16 constant chainId2 = 8;
 
     function setUp() public {
         DummyToken t = new DummyToken();
@@ -32,7 +33,8 @@ contract OwnershipTests is Test {
         // TODO: use setup_transceivers here
         DummyTransceiver e1 = new DummyTransceiver(address(nttManager));
         nttManager.setTransceiver(address(e1));
-        nttManager.setThreshold(1);
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e1));
+        nttManager.setThreshold(chainId2, 1);
 
         checkOwnership(e1, nttManager.owner());
     }

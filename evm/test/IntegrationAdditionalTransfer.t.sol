@@ -90,6 +90,11 @@ contract TestAdditionalPayload is Test {
         wormholeTransceiverChain1.initialize();
 
         nttManagerChain1.setTransceiver(address(wormholeTransceiverChain1));
+        nttManagerChain1.setSendTransceiverForChain(chainId2, address(wormholeTransceiverChain1));
+        nttManagerChain1.setReceiveTransceiverForChain(chainId1, address(wormholeTransceiverChain1));
+        nttManagerChain1.setReceiveTransceiverForChain(chainId2, address(wormholeTransceiverChain1));
+        nttManagerChain1.setThreshold(chainId1, 1);
+        nttManagerChain1.setThreshold(chainId2, 1);
         // nttManagerChain1.setOutboundLimit(type(uint64).max);
         // nttManagerChain1.setInboundLimit(type(uint64).max, chainId2);
 
@@ -114,6 +119,11 @@ contract TestAdditionalPayload is Test {
         wormholeTransceiverChain2.initialize();
 
         nttManagerChain2.setTransceiver(address(wormholeTransceiverChain2));
+        nttManagerChain2.setSendTransceiverForChain(chainId1, address(wormholeTransceiverChain2));
+        nttManagerChain2.setReceiveTransceiverForChain(chainId1, address(wormholeTransceiverChain2));
+        nttManagerChain2.setReceiveTransceiverForChain(chainId2, address(wormholeTransceiverChain2));
+        nttManagerChain2.setThreshold(chainId1, 1);
+        nttManagerChain2.setThreshold(chainId2, 1);
         // nttManagerChain2.setOutboundLimit(type(uint64).max);
         // nttManagerChain2.setInboundLimit(type(uint64).max, chainId1);
 
@@ -133,11 +143,14 @@ contract TestAdditionalPayload is Test {
             chainId1, bytes32(uint256(uint160(address(wormholeTransceiverChain1))))
         );
 
-        require(nttManagerChain1.getThreshold() != 0, "Threshold is zero with active transceivers");
+        require(
+            nttManagerChain1.getThreshold(chainId2) != 0,
+            "Threshold is zero with active transceivers"
+        );
 
         // Actually set it
-        nttManagerChain1.setThreshold(1);
-        nttManagerChain2.setThreshold(1);
+        nttManagerChain1.setThreshold(chainId2, 1);
+        nttManagerChain2.setThreshold(chainId1, 1);
 
         INttManager.NttManagerPeer memory peer = nttManagerChain1.getPeer(chainId2);
         require(9 == peer.tokenDecimals, "Peer has the wrong number of token decimals");

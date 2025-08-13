@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
+import "../interfaces/IManagerBase.sol";
+
 /// @title TransceiverRegistry
 /// @author Wormhole Project Contributors.
 /// @notice This contract is responsible for handling the registration of Transceivers.
@@ -11,7 +13,7 @@ pragma solidity >=0.8.8 <0.9.0;
 ///            should directly correspond to the whether the transceiver is enabled
 abstract contract TransceiverRegistry {
     constructor() {
-        _checkTransceiversInvariants();
+        // Per-chain configuration is now required, so no global invariants to check
     }
 
     /// @dev Information about registered transceivers.
@@ -36,6 +38,23 @@ abstract contract TransceiverRegistry {
     struct _NumTransceivers {
         uint8 registered;
         uint8 enabled;
+    }
+
+    /// @dev Common fields shared by both send and receive transceiver configs
+    struct TransceiverConfig {
+        uint64 bitmap; // Bitmap of enabled transceivers
+        address[] transceivers; // Array of enabled transceivers
+    }
+
+    /// @dev Per-chain configuration for sending transceivers
+    struct PerChainSendTransceiverConfig {
+        TransceiverConfig config; // Common transceiver configuration
+    }
+
+    /// @dev Per-chain configuration for receiving transceivers
+    struct PerChainReceiveTransceiverConfig {
+        TransceiverConfig config; // Common transceiver configuration
+        uint8 threshold; // Threshold for receiving from this chain
     }
 
     uint8 constant MAX_TRANSCEIVERS = 64;
@@ -68,8 +87,12 @@ abstract contract TransceiverRegistry {
     /// @dev Selector 0x8d68f84d.
     /// @param transceiver The address of the transceiver.
     error TransceiverAlreadyEnabled(address transceiver);
+    error NoTransceiversConfiguredForChain(uint16 chainId);
+    error NoThresholdConfiguredForChain(uint16 chainId);
+    error InvalidChainId();
 
     modifier onlyTransceiver() {
+        // TODO: change this to take chain id as argument (and accordingly look up whether it's enabled for that chain)
         if (!_getTransceiverInfosStorage()[msg.sender].enabled) {
             revert CallerNotTransceiver(msg.sender);
         }
@@ -92,6 +115,12 @@ abstract contract TransceiverRegistry {
 
     bytes32 private constant NUM_REGISTERED_TRANSCEIVERS_SLOT =
         bytes32(uint256(keccak256("ntt.numRegisteredTransceivers")) - 1);
+
+    bytes32 private constant PER_CHAIN_SEND_TRANSCEIVERS_SLOT =
+        bytes32(uint256(keccak256("ntt.perChainSendTransceivers")) - 1);
+
+    bytes32 private constant PER_CHAIN_RECEIVE_TRANSCEIVERS_SLOT =
+        bytes32(uint256(keccak256("ntt.perChainReceiveTransceivers")) - 1);
 
     function _getTransceiverInfosStorage()
         internal
@@ -131,6 +160,28 @@ abstract contract TransceiverRegistry {
 
     function _getNumTransceiversStorage() internal pure returns (_NumTransceivers storage $) {
         uint256 slot = uint256(NUM_REGISTERED_TRANSCEIVERS_SLOT);
+        assembly ("memory-safe") {
+            $.slot := slot
+        }
+    }
+
+    function _getPerChainSendTransceiversStorage()
+        internal
+        pure
+        returns (mapping(uint16 => PerChainSendTransceiverConfig) storage $)
+    {
+        uint256 slot = uint256(PER_CHAIN_SEND_TRANSCEIVERS_SLOT);
+        assembly ("memory-safe") {
+            $.slot := slot
+        }
+    }
+
+    function _getPerChainReceiveTransceiversStorage()
+        internal
+        pure
+        returns (mapping(uint16 => PerChainReceiveTransceiverConfig) storage $)
+    {
+        uint256 slot = uint256(PER_CHAIN_RECEIVE_TRANSCEIVERS_SLOT);
         assembly ("memory-safe") {
             $.slot := slot
         }
@@ -250,6 +301,234 @@ abstract contract TransceiverRegistry {
         }
 
         return result;
+    }
+
+    // =============== Generic Helper Functions =========================================
+
+    /// @dev Generic function to add transceiver to any config
+    /// @param chainId The chain ID for validation
+    /// @param transceiver The transceiver address to add
+    /// @param config The transceiver config to modify
+    function _addTransceiverToConfig(
+        uint16 chainId,
+        address transceiver,
+        TransceiverConfig storage config
+    ) internal {
+        mapping(address => TransceiverInfo) storage transceiverInfos = _getTransceiverInfosStorage();
+
+        if (transceiver == address(0)) {
+            revert InvalidTransceiverZeroAddress();
+        }
+
+        if (chainId == 0) {
+            revert InvalidChainId();
+        }
+
+        // Transceiver must be registered
+        if (!transceiverInfos[transceiver].registered) {
+            revert NonRegisteredTransceiver(transceiver);
+        }
+
+        uint8 index = transceiverInfos[transceiver].index;
+        uint64 transceiverBit = uint64(1 << index);
+
+        // Check if already enabled for this chain
+        if ((config.bitmap & transceiverBit) != 0) {
+            revert TransceiverAlreadyEnabled(transceiver);
+        }
+
+        // Add to configuration
+        config.bitmap |= transceiverBit;
+        config.transceivers.push(transceiver);
+    }
+
+    /// @dev Generic function to remove transceiver from any config
+    /// @param transceiver The transceiver address to remove
+    /// @param config The transceiver config to modify
+    /// @return remainingCount The number of transceivers remaining after removal
+    function _removeTransceiverFromConfig(
+        address transceiver,
+        TransceiverConfig storage config
+    ) internal returns (uint8 remainingCount) {
+        mapping(address => TransceiverInfo) storage transceiverInfos = _getTransceiverInfosStorage();
+
+        if (transceiver == address(0)) {
+            revert InvalidTransceiverZeroAddress();
+        }
+
+        if (!transceiverInfos[transceiver].registered) {
+            revert NonRegisteredTransceiver(transceiver);
+        }
+
+        uint8 index = transceiverInfos[transceiver].index;
+        uint64 transceiverBit = uint64(1 << index);
+
+        // Check if enabled for this chain
+        if ((config.bitmap & transceiverBit) == 0) {
+            revert DisabledTransceiver(transceiver);
+        }
+
+        // Remove from configuration
+        config.bitmap &= ~transceiverBit;
+
+        // Remove from array
+        bool removed = false;
+        uint256 numEnabled = config.transceivers.length;
+        for (uint256 i = 0; i < numEnabled; i++) {
+            if (config.transceivers[i] == transceiver) {
+                config.transceivers[i] = config.transceivers[numEnabled - 1];
+                config.transceivers.pop();
+                removed = true;
+                break;
+            }
+        }
+        assert(removed);
+
+        return uint8(config.transceivers.length);
+    }
+
+    // =============== Per-Chain Configuration Functions ===============================
+
+    /// @notice Add a transceiver for sending to a specific chain
+    /// @param targetChain The chain ID to send to
+    /// @param transceiver The transceiver to enable for sending to this chain
+    function _setSendTransceiverForChain(uint16 targetChain, address transceiver) internal {
+        PerChainSendTransceiverConfig storage sendConfig =
+            _getPerChainSendTransceiversStorage()[targetChain];
+        _addTransceiverToConfig(targetChain, transceiver, sendConfig.config);
+    }
+
+    /// @notice Remove a transceiver for sending to a specific chain
+    /// @param targetChain The chain ID
+    /// @param transceiver The transceiver to disable for sending to this chain
+    function _removeSendTransceiverForChain(uint16 targetChain, address transceiver) internal {
+        PerChainSendTransceiverConfig storage sendConfig =
+            _getPerChainSendTransceiversStorage()[targetChain];
+        _removeTransceiverFromConfig(transceiver, sendConfig.config);
+    }
+
+    /// @notice Add a transceiver for receiving from a specific chain
+    /// @param sourceChain The chain ID to receive from
+    /// @param transceiver The transceiver to enable for receiving from this chain
+    function _setReceiveTransceiverForChain(uint16 sourceChain, address transceiver) internal {
+        PerChainReceiveTransceiverConfig storage receiveConfig =
+            _getPerChainReceiveTransceiversStorage()[sourceChain];
+
+        _addTransceiverToConfig(sourceChain, transceiver, receiveConfig.config);
+
+        // Set default threshold to 1 if not set
+        if (receiveConfig.threshold == 0) {
+            receiveConfig.threshold = 1;
+        }
+    }
+
+    /// @notice Remove a transceiver for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @param transceiver The transceiver to disable for receiving from this chain
+    function _removeReceiveTransceiverForChain(uint16 sourceChain, address transceiver) internal {
+        PerChainReceiveTransceiverConfig storage receiveConfig =
+            _getPerChainReceiveTransceiversStorage()[sourceChain];
+
+        uint8 remainingCount = _removeTransceiverFromConfig(transceiver, receiveConfig.config);
+
+        // Adjust threshold if necessary
+        if (receiveConfig.threshold > remainingCount) {
+            receiveConfig.threshold = remainingCount;
+        }
+    }
+
+    /// @notice Set the threshold for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @param threshold The threshold for receiving from this chain
+    function _setThresholdForChain(uint16 sourceChain, uint8 threshold) internal {
+        if (sourceChain == 0) {
+            revert InvalidChainId();
+        }
+
+        if (threshold == 0) {
+            revert IManagerBase.ZeroThreshold();
+        }
+
+        PerChainReceiveTransceiverConfig storage receiveConfig =
+            _getPerChainReceiveTransceiversStorage()[sourceChain];
+        uint8 numEnabled = uint8(receiveConfig.config.transceivers.length);
+
+        if (threshold > numEnabled) {
+            revert IManagerBase.ThresholdTooHigh(uint256(threshold), uint256(numEnabled));
+        }
+
+        receiveConfig.threshold = threshold;
+    }
+
+    /// @notice Get the transceivers enabled for sending to a specific chain
+    /// @param targetChain The chain ID
+    /// @return transceivers The list of enabled transceivers for sending
+    function getSendTransceiversForChain(
+        uint16 targetChain
+    ) public view returns (address[] memory transceivers) {
+        PerChainSendTransceiverConfig storage sendConfig =
+            _getPerChainSendTransceiversStorage()[targetChain];
+        if (sendConfig.config.transceivers.length == 0) {
+            revert NoTransceiversConfiguredForChain(targetChain);
+        }
+        return sendConfig.config.transceivers;
+    }
+
+    /// @notice Get the transceivers enabled for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @return transceivers The list of enabled transceivers for receiving
+    /// @return threshold The threshold for this chain
+    function getReceiveTransceiversForChain(
+        uint16 sourceChain
+    ) public view returns (address[] memory transceivers, uint8 threshold) {
+        PerChainReceiveTransceiverConfig storage receiveConfig =
+            _getPerChainReceiveTransceiversStorage()[sourceChain];
+        if (receiveConfig.config.transceivers.length == 0 || receiveConfig.threshold == 0) {
+            revert NoTransceiversConfiguredForChain(sourceChain);
+        }
+        return (receiveConfig.config.transceivers, receiveConfig.threshold);
+    }
+
+    /// @notice Get the bitmap of transceivers enabled for sending to a specific chain
+    /// @param targetChain The chain ID
+    /// @return bitmap The bitmap of enabled transceivers
+    function _getSendTransceiversBitmapForChain(
+        uint16 targetChain
+    ) internal view returns (uint64 bitmap) {
+        PerChainSendTransceiverConfig storage sendConfig =
+            _getPerChainSendTransceiversStorage()[targetChain];
+        if (sendConfig.config.transceivers.length == 0) {
+            revert NoTransceiversConfiguredForChain(targetChain);
+        }
+        return sendConfig.config.bitmap;
+    }
+
+    /// @notice Get the bitmap of transceivers enabled for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @return bitmap The bitmap of enabled transceivers
+    function _getReceiveTransceiversBitmapForChain(
+        uint16 sourceChain
+    ) internal view returns (uint64 bitmap) {
+        PerChainReceiveTransceiverConfig storage receiveConfig =
+            _getPerChainReceiveTransceiversStorage()[sourceChain];
+        if (receiveConfig.config.transceivers.length == 0 || receiveConfig.threshold == 0) {
+            revert NoTransceiversConfiguredForChain(sourceChain);
+        }
+        return receiveConfig.config.bitmap;
+    }
+
+    /// @notice Get the threshold for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @return threshold The threshold for this chain
+    function _getThresholdForChain(
+        uint16 sourceChain
+    ) internal view returns (uint8 threshold) {
+        PerChainReceiveTransceiverConfig storage receiveConfig =
+            _getPerChainReceiveTransceiversStorage()[sourceChain];
+        if (receiveConfig.threshold == 0) {
+            revert NoThresholdConfiguredForChain(sourceChain);
+        }
+        return receiveConfig.threshold;
     }
 
     // ============== Invariants =============================================

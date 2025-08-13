@@ -49,6 +49,11 @@ contract TestRateLimit is Test, IRateLimiterEvents {
 
         DummyTransceiver e = new DummyTransceiver(address(nttManager));
         nttManager.setTransceiver(address(e));
+
+        // Configure transceiver for chain 8 (chainId2)
+        nttManager.setSendTransceiverForChain(chainId2, address(e));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e));
+        nttManager.setThreshold(chainId2, 1);
     }
 
     function test_outboundRateLimit_setLimitSimple() public {
