@@ -69,6 +69,7 @@ interface SuiNttState {
   transceivers: SuiTransceiverRegistry;
   chain_id: string;
   next_sequence: string;
+  paused: boolean;
   version: string;
   admin_cap_id: string;
   upgrade_cap_id: string;
@@ -205,10 +206,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   }
 
   async isPaused(): Promise<boolean> {
-    // In Sui NTT, pausing is handled by the admin cap ownership
-    // For now, return false as a placeholder
-    // TODO: Implement proper pause checking mechanism
-    return false;
+    const state = await this.getNttState();
+    return state.paused;
   }
 
   async getAdminCapId(): Promise<string> {
@@ -366,11 +365,55 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   // Admin Methods
   async *pause(): AsyncGenerator<UnsignedTransaction<N, C>> {
-    throw new Error("Not implemented");
+    const adminCapId = await this.getAdminCapId();
+    const packageId = await this.getPackageId();
+
+    // Build transaction to pause the contract
+    const txb = new Transaction();
+
+    txb.moveCall({
+      target: `${packageId}::state::pause`,
+      typeArguments: [this.contracts.ntt!["token"]], // Use the token type from contracts
+      arguments: [
+        txb.object(adminCapId), // AdminCap
+        txb.object(this.contracts.ntt!["manager"]), // NTT state
+      ],
+    });
+
+    const unsignedTx = new SuiUnsignedTransaction(
+      txb,
+      this.network,
+      this.chain,
+      "Pause Contract"
+    );
+
+    yield unsignedTx;
   }
 
   async *unpause(): AsyncGenerator<UnsignedTransaction<N, C>> {
-    throw new Error("Not implemented");
+    const adminCapId = await this.getAdminCapId();
+    const packageId = await this.getPackageId();
+
+    // Build transaction to unpause the contract
+    const txb = new Transaction();
+
+    txb.moveCall({
+      target: `${packageId}::state::unpause`,
+      typeArguments: [this.contracts.ntt!["token"]], // Use the token type from contracts
+      arguments: [
+        txb.object(adminCapId), // AdminCap
+        txb.object(this.contracts.ntt!["manager"]), // NTT state
+      ],
+    });
+
+    const unsignedTx = new SuiUnsignedTransaction(
+      txb,
+      this.network,
+      this.chain,
+      "Unpause Contract"
+    );
+
+    yield unsignedTx;
   }
 
   async *setOwner(
