@@ -450,7 +450,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   async *setPeer(
     peer: ChainAddress,
     tokenDecimals: number,
-    inboundLimit: bigint
+    inboundLimit: bigint,
+    payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     const adminCapId = await this.getAdminCapId();
     const packageId = await this.getPackageId();
@@ -820,7 +821,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   async *redeem(
     attestations: Ntt.Attestation[],
-    payer: AccountAddress<C>
+    payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     // Check if paused
     const isPaused = await this.isPaused();
@@ -861,8 +862,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
         attestation,
         packageId,
         versionGated,
-        coinMetadata.id,
-        payer
+        coinMetadata.id
       );
 
       const unsignedTx = new SuiUnsignedTransaction(
@@ -1266,23 +1266,14 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       throw new Error("Contract is paused");
     }
 
-    // This function should call redeem to complete the queued transfer
-    // The actual implementation would need the attestation/VAA to be passed
-    // For now, this delegates to the redeem function
+    // Create an attestation from the transceiverMessage
+    const attestation = {
+      emitterChain: fromChain,
+      hash: transceiverMessage.id,
+    } as Ntt.Attestation;
 
-    // Note: In a complete implementation, we would:
-    // 1. Verify the transfer is actually queued and ready
-    // 2. Create the appropriate attestation/VAA
-    // 3. Call redeem with that attestation
-
-    // Since redeem is not fully implemented yet, we throw an error
-    throw new Error(
-      "completeInboundQueuedTransfer requires redeem implementation"
-    );
-
-    // When redeem is implemented, it would be something like:
-    // const attestation = ... // create from transceiverMessage
-    // yield* this.redeem([attestation]);
+    // Call redeem with the attestation
+    yield* this.redeem([attestation], payer);
   }
 
   // Transceiver Management
@@ -1592,8 +1583,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     attestation: Ntt.Attestation,
     packageId: string,
     versionGated: any,
-    coinMetadataId: string,
-    payer: AccountAddress<C>
+    coinMetadataId: string
   ): Promise<void> {
     // Get the transceiver
     const wormholeTransceiverStateId =
