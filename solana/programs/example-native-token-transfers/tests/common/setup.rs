@@ -1,17 +1,3 @@
-use crate::{
-    common::{
-        account_json_utils::{add_account_unchecked, AccountLoadable},
-        submit::Submittable,
-    },
-    sdk::{
-        accounts::{good_ntt, Governance, NTTAccounts, NTTTransceiver},
-        instructions::{
-            admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
-            initialize::{initialize_with_token_program_id, Initialize},
-        },
-        transceivers::wormhole::instructions::admin::{set_transceiver_peer, SetTransceiverPeer},
-    },
-};
 use anchor_lang::prelude::{Error, Id, Pubkey};
 use anchor_spl::token::{Mint, Token};
 use example_native_token_transfers::instructions::{InitializeArgs, SetPeerArgs};
@@ -27,6 +13,23 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 use std::path::PathBuf;
 use wormhole_anchor_sdk::wormhole::{BridgeData, FeeCollector};
+use wormhole_post_message_shim_interface::wormhole_post_message_shim;
+use wormhole_svm_definitions::solana::{POST_MESSAGE_SHIM_PROGRAM_ID, VERIFY_VAA_SHIM_PROGRAM_ID};
+
+use crate::{
+    common::{
+        account_json_utils::{add_account_unchecked, AccountLoadable},
+        submit::Submittable,
+    },
+    sdk::{
+        accounts::{good_ntt, Governance, NTTAccounts, NTTTransceiver},
+        instructions::{
+            admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
+            initialize::{initialize_with_token_program_id, Initialize},
+        },
+        transceivers::wormhole::instructions::admin::{set_transceiver_peer, SetTransceiverPeer},
+    },
+};
 
 // TODO: maybe make these configurable? I think it's fine like this:
 // the mint amount is more than the limits, so we can test the rate limits
@@ -134,6 +137,20 @@ pub async fn setup_programs(program_owner: Pubkey) -> Result<ProgramTest, Error>
         &mut program_test,
         "mainnet_core_bridge",
         wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
+        None,
+    );
+
+    add_program_upgradeable(
+        &mut program_test,
+        "post_message_shim",
+        POST_MESSAGE_SHIM_PROGRAM_ID,
+        None,
+    );
+
+    add_program_upgradeable(
+        &mut program_test,
+        "verify_vaa_shim",
+        VERIFY_VAA_SHIM_PROGRAM_ID,
         None,
     );
 

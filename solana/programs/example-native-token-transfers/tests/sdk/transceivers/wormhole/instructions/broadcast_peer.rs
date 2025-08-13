@@ -1,10 +1,11 @@
-use crate::sdk::{
-    accounts::{NTTTransceiver, NTT},
-    transceivers::wormhole::accounts::wormhole::wormhole_accounts,
-};
 use anchor_lang::{prelude::*, InstructionData};
 use ntt_transceiver::wormhole::instructions::BroadcastPeerArgs;
 use solana_program::instruction::Instruction;
+
+use crate::sdk::{
+    accounts::{NTTTransceiver, NTT},
+    wormhole_accounts,
+};
 
 pub struct BroadcastPeer {
     pub payer: Pubkey,

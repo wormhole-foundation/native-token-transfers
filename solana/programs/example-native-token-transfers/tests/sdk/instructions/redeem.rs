@@ -1,7 +1,8 @@
-use crate::sdk::accounts::NTT;
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
 use example_native_token_transfers::instructions::RedeemArgs;
 use solana_sdk::instruction::Instruction;
+
+use crate::sdk::accounts::NTT;
 
 #[derive(Debug, Clone)]
 pub struct Redeem {

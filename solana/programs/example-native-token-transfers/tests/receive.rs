@@ -3,19 +3,12 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
-use common::{
-    setup::{TestData, ANOTHER_CHAIN, OTHER_CHAIN},
-    utils::make_transfer_message,
-};
 use example_native_token_transfers::{
     error::NTTError,
     instructions::{RedeemArgs, ReleaseInboundArgs},
     transfer::Payload,
 };
 use ntt_messages::{mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage};
-use sdk::{
-    accounts::NTTAccounts, transceivers::wormhole::instructions::receive_message::ReceiveMessage,
-};
 use solana_program::instruction::InstructionError;
 use solana_program_test::*;
 use solana_sdk::{
@@ -27,17 +20,18 @@ use wormhole_sdk::Address;
 use crate::{
     common::{
         query::GetAccountDataAnchor,
-        setup::{setup, OTHER_TRANSCEIVER},
+        setup::{setup, TestData, ANOTHER_CHAIN, OTHER_CHAIN, OTHER_TRANSCEIVER},
+        submit::Submittable,
+        utils::{make_transfer_message, post_vaa_helper},
     },
     sdk::{
-        accounts::good_ntt,
-        instructions::redeem::{redeem, Redeem},
-        transceivers::wormhole::instructions::receive_message::receive_message,
+        accounts::{good_ntt, NTTAccounts},
+        instructions::{
+            redeem::{redeem, Redeem},
+            release_inbound::{release_inbound_unlock, ReleaseInbound},
+        },
+        transceivers::wormhole::instructions::receive_message::{receive_message, ReceiveMessage},
     },
-};
-use crate::{
-    common::{submit::Submittable, utils::post_vaa_helper},
-    sdk::instructions::release_inbound::{release_inbound_unlock, ReleaseInbound},
 };
 
 pub mod common;

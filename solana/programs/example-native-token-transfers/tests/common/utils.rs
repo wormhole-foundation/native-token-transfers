@@ -1,5 +1,3 @@
-use std::sync::atomic::AtomicU64;
-
 use anchor_lang::AnchorSerialize;
 use example_native_token_transfers::transfer::Payload;
 use ntt_messages::{
@@ -9,12 +7,12 @@ use ntt_messages::{
 };
 use solana_program::pubkey::Pubkey;
 use solana_program_test::ProgramTestContext;
+use std::sync::atomic::AtomicU64;
 use wormhole_sdk::{Address, Chain, Vaa};
 
-use crate::sdk::accounts::NTT;
+use crate::sdk::{accounts::NTT, instructions::post_vaa::post_vaa};
 
 use super::setup::{OTHER_MANAGER, THIS_CHAIN};
-use crate::sdk::instructions::post_vaa::post_vaa;
 
 pub fn make_transfer_message(
     ntt: &NTT,

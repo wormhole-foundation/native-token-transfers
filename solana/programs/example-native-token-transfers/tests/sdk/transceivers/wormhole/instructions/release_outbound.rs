@@ -1,11 +1,12 @@
-use crate::sdk::{
-    accounts::{NTTTransceiver, NTT},
-    transceivers::wormhole::accounts::wormhole::wormhole_accounts,
-};
 use anchor_lang::{prelude::*, InstructionData, ToAccountMetas};
 use example_native_token_transfers::accounts::NotPausedConfig;
 use ntt_transceiver::wormhole::instructions::ReleaseOutboundArgs;
 use solana_sdk::instruction::Instruction;
+
+use crate::sdk::{
+    accounts::{NTTTransceiver, NTT},
+    wormhole_accounts,
+};
 
 pub struct ReleaseOutbound {
     pub payer: Pubkey,

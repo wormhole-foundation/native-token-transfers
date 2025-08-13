@@ -1,6 +1,7 @@
-use crate::sdk::accounts::{NTTTransceiver, NTT};
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
 use solana_sdk::instruction::Instruction;
+
+use crate::sdk::accounts::{NTTTransceiver, NTT};
 
 #[derive(Debug, Clone)]
 pub struct ReceiveMessage {
