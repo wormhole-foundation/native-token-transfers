@@ -5,7 +5,7 @@ use solana_sdk::instruction::Instruction;
 
 use crate::sdk::{
     accounts::{NTTTransceiver, NTT},
-    wormhole_accounts,
+    wormhole_accounts::wormhole_accounts,
 };
 
 pub struct ReleaseOutbound {
@@ -16,18 +16,18 @@ pub struct ReleaseOutbound {
 pub fn release_outbound(
     ntt: &NTT,
     ntt_transceiver: &NTTTransceiver,
-    release_outbound: ReleaseOutbound,
+    accounts: ReleaseOutbound,
     args: ReleaseOutboundArgs,
 ) -> Instruction {
     let data = ntt_transceiver::instruction::ReleaseWormholeOutbound { args };
     let accounts = ntt_transceiver::accounts::ReleaseOutbound {
-        payer: release_outbound.payer,
+        payer: accounts.payer,
         config: NotPausedConfig {
             config: ntt.config(),
         },
-        outbox_item: release_outbound.outbox_item,
-        wormhole_message: ntt_transceiver.wormhole_message(&release_outbound.outbox_item),
-        transceiver: ntt.registered_transceiver(&ntt_transceiver.program),
+        outbox_item: accounts.outbox_item,
+        wormhole_message: ntt_transceiver.wormhole_message_with_shim(),
+        transceiver: ntt.registered_transceiver(&ntt_transceiver.program()),
         wormhole: wormhole_accounts(ntt, ntt_transceiver),
         manager: ntt.program(),
         outbox_item_signer: ntt_transceiver.outbox_item_signer(),
