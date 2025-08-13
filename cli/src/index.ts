@@ -2071,7 +2071,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
                 mint: new PublicKey(token),
                 mode,
                 outboundLimit: 100000000n,
-                ...(!mint.mintAuthority!.equals(tokenAuthority) && {
+                ...(mode === "burning" && !mint.mintAuthority!.equals(tokenAuthority) && {
                     multisigTokenAuthority: mint.mintAuthority!,
                 }),
             }
