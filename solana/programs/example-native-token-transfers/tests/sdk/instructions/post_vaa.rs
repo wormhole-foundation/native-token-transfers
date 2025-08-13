@@ -5,6 +5,7 @@
 //! also, this whole module is a mess. this is way harder than it needs to be
 
 use anchor_lang::prelude::*;
+use libsecp256k1::{sign, Message};
 use serde_wormhole::RawMessage;
 use solana_program::{instruction::AccountMeta, sysvar};
 use solana_program_test::ProgramTestContext;
@@ -13,10 +14,19 @@ use solana_sdk::{
     signer::Signer, transaction::Transaction,
 };
 use wormhole_sdk::vaa::*;
+use wormhole_svm_shim::verify_vaa::{
+    CloseSignatures, CloseSignaturesAccounts, PostSignatures, PostSignaturesAccounts,
+    PostSignaturesData,
+};
 
-use crate::{common::submit::Submittable, sdk::accounts::Wormhole};
+use crate::{
+    common::submit::Submittable,
+    sdk::accounts::{NTTTransceiver, Wormhole},
+};
 
 // NOTE: assuming guardian set index 0 which has a single guardian (who is always the signer)
+pub const GUARDIAN_SET_INDEX: u32 = 0;
+pub const GUARDIAN_INDEX: u8 = 0;
 
 pub const MAX_LEN_GUARDIAN_KEYS: usize = 19;
 
@@ -132,4 +142,80 @@ pub fn verify_signatures<A: AnchorSerialize + Clone>(
         post_vaa_ix,
         posted_vaa,
     )
+}
+
+pub fn get_guardian_signature<A: AnchorSerialize + Clone>(vaa: Vaa<A>, index: u8) -> Signature {
+    let priv_key: libsecp256k1::SecretKey = libsecp256k1::SecretKey::parse(
+        &hex::decode(GUARDIAN_SECRET_KEY)
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    )
+    .unwrap();
+
+    let (_, body): (Header, Body<A>) = vaa.into();
+    let serialized_body: Body<Box<RawMessage>> = Body {
+        payload: Box::<RawMessage>::from(body.payload.try_to_vec().unwrap()),
+        ..body
+    };
+    let digest = serialized_body.digest().unwrap().secp256k_hash;
+    let msg = Message::parse(&digest);
+
+    let (sig, recovery_id) = sign(&msg, &priv_key);
+
+    let mut signature = [0u8; 65];
+    signature[..64].copy_from_slice(&sig.serialize());
+    signature[64] = recovery_id.serialize();
+
+    Signature { index, signature }
+}
+
+pub async fn post_signatures<A: AnchorSerialize + Clone>(
+    ntt_transceiver: &NTTTransceiver,
+    ctx: &mut ProgramTestContext,
+    guardian_signatures: &Keypair,
+    vaa: &Vaa<A>,
+) {
+    PostSignatures {
+        program_id: &ntt_transceiver.verify_vaa_shim_shim(),
+        accounts: PostSignaturesAccounts {
+            payer: &ctx.payer.pubkey(),
+            guardian_signatures: &guardian_signatures.pubkey(),
+        },
+        data: PostSignaturesData::new(
+            vaa.guardian_set_index,
+            u8::try_from(vaa.signatures.len()).unwrap(),
+            &vaa.signatures
+                .iter()
+                .map(|sig| {
+                    let mut buf = [0u8; 66];
+                    buf[0] = sig.index;
+                    buf[1..].copy_from_slice(&sig.signature);
+                    buf
+                })
+                .collect::<Vec<[u8; 66]>>(),
+        ),
+    }
+    .instruction()
+    .submit_with_signers(&[guardian_signatures], ctx)
+    .await
+    .unwrap();
+}
+
+pub async fn close_signatures(
+    ntt_transceiver: &NTTTransceiver,
+    ctx: &mut ProgramTestContext,
+    guardian_signatures: &Pubkey,
+) {
+    CloseSignatures {
+        program_id: &ntt_transceiver.verify_vaa_shim_shim(),
+        accounts: CloseSignaturesAccounts {
+            guardian_signatures,
+            refund_recipient: &ctx.payer.pubkey(),
+        },
+    }
+    .instruction()
+    .submit(ctx)
+    .await
+    .unwrap();
 }
