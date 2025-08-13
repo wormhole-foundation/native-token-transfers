@@ -8,16 +8,16 @@ use example_native_token_transfers::{
 use ntt_messages::mode::Mode;
 use solana_program_test::*;
 use solana_sdk::{instruction::InstructionError, signer::Signer, transaction::TransactionError};
+use wormhole_svm_definitions::solana::{POST_MESSAGE_SHIM_PROGRAM_ID, VERIFY_VAA_SHIM_PROGRAM_ID};
 
 use crate::{
-    common::{
-        query::GetAccountDataAnchor,
-        setup::{setup, TestData},
-        submit::Submittable,
-    },
-    sdk::instructions::admin::{
-        deregister_transceiver, register_transceiver, set_threshold, DeregisterTransceiver,
-        RegisterTransceiver, SetThreshold,
+    common::{query::GetAccountDataAnchor, setup::setup, submit::Submittable},
+    sdk::{
+        accounts::{good_ntt, NTTAccounts},
+        instructions::admin::{
+            deregister_transceiver, register_transceiver, set_threshold, DeregisterTransceiver,
+            RegisterTransceiver, SetThreshold,
+        },
     },
 };
 
