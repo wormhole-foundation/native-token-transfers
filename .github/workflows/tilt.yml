@@ -24,7 +24,7 @@ jobs:
       - name: Clear repository
         run: |
           rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Expand for link to Tilt dashboard (only available during build)
