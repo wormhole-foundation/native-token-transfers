@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use example_native_token_transfers::wormhole_accounts::{pay_wormhole_fee, WormholeAccounts};
-use wormhole_anchor_sdk::wormhole;
 use wormhole_io::TypePrefixedPayload;
 use wormhole_post_message_shim_interface::Finality;
 
@@ -41,28 +40,6 @@ pub fn post_message<'info, A: TypePrefixedPayload>(
         Finality::Finalized,
         TypePrefixedPayload::to_vec_payload(payload),
     )?;
-
-    Ok(())
-}
-
-/// SECURITY: Owner and signer checks are not performed here as this private function is used only by
-/// [`post_message`].
-fn pay_wormhole_fee<'info>(
-    wormhole: &WormholeAccounts<'info>,
-    payer: &AccountInfo<'info>,
-) -> Result<()> {
-    if wormhole.bridge.fee() > 0 {
-        anchor_lang::system_program::transfer(
-            CpiContext::new(
-                wormhole.system_program.to_account_info(),
-                anchor_lang::system_program::Transfer {
-                    from: payer.to_account_info(),
-                    to: wormhole.fee_collector.to_account_info(),
-                },
-            ),
-            wormhole.bridge.fee(),
-        )?;
-    }
 
     Ok(())
 }
