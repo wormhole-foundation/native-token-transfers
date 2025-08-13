@@ -46,6 +46,7 @@ export const multiTokenNativeTokenTransferLayout = [
   { name: "to", ...layoutItems.universalAddressItem },
 ] as const satisfies Layout;
 
+// TODO: does this belong in a different file?
 export const genericMessageLayout = <D extends CustomizableBytes>(data?: D) =>
   [
     prefixItem([0x99, 0x47, 0x4d, 0x50]),

@@ -131,7 +131,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     const isExecuted = await this.gmpManager.isMessageExecuted(
       MultiTokenNtt.messageDigest(
         attestation.emitterChain,
-        attestation.payload["payload"].nttManagerPayload
+        attestation["payload"].nttManagerPayload
       )
     );
     if (!isExecuted) return false;
@@ -145,7 +145,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     return (
       (await this.getInboundQueuedTransfer(
         attestation.emitterChain,
-        attestation.payload["payload"].nttManagerPayload
+        attestation["payload"].nttManagerPayload
       )) !== null
     );
   }
@@ -154,7 +154,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     return this.gmpManager.isMessageApproved(
       MultiTokenNtt.messageDigest(
         attestation.emitterChain,
-        attestation.payload["payload"].nttManagerPayload
+        attestation["payload"].nttManagerPayload
       )
     );
   }
@@ -318,7 +318,9 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   async getTokenDecimals(token: TokenId): Promise<number> {
+    // TODO: what if native is passed?
     return await EvmPlatform.getDecimals(
+      this.network,
       this.chain,
       this.provider,
       token.address.toString()

@@ -37,6 +37,7 @@ export namespace MultiTokenNtt {
     gmpManager: string;
     transceiver: {
       wormhole?: string;
+      axelar?: string; // TODO: should we add this?
     };
   };
 
@@ -53,6 +54,7 @@ export namespace MultiTokenNtt {
     relayerGasLimit: bigint;
   };
 
+  // TODO: why do we need this new type? can we use the existing TokenId?
   export type OriginalTokenId<C extends Chain = Chain> = {
     chain: C;
     address: UniversalAddress;
@@ -61,8 +63,7 @@ export namespace MultiTokenNtt {
   // TODO: what are the set of attestation types for Ntt?
   // can we know this ahead of time or does it need to be
   // flexible enough for folks to add their own somehow?
-  export type Attestation =
-    VAA<"MultiTokenNtt:WormholeTransferStandardRelayer">;
+  export type Attestation = VAA<"MultiTokenNtt:WormholeTransfer">;
 
   /**
    * messageDigest hashes a message for the Ntt manager, the digest is used
@@ -90,6 +91,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   isPaused(): Promise<boolean>;
 
   /** Check to see if relaying service is available for automatic transfers */
+  // TODO: remove?
   isRelayingAvailable(destination: Chain): Promise<boolean>;
 
   /**
@@ -99,6 +101,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
    * @param destination the destination chain
    * @param flags the flags to use for the delivery
    */
+  // TODO: remove? but this should give us the WH core fee
   quoteDeliveryPrice(
     destination: Chain,
     options: MultiTokenNtt.TransferOptions

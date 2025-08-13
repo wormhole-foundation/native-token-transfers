@@ -270,14 +270,9 @@ export namespace MultiTokenNttRoute {
     contracts: MultiTokenNtt.Contracts[];
   };
 
-  /** Options for Per-TransferRequest settings */
-  export interface Options {
-    relayerGasLimit?: bigint;
-  }
-
-  export const AutomaticOptions: Options = {
-    relayerGasLimit: undefined,
-  };
+  //export interface Options {
+  //  automatic: boolean;
+  //}
 
   export type NormalizedParams = {
     amount: amount.Amount;
@@ -289,19 +284,19 @@ export namespace MultiTokenNttRoute {
   };
 
   export interface ValidatedParams
-    extends routes.ValidatedTransferParams<Options> {
+    extends routes.ValidatedTransferParams<routes.Options> {
     normalizedParams: NormalizedParams;
   }
 
-  export type AutomaticAttestationReceipt = {
+  export type ManualAttestationReceipt = {
     id: WormholeMessageId;
-    attestation: VAA<"MultiTokenNtt:WormholeTransferStandardRelayer">;
+    attestation: VAA<"MultiTokenNtt:WormholeTransfer">;
   };
 
-  export type AutomaticTransferReceipt<
+  export type ManualTransferReceipt<
     SC extends Chain = Chain,
     DC extends Chain = Chain
-  > = _TransferReceipt<AutomaticAttestationReceipt, SC, DC> & {
+  > = _TransferReceipt<ManualAttestationReceipt, SC, DC> & {
     params: ValidatedParams;
   };
 

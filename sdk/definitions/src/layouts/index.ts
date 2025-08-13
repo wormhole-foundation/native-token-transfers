@@ -43,12 +43,10 @@ export const nttNamedPayloads = [
 
 export const multiTokenNttNamedPayloads = [
   [
-    "WormholeTransferStandardRelayer",
-    deliveryInstructionLayout(
-      wormholeTransceiverMessageLayout(
-        nttManagerMessageLayout(
-          genericMessageLayout(multiTokenNativeTokenTransferLayout)
-        )
+    "WormholeTransfer",
+    wormholeTransceiverMessageLayout(
+      nttManagerMessageLayout(
+        genericMessageLayout(multiTokenNativeTokenTransferLayout)
       )
     ),
   ],

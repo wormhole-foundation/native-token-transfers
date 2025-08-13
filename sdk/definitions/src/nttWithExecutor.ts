@@ -7,6 +7,7 @@ import {
 } from "@wormhole-foundation/sdk-definitions";
 import { Ntt } from "./ntt.js";
 
+// TODO: might be worth moving this to a common place since it's used in multiple places (multi token executor route and executor route)
 export namespace NttWithExecutor {
   export type Quote = {
     signedQuote: Uint8Array; // The signed quote from the /v0/quote endpoint
