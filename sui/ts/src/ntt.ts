@@ -123,10 +123,19 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   // Helper method to fetch and validate NTT state object with proper typing
   private async getNttState(): Promise<SuiNttState> {
-    const response = await this.provider.getObject({
-      id: this.contracts.ntt!["manager"],
-      options: { showContent: true },
-    });
+    let response;
+    try {
+      response = await this.provider.getObject({
+        id: this.contracts.ntt!["manager"],
+        options: { showContent: true },
+      });
+    } catch (error: any) {
+      throw new Error(
+        `Failed to fetch NTT state object: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
 
     if (
       !response.data?.content ||
@@ -1188,9 +1197,12 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     transceiverMessage: Ntt.Message
   ): Promise<Ntt.InboundQueuedTransfer<C> | null> {
     // Create an attestation object from the transceiver message
+    // The attestation needs to have the proper structure for getInboxItem to find it
     const attestation = {
       emitterChain: fromChain,
-      hash: transceiverMessage.id,
+      payload: {
+        nttManagerPayload: transceiverMessage,
+      },
     } as Ntt.Attestation;
 
     // Get the release status
@@ -1204,7 +1216,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     // The timestamp should be in the fields of the enum variant
     // TODO Not sure if this is the correct way to get the timestamp
     // I wasn't able to get the exact field name while debugging live
-    const releaseTimestamp = parseInt(releaseStatus.fields?.[0]);
+    const releaseTimestamp = parseInt(releaseStatus.fields?.["pos0"]);
 
     // Get the full inbox item to access the transfer data
     const inboxItem = await this.getInboxItem(attestation);
@@ -1237,7 +1249,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     // Try to get amount - prefer message payload, fallback to inbox data
     let amount: bigint;
     if (transceiverMessage.payload?.trimmedAmount) {
-      amount = BigInt(transceiverMessage.payload.trimmedAmount.toString());
+      amount = transceiverMessage.payload.trimmedAmount.amount;
     } else if (transferData.amount) {
       amount = BigInt(transferData.amount.toString());
     } else {
@@ -1267,9 +1279,12 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     }
 
     // Create an attestation from the transceiverMessage
+    // Need proper payload structure to match getInboxItem expectations
     const attestation = {
       emitterChain: fromChain,
-      hash: transceiverMessage.id,
+      payload: {
+        nttManagerPayload: transceiverMessage,
+      },
     } as Ntt.Attestation;
 
     // Call redeem with the attestation
