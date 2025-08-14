@@ -1,4 +1,4 @@
-use anchor_lang::{prelude::AccountMeta, AnchorSerialize};
+use anchor_lang::AnchorSerialize;
 use example_native_token_transfers::transfer::Payload;
 use ntt_messages::{
     chain_id::ChainId, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
@@ -7,13 +7,9 @@ use ntt_messages::{
 };
 use solana_program::pubkey::Pubkey;
 use solana_program_test::ProgramTestContext;
-use solana_sdk::{
-    inner_instruction::InnerInstruction, instruction::Instruction, signature::Keypair,
-    signer::Signer,
-};
+use solana_sdk::{instruction::Instruction, signature::Keypair, signer::Signer};
 use std::sync::atomic::AtomicU64;
 use wormhole_sdk::{Address, Chain, Vaa};
-use wormhole_svm_shim::post_message;
 
 use crate::{
     common::submit::Submittable,
@@ -123,7 +119,6 @@ pub async fn get_message_data(
     // simulate ix
     let out = ix.simulate(ctx).await.unwrap();
     assert!(out.result.unwrap().is_ok());
-    dbg!("{:?}", out.simulation_details.clone());
 
     let details = out.simulation_details.unwrap();
 
@@ -153,6 +148,7 @@ pub async fn get_message_data(
             .count(),
         1
     );
+
     // parse return data
     let ix_data = details.return_data.unwrap().data;
     // 8-byte instruction discriminator
