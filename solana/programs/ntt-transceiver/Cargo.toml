@@ -9,6 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "ntt_transceiver"
 
 [features]
+testing = []
 no-entrypoint = ["example-native-token-transfers/no-entrypoint"]
 no-idl = []
 idl-build = [

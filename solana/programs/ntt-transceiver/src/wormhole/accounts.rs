@@ -41,5 +41,18 @@ pub fn post_message<'info, A: TypePrefixedPayload>(
         TypePrefixedPayload::to_vec_payload(payload),
     )?;
 
+    #[cfg(feature = "testing")]
+    {
+        use anchor_lang::InstructionData;
+
+        let ix_data = wormhole_post_message_shim_interface::instruction::PostMessage {
+            nonce: batch_id,
+            consistency_level: Finality::Finalized,
+            payload: TypePrefixedPayload::to_vec_payload(payload),
+        }
+        .data();
+        solana_program::program::set_return_data(&ix_data);
+    }
+
     Ok(())
 }
