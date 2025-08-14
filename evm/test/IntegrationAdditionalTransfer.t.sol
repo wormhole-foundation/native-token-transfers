@@ -73,12 +73,7 @@ contract TestAdditionalPayload is Test {
         nttManagerChain1.initialize();
 
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain1 = MockWormholeTransceiverContract(
             address(new ERC1967Proxy(address(wormholeTransceiverChain1Implementation), ""))
@@ -111,12 +106,7 @@ contract TestAdditionalPayload is Test {
         nttManagerChain2.initialize();
 
         WormholeTransceiver wormholeTransceiverChain2Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain2),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain2), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain2 = MockWormholeTransceiverContract(
             address(new ERC1967Proxy(address(wormholeTransceiverChain2Implementation), ""))

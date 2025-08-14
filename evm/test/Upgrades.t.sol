@@ -50,7 +50,6 @@ contract TestUpgrades is Test, IRateLimiterEvents {
     address userC = address(0x789);
     address userD = address(0xABC);
 
-    address relayer = address(0x28D8F1Be96f97C1387e94A53e00eCcFb4E75175a);
     IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
 
     function setUp() public virtual {
@@ -71,12 +70,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         nttManagerChain1.initialize();
 
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain1 = MockWormholeTransceiverContract(
             address(new ERC1967Proxy(address(wormholeTransceiverChain1Implementation), ""))
@@ -99,12 +93,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         nttManagerChain2.initialize();
 
         WormholeTransceiver wormholeTransceiverChain2Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain2),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain2), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain2 = MockWormholeTransceiverContract(
             address(new ERC1967Proxy(address(wormholeTransceiverChain2Implementation), ""))
@@ -155,12 +144,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
     function test_basicUpgradeTransceiver() public {
         // Basic call to upgrade with the same contact as well
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain1.upgrade(address(wormholeTransceiverChain1Implementation));
 
@@ -233,12 +217,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
     function test_doubleUpgradeTransceiver() public {
         // Basic call to upgrade with the same contact as well
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain1.upgrade(address(wormholeTransceiverChain1Implementation));
 
@@ -269,12 +248,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
     function test_storageSlotTransceiver() public {
         // Basic call to upgrade with the same contact as ewll
         WormholeTransceiver newImplementation = new MockWormholeTransceiverLayoutChange(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain1.upgrade(address(newImplementation));
 
@@ -303,12 +277,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
     function test_callMigrateTransceiver() public {
         // Basic call to upgrade with the same contact as well
         MockWormholeTransceiverMigrateBasic wormholeTransceiverChain1Implementation = new MockWormholeTransceiverMigrateBasic(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
 
         vm.expectRevert("Proper migrate called");
@@ -338,12 +307,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
 
         address oldNttManager = wormholeTransceiverChain1.nttManager();
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverMigrateBasic(
-            address(nttManagerChain2),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain2), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
 
         vm.expectRevert(); // Reverts with a panic on the assert. So, no way to tell WHY this happened.
@@ -372,12 +336,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
 
     function test_immutableBlockUpdateSuccessTransceiver() public {
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverImmutableAllow(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
 
         //vm.expectRevert(); // Reverts with a panic on the assert. So, no way to tell WHY this happened.
@@ -439,12 +398,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
 
         // Basic call so that we can easily see what the new transceiver is.
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain1.upgrade(address(wormholeTransceiverChain1Implementation));
         basicFunctionality(); // Ensure that the upgrade was proper
@@ -663,7 +617,6 @@ contract TestInitialize is Test {
     WormholeTransceiver wormholeTransceiverChain1;
     address userA = address(0x123);
 
-    address relayer = address(0x28D8F1Be96f97C1387e94A53e00eCcFb4E75175a);
     IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
 
     function test_doubleInitialize() public {
