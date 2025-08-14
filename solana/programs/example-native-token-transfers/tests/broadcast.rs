@@ -54,10 +54,8 @@ async fn test_broadcast_peer() {
 
     assert_eq!(msg.nonce, 0); // hardcoded
     assert_eq!(msg.consistency_level, Finalized.encode()); // hardcoded
-    let transceiver_registration =
-        WormholeTransceiverRegistration::deserialize(&mut &msg.payload[..]).unwrap();
     assert_eq!(
-        transceiver_registration,
+        WormholeTransceiverRegistration::deserialize(&mut &msg.payload[..]).unwrap(),
         WormholeTransceiverRegistration {
             chain_id: ChainId { id: OTHER_CHAIN },
             transceiver_address: OTHER_TRANSCEIVER
@@ -90,9 +88,8 @@ async fn test_broadcast_id() {
 
     assert_eq!(msg.nonce, 0); // hardcoded
     assert_eq!(msg.consistency_level, Finalized.encode()); // hardcoded
-    let transceiver_info = WormholeTransceiverInfo::deserialize(&mut &msg.payload[..]).unwrap();
     assert_eq!(
-        transceiver_info,
+        WormholeTransceiverInfo::deserialize(&mut &msg.payload[..]).unwrap(),
         WormholeTransceiverInfo {
             manager_address: good_ntt.program().to_bytes(),
             manager_mode: Mode::Locking,

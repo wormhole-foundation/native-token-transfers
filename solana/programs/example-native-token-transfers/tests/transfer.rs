@@ -190,13 +190,11 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
 
     assert_eq!(msg.nonce, 0); // hardcoded
     assert_eq!(msg.consistency_level, Finalized.encode()); // hardcoded
-    let transceiver_message =
+    assert_eq!(
         TransceiverMessage::<WormholeTransceiver, NativeTokenTransfer<Payload>>::deserialize(
             &mut &msg.payload[..],
         )
-        .unwrap();
-    assert_eq!(
-        transceiver_message,
+        .unwrap(),
         TransceiverMessage::new(
             example_native_token_transfers::ID.to_bytes(),
             OTHER_MANAGER,
