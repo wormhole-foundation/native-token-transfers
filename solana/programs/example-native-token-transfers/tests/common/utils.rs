@@ -162,13 +162,27 @@ pub async fn get_message_data(
         1
     );
 
+    let ix_data = details.return_data.unwrap().data;
+    // 8-byte instruction discriminator
+    let nonce = u32::from_le_bytes(ix_data[8..12].try_into().unwrap());
+    let consistency_level: u8 = ix_data[12];
+    // 4-byte Vec length
+    let payload = ix_data[17..].to_vec();
+
     // verify inner ixs
     let inner_instructions = details.inner_instructions;
     // TODO: `inner_instructions` is always `None` even though CPIs happen. This limits the
     // testing that can be done as we can no longer parse the VAA message to verify it.
     // Figure out how to get instruction data that can be parsed to re-create the VAA message.
     if inner_instructions.is_none() {
-        return None;
+        return Some(PostMessageShimMessageData {
+            nonce,
+            consistency_level,
+            payload,
+            emitter_address: Address([0u8; 32]),
+            sequence: 0,
+            submission_time: 0,
+        });
     }
     // NOTE: the following code is untested as `inner_instructions` is always `None`
     {
