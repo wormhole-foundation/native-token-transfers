@@ -1,7 +1,7 @@
 [package]
 name = "ntt-transceiver"
 version = "3.0.0"
-description = "Created with Anchor"
+description = "Example implementation of native token transfer transceiver using Wormhole Post Message Shim and Verify VAA Shim"
 edition = "2021"
 
 [lib]
@@ -9,21 +9,25 @@ crate-type = ["cdylib", "lib"]
 name = "ntt_transceiver"
 
 [features]
-no-entrypoint = []
+no-entrypoint = ["example-native-token-transfers/no-entrypoint"]
 no-idl = []
 idl-build = [
   "anchor-lang/idl-build",
   "anchor-spl/idl-build",
-  "example-native-token-transfers/idl-build"
+  "example-native-token-transfers/idl-build",
+  "wormhole-anchor-sdk/mainnet" # TODO: is this kosher? builds idl without passing on our feature flags
 ]
 no-log-ix-name = []
-cpi = ["no-entrypoint"]
-default = []
+cpi = ["no-entrypoint", "example-native-token-transfers/cpi"]
+default = ["mainnet"]
+wormhole-transceiver = ["example-native-token-transfers/cpi"]
+transceiver-type-from-env = []
 
-mainnet = [ "wormhole-anchor-sdk/mainnet" ]
-solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
-tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
-tilt-devnet2 = [ "tilt-devnet" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env", "example-native-token-transfers/bridge-address-from-env" ]
+mainnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/mainnet", "example-native-token-transfers/mainnet" ]
+solana-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet", "example-native-token-transfers/solana-devnet" ]
+tilt-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet" ]
+tilt-devnet2 = [ "wormhole-transceiver", "tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet2" ]
 
 [lints]
 workspace = true
@@ -33,12 +37,16 @@ ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "has
 anchor-lang.workspace = true
 anchor-spl.workspace = true
 solana-program.workspace = true
+wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
+wormhole-verify-vaa-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
+wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
+cfg-if = "1.0.0"
 
 wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true
 wormhole-sdk.workspace = true
 
-example-native-token-transfers = { path = "../example-native-token-transfers", features = ["no-entrypoint", "cpi"] }
+example-native-token-transfers = { path = "../example-native-token-transfers", default-features = false }
 
 [dev-dependencies]
 hex.workspace = true
