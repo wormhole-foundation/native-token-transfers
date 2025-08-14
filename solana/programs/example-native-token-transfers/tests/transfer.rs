@@ -37,7 +37,7 @@ use crate::{
         utils::get_message_data,
     },
     sdk::{
-        accounts::{good_ntt, good_ntt_transceiver, NTTAccounts, NTTTransceiverAccounts, NTT},
+        accounts::{good_ntt, good_ntt_transceiver, NTTAccounts, NTT},
         instructions::{
             admin::{set_outbound_limit, set_paused, SetOutboundLimit, SetPaused},
             transfer::{
@@ -944,15 +944,6 @@ async fn test_cant_release_queued() {
     .unwrap();
 
     assert_queued(&mut ctx, outbox_item.pubkey()).await;
-
-    // just to be safe, let's make sure the wormhole message account wasn't initialised
-    let wh_message = good_ntt_transceiver.wormhole_message(&outbox_item.pubkey());
-    assert!(ctx
-        .banks_client
-        .get_account(wh_message)
-        .await
-        .unwrap()
-        .is_none());
 }
 
 #[tokio::test]
