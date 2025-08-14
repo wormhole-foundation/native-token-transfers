@@ -30,8 +30,8 @@ import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
-const EXCLUDED_DIFF_PATHS = [
-    "transceivers.wormhole.executor"
+const EXCLUDED_DIFF_PATHS: string[] = [
+    // REMOVED: "transceivers.wormhole.executor"
 ];
 
 // Helper functions for nested object access
@@ -57,8 +57,6 @@ import { AbiCoder, ethers, Interface } from "ethers";
 import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
 
 // TODO: contract upgrades on solana
-// TODO: set special relaying?
-// TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
@@ -95,7 +93,7 @@ export type ChainConfig = {
     token: string,
     transceivers: {
         threshold: number,
-        wormhole: { address: string, pauser?: string, executor?: boolean },
+        wormhole: { address: string, pauser?: string },
     },
     limits: {
         outbound: string,
@@ -363,15 +361,10 @@ yargs(hideBin(process.argv))
             .option("local", options.local)
             .option("path", options.deploymentPath)
             .option("yes", options.yes)
-            .option("executor", {
-                describe: "Use executor mode",
-                type: "boolean",
-                default: true,
-            })
+
             .example("$0 add-chain Ethereum --token 0x1234... --mode burning --latest", "Add Ethereum chain with the latest contract version in burning mode")
             .example("$0 add-chain Solana --token Sol1234... --mode locking --ver 1.0.0", "Add Solana chain with a specific contract version in locking mode")
-            .example("$0 add-chain Avalanche --token 0xabcd... --mode burning --local", "Add Avalanche chain using the local contract version")
-            .example("$0 add-chain Base --token 0xdef... --mode burning --executor", "Add Base chain with executor mode enabled"),
+            .example("$0 add-chain Avalanche --token 0xabcd... --mode burning --local", "Add Avalanche chain using the local contract version"),
         async (argv) => {
             const path = argv["path"];
             const deployments: Config = loadConfig(path);
@@ -429,14 +422,13 @@ yargs(hideBin(process.argv))
             const ch = wh.getChain(chain);
 
             // TODO: make manager configurable
-            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["executor"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"]);
+            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"]);
 
             const [config, _ctx, _ntt, decimals] =
                 await pullChainConfig(network, deployedManager, overrides);
 
             console.log("token decimals:", chalk.yellow(decimals));
 
-            config.transceivers.wormhole.executor = argv["executor"];
 
             deployments.chains[chain] = config;
             fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
@@ -807,18 +799,6 @@ yargs(hideBin(process.argv))
                     const tx = ntt.setTransceiverPeer(0, transceiver, signer.address.address)
                     await signSendWaitFunc(ctx, tx, signer.signer)
                 }
-                for (const evmChain of missingConfig.evmChains) {
-                    const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsEvmChain(evmChain, true)
-                    await signSendWaitFunc(ctx, tx, signer.signer)
-                }
-                for (const [relayingTarget, value] of missingConfig.standardRelaying) {
-                    const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsWormholeRelayingEnabled(relayingTarget, value)
-                    await signSendWaitFunc(ctx, tx, signer.signer)
-                }
-                for (const [relayingTarget, value] of missingConfig.specialRelaying) {
-                    const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsSpecialRelayingEnabled(relayingTarget, value)
-                    await signSendWaitFunc(ctx, tx, signer.signer)
-                }
                 if (missingConfig.solanaWormholeTransceiver) {
                     if (chainToPlatform(chain) !== "Solana") {
                         console.error("Solana wormhole transceiver can only be set on Solana chains");
@@ -934,23 +914,6 @@ yargs(hideBin(process.argv))
                 }
                 for (const transceiver of missingConfig.transceiverPeers) {
                     console.error(`  Missing transceiver peer: ${transceiver.chain}`);
-                }
-                for (const evmChain of missingConfig.evmChains) {
-                    console.error(`  ${evmChain} needs to be configured as an EVM chain`);
-                }
-                for (const [relayingTarget, shouldBeSet] of missingConfig.standardRelaying) {
-                    if (shouldBeSet) {
-                        console.warn(chalk.yellow(`  Standard relaying not configured for ${relayingTarget}`));
-                    } else {
-                        console.warn(chalk.yellow(`  Standard relaying configured for ${relayingTarget}, but should not be`));
-                    }
-                }
-                for (const [relayingTarget, shouldBeSet] of missingConfig.specialRelaying) {
-                    if (shouldBeSet) {
-                        console.warn(chalk.yellow(`  Special relaying not configured for ${relayingTarget}`));
-                    } else {
-                        console.warn(chalk.yellow(`  Special relaying configured for ${relayingTarget}, but should not be`));
-                    }
                 }
                 if (missingConfig.solanaWormholeTransceiver) {
                     console.error("  Missing Solana wormhole transceiver");
@@ -1632,9 +1595,6 @@ yargs(hideBin(process.argv))
 type MissingImplicitConfig = {
     managerPeers: Ntt.Peer<Chain>[];
     transceiverPeers: ChainAddress<Chain>[];
-    evmChains: Chain[];
-    standardRelaying: [Chain, boolean][];
-    specialRelaying: [Chain, boolean][];
     solanaWormholeTransceiver: boolean;
     solanaUpdateLUT: boolean;
 }
@@ -1800,7 +1760,6 @@ async function deploy<N extends Network, C extends Chain>(
     signerType: SignerType,
     evmVerify: boolean,
     yes: boolean,
-    executor: boolean,
     solanaPayer?: string,
     solanaProgramKeyPath?: string,
     solanaBinaryPath?: string,
@@ -1813,7 +1772,7 @@ async function deploy<N extends Network, C extends Chain>(
     const worktree = version ? createWorkTree(platform, version) : ".";
     switch (platform) {
         case "Evm":
-            return await deployEvm(worktree, mode, ch, token, signerType, evmVerify, executor);
+            return await deployEvm(worktree, mode, ch, token, signerType, evmVerify);
         case "Solana":
             if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
                 console.error("Payer not found. Specify with --payer");
@@ -1833,7 +1792,6 @@ async function deployEvm<N extends Network, C extends Chain>(
     token: string,
     signerType: SignerType,
     verify: boolean,
-    executor: boolean,
 ): Promise<ChainAddress<C>> {
     ensureNttRoot(pwd);
 
@@ -1842,22 +1800,8 @@ async function deployEvm<N extends Network, C extends Chain>(
         console.error("Core bridge not found");
         process.exit(1);
     }
-    const relayer = ch.config.contracts.relayer;
-    if (!relayer && !executor) {
-        console.error("Standard Relayer not found. If you want to use the Executor, pass the --executor flag to add-chain");
-        process.exit(1);
-    }
 
     const rpc = ch.config.rpc;
-    // TODO: how to make specialRelayer configurable??
-    let specialRelayer: string;
-    if (ch.chain === "Avalanche") {
-        specialRelayer = "0x1a19d8a194630642f750376Ae72b4eDF5aDFd25F";
-    } else if (ch.chain === "Bsc") {
-        specialRelayer = "0x8C56eE9cd232d23541a697C0eBd3cA597DE3c88D";
-    } else {
-        specialRelayer = "0x63BE47835c7D66c4aA5B2C688Dc6ed9771c94C74";
-    }
 
     const provider = new ethers.JsonRpcProvider(rpc);
     const abi = ["function decimals() external view returns (uint8)"];
@@ -1890,14 +1834,13 @@ async function deployEvm<N extends Network, C extends Chain>(
     const deploy = async (simulate: boolean): Promise<string> => {
         const simulateArg = simulate ? "" : "--skip-simulation";
         const slowFlag = getSlowFlag(ch.chain);
-        const effectiveRelayer = relayer || "0x0000000000000000000000000000000000000000";
         await withCustomEvmDeployerScript(pwd, async () => {
             try {
                 execSync(`
 forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${rpc} \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
+--sig "${sig}" ${wormhole} ${token} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${verifyArgs.join(' ')} ${signerArgs} 2>&1 | tee last-run.stdout`, {
                         cwd: `${pwd}/evm`,
                         encoding: 'utf8',
@@ -2218,9 +2161,6 @@ async function missingConfigs(
         let missing: MissingImplicitConfig = {
             managerPeers: [],
             transceiverPeers: [],
-            evmChains: [],
-            standardRelaying: [],
-            specialRelaying: [],
             solanaWormholeTransceiver: false,
             solanaUpdateLUT: false,
         };
@@ -2273,33 +2213,6 @@ async function missingConfigs(
                 }
             }
 
-            if (chainToPlatform(fromChain) === "Evm") {
-                const toIsEvm = chainToPlatform(toChain) === "Evm";
-                const toIsSolana = chainToPlatform(toChain) === "Solana";
-                const whTransceiver = await from.ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>;
-
-                if (toIsEvm) {
-                    const remoteToEvm = await whTransceiver.isEvmChain(toChain);
-                    if (!remoteToEvm) {
-                        count++;
-                        missing.evmChains.push(toChain);
-                    }
-
-                    const standardRelaying = await whTransceiver.isWormholeRelayingEnabled(toChain);
-                    const desiredStandardRelaying = !(from.config.local?.transceivers.wormhole.executor ?? false);
-                    if (standardRelaying !== desiredStandardRelaying) {
-                        count++;
-                        missing.standardRelaying.push([toChain, desiredStandardRelaying]);
-                    }
-                } else if (toIsSolana) {
-                    const specialRelaying = await whTransceiver.isSpecialRelayingEnabled(toChain);
-                    const desiredSpecialRelaying = !(from.config.local?.transceivers.wormhole.executor ?? false);
-                    if (specialRelaying !== desiredSpecialRelaying) {
-                        count++;
-                        missing.specialRelaying.push([toChain, desiredSpecialRelaying]);
-                    }
-                }
-            }
 
             const transceiverPeer = await retryWithExponentialBackoff(() => from.whTransceiver.getPeer(toChain), 5, 5000);
             if (transceiverPeer === null) {
@@ -2530,8 +2443,6 @@ async function getImmutables<N extends Network, C extends Chain>(chain: C, ntt: 
     const evmNtt = ntt as EvmNtt<N, EvmChains>;
     const transceiver = await evmNtt.getTransceiver(0) as EvmNttWormholeTranceiver<N, EvmChains>;
     const consistencyLevel = await transceiver.transceiver.consistencyLevel();
-    const wormholeRelayer = await transceiver.transceiver.wormholeRelayer();
-    const specialRelayer = await transceiver.transceiver.specialRelayer();
     const gasLimit = await transceiver.transceiver.gasLimit();
 
     const token = await evmNtt.manager.token();
@@ -2539,8 +2450,6 @@ async function getImmutables<N extends Network, C extends Chain>(chain: C, ntt: 
 
     const whTransceiverImmutables = {
         consistencyLevel,
-        wormholeRelayer,
-        specialRelayer,
         gasLimit,
     };
     return {
