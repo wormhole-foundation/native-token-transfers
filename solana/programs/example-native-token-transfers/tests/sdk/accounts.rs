@@ -243,14 +243,6 @@ pub trait NTTTransceiverAccounts {
         outbox_item_signer
     }
 
-    fn wormhole_message(&self, outbox_item: &Pubkey) -> Pubkey {
-        let (wormhole_message, _) = Pubkey::find_program_address(
-            &[b"message".as_ref(), outbox_item.as_ref()],
-            &self.program(),
-        );
-        wormhole_message
-    }
-
     fn wormhole_message_with_shim(&self) -> Pubkey {
         let (wormhole_message, _) = Pubkey::find_program_address(
             &[self.emitter().as_ref()],
