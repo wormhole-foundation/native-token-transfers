@@ -13,6 +13,7 @@ use solana_sdk::{
 };
 use std::sync::atomic::AtomicU64;
 use wormhole_sdk::{Address, Chain, Vaa};
+use wormhole_svm_shim::post_message;
 
 use crate::{
     common::submit::Submittable,
@@ -104,13 +105,16 @@ pub fn vaa_body<A: AnchorSerialize + Clone>(vaa: &Vaa<A>) -> Vec<u8> {
     bytes
 }
 
-pub struct PostMessageShimMessageData {
+pub struct PostMessageShimInstructionData {
     pub nonce: u32,
     pub consistency_level: u8,
     pub payload: Vec<u8>,
-    pub emitter_address: Address,
-    pub sequence: u64,
-    pub submission_time: u32,
+}
+
+#[derive(Default)]
+pub struct PostMessageShimMessageData {
+    pub instruction_data: Option<PostMessageShimInstructionData>,
+    pub message_event: Option<wormhole_post_message_shim_interface::MessageEvent>,
 }
 
 pub async fn get_message_data(
@@ -162,61 +166,30 @@ pub async fn get_message_data(
         1
     );
 
-    let ix_data = details.return_data.unwrap().data;
-    // 8-byte instruction discriminator
-    let nonce = u32::from_le_bytes(ix_data[8..12].try_into().unwrap());
-    let consistency_level: u8 = ix_data[12];
-    // 4-byte Vec length
-    let payload = ix_data[17..].to_vec();
+    let mut post_message_shim_message_data = PostMessageShimMessageData::default();
 
-    // verify inner ixs
-    let inner_instructions = details.inner_instructions;
-    // TODO: `inner_instructions` is always `None` even though CPIs happen. This limits the
-    // testing that can be done as we can no longer parse the VAA message to verify it.
-    // Figure out how to get instruction data that can be parsed to re-create the VAA message.
-    if inner_instructions.is_none() {
-        return PostMessageShimMessageData {
-            nonce,
-            consistency_level,
-            payload,
-            emitter_address: Address([0u8; 32]),
-            sequence: 0,
-            submission_time: 0,
-        };
-    }
-    // NOTE: the following code is untested as `inner_instructions` is always `None`
+    // parse return data
     {
-        assert!(inner_instructions.is_some());
-        let post_message_shim_filter = |inner_ix: &&InnerInstruction| {
-            inner_ix.instruction.program_id_index == post_message_shim_index
-        };
-        let flattened_ixs: Vec<InnerInstruction> =
-            inner_instructions.unwrap().into_iter().flatten().collect();
-        let post_message_shim_ixs: Vec<&InnerInstruction> = flattened_ixs
-            .iter()
-            .filter(post_message_shim_filter)
-            .collect();
-        assert_eq!(post_message_shim_ixs.len(), 2);
-
-        // parse instruction data
-        let ix_data = &post_message_shim_ixs[0].instruction.data;
-        let nonce = u32::from_be_bytes(ix_data[..4].try_into().unwrap());
-        let consistency_level: u8 = ix_data[5];
-        let payload = ix_data[6..].to_vec();
-
-        // parse cpi event
-        let event_data = &post_message_shim_ixs[1].instruction.data;
-        let emitter_address = Address(event_data[16..48].try_into().unwrap());
-        let sequence = u64::from_be_bytes(event_data[48..56].try_into().unwrap());
-        let submission_time = u32::from_be_bytes(event_data[56..60].try_into().unwrap());
-
-        PostMessageShimMessageData {
+        let ix_data = details.return_data.unwrap().data;
+        // 8-byte instruction discriminator
+        let nonce = u32::from_le_bytes(ix_data[8..12].try_into().unwrap());
+        let consistency_level: u8 = ix_data[12];
+        // 4-byte Vec length
+        let payload = ix_data[17..].to_vec();
+        post_message_shim_message_data.instruction_data = Some(PostMessageShimInstructionData {
             nonce,
             consistency_level,
             payload,
-            emitter_address,
-            sequence,
-            submission_time,
-        }
+        });
     }
+
+    // TODO: Figure out how to get CPI event that can be parsed to re-create the VAA message.
+    // `inner_instructions` is always `None` even though CPIs happen. This limits the
+    // testing that can be done as we can no longer parse the CPI event to verify it.
+    let inner_instructions = details.inner_instructions;
+    if inner_instructions.is_none() {
+        return post_message_shim_message_data;
+    }
+
+    post_message_shim_message_data
 }
