@@ -118,7 +118,7 @@ pub async fn get_message_data(
     ntt_transceiver: &NTTTransceiver,
     ctx: &mut ProgramTestContext,
     ix: Instruction,
-) -> Option<PostMessageShimMessageData> {
+) -> PostMessageShimMessageData {
     // find index of post_message_shim program in accounts
     let is_post_message_shim_program =
         |meta: &AccountMeta| meta.pubkey == ntt_transceiver.post_message_shim().program;
@@ -175,14 +175,14 @@ pub async fn get_message_data(
     // testing that can be done as we can no longer parse the VAA message to verify it.
     // Figure out how to get instruction data that can be parsed to re-create the VAA message.
     if inner_instructions.is_none() {
-        return Some(PostMessageShimMessageData {
+        return PostMessageShimMessageData {
             nonce,
             consistency_level,
             payload,
             emitter_address: Address([0u8; 32]),
             sequence: 0,
             submission_time: 0,
-        });
+        };
     }
     // NOTE: the following code is untested as `inner_instructions` is always `None`
     {
@@ -210,13 +210,13 @@ pub async fn get_message_data(
         let sequence = u64::from_be_bytes(event_data[48..56].try_into().unwrap());
         let submission_time = u32::from_be_bytes(event_data[56..60].try_into().unwrap());
 
-        Some(PostMessageShimMessageData {
+        PostMessageShimMessageData {
             nonce,
             consistency_level,
             payload,
             emitter_address,
             sequence,
             submission_time,
-        })
+        }
     }
 }
