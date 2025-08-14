@@ -111,27 +111,15 @@ pub struct PostMessageShimInstructionData {
     pub payload: Vec<u8>,
 }
 
-#[derive(Default)]
-pub struct PostMessageShimMessageData {
-    pub instruction_data: Option<PostMessageShimInstructionData>,
-    pub message_event: Option<wormhole_post_message_shim_interface::MessageEvent>,
-}
-
+// TODO: Figure out how to get CPI event that can be parsed to re-create the VAA message.
+// `inner_instructions` is always `None` even though CPIs happen. This limits the
+// testing that can be done as we can no longer parse the CPI event from it.
 pub async fn get_message_data(
     wh: &Wormhole,
     ntt_transceiver: &NTTTransceiver,
     ctx: &mut ProgramTestContext,
     ix: Instruction,
-) -> PostMessageShimMessageData {
-    // find index of post_message_shim program in accounts
-    let is_post_message_shim_program =
-        |meta: &AccountMeta| meta.pubkey == ntt_transceiver.post_message_shim().program;
-    let post_message_shim_index = ix
-        .accounts
-        .iter()
-        .position(is_post_message_shim_program)
-        .unwrap() as u8;
-
+) -> PostMessageShimInstructionData {
     // simulate ix
     let out = ix.simulate(ctx).await.unwrap();
     assert!(out.result.unwrap().is_ok());
@@ -165,31 +153,17 @@ pub async fn get_message_data(
             .count(),
         1
     );
-
-    let mut post_message_shim_message_data = PostMessageShimMessageData::default();
-
     // parse return data
-    {
-        let ix_data = details.return_data.unwrap().data;
-        // 8-byte instruction discriminator
-        let nonce = u32::from_le_bytes(ix_data[8..12].try_into().unwrap());
-        let consistency_level: u8 = ix_data[12];
-        // 4-byte Vec length
-        let payload = ix_data[17..].to_vec();
-        post_message_shim_message_data.instruction_data = Some(PostMessageShimInstructionData {
-            nonce,
-            consistency_level,
-            payload,
-        });
-    }
+    let ix_data = details.return_data.unwrap().data;
+    // 8-byte instruction discriminator
+    let nonce = u32::from_le_bytes(ix_data[8..12].try_into().unwrap());
+    let consistency_level: u8 = ix_data[12];
+    // 4-byte Vec length
+    let payload = ix_data[17..].to_vec();
 
-    // TODO: Figure out how to get CPI event that can be parsed to re-create the VAA message.
-    // `inner_instructions` is always `None` even though CPIs happen. This limits the
-    // testing that can be done as we can no longer parse the CPI event to verify it.
-    let inner_instructions = details.inner_instructions;
-    if inner_instructions.is_none() {
-        return post_message_shim_message_data;
+    PostMessageShimInstructionData {
+        nonce,
+        consistency_level,
+        payload,
     }
-
-    post_message_shim_message_data
 }
