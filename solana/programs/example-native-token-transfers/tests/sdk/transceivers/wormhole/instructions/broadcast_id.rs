@@ -21,7 +21,7 @@ pub fn broadcast_id(
     let accounts = ntt_transceiver::accounts::BroadcastId {
         payer: accounts.payer,
         config: ntt.config(),
-        wormhole_message: ntt_transceiver.wormhole_message_with_shim(),
+        wormhole_message: ntt_transceiver.wormhole_message(),
         wormhole: wormhole_accounts(ntt, ntt_transceiver),
         mint: accounts.mint,
     };
