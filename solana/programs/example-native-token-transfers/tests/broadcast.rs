@@ -1,23 +1,24 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
+use anchor_lang::AnchorDeserialize;
 use ntt_messages::{
     chain_id::ChainId,
     mode::Mode,
     transceivers::wormhole::{WormholeTransceiverInfo, WormholeTransceiverRegistration},
 };
 use solana_program_test::*;
-use solana_sdk::{signature::Keypair, signer::Signer};
-use wormhole_anchor_sdk::wormhole::PostedVaa;
+use solana_sdk::signer::Signer;
+use wormhole_svm_definitions::{solana::Finality::Finalized, EncodeFinality};
 
 use crate::{
     common::{
-        query::GetAccountDataAnchor,
         setup::{setup, OTHER_CHAIN, OTHER_TRANSCEIVER},
         submit::Submittable,
+        utils::get_message_data,
     },
     sdk::{
-        accounts::{good_ntt, NTTAccounts},
+        accounts::{good_ntt, good_ntt_transceiver, NTTAccounts},
         transceivers::wormhole::instructions::{
             broadcast_id::{broadcast_id, BroadcastId},
             broadcast_peer::{broadcast_peer, BroadcastPeer},
@@ -32,27 +33,31 @@ pub mod sdk;
 async fn test_broadcast_peer() {
     let (mut ctx, _test_data) = setup(Mode::Locking).await;
 
-    let wh_message = Keypair::new();
-
-    broadcast_peer(
+    let ix = broadcast_peer(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         BroadcastPeer {
             payer: ctx.payer.pubkey(),
-            wormhole_message: wh_message.pubkey(),
             chain_id: OTHER_CHAIN,
         },
+    );
+
+    // simulate to fetch data before submitting ix
+    let msg = get_message_data(
+        &good_ntt.wormhole(),
+        &good_ntt_transceiver,
+        &mut ctx,
+        ix.clone(),
     )
-    .submit_with_signers(&[&wh_message], &mut ctx)
-    .await
-    .unwrap();
+    .await;
+    ix.submit(&mut ctx).await.unwrap();
 
-    let msg: PostedVaa<WormholeTransceiverRegistration> = ctx
-        .get_account_data_anchor_unchecked(wh_message.pubkey())
-        .await;
-
+    assert_eq!(msg.nonce, 0); // hardcoded
+    assert_eq!(msg.consistency_level, Finalized.encode()); // hardcoded
+    let transceiver_registration =
+        WormholeTransceiverRegistration::deserialize(&mut &msg.payload[..]).unwrap();
     assert_eq!(
-        *msg.data(),
+        transceiver_registration,
         WormholeTransceiverRegistration {
             chain_id: ChainId { id: OTHER_CHAIN },
             transceiver_address: OTHER_TRANSCEIVER
@@ -64,27 +69,30 @@ async fn test_broadcast_peer() {
 async fn test_broadcast_id() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
-    let wh_message = Keypair::new();
-
-    broadcast_id(
+    let ix = broadcast_id(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         BroadcastId {
             payer: ctx.payer.pubkey(),
-            wormhole_message: wh_message.pubkey(),
             mint: test_data.mint,
         },
+    );
+
+    // simulate to fetch data before submitting ix
+    let msg = get_message_data(
+        &good_ntt.wormhole(),
+        &good_ntt_transceiver,
+        &mut ctx,
+        ix.clone(),
     )
-    .submit_with_signers(&[&wh_message], &mut ctx)
-    .await
-    .unwrap();
+    .await;
+    ix.submit(&mut ctx).await.unwrap();
 
-    let msg: PostedVaa<WormholeTransceiverInfo> = ctx
-        .get_account_data_anchor_unchecked(wh_message.pubkey())
-        .await;
-
+    assert_eq!(msg.nonce, 0); // hardcoded
+    assert_eq!(msg.consistency_level, Finalized.encode()); // hardcoded
+    let transceiver_info = WormholeTransceiverInfo::deserialize(&mut &msg.payload[..]).unwrap();
     assert_eq!(
-        *msg.data(),
+        transceiver_info,
         WormholeTransceiverInfo {
             manager_address: good_ntt.program().to_bytes(),
             manager_mode: Mode::Locking,
