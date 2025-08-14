@@ -27,7 +27,7 @@ pub fn broadcast_peer(
         payer: accounts.payer,
         config: ntt.config(),
         peer: ntt_transceiver.transceiver_peer(accounts.chain_id),
-        wormhole_message: ntt_transceiver.wormhole_message_with_shim(),
+        wormhole_message: ntt_transceiver.wormhole_message(),
         wormhole: wormhole_accounts(ntt, ntt_transceiver),
     };
 

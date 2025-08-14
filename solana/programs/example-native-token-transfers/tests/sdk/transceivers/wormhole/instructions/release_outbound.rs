@@ -26,7 +26,7 @@ pub fn release_outbound(
             config: ntt.config(),
         },
         outbox_item: accounts.outbox_item,
-        wormhole_message: ntt_transceiver.wormhole_message_with_shim(),
+        wormhole_message: ntt_transceiver.wormhole_message(),
         transceiver: ntt.registered_transceiver(&ntt_transceiver.program()),
         wormhole: wormhole_accounts(ntt, ntt_transceiver),
         manager: ntt.program(),
