@@ -1,7 +1,10 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
-use anchor_lang::prelude::{Clock, ErrorCode, Pubkey};
+use anchor_lang::{
+    prelude::{Clock, ErrorCode, Pubkey},
+    AnchorDeserialize,
+};
 use anchor_spl::token::{Mint, TokenAccount};
 use example_native_token_transfers::{
     bitmap::Bitmap,
@@ -15,12 +18,13 @@ use ntt_messages::{
     transceiver::TransceiverMessage, transceivers::wormhole::WormholeTransceiver,
     trimmed_amount::TrimmedAmount,
 };
+use ntt_transceiver::wormhole::instructions::release_outbound::ReleaseOutboundArgs;
 use solana_program_test::*;
 use solana_sdk::{
     instruction::InstructionError, signature::Keypair, signer::Signer,
     transaction::TransactionError,
 };
-use wormhole_anchor_sdk::wormhole::PostedVaa;
+use wormhole_svm_definitions::{solana::Finality::Finalized, EncodeFinality};
 
 use crate::{
     common::{
@@ -30,11 +34,12 @@ use crate::{
             OUTBOUND_LIMIT, UNREGISTERED_CHAIN,
         },
         submit::Submittable,
+        utils::get_message_data,
     },
     sdk::{
-        accounts::{good_ntt, NTTAccounts},
+        accounts::{good_ntt, good_ntt_transceiver, NTTAccounts, NTTTransceiverAccounts, NTT},
         instructions::{
-            admin::{set_paused, SetPaused},
+            admin::{set_outbound_limit, set_paused, SetOutboundLimit, SetPaused},
             transfer::{
                 approve_token_authority, approve_token_authority_with_token_program_id, transfer,
                 transfer_with_token_program_id, Transfer,
@@ -48,13 +53,6 @@ use crate::{
 
 pub mod common;
 pub mod sdk;
-
-// TODO: some more tests
-// - unregistered peer can't transfer
-// - can't transfer to unregistered peer
-// - can't transfer more than balance
-// - wrong inbox accounts
-// - paused contracts
 
 /// Helper function for setting up transfer accounts and args.
 /// It sets the accounts up properly, so for negative testing we just modify the
@@ -163,9 +161,9 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
         }
     );
 
-    release_outbound(
+    let ix = release_outbound(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -173,15 +171,15 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
         ReleaseOutboundArgs {
             revert_on_delay: true,
         },
-    )
-    .submit(ctx)
-    .await
-    .unwrap();
+    );
 
-    let outbox_item_account_after: OutboxItem =
-        ctx.get_account_data_anchor(outbox_item.pubkey()).await;
+    // simulate to fetch data before submitting ix
+    let msg = get_message_data(&good_ntt.wormhole(), &good_ntt_transceiver, ctx, ix.clone()).await;
+    ix.submit(ctx).await.unwrap();
 
     // make sure the outbox item is now released, but nothing else has changed
+    let outbox_item_account_after: OutboxItem =
+        ctx.get_account_data_anchor(outbox_item.pubkey()).await;
     assert_eq!(
         OutboxItem {
             released: Bitmap::from_value(1),
@@ -190,23 +188,16 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
         outbox_item_account_after,
     );
 
-    let wh_message = test_data
-        .ntt_transceiver
-        .wormhole_message(&outbox_item.pubkey());
-
-    // NOTE: technically this is not a PostedVAA but a PostedMessage, but the
-    // sdk does not export that type, so we parse it as a PostedVAA instead.
-    // They are identical modulo the discriminator, which we just skip by using
-    // the unchecked deserialiser.
-    // TODO: update the sdk to export PostedMessage
-    let msg: PostedVaa<TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>>> =
-        ctx.get_account_data_anchor_unchecked(wh_message).await;
-
-    let transceiver_message = msg.data();
-
+    assert_eq!(msg.nonce, 0); // hardcoded
+    assert_eq!(msg.consistency_level, Finalized.encode()); // hardcoded
+    let transceiver_message =
+        TransceiverMessage::<WormholeTransceiver, NativeTokenTransfer<Payload>>::deserialize(
+            &mut &msg.payload[..],
+        )
+        .unwrap();
     assert_eq!(
         transceiver_message,
-        &TransceiverMessage::new(
+        TransceiverMessage::new(
             example_native_token_transfers::ID.to_bytes(),
             OTHER_MANAGER,
             NttManagerMessage {
@@ -917,7 +908,7 @@ async fn test_cant_release_queued() {
     // check that 'revert_on_delay = true' returns correct error
     let err = release_outbound(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -941,7 +932,7 @@ async fn test_cant_release_queued() {
     // check that 'revert_on_delay = false' succeeds but does not release
     release_outbound(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -957,9 +948,7 @@ async fn test_cant_release_queued() {
     assert_queued(&mut ctx, outbox_item.pubkey()).await;
 
     // just to be safe, let's make sure the wormhole message account wasn't initialised
-    let wh_message = test_data
-        .ntt_transceiver
-        .wormhole_message(&outbox_item.pubkey());
+    let wh_message = good_ntt_transceiver.wormhole_message(&outbox_item.pubkey());
     assert!(ctx
         .banks_client
         .get_account(wh_message)
@@ -999,7 +988,7 @@ async fn test_cant_release_twice() {
 
     release_outbound(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -1015,7 +1004,7 @@ async fn test_cant_release_twice() {
     // make sure we can't release again
     let err = release_outbound(
         &good_ntt,
-        &test_data.ntt_transceiver,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
