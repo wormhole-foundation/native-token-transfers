@@ -8,8 +8,6 @@ contract MockWormholeTransceiverContract is WormholeTransceiver {
     constructor(
         address nttManager,
         address wormholeCoreBridge,
-        address wormholeRelayerAddr,
-        address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
     ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
@@ -27,8 +25,6 @@ contract MockWormholeTransceiverMigrateBasic is WormholeTransceiver {
     constructor(
         address nttManager,
         address wormholeCoreBridge,
-        address wormholeRelayerAddr,
-        address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
     ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
@@ -42,8 +38,6 @@ contract MockWormholeTransceiverImmutableAllow is WormholeTransceiver {
     constructor(
         address nttManager,
         address wormholeCoreBridge,
-        address wormholeRelayerAddr,
-        address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
     ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
@@ -63,8 +57,6 @@ contract MockWormholeTransceiverLayoutChange is WormholeTransceiver {
     constructor(
         address nttManager,
         address wormholeCoreBridge,
-        address wormholeRelayerAddr,
-        address specialRelayerAddr,
         uint8 _consistencyLevel,
         uint256 _gasLimit
     ) WormholeTransceiver(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
