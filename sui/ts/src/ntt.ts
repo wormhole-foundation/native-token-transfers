@@ -8,8 +8,16 @@ import {
   serialize,
 } from "@wormhole-foundation/sdk-definitions";
 import type { Chain, Network } from "@wormhole-foundation/sdk-base";
-import { chainToChainId } from "@wormhole-foundation/sdk-base";
-import { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
+import {
+  chainToChainId,
+  serializeLayout,
+  encoding,
+} from "@wormhole-foundation/sdk-base";
+import {
+  Ntt,
+  NttTransceiver,
+  nativeTokenTransferLayout,
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   SuiChains,
   SuiPlatform,
@@ -854,35 +862,25 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       );
     }
 
-    // Process each attestation separately (like Circle Bridge and Solana NTT)
+    // Build transaction for all attestations
+    const txb = new Transaction();
+
     for (const attestation of attestations) {
-      // Build transaction for this attestation
-      const txb = new Transaction();
-
-      // Create VersionGated object
-      const versionGated = txb.moveCall({
-        target: `${packageId}::upgrades::new_version_gated`,
-        arguments: [],
-      });
-
-      // Add redeem calls for this attestation
-      await this.addRedeemCall(
-        txb,
-        attestation,
-        packageId,
-        versionGated,
-        coinMetadata.id
-      );
-
-      const unsignedTx = new SuiUnsignedTransaction(
-        txb,
-        this.network,
-        this.chain,
-        "Redeem NTT Transfer"
-      );
-
-      yield unsignedTx;
+      // Loop to add redeem call for all wormhole attestations
+      await this.addRedeemCall(txb, attestation, packageId, coinMetadata.id);
     }
+
+    // Add release call for all redeems
+    await this.addReleaseCall(txb, attestations, packageId, coinMetadata.id);
+
+    const unsignedTx = new SuiUnsignedTransaction(
+      txb,
+      this.network,
+      this.chain,
+      "Redeem NTT Transfer"
+    );
+
+    yield unsignedTx;
   }
 
   async quoteDeliveryPrice(
@@ -1592,12 +1590,144 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     return state.upgrade_cap_id;
   }
 
+  private async addReleaseCall(
+    txb: Transaction,
+    attestations: Ntt.Attestation[],
+    packageId: string,
+    coinMetadataId: string
+  ): Promise<any> {
+    // Find the wormhole attestation
+    const wormholeAttestation = attestations.find(
+      (a) => a.payloadName === "WormholeTransfer"
+    );
+    if (!wormholeAttestation) {
+      throw new Error("No wormhole attestation found");
+    }
+
+    // Get manager state to extract nttCommonPackageId
+    const managerState = await this.provider.getObject({
+      id: this.contracts.ntt!["manager"],
+      options: { showContent: true },
+    });
+
+    if (
+      !managerState.data?.content ||
+      managerState.data.content.dataType !== "moveObject"
+    ) {
+      throw new Error("Failed to fetch manager state");
+    }
+
+    const managerStateObject = managerState.data.content as SuiMoveObject;
+
+    // Extract nttCommonPackageId from manager object
+    const nttCommonPackageId = managerStateObject.fields.inbox.type
+      .match("<(.+)>")?.[1]
+      ?.split("::")[0];
+
+    if (!nttCommonPackageId) {
+      throw new Error(
+        `Unable to parse inbox type from manager state: ${managerStateObject.fields.inbox.type}`
+      );
+    }
+
+    // Get manager payload
+    const nttPayload = (wormholeAttestation.payload as any).nttManagerPayload;
+
+    // Get NTT object
+    // We need this to create the manager message (see ntt_manager_message::new)
+    let payloadBytes: Uint8Array;
+    try {
+      payloadBytes = serializeLayout(
+        nativeTokenTransferLayout,
+        nttPayload.payload
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to serialize native token transfer payload: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+
+    const [native_token_transfer] = txb.moveCall({
+      target: `${nttCommonPackageId}::native_token_transfer::parse`,
+      arguments: [txb.pure.vector("u8", payloadBytes)],
+    });
+
+    if (!native_token_transfer) {
+      throw new Error("Failed to parse native token transfer");
+    }
+
+    const wormholeCoreBridgePackageId = await this.getWormholePackageId(
+      this.provider,
+      this.coreBridgeStateId
+    );
+
+    const [id] = txb.moveCall({
+      target: `${wormholeCoreBridgePackageId}::bytes32::from_bytes`,
+      arguments: [txb.pure.vector("u8", nttPayload.id)],
+    });
+
+    if (!id) {
+      throw new Error("Failed to create message ID from bytes");
+    }
+
+    const [sender] = txb.moveCall({
+      target: `${wormholeCoreBridgePackageId}::external_address::from_address`,
+      arguments: [
+        txb.pure.address(
+          encoding.hex.encode(nttPayload.sender.toUint8Array(), true)
+        ),
+      ],
+    });
+
+    if (!sender) {
+      throw new Error("Failed to create external address from sender");
+    }
+
+    // Get NttManagerMessage
+    const [manager_message] = txb.moveCall({
+      target: `${nttCommonPackageId}::ntt_manager_message::new`,
+      typeArguments: [
+        `${nttCommonPackageId}::native_token_transfer::NativeTokenTransfer`,
+      ],
+      arguments: [id, sender, native_token_transfer],
+    });
+
+    if (!manager_message) {
+      throw new Error("Failed to create manager message");
+    }
+
+    // Create version gated object for release
+    const [versionGated] = txb.moveCall({
+      target: `${packageId}::upgrades::new_version_gated`,
+      arguments: [],
+    });
+
+    if (!versionGated) {
+      throw new Error("Failed to create version gated object");
+    }
+
+    // Call ntt::release
+    txb.moveCall({
+      target: `${packageId}::ntt::release`,
+      typeArguments: [this.contracts.ntt!["token"]],
+      arguments: [
+        txb.object(this.contracts.ntt!["manager"]),
+        versionGated,
+        txb.pure.u16(chainToChainId(wormholeAttestation.emitterChain)),
+        manager_message,
+        txb.object(coinMetadataId),
+        txb.object(SUI_CLOCK_OBJECT_ID),
+      ],
+    });
+  }
+
   // Helper function to add redeem call for a single attestation
   private async addRedeemCall(
     txb: Transaction,
     attestation: Ntt.Attestation,
     packageId: string,
-    versionGated: any,
     coinMetadataId: string
   ): Promise<void> {
     // Get the transceiver
@@ -1650,6 +1780,12 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     if (!validatedMessage) {
       throw new Error("Failed to validate VAA through transceiver");
     }
+
+    // Create VersionGated object
+    const versionGated = txb.moveCall({
+      target: `${packageId}::upgrades::new_version_gated`,
+      arguments: [],
+    });
 
     // Now call redeem function with the validated message
     txb.moveCall({
