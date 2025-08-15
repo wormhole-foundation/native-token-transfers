@@ -1,5 +1,5 @@
 use solana_banks_interface::BanksTransactionResultWithSimulation;
-use solana_program_test::{BanksClientError, ProgramTestContext};
+use solana_program_test::{BanksClientError, ProgramTestBanksClientExt, ProgramTestContext};
 use solana_sdk::{
     instruction::Instruction, signature::Keypair, signer::Signer, signers::Signers,
     transaction::Transaction,
@@ -50,6 +50,24 @@ impl Submittable for Instruction {
         transaction.partial_sign(&[&ctx.payer], blockhash);
         transaction.partial_sign(signers, blockhash);
 
+        // force a new blockhash in case the transaction status is cached
+        // this can occur when the same instruction has been executed recently
+        if ctx
+            .banks_client
+            .get_transaction_status(transaction.signatures[0])
+            .await
+            .unwrap()
+            .is_some()
+        {
+            let blockhash = ctx
+                .banks_client
+                .get_new_latest_blockhash(&blockhash)
+                .await
+                .unwrap();
+            transaction.partial_sign(&[&ctx.payer], blockhash);
+            transaction.partial_sign(signers, blockhash);
+        }
+
         ctx.banks_client.process_transaction(transaction).await
     }
 
@@ -78,6 +96,25 @@ impl Submittable for Transaction {
 
         self.partial_sign(&[&ctx.payer], blockhash);
         self.partial_sign(signers, blockhash);
+
+        // force a new blockhash in case the transaction status is cached
+        // this can occur when the same transaction has been executed recently
+        if ctx
+            .banks_client
+            .get_transaction_status(self.signatures[0])
+            .await
+            .unwrap()
+            .is_some()
+        {
+            let blockhash = ctx
+                .banks_client
+                .get_new_latest_blockhash(&blockhash)
+                .await
+                .unwrap();
+            self.partial_sign(&[&ctx.payer], blockhash);
+            self.partial_sign(signers, blockhash);
+        }
+
         ctx.banks_client.process_transaction(self).await
     }
 
