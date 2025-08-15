@@ -780,8 +780,9 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
     // get token ID
     const token = this.contracts.ntt!["token"];
-    const isNativeToken = (typeof token === "string" && token === "native") || 
-                          (typeof token === "string" && token === "0x2::sui::SUI");
+    const isNativeToken =
+      (typeof token === "string" && token === "native") ||
+      (typeof token === "string" && token === "0x2::sui::SUI");
     const tokenAddress = new SuiAddress(
       isNativeToken
         ? SuiPlatform.nativeTokenId(this.network, this.chain).address
@@ -852,7 +853,20 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       ],
     });
 
-    // Now call transfer_tx_sender with just the ticket
+    // Get next sequence number before calling transfer_tx_sender
+    const [sequenceBytes32] = txb.moveCall({
+      target: `${packageId}::state::get_next_sequence`,
+      typeArguments: [tokenId],
+      arguments: [txb.object(this.contracts.ntt!["manager"])],
+    });
+
+    // Get Wormhole package ID
+    const wormholePackageId = await this.getWormholePackageId(
+      this.provider,
+      this.coreBridgeStateId
+    );
+
+    // Now call transfer_tx_sender
     txb.moveCall({
       target: `${packageId}::ntt::transfer_tx_sender`,
       typeArguments: [tokenId],
@@ -861,6 +875,52 @@ export class SuiNtt<N extends Network, C extends SuiChains>
         versionGated!, // version_gated (we know this exists from the previous call)
         txb.object(coinMetadataId), // coin_meta
         ticket!, // TransferTicket (we know this exists from prepare_transfer)
+        txb.object(SUI_CLOCK_OBJECT_ID),
+      ],
+    });
+
+    // Get transceiver info
+    const transceiverStateId = this.contracts.ntt!.transceiver?.["wormhole"];
+    if (!transceiverStateId) {
+      throw new Error("Wormhole transceiver not found in contracts");
+    }
+
+    // Get transceiver package ID
+    const transceiverPackageId = await this.getPackageIdFromObject(
+      transceiverStateId
+    );
+
+    // Create transceiver message
+    const [transceiverMessage] = txb.moveCall({
+      target: `${packageId}::state::create_transceiver_message`,
+      typeArguments: [
+        `${transceiverPackageId}::wormhole_transceiver::TransceiverAuth`,
+        tokenId,
+      ],
+      arguments: [
+        txb.object(this.contracts.ntt!["manager"]),
+        sequenceBytes32 as any,
+        txb.object(SUI_CLOCK_OBJECT_ID),
+      ],
+    });
+
+    // Release outbound message
+    const [messageTicket] = txb.moveCall({
+      target: `${transceiverPackageId}::wormhole_transceiver::release_outbound`,
+      typeArguments: [`${packageId}::auth::ManagerAuth`],
+      arguments: [txb.object(transceiverStateId), transceiverMessage as any],
+    });
+
+    // Split fee coin for publishing message
+    const [feeCoin] = txb.splitCoins(txb.gas, [txb.pure.u64(0n)]);
+
+    // Publish message to Wormhole
+    txb.moveCall({
+      target: `${wormholePackageId}::publish_message::publish_message`,
+      arguments: [
+        txb.object(this.coreBridgeStateId),
+        feeCoin,
+        messageTicket as any,
         txb.object(SUI_CLOCK_OBJECT_ID),
       ],
     });
