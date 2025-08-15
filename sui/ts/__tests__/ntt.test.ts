@@ -730,16 +730,6 @@ describe("SuiNtt", () => {
       const options = { queue: false };
 
       beforeEach(() => {
-        // Mock package ID extraction
-        mockClient.getObject
-          .mockResolvedValueOnce(
-            mockSuiObject(
-              "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State",
-              {}
-            )
-          )
-          .mockResolvedValueOnce(mockCoinMetadata());
-
         // Mock coin metadata query
         mockClient.getCoinMetadata.mockResolvedValue(mockCoinMetadata());
         
@@ -754,6 +744,48 @@ describe("SuiNtt", () => {
           }],
           nextCursor: null,
           hasNextPage: false
+        });
+        
+        // Mock getDynamicFields for getWormholePackageId
+        mockClient.getDynamicFields.mockResolvedValue({
+          data: [{
+            name: { type: "CurrentPackage" },
+            objectId: "0xmockcurrentpackage123"
+          }],
+          nextCursor: null,
+          hasNextPage: false
+        });
+        
+        // Mock getObject for multiple different object IDs
+        mockClient.getObject.mockImplementation((params: any) => {
+          if (params.id === "0xmockcurrentpackage123") {
+            // Mock for CurrentPackage object in getWormholePackageId
+            return Promise.resolve({
+              data: {
+                content: {
+                  dataType: "moveObject",
+                  fields: {
+                    value: {
+                      fields: {
+                        package: "0xwormholepackage123"
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          } else if (params.id === TEST_CONTRACTS.ntt.transceiver.wormhole) {
+            // Mock for transceiver state object (getPackageIdFromObject)
+            return Promise.resolve(mockSuiObject(
+              "0xtransceiver123::wormhole_transceiver::State",
+              {}
+            ));
+          }
+          // Default mock for NTT manager state
+          return Promise.resolve(mockSuiObject(
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State",
+            {}
+          ));
         });
       });
 
