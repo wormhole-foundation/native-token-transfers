@@ -742,6 +742,19 @@ describe("SuiNtt", () => {
 
         // Mock coin metadata query
         mockClient.getCoinMetadata.mockResolvedValue(mockCoinMetadata());
+        
+        // Mock getCoins for non-native token transfers
+        mockClient.getCoins.mockResolvedValue({
+          data: [{
+            coinType: "0xabc::custom::TOKEN",
+            coinObjectId: "0xmockcoin123",
+            balance: "1000000000000",
+            lockedUntilEpoch: null,
+            previousTransaction: "0xmocktx"
+          }],
+          nextCursor: null,
+          hasNextPage: false
+        });
       });
 
       it("should create transfer transaction with correct parameters", async () => {
