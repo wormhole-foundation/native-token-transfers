@@ -172,7 +172,7 @@ export class SolanaNttWormholeTransceiver<
     }
   }
 
-  getAddress(): ChainAddress<C> {
+  async getAddress(): Promise<ChainAddress<C>> {
     return {
       chain: this.manager.chain,
       address: toUniversal(
@@ -497,6 +497,25 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   async getThreshold(): Promise<number> {
     const config = await this.getConfig();
     return config.threshold;
+  }
+
+  async *setThreshold(threshold: number, payer?: AccountAddress<C>) {
+    const sender = new SolanaAddress(payer!).unwrap();
+    const ix = await this.createSetThresholdInstruction(sender, threshold);
+    const tx = new Transaction();
+    tx.feePayer = sender;
+    tx.add(ix);
+    yield this.createUnsignedTx({ transaction: tx }, "Ntt.SetThreshold");
+  }
+
+  private async createSetThresholdInstruction(owner: PublicKey, threshold: number) {
+    return await this.program.methods
+      .setThreshold(threshold)
+      .accountsStrict({
+        owner: owner,
+        config: this.pdas.configAccount(),
+      })
+      .instruction();
   }
 
   async getOwner(): Promise<AccountAddress<C>> {

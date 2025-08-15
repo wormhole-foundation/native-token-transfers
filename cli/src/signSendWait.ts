@@ -33,7 +33,11 @@ export const signSendWaitEvmSpecialOwner = async <N extends Network>(
                 })
             }
         }catch (e) {
-            console.warn(`failed to execute tx on ${ctx.network}`)
+            console.error(`ERROR: Failed to execute EVM tx on ${ctx.network}`);
+            console.error("ERROR: EVM transaction error details:", e);
+            if (e instanceof Error) {
+                console.error("ERROR: EVM transaction error stack:", e.stack);
+            }
             throw e
         }
     }
@@ -48,11 +52,23 @@ export const signSendWaitWithOverride = async <N extends Network, C extends Chai
 ): Promise<TransactionId[]> => {
     const ctx = chain as ChainContext<N, EvmChains>
     const platform = chainToPlatform(ctx.chain)
+    
     if(nttOwner && platform === "Evm"){
         // unsafe casts here but we should know by the platform check.
         return signSendWaitEvmSpecialOwner(ctx, xfer  as any, signer as any, nttOwner.toString())
     }
-    return signSendWait(chain, xfer, signer)
+    
+    try {
+        const result = await signSendWait(chain, xfer, signer);
+        return result;
+    } catch (error) {
+        console.error("ERROR: Standard signSendWait failed:");
+        console.error("ERROR: signSendWait error details:", error);
+        if (error instanceof Error) {
+            console.error("ERROR: signSendWait error stack:", error.stack);
+        }
+        throw error;
+    }
 }
 
 export const newSignSendWaiter = <N extends Network, C extends Chain>(nttOwner: string | undefined) => {

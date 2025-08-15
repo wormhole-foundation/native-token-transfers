@@ -1,0 +1,19 @@
+[package]
+name = "Ntt"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+license = "Apache 2.0"
+
+[dependencies.Wormhole]
+git = "https://github.com/wormhole-foundation/wormhole.git"
+rev = "sui/testnet"
+subdir = "sui/wormhole"
+
+[dependencies.NttCommon]
+local = "../ntt_common"
+
+[addresses]
+ntt = "0x0"
+
+[dev-dependencies]
+
+[dev-addresses]

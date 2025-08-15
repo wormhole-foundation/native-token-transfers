@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish'
+        description: "Version to publish"
         required: true
-        type: 'string'
+        type: "string"
 
 jobs:
   publish-ts-sdk:
@@ -36,6 +36,7 @@ jobs:
             --workspace sdk/definitions \
             --workspace evm/ts \
             --workspace solana \
+            --workspace sui \
             --workspace sdk/route
         env:
           VERSION: ${{ inputs.version }}
