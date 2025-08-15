@@ -279,12 +279,8 @@ export const mockAttestation = (sourceChain: any = 'Ethereum') => ({
           amount: 1000000n,
           decimals: 6
         },
-        sourceToken: {
-          toUint8Array: () => new Uint8Array(32).fill(3)
-        },
-        recipientAddress: {
-          toUint8Array: () => new Uint8Array(32).fill(4)
-        },
+        sourceToken: new Uint8Array(32).fill(3),
+        recipientAddress: new Uint8Array(32).fill(4),
         recipientChain: 'Sui',
         additionalPayload: new Uint8Array(0)
       }
