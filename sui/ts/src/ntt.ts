@@ -1257,11 +1257,11 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       return null;
     }
 
-    // Return the queued transfer info matching Solana's structure
+    // Return the queued transfer info
     const xfer: Ntt.InboundQueuedTransfer<C> = {
       recipient: recipientAddress,
       amount: amount,
-      rateLimitExpiryTimestamp: releaseTimestamp,
+      rateLimitExpiryTimestamp: releaseTimestamp / 1000, // NTT route expects seconds
     };
 
     return xfer;
