@@ -9,7 +9,6 @@ crate-type = ["cdylib", "lib"]
 name = "wormhole_governance"
 
 [features]
-testing = []
 default = ["mainnet"]
 no-entrypoint = []
 no-idl = []

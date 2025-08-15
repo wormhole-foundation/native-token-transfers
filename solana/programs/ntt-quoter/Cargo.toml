@@ -8,7 +8,6 @@ crate-type = ["cdylib", "lib"]
 name = "ntt_quoter"
 
 [features]
-testing = []
 default = ["mainnet", "no-idl"]
 no-entrypoint = []
 no-idl = []
