@@ -19,6 +19,7 @@ import {
   nativeTokenTransferLayout,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
+  SuiAddress,
   SuiChains,
   SuiPlatform,
   SuiPlatformType,
@@ -777,16 +778,67 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       );
     }
 
-    // Split coins from gas to get the required amount
-    const [coin] = txb.splitCoins(txb.gas, [amount]);
-
     // get token ID
-    const tokenId = this.contracts.ntt!["token"];
+    const token = this.contracts.ntt!["token"];
+    const isNativeToken = (typeof token === "string" && token === "native") || 
+                          (typeof token === "string" && token === "0x2::sui::SUI");
+    const tokenAddress = new SuiAddress(
+      isNativeToken
+        ? SuiPlatform.nativeTokenId(this.network, this.chain).address
+        : token
+    );
+    const tokenId: string = tokenAddress.getCoinType();
+
+    // Get the coin to transfer
+    // For SUI (native), we can split from gas
+    // For other tokens, we need to get the user's coins of that type
+    const [coin] = await (async () => {
+      if (isNativeToken) {
+        // For SUI, split from gas
+        return txb.splitCoins(txb.gas, [amount]);
+      } else {
+        // For other tokens, get the user's coins of that type
+        const coins = await SuiPlatform.getCoins(
+          this.provider,
+          sender,
+          tokenId
+        );
+
+        if (coins.length === 0) {
+          throw new Error(`No coins found for token type ${tokenId}`);
+        }
+
+        const [primaryCoin, ...mergeCoins] = coins;
+
+        if (!primaryCoin) {
+          throw new Error(`No primary coin found for token type ${tokenId}`);
+        }
+
+        const primaryCoinInput = txb.object(primaryCoin.coinObjectId);
+
+        // Merge additional coins if needed
+        if (mergeCoins.length > 0) {
+          txb.mergeCoins(
+            primaryCoinInput,
+            mergeCoins.map((coin) => txb.object(coin.coinObjectId))
+          );
+        }
+
+        // Split the exact amount needed
+        return txb.splitCoins(primaryCoinInput, [amount]);
+      }
+    })();
+
+    // Create VersionGated object
+    const [versionGated] = txb.moveCall({
+      target: `${packageId}::upgrades::new_version_gated`,
+      arguments: [],
+    });
 
     // Since prepare_transfer returns a tuple (TransferTicket, Balance), we need to properly
     // extract the individual elements. In Sui's transaction builder, we can access tuple elements
     // using array-like indexing on the result.
-    const prepareResult = txb.moveCall({
+    const [ticket, dust] = txb.moveCall({
       target: `${packageId}::ntt::prepare_transfer`,
       typeArguments: [tokenId],
       arguments: [
@@ -800,34 +852,32 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       ],
     });
 
-    // Create VersionGated object
-    const versionGated = txb.moveCall({
-      target: `${packageId}::upgrades::new_version_gated`,
-      arguments: [],
-    });
-
-    // Extract the TransferTicket (first element) from the tuple result
-    // Use type assertions to bypass TypeScript's strict checking for tuple access
-    const ticket = prepareResult[0];
-    // const dust = (prepareResult)[1]; // Not using dust for now
-
     // Now call transfer_tx_sender with just the ticket
     txb.moveCall({
       target: `${packageId}::ntt::transfer_tx_sender`,
-      typeArguments: [this.contracts.ntt!["token"]],
+      typeArguments: [tokenId],
       arguments: [
         txb.object(this.contracts.ntt!["manager"]), // state (mutable)
-        versionGated, // version_gated
+        versionGated!, // version_gated (we know this exists from the previous call)
         txb.object(coinMetadataId), // coin_meta
-        ticket as any, // Just the TransferTicket from the tuple
+        ticket!, // TransferTicket (we know this exists from prepare_transfer)
         txb.object(SUI_CLOCK_OBJECT_ID),
       ],
     });
 
-    // Note: For simplicity, we're not handling the dust balance for now
-    // In a production implementation, you would want to handle the dust by:
-    // - Converting the Balance to a Coin using coin::from_balance
-    // - Transferring it back to the sender or handling it appropriately
+    // Handle dust by converting back to coin and merging with gas if native or back to sender otherwise
+    const [dustCoin] = txb.moveCall({
+      target: `0x2::coin::from_balance`,
+      typeArguments: [tokenId],
+      arguments: [dust!], // dust exists from prepare_transfer
+    });
+
+    if (isNativeToken) {
+      txb.mergeCoins(txb.gas, [dustCoin!]);
+    } else {
+      // Transfer dust back to sender for non-native tokens
+      txb.transferObjects([dustCoin!], sender.toString());
+    }
 
     const unsignedTx = new SuiUnsignedTransaction(
       txb,
