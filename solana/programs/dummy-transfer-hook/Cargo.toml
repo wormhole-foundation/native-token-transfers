@@ -9,7 +9,6 @@ crate-type = ["cdylib", "lib"]
 name = "dummy_transfer_hook"
 
 [features]
-testing = []
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
