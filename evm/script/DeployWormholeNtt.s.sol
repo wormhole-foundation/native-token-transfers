@@ -14,14 +14,7 @@ interface IWormhole {
 }
 
 contract DeployWormholeNtt is Script, DeployWormholeNttBase {
-    function run(
-        address wormhole,
-        address token,
-        address wormholeRelayer,
-        address specialRelayer,
-        uint8 decimals,
-        IManagerBase.Mode mode
-    ) public {
+    function run(address wormhole, address token, uint8 decimals, IManagerBase.Mode mode) public {
         vm.startBroadcast();
 
         console.log("Deploying Wormhole Ntt...");
@@ -70,8 +63,6 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             rateLimitDuration: 86400,
             shouldSkipRatelimiter: false,
             wormholeCoreBridge: wormhole,
-            wormholeRelayerAddr: wormholeRelayer,
-            specialRelayerAddr: specialRelayer,
             consistencyLevel: 202,
             gasLimit: 500000,
             // the trimming will trim this number to uint64.max
