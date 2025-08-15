@@ -777,30 +777,33 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       );
     }
 
-    // 1. Split coins from gas to get the required amount
-    const coin = txb.splitCoins(txb.gas, [amount.toString()]);
+    // Split coins from gas to get the required amount
+    const [coin] = txb.splitCoins(txb.gas, [amount]);
 
-    // 2. Create VersionGated object
-    const versionGated = txb.moveCall({
-      target: `${packageId}::upgrades::new_version_gated`,
-      arguments: [],
-    });
+    // get token ID
+    const tokenId = this.contracts.ntt!["token"];
 
     // Since prepare_transfer returns a tuple (TransferTicket, Balance), we need to properly
     // extract the individual elements. In Sui's transaction builder, we can access tuple elements
     // using array-like indexing on the result.
     const prepareResult = txb.moveCall({
       target: `${packageId}::ntt::prepare_transfer`,
-      typeArguments: [this.contracts.ntt!["token"]],
+      typeArguments: [tokenId],
       arguments: [
         txb.object(this.contracts.ntt!["manager"]), // state
         coin, // coins
         txb.object(coinMetadataId), // coin_meta
         txb.pure.u16(destinationChainId), // recipient_chain
-        txb.pure.vector("u8", Array.from(destinationAddressBytes)), // recipient (as vector<u8>)
+        txb.pure.vector("u8", destinationAddressBytes), // recipient (as vector<u8>)
         txb.pure.option("vector<u8>", null), // payload (no payload for now)
         txb.pure.bool(options.queue || false), // should_queue
       ],
+    });
+
+    // Create VersionGated object
+    const versionGated = txb.moveCall({
+      target: `${packageId}::upgrades::new_version_gated`,
+      arguments: [],
     });
 
     // Extract the TransferTicket (first element) from the tuple result
