@@ -950,6 +950,18 @@ yargs(hideBin(process.argv))
                     const tx = ntt.setTransceiverPeer(0, transceiver, signer.address.address)
                     await signSendWaitFunc(ctx, tx, signer.signer)
                 }
+/*                 for (const evmChain of missingConfig.evmChains) {
+                    const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsEvmChain(evmChain, true)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
+                }
+                for (const [relayingTarget, value] of missingConfig.standardRelaying) {
+                    const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsWormholeRelayingEnabled(relayingTarget, value)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
+                }
+                for (const [relayingTarget, value] of missingConfig.specialRelaying) {
+                    const tx = (await ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>).setIsSpecialRelayingEnabled(relayingTarget, value)
+                    await signSendWaitFunc(ctx, tx, signer.signer)
+                } */
                 if (missingConfig.solanaWormholeTransceiver) {
                     if (chainToPlatform(chain) !== "Solana") {
                         console.error("Solana wormhole transceiver can only be set on Solana chains");
@@ -1066,6 +1078,23 @@ yargs(hideBin(process.argv))
                 for (const transceiver of missingConfig.transceiverPeers) {
                     console.error(`  Missing transceiver peer: ${transceiver.chain}`);
                 }
+/*                 for (const evmChain of missingConfig.evmChains) {
+                    console.error(`  ${evmChain} needs to be configured as an EVM chain`);
+                }
+                for (const [relayingTarget, shouldBeSet] of missingConfig.standardRelaying) {
+                    if (shouldBeSet) {
+                        console.warn(chalk.yellow(`  Standard relaying not configured for ${relayingTarget}`));
+                    } else {
+                        console.warn(chalk.yellow(`  Standard relaying configured for ${relayingTarget}, but should not be`));
+                    }
+                }
+                for (const [relayingTarget, shouldBeSet] of missingConfig.specialRelaying) {
+                    if (shouldBeSet) {
+                        console.warn(chalk.yellow(`  Special relaying not configured for ${relayingTarget}`));
+                    } else {
+                        console.warn(chalk.yellow(`  Special relaying configured for ${relayingTarget}, but should not be`));
+                    }
+                } */
                 if (missingConfig.solanaWormholeTransceiver) {
                     console.error("  Missing Solana wormhole transceiver");
                 }
@@ -2052,6 +2081,9 @@ yargs(hideBin(process.argv))
 type MissingImplicitConfig = {
     managerPeers: Ntt.Peer<Chain>[];
     transceiverPeers: ChainAddress<Chain>[];
+    //evmChains: Chain[];
+    //standardRelaying: [Chain, boolean][];
+    //specialRelaying: [Chain, boolean][];
     solanaWormholeTransceiver: boolean;
     solanaUpdateLUT: boolean;
 }
@@ -2475,23 +2507,43 @@ async function deployEvm<N extends Network, C extends Chain>(
     const deploy = async (simulate: boolean): Promise<string> => {
         const simulateArg = simulate ? "" : "--skip-simulation";
         const slowFlag = getSlowFlag(ch.chain);
+        const effectiveRelayer = relayer || "0x0000000000000000000000000000000000000000";
+
+        // Try new 4-parameter signature first (for latest versions)
+        const newSig = "run(address,address,uint8,uint8)";
+        const oldSig = "run(address,address,address,address,uint8,uint8)";
+        console.log("trying new signature...");
         await withCustomEvmDeployerScript(pwd, async () => {
             try {
                 execSync(`
 forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${rpc} \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${decimals} ${modeUint} \
---broadcast ${slowFlag} ${verifyArgs.join(' ')} ${signerArgs} 2>&1 | tee last-run.stdout`, {
+--sig "${newSig}" ${wormhole} ${token} ${decimals} ${modeUint} \
+--broadcast ${slowFlag} ${verifyArgs.join(' ')} ${signerArgs} | tee last-run.stdout`, {
                         cwd: `${pwd}/evm`,
                         encoding: 'utf8',
                         stdio: 'inherit'
                     });
+                    console.log("New signature succeeded.");
             } catch (error) {
-                console.error("Failed to deploy manager");
-                // NOTE: we don't exit here. instead, we check if the manager was
-                // deployed successfully (below) and proceed if it was.
-                // process.exit(1);
+                // If new signature fails, fall back to old signature (6 parameters)
+                console.log("New signature failed, trying legacy signature with relayer parameters...");
+                try {
+                    execSync(`
+forge script --via-ir script/DeployWormholeNtt.s.sol \
+--rpc-url ${rpc} \
+${simulateArg} \
+--sig "${oldSig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
+--broadcast ${slowFlag} ${verifyArgs.join(' ')} ${signerArgs} | tee last-run.stdout`, {
+                        cwd: `${pwd}/evm`,
+                        encoding: 'utf8',
+                        stdio: 'inherit'
+                    });
+                    } catch (fallbackError) {
+                    console.error("Both deployment signatures failed");
+                    throw fallbackError;
+                }
             }
         });
         return fs.readFileSync(`${pwd}/evm/last-run.stdout`).toString();
@@ -3361,6 +3413,9 @@ async function missingConfigs(
         let missing: MissingImplicitConfig = {
             managerPeers: [],
             transceiverPeers: [],
+            //evmChains: [],
+            //standardRelaying: [],
+            //specialRelaying: [],
             solanaWormholeTransceiver: false,
             solanaUpdateLUT: false,
         };
@@ -3412,7 +3467,35 @@ async function missingConfigs(
                     console.error(`Peer decimals mismatch for ${fromChain} -> ${toChain}`);
                 }
             }
+            /*
+            if (chainToPlatform(fromChain) === "Evm") {
+                const toIsEvm = chainToPlatform(toChain) === "Evm";
+                const toIsSolana = chainToPlatform(toChain) === "Solana";
+                const whTransceiver = await from.ntt.getTransceiver(0) as EvmNttWormholeTranceiver<Network, EvmChains>;
 
+                if (toIsEvm) {
+                    const remoteToEvm = await whTransceiver.isEvmChain(toChain);
+                    if (!remoteToEvm) {
+                        count++;
+                        missing.evmChains.push(toChain);
+                    }
+
+                    const standardRelaying = await whTransceiver.isWormholeRelayingEnabled(toChain);
+                    const desiredStandardRelaying = !(from.config.local?.transceivers.wormhole.executor ?? false);
+                    if (standardRelaying !== desiredStandardRelaying) {
+                        count++;
+                        missing.standardRelaying.push([toChain, desiredStandardRelaying]);
+                    }
+                } else if (toIsSolana) {
+                    const specialRelaying = await whTransceiver.isSpecialRelayingEnabled(toChain);
+                    const desiredSpecialRelaying = !(from.config.local?.transceivers.wormhole.executor ?? false);
+                    if (specialRelaying !== desiredSpecialRelaying) {
+                        count++;
+                        missing.specialRelaying.push([toChain, desiredSpecialRelaying]);
+                    }
+                }
+            }
+            */
 
             const transceiverPeer = await retryWithExponentialBackoff(() => from.whTransceiver.getPeer(toChain), 5, 5000);
             const transceiverAddress = await to.whTransceiver.getAddress();
