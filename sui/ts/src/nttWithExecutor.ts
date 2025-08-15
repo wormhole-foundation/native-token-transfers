@@ -140,7 +140,8 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     // Get required package and object IDs
     const managerStateId = ntt.contracts.ntt!["manager"];
     const token = ntt.contracts.ntt!["token"];
-    const isNativeToken = typeof token === "string" && token === "native";
+    const isNativeToken = (typeof token === "string" && token === "native") || 
+                          (typeof token === "string" && token === "0x2::sui::SUI");
     const tokenAddress = new SuiAddress(
       isNativeToken
         ? SuiPlatform.nativeTokenId(this.network, this.chain).address
@@ -198,7 +199,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     // Split coins for transfer amount
     // Handle separate cases for native vs. non-native tokens
     const [coin] = await (async () => {
-      if (typeof token === "string" && token === "native") {
+      if (isNativeToken) {
         return tx.splitCoins(tx.gas, [tx.pure.u64(amount)]);
       } else {
         const coins = await SuiPlatform.getCoins(
