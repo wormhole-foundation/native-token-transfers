@@ -51,6 +51,7 @@ import {
 import { NTT, NttQuoter } from "../lib/index.js";
 import {
   eventAuthority,
+  guardianSetAccount,
   parseVersion,
   vaaBody,
 } from "../lib/utils.js";
@@ -137,11 +138,9 @@ export class SolanaNttWormholeTransceiver<
         );
       }
 
-      const indexBuffer = Buffer.alloc(4); // guardian_set_index is a u32
-      indexBuffer.writeUInt32BE(attestation.guardianSet);
-      const [guardianSet, guardianSetBump] = PublicKey.findProgramAddressSync(
-        [Buffer.from("GuardianSet"), indexBuffer],
-        this.manager.core.coreBridge.programId
+      const [guardianSet, guardianSetBump] = guardianSetAccount(
+        this.manager.core.coreBridge.programId,
+        attestation.guardianSet
       );
 
       if (!useMessageAccount) {
