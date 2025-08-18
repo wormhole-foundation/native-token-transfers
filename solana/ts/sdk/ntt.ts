@@ -49,7 +49,11 @@ import {
   getTransceiverProgram,
 } from "../lib/bindings.js";
 import { NTT, NttQuoter } from "../lib/index.js";
-import { derivePda, parseVersion, vaaBody } from "../lib/utils.js";
+import {
+  eventAuthority,
+  parseVersion,
+  vaaBody,
+} from "../lib/utils.js";
 import { type WormholePostMessageShim } from "../idl/wormhole_shim/ts/wormhole_post_message_shim.js";
 import { IDL as WormholePostMessageShimIdl } from "../idl/wormhole_shim/ts/wormhole_post_message_shim.js";
 import { type WormholeVerifyVaaShim } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
@@ -437,11 +441,14 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-          ...(this.postMessageShim && {
-            postMessageShim: this.postMessageShim.programId,
-            wormholePostMessageShimEa: derivePda(
-              ["__event_authority"],
-              this.postMessageShim.programId
+          // NOTE: transceiver, emitter, and post message shim accounts are part
+          // of wormhole accounts for versions >= 4.x.x
+          ...(major >= 4 && {
+            transceiver: this.programId,
+            emitter: whAccs.wormholeEmitter,
+            postMessageShim: this.postMessageShim!.programId,
+            wormholePostMessageShimEa: eventAuthority(
+              this.postMessageShim!.programId
             ),
           }),
         },
@@ -480,11 +487,14 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-          ...(this.postMessageShim && {
-            postMessageShim: this.postMessageShim.programId,
-            wormholePostMessageShimEa: derivePda(
-              ["__event_authority"],
-              this.postMessageShim.programId
+          // NOTE: transceiver, emitter, and post message shim accounts are part
+          // of wormhole accounts for versions >= 4.x.x
+          ...(major >= 4 && {
+            transceiver: this.programId,
+            emitter: whAccs.wormholeEmitter,
+            postMessageShim: this.postMessageShim!.programId,
+            wormholePostMessageShimEa: eventAuthority(
+              this.postMessageShim!.programId
             ),
           }),
         },
@@ -525,11 +535,14 @@ export class SolanaNttWormholeTransceiver<
           feeCollector: whAccs.wormholeFeeCollector,
           sequence: whAccs.wormholeSequence,
           program: this.manager.core.address,
-          ...(this.postMessageShim && {
-            postMessageShim: this.postMessageShim.programId,
-            wormholePostMessageShimEa: derivePda(
-              ["__event_authority"],
-              this.postMessageShim.programId
+          // NOTE: transceiver, emitter, and post message shim accounts are part
+          // of wormhole accounts for versions >= 4.x.x
+          ...(major >= 4 && {
+            transceiver: this.programId,
+            emitter: whAccs.wormholeEmitter,
+            postMessageShim: this.postMessageShim!.programId,
+            wormholePostMessageShimEa: eventAuthority(
+              this.postMessageShim!.programId
             ),
           }),
         },
@@ -907,6 +920,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       throw new Error("Wormhole transceiver not found");
     }
     const whTransceiverProgramId = whTransceiver.programId;
+    const postMessageShim = whTransceiver.postMessageShim?.programId;
 
     const ix = await NTT.initializeOrUpdateLUT(
       this.program,
@@ -916,6 +930,10 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         payer: args.payer,
         owner: args.owner,
         wormholeId: new PublicKey(this.core.address),
+        postMessageShim,
+        wormholePostMessageShimEa: postMessageShim
+          ? eventAuthority(postMessageShim)
+          : undefined,
       }
     );
     // Already up to date
