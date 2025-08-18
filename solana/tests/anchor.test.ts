@@ -25,7 +25,7 @@ import {
   utils,
 } from "@wormhole-foundation/sdk-solana-core";
 
-import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
+import { IdlVersion, NTT } from "../ts/index.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
@@ -97,11 +97,7 @@ const remoteXcvr: ChainAddress = $.chainAddress.generateFromValue(
   "transceiver"
 );
 const nttTransceivers = {
-  wormhole: getTransceiverProgram(
-    $.connection,
-    WH_TRANSCEIVER_ADDRESS.toBase58(),
-    VERSION
-  ),
+  wormhole: WH_TRANSCEIVER_ADDRESS,
 };
 
 describe("example-native-token-transfers", () => {
@@ -155,7 +151,7 @@ describe("example-native-token-transfers", () => {
           token: testMint.address.toBase58(),
           manager: NTT_ADDRESS.toBase58(),
           transceiver: {
-            wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+            wormhole: nttTransceivers["wormhole"].toBase58(),
           },
         },
       },
@@ -555,7 +551,7 @@ describe("example-native-token-transfers", () => {
         token: mint.publicKey.toBase58(),
         manager: NTT_ADDRESS.toBase58(),
         transceiver: {
-          wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+          wormhole: nttTransceivers["wormhole"].toBase58(),
         },
       },
     };
