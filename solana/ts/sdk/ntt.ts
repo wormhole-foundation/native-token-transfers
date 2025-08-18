@@ -407,7 +407,7 @@ export class SolanaNttWormholeTransceiver<
       throw new Error("wormholeMessage must be passed in for versions < 4.x.x");
     }
     const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
+      this.programId,
       this.manager.core.address
     );
 
@@ -453,7 +453,7 @@ export class SolanaNttWormholeTransceiver<
       throw new Error("wormholeMessage must be passed in for versions < 4.x.x");
     }
     const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
+      this.programId,
       this.manager.core.address
     );
 
@@ -496,7 +496,7 @@ export class SolanaNttWormholeTransceiver<
   ): Promise<web3.TransactionInstruction> {
     const [major, , ,] = parseVersion(this.version);
     const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
+      this.programId,
       this.manager.core.address
     );
 
@@ -514,9 +514,7 @@ export class SolanaNttWormholeTransceiver<
         wormholeMessage,
         // NOTE: emitter is not part of wormhole accounts for versions < 3.x.x
         ...(major < 3 && { emitter: whAccs.wormholeEmitter }),
-        transceiver: this.manager.pdas.registeredTransceiver(
-          this.program.programId
-        ),
+        transceiver: this.manager.pdas.registeredTransceiver(this.programId),
         wormhole: {
           bridge: whAccs.wormholeBridge,
           feeCollector: whAccs.wormholeFeeCollector,
