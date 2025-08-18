@@ -198,7 +198,7 @@ describe("example-native-token-transfers", () => {
       const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1_000_000n, sender);
       await signSendWait(ctx, setPeerTxs, signer);
 
-    it("Create ExtraAccountMetaList Account", async () => {
+      // create ExtraAccountMetaList account
       await testDummyTransferHook.extraAccountMetaList.initialize(
         $.connection,
         payer,
@@ -569,12 +569,70 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It initializes from constructor", async () => {
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrides["Solana"] },
+      describe("It initializes from constructor", () => {
+        const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
+          JSON.stringify(overrides["Solana"])
+        );
+
+        test("It initializes transceiver using transceiver address for versions >= 4.x.x", () => {
+          const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
+            ...ctx.config.contracts,
+            ...{ ntt: overrides["Solana"] },
+          });
+          expect(ntt).toBeTruthy();
         });
-        expect(ntt).toBeTruthy();
+
+        it("Fails to initialize baked-in transceiver for versions >= 4.x.x", async () => {
+          overrideEmitter.transceiver.wormhole = NTT_ADDRESS.toBase58();
+          await assert
+            .promise(
+              Promise.resolve().then(
+                () =>
+                  new SolanaNtt("Devnet", "Solana", $.connection, {
+                    ...ctx.config.contracts,
+                    ...{ ntt: overrideEmitter },
+                  })
+              )
+            )
+            .failsWith(
+              "Baked-in transceiver is not supported for versions >= 4.x.x"
+            );
+        });
+
+        test("It initializes baked-in transceiver using `emitterAccount` for version 3.0.0", () => {
+          overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(
+            NTT_ADDRESS
+          )
+            .emitterAccount()
+            .toBase58();
+
+          const ntt = new SolanaNtt(
+            "Devnet",
+            "Solana",
+            $.connection,
+            {
+              ...ctx.config.contracts,
+              ...{ ntt: overrideEmitter },
+            },
+            "3.0.0"
+          );
+          expect(ntt).toBeTruthy();
+        });
+
+        test("It initializes baked-in transceiver using manager address for version 3.0.0", () => {
+          overrideEmitter.transceiver.wormhole = NTT_ADDRESS.toBase58();
+          const ntt = new SolanaNtt(
+            "Devnet",
+            "Solana",
+            $.connection,
+            {
+              ...ctx.config.contracts,
+              ...{ ntt: overrideEmitter },
+            },
+            "3.0.0"
+          );
+          expect(ntt).toBeTruthy();
+        });
       });
 
       test("It gets the correct version", async () => {
@@ -584,21 +642,6 @@ describe("example-native-token-transfers", () => {
           payerAddress
         );
         expect(version).toBe("4.0.0");
-      });
-
-      test("It initializes using `emitterAccount` as transceiver address", async () => {
-        const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
-          JSON.stringify(overrides["Solana"])
-        );
-        overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(NTT_ADDRESS)
-          .emitterAccount()
-          .toBase58();
-
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrideEmitter },
-        });
-        expect(ntt).toBeTruthy();
       });
 
       test("It gets the correct transceiver type", async () => {
