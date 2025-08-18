@@ -656,6 +656,23 @@ describe("example-native-token-transfers", () => {
         );
         expect(transceiverType).toBe("wormhole");
       });
+
+      test("It uses Wormhole Post Message and Verify VAA shims", async () => {
+        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
+          ...ctx.config.contracts,
+          ...{ ntt: overrides["Solana"] },
+        });
+        const whTransceiver = await ntt.getWormholeTransceiver();
+        expect(whTransceiver).toBeTruthy();
+        expect(whTransceiver!.postMessageShim).toBeTruthy();
+        expect(whTransceiver!.postMessageShim!.programId.toBase58()).toEqual(
+          "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"
+        );
+        expect(whTransceiver!.verifyVaaShim).toBeTruthy();
+        expect(whTransceiver!.verifyVaaShim!.programId.toBase58()).toEqual(
+          "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"
+        );
+      });
     });
   });
 });
