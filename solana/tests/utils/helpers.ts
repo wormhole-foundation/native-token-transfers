@@ -13,7 +13,7 @@ import {
 import { DummyTransferHook } from "../../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
 import { type WormholePostMessageShim } from "../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
 import { IDL as WormholePostMessageShimIdl } from "../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
-import { derivePda } from "../../ts/lib/utils.js";
+import { derivePda, eventAuthority } from "../../ts/lib/utils.js";
 import { TxHash } from "@wormhole-foundation/sdk-definitions";
 
 export interface ErrorConstructor {
@@ -644,7 +644,7 @@ export class TestWormholePostMessageShim {
   /**
    * @returns Event Authority PDA
    */
-  eventAuthority = () => derivePda(["__event_authority"], this.programId);
+  eventAuthority = () => eventAuthority(this.programId);
 
   /**
    * Busy-waits on the transaction and parses the data necessary to re-build the message from the
