@@ -235,7 +235,7 @@ contract TestTransceiverStructs is Test {
                 BytesParsing.LengthMismatch.selector, message.length + junk.length, message.length
             )
         );
-        TransceiverStructs.parseNttManagerMessage(abi.encodePacked(message, junk));
+        this.parseNttManagerMessageExternal(abi.encodePacked(message, junk));
     }
 
     function test_SerdeRoundtrip_NativeTokenTransfer(
@@ -269,6 +269,20 @@ contract TestTransceiverStructs is Test {
                 BytesParsing.LengthMismatch.selector, message.length + junk.length, expectedRead
             )
         );
-        TransceiverStructs.parseNativeTokenTransfer(abi.encodePacked(message, junk));
+        this.parseNativeTokenTransferExternal(abi.encodePacked(message, junk));
+    }
+
+    // External wrapper for testing internal parseNttManagerMessage function
+    function parseNttManagerMessageExternal(
+        bytes memory encoded
+    ) external pure returns (TransceiverStructs.NttManagerMessage memory) {
+        return TransceiverStructs.parseNttManagerMessage(encoded);
+    }
+
+    // External wrapper for testing internal parseNativeTokenTransfer function
+    function parseNativeTokenTransferExternal(
+        bytes memory encoded
+    ) external pure returns (TransceiverStructs.NativeTokenTransfer memory) {
+        return TransceiverStructs.parseNativeTokenTransfer(encoded);
     }
 }
