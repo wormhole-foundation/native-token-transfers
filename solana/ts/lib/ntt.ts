@@ -148,7 +148,7 @@ export namespace NTT {
   /** pdas returns an object containing all functions to compute program addresses */
   export const transceiverPdas = (programId: PublicKeyInitData) => {
     const emitterAccount = (): PublicKey => derivePda("emitter", programId);
-    const outboxItemSigner = () => derivePda(["outbox_item_signer"], programId);
+    const outboxItemSigner = () => derivePda("outbox_item_signer", programId);
     const transceiverPeerAccount = (chain: Chain): PublicKey =>
       derivePda(["transceiver_peer", chainToBytes(chain)], programId);
     const transceiverMessageAccount = (
