@@ -562,7 +562,7 @@ export class TestDummyTransferHook {
     /**
      * @returns Counter PDA
      */
-    pda: () => derivePda(["counter"], this.program.programId),
+    pda: () => derivePda("counter", this.program.programId),
 
     /**
      * Queries counter and returns counter count
