@@ -197,7 +197,6 @@ describe("example-native-token-transfers", () => {
       // set manager peer
       const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1_000_000n, sender);
       await signSendWait(ctx, setPeerTxs, signer);
-    });
 
     it("Create ExtraAccountMetaList Account", async () => {
       await testDummyTransferHook.extraAccountMetaList.initialize(
