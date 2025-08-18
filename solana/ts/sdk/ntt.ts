@@ -610,13 +610,19 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         const transceiverKey = new PublicKey(
           contracts.ntt!.transceiver[transceiverType]!
         );
-        // handle emitterAccount case separately
+        // handle baked-in transceiver case separately
         if (
           NTT.transceiverPdas(managerKey)
             .emitterAccount()
             .equals(transceiverKey) ||
           managerKey.equals(transceiverKey)
         ) {
+          const [major, , ,] = parseVersion(version);
+          if (major >= 4) {
+            throw new Error(
+              "Baked-in transceiver is not supported for versions >= 4.x.x"
+            );
+          }
           const whTransceiver = new SolanaNttWormholeTransceiver(
             this,
             getTransceiverProgram(
