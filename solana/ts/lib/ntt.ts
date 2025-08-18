@@ -302,6 +302,8 @@ export namespace NTT {
       payer: PublicKey;
       owner: PublicKey;
       wormholeId: PublicKey;
+      postMessageShim?: PublicKey;
+      wormholePostMessageShimEa?: PublicKey;
     },
     pdas?: Pdas
   ) {
@@ -325,7 +327,15 @@ export namespace NTT {
       args.wormholeId.toString()
     );
 
-    // TODO: add `whAccs.emitter`, `whTransceiver`, and transceiverEmitter PDA account to LUT
+    if (
+      major >= 4 &&
+      (!args.postMessageShim || !args.wormholePostMessageShimEa)
+    ) {
+      throw new Error(
+        "postMessageShim and wormholePostMessageShimEa must be passed in for versions >= 4.x.x"
+      );
+    }
+
     const entries = {
       config: pdas.configAccount(),
       custody: config.custody,
@@ -341,6 +351,14 @@ export namespace NTT {
         systemProgram: SystemProgram.programId,
         clock: web3.SYSVAR_CLOCK_PUBKEY,
         rent: web3.SYSVAR_RENT_PUBKEY,
+        // NOTE: transceiver, emitter, and post message shim accounts are part
+        // of wormhole accounts for versions >= 4.x.x
+        ...(major >= 4 && {
+          transceiver: whTransceiver,
+          emitter: whAccs.wormholeEmitter,
+          postMessageShim: args.postMessageShim,
+          wormholePostMessageShimEa: args.wormholePostMessageShimEa,
+        }),
       },
     };
 
