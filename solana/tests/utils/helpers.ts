@@ -730,13 +730,14 @@ export class TestWormholePostMessageShim {
   };
 
   /**
-   * Busy-waits on the transaction and filters the `innerInstructions` to return only the Post Message Shim instructions
-   * @param tx Transaction hash to poll
+   * Busy-waits on the v0 transaction and filters the `innerInstructions` to return only the Post Message Shim instructions
+   * @param tx v0 Transaction hash to poll
    * @returns Post Message Shim instructions
    */
   getInstructions = async (tx: string) => {
     const txDetails = await getTransactionDetails(this.connection, tx);
 
+    expect(txDetails.version).not.toBeNull();
     expect(txDetails.meta).toBeTruthy();
     const txMeta = txDetails.meta!;
     expect(txMeta.innerInstructions).toBeTruthy();
@@ -745,12 +746,15 @@ export class TestWormholePostMessageShim {
     const innerIxs = txInnerIxs[txInnerIxs.length - 1]!.instructions;
 
     // filter to include only Post Message Shim instructions
-    const staticAccountKeys = txDetails.transaction.message.staticAccountKeys;
-    const postMessageShimAccountIdx = staticAccountKeys.findIndex((key) =>
-      key.equals(this.programId)
-    );
+    const accountKeys = txDetails.transaction.message.getAccountKeys({
+      accountKeysFromLookups: txMeta.loadedAddresses,
+    });
+    const postMessageShimAccountIdx = accountKeys
+      .keySegments()
+      .flat()
+      .findIndex((key) => key.equals(this.programId));
     const postMessageShimIxs = innerIxs.filter(
-      (innerIx) => innerIx.programIdIndex === postMessageShimAccountIdx
+      ({ programIdIndex }) => programIdIndex === postMessageShimAccountIdx
     );
 
     return postMessageShimIxs;
