@@ -288,6 +288,30 @@ module ntt::state {
         check_threshold_invariants(self);
     }
 
+    /// The admin can take the treasury cap to be able to mint assets.
+    /// In order to not break the contract, the admin must return it in the same
+    /// transaction with `return_treasury_cap`.
+    ///
+    /// Thus, the flow would look like this:
+    /// 1. let treasury_cap = state.take_treasury_cap(admin_cap);
+    /// 2. // do something with the treasury cap, e.g. mint assets
+    /// 3. state.return_treasury_cap(treasury_cap);
+    ///
+    /// If the admin does not return the treasury cap, the contract will break.
+    public fun take_treasury_cap<T>(
+        _: &AdminCap,
+        state: &mut State<T>
+    ): TreasuryCap<T> {
+        state.treasury_cap.extract()
+    }
+
+    public fun return_treasury_cap<T>(
+        state: &mut State<T>,
+        treasury_cap: TreasuryCap<T>
+    ) {
+        state.treasury_cap.fill(treasury_cap);
+    }
+
     /// Pause the contract - stops all transfers and redemptions
     public fun pause<T>(
         _: &AdminCap,
