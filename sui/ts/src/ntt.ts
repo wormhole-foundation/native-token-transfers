@@ -28,14 +28,16 @@ import {
 import { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
+import { SUI_ADDRESSES, RATE_LIMIT_DURATION } from "./constants.js";
+import {
+  SuiMoveObject,
+  isNativeToken,
+  getSuiObject,
+  getWormholePackageId,
+  getPackageIdFromObject,
+  countSetBits,
+} from "./utils.js";
 
-// TypeScript types matching the Move structs
-interface SuiMoveObject {
-  dataType: "moveObject";
-  type: string;
-  fields: any;
-  hasPublicTransfer: boolean;
-}
 
 interface SuiMode {
   variant: "Locking" | "Burning";
@@ -85,16 +87,6 @@ interface SuiNttState {
   upgrade_cap_id: string;
 }
 
-const SUI_ADDRESSES = {
-  Mainnet: {
-    coreBridgeStateId:
-      "0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c",
-  },
-  Testnet: {
-    coreBridgeStateId:
-      "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
-  },
-};
 
 export class SuiNtt<N extends Network, C extends SuiChains>
   implements Ntt<N, C>
@@ -132,12 +124,13 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   // Helper method to fetch and validate NTT state object with proper typing
   private async getNttState(): Promise<SuiNttState> {
-    let response;
     try {
-      response = await this.provider.getObject({
-        id: this.contracts.ntt!["manager"],
-        options: { showContent: true },
-      });
+      const content = await getSuiObject(
+        this.provider,
+        this.contracts.ntt!["manager"],
+        "Failed to fetch NTT state object"
+      );
+      return content.fields as SuiNttState;
     } catch (error: any) {
       throw new Error(
         `Failed to fetch NTT state object: ${
@@ -145,37 +138,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
         }`
       );
     }
-
-    if (
-      !response.data?.content ||
-      response.data.content.dataType !== "moveObject"
-    ) {
-      throw new Error("Failed to fetch NTT state object");
-    }
-
-    const content = response.data.content as SuiMoveObject;
-    return content.fields as SuiNttState;
   }
 
-  // Helper method to fetch and validate any Sui object with proper typing
-  private async getSuiObject(
-    objectId: string,
-    errorMessage?: string
-  ): Promise<SuiMoveObject> {
-    const response = await this.provider.getObject({
-      id: objectId,
-      options: { showContent: true },
-    });
-
-    if (
-      !response.data?.content ||
-      response.data.content.dataType !== "moveObject"
-    ) {
-      throw new Error(errorMessage || `Failed to fetch object ${objectId}`);
-    }
-
-    return response.data.content as SuiMoveObject;
-  }
 
   readonly network: N;
   readonly chain: C;
@@ -273,30 +237,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   async getPackageIdFromObject(objectId: string): Promise<string> {
     // TODO: replace with getOriginalPackageId from our sdk?
-    const object = await this.getSuiObject(
-      objectId,
-      "Failed to fetch state object"
-    );
-
-    // The package ID can be inferred from the object type
-    const objectType = object.type;
-    // Object type format: "packageId::module::Type<...>"
-    const packageId = objectType.split("::")[0];
-    if (!packageId || !packageId.startsWith("0x")) {
-      throw new Error("Could not extract package ID from state object type");
-    }
-
-    // If we find an upgrade cap id, fetch it and grab the latest package id from there
-    if (object.fields.upgrade_cap_id) {
-      const upgradeCap = await this.getSuiObject(
-        object.fields.upgrade_cap_id,
-        "Failed to fetch upgrade cap object"
-      );
-
-      return upgradeCap.fields.cap.fields.package;
-    }
-
-    return packageId;
+    const result = await getPackageIdFromObject(this.provider, objectId);
+    return result.current;
   }
 
   async getOwner(): Promise<AccountAddress<C>> {
@@ -624,20 +566,13 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     );
 
     // Query the transceiver admin cap ID from the state object
-    const transceiverState = await this.provider.getObject({
-      id: wormholeTransceiverStateId,
-      options: { showContent: true },
-    });
+    const transceiverState = await getSuiObject(
+      this.provider,
+      wormholeTransceiverStateId,
+      "Failed to fetch transceiver state object"
+    );
 
-    if (
-      !transceiverState.data?.content ||
-      transceiverState.data.content.dataType !== "moveObject"
-    ) {
-      throw new Error("Failed to fetch transceiver state object");
-    }
-
-    const transceiverFields = (transceiverState.data.content as SuiMoveObject)
-      .fields;
+    const transceiverFields = transceiverState.fields;
     const transceiverAdminCapId = transceiverFields.admin_cap_id;
 
     // Build transaction to set transceiver peer
@@ -780,11 +715,9 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
     // get token ID
     const token = this.contracts.ntt!["token"];
-    const isNativeToken =
-      (typeof token === "string" && token === "native") ||
-      (typeof token === "string" && token === "0x2::sui::SUI");
+    const isNative = isNativeToken(token);
     const tokenAddress = new SuiAddress(
-      isNativeToken
+      isNative
         ? SuiPlatform.nativeTokenId(this.network, this.chain).address
         : token
     );
@@ -794,7 +727,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     // For SUI (native), we can split from gas
     // For other tokens, we need to get the user's coins of that type
     const [coin] = await (async () => {
-      if (isNativeToken) {
+      if (isNative) {
         // For SUI, split from gas
         return txb.splitCoins(txb.gas, [amount]);
       } else {
@@ -861,7 +794,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     });
 
     // Get Wormhole package ID
-    const wormholePackageId = await this.getWormholePackageId(
+    const wormholePackageId = await getWormholePackageId(
       this.provider,
       this.coreBridgeStateId
     );
@@ -932,7 +865,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       arguments: [dust!], // dust exists from prepare_transfer
     });
 
-    if (isNativeToken) {
+    if (isNative) {
       txb.mergeCoins(txb.gas, [dustCoin!]);
     } else {
       // Transfer dust back to sender for non-native tokens
@@ -1010,18 +943,13 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   // Rate Limiting
   async getCurrentOutboundCapacity(): Promise<bigint> {
-    const state = await this.provider.getObject({
-      id: this.contracts.ntt!["manager"],
-      options: {
-        showContent: true,
-      },
-    });
+    const state = await getSuiObject(
+      this.provider,
+      this.contracts.ntt!["manager"],
+      "Failed to fetch NTT state object"
+    );
 
-    if (!state.data?.content || state.data.content.dataType !== "moveObject") {
-      throw new Error("Failed to fetch NTT state object");
-    }
-
-    const fields = (state.data.content as SuiMoveObject).fields;
+    const fields = state.fields;
     const outboxRateLimit = fields.outbox.fields.rate_limit.fields;
 
     // Get current timestamp (this would ideally come from Clock object)
@@ -1035,7 +963,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
     // Simplified capacity calculation
     const timePassed = BigInt(currentTime) - lastTxTimestamp;
-    const rateLimitDuration = BigInt(24 * 60 * 60 * 1000); // 24 hours in ms
+    const rateLimitDuration = RATE_LIMIT_DURATION;
 
     const additionalCapacity = (timePassed * limit) / rateLimitDuration;
     const currentCapacity = capacityAtLastTx + additionalCapacity;
@@ -1044,18 +972,13 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   }
 
   async getOutboundLimit(): Promise<bigint> {
-    const state = await this.provider.getObject({
-      id: this.contracts.ntt!["manager"],
-      options: {
-        showContent: true,
-      },
-    });
+    const state = await getSuiObject(
+      this.provider,
+      this.contracts.ntt!["manager"],
+      "Failed to fetch NTT state object"
+    );
 
-    if (!state.data?.content || state.data.content.dataType !== "moveObject") {
-      throw new Error("Failed to fetch NTT state object");
-    }
-
-    const fields = (state.data.content as SuiMoveObject).fields;
+    const fields = state.fields;
     const outboxRateLimit = fields.outbox.fields.rate_limit.fields;
 
     return BigInt(outboxRateLimit.limit);
@@ -1151,7 +1074,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
       // Simplified capacity calculation (same formula as outbound)
       const timePassed = BigInt(currentTime) - lastTxTimestamp;
-      const rateLimitDuration = BigInt(24 * 60 * 60 * 1000); // 24 hours in ms
+      const rateLimitDuration = RATE_LIMIT_DURATION;
 
       const additionalCapacity = (timePassed * limit) / rateLimitDuration;
       const currentCapacity = capacityAtLastTx + additionalCapacity;
@@ -1258,8 +1181,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   async getRateLimitDuration(): Promise<bigint> {
     // Rate limit duration is a constant in the Move contract
-    // 24 hours in milliseconds
-    return BigInt(24 * 60 * 60 * 1000);
+    return RATE_LIMIT_DURATION;
   }
 
   // Transfer Status
@@ -1279,7 +1201,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     if (votesBitmap?.fields?.bitmap) {
       // The bitmap is stored as a string representation of a number
       // Count the number of set bits (votes)
-      voteCount = this.countSetBits(parseInt(votesBitmap.fields.bitmap));
+      voteCount = countSetBits(parseInt(votesBitmap.fields.bitmap));
     }
 
     // Check if votes >= threshold
@@ -1424,7 +1346,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
           return "wormhole";
         },
         async getAddress(): Promise<ChainAddress<C>> {
-          const state = await suiNtt.getSuiObject(wormholeTransceiverStateId);
+          const state = await getSuiObject(suiNtt.provider, wormholeTransceiverStateId);
           return {
             chain: chain,
             address: toUniversal(chain, state.fields.emitter_cap.fields.id.id),
@@ -1771,7 +1693,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       throw new Error("Failed to parse native token transfer");
     }
 
-    const wormholeCoreBridgePackageId = await this.getWormholePackageId(
+    const wormholeCoreBridgePackageId = await getWormholePackageId(
       this.provider,
       this.coreBridgeStateId
     );
@@ -1855,7 +1777,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     );
 
     // Get wormhole core package ID
-    const coreBridgePackageId = await this.getWormholePackageId(
+    const coreBridgePackageId = await getWormholePackageId(
       this.provider,
       this.coreBridgeStateId
     );
@@ -2029,56 +1951,5 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     }
   }
 
-  // Helper function to count set bits in a number
-  private countSetBits(n: number): number {
-    let count = 0;
-    while (n) {
-      count += n & 1;
-      n >>= 1;
-    }
-    return count;
-  }
 
-  private async getWormholePackageId(
-    provider: SuiClient,
-    coreBridgeStateId: string
-  ): Promise<string> {
-    let currentPackage;
-    let nextCursor;
-    do {
-      const dynamicFields = await provider.getDynamicFields({
-        parentId: coreBridgeStateId,
-        cursor: nextCursor,
-      });
-      currentPackage = dynamicFields.data.find((field) =>
-        field.name.type.endsWith("CurrentPackage")
-      );
-      nextCursor = dynamicFields.hasNextPage ? dynamicFields.nextCursor : null;
-    } while (nextCursor && !currentPackage);
-
-    if (!currentPackage) {
-      throw new Error("Unable to get current package");
-    }
-
-    const res = await provider.getObject({
-      id: currentPackage.objectId,
-      options: {
-        showContent: true,
-      },
-    });
-    const content = res.data?.content;
-    const fields =
-      content && content.dataType === "moveObject"
-        ? (content as any).fields
-        : null;
-    if (!fields) {
-      throw new Error("Unable to get fields from current package");
-    }
-    const packageId = fields?.["value"]?.fields?.package;
-    if (!packageId) {
-      throw new Error("Unable to get package ID from current package");
-    }
-
-    return packageId;
-  }
 }
