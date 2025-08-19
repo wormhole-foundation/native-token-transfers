@@ -26,6 +26,8 @@ import "./mocks/DummyTransceiver.sol";
 import "../src/mocks/DummyToken.sol";
 import "./mocks/MockNttManager.sol";
 
+contract DummyManager {}
+
 // TODO: set this up so the common functionality tests can be run against both
 contract TestNttManager is Test, IRateLimiterEvents {
     MockNttManagerContract nttManager;
@@ -333,8 +335,9 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
     function test_transceiverIncompatibleNttManager() public {
         // Transceiver instantiation reverts if the nttManager doesn't have the proper token method
+        address dummyManager = address(new DummyManager());
         vm.expectRevert(bytes(""));
-        new DummyTransceiver(address(0xBEEF));
+        new DummyTransceiver(dummyManager);
     }
 
     function test_transceiverWrongNttManager() public {
