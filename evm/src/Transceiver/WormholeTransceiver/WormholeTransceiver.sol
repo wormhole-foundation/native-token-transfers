@@ -143,12 +143,6 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
             revert InvalidWormholePeer(vm.emitterChainId, vm.emitterAddress);
         }
 
-        // save the VAA hash in storage to protect against replay attacks.
-        if (isVAAConsumed(vm.hash)) {
-            revert TransferAlreadyCompleted(vm.hash);
-        }
-        _setVAAConsumed(vm.hash);
-
         // emit `ReceivedMessage` event
         emit ReceivedMessage(vm.hash, vm.emitterChainId, vm.emitterAddress, vm.sequence);
 

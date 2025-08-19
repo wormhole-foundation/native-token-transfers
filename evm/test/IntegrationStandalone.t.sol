@@ -240,15 +240,6 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
             "TransferRedeemed(bytes32) event should match TransferSent(bytes32)"
         );
 
-        // Can't resubmit the same message twice
-        (IWormhole.VM memory wormholeVM,,) = wormhole.parseAndVerifyVM(encodedVMs[0]);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IWormholeTransceiver.TransferAlreadyCompleted.selector, wormholeVM.hash
-            )
-        );
-        wormholeTransceiverChain2.receiveMessage(encodedVMs[0]);
-
         // Go back the other way from a THIRD user
         vm.prank(userB);
         token2.transfer(userC, sendingAmount);
@@ -374,15 +365,6 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
                 token2.balanceOf(address(nttManagerChain2)) == 0, "NttManager has unintended funds"
             );
         }
-
-        // Can't resubmit the same message twice
-        (IWormhole.VM memory wormholeVM,,) = wormhole.parseAndVerifyVM(encodedVMs[0]);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IWormholeTransceiver.TransferAlreadyCompleted.selector, wormholeVM.hash
-            )
-        );
-        wormholeTransceiverChain2.receiveMessage(encodedVMs[0]);
 
         // Go back the other way from a THIRD user
         vm.prank(userB);

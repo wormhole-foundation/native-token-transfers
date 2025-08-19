@@ -96,17 +96,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
 
     // =============== Storage Setters/Getters ========================================
 
-    function _getWormholeConsumedVAAsStorage()
-        internal
-        pure
-        returns (mapping(bytes32 => bool) storage $)
-    {
-        uint256 slot = uint256(WORMHOLE_CONSUMED_VAAS_SLOT);
-        assembly ("memory-safe") {
-            $.slot := slot
-        }
-    }
-
     function _getWormholePeersStorage()
         internal
         pure
@@ -119,13 +108,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     }
 
     // =============== Public Getters ======================================================
-
-    /// @inheritdoc IWormholeTransceiverState
-    function isVAAConsumed(
-        bytes32 hash
-    ) public view returns (bool) {
-        return _getWormholeConsumedVAAsStorage()[hash];
-    }
 
     /// @inheritdoc IWormholeTransceiverState
     function getWormholePeer(
@@ -168,13 +150,5 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         );
 
         emit SetWormholePeer(peerChainId, peerContract);
-    }
-
-    // ============= Internal ===============================================================
-
-    function _setVAAConsumed(
-        bytes32 hash
-    ) internal {
-        _getWormholeConsumedVAAsStorage()[hash] = true;
     }
 }

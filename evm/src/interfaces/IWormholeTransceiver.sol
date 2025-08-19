@@ -51,11 +51,6 @@ interface IWormholeTransceiver is IWormholeTransceiverState {
     /// @param peerAddress The address of the invalid peer.
     error InvalidWormholePeer(uint16 chainId, bytes32 peerAddress);
 
-    /// @notice Error when the VAA has already been consumed.
-    /// @dev Selector: 0x406e719e.
-    /// @param vaaHash The hash of the VAA.
-    error TransferAlreadyCompleted(bytes32 vaaHash);
-
     /// @notice Receive an attested message from the verification layer.
     ///         This function should verify the `encodedVm` and then deliver the attestation
     /// to the transceiver NttManager contract.

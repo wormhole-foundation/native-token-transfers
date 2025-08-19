@@ -241,15 +241,6 @@ contract TestAdditionalPayload is Test {
         }
         assertEq(receivedAP, expectedAP);
 
-        // Can't resubmit the same message twice
-        (IWormhole.VM memory wormholeVM,,) = wormhole.parseAndVerifyVM(encodedVMs[0]);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IWormholeTransceiver.TransferAlreadyCompleted.selector, wormholeVM.hash
-            )
-        );
-        wormholeTransceiverChain2.receiveMessage(encodedVMs[0]);
-
         // Go back the other way from a THIRD user
         vm.prank(userB);
         token2.transfer(userC, sendingAmount);

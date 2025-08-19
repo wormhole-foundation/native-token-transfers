@@ -56,12 +56,6 @@ interface IWormholeTransceiverState {
         uint16 chainId
     ) external view returns (bytes32);
 
-    /// @notice Returns a boolean indicating whether the given VAA hash has been consumed.
-    /// @param hash The VAA hash to check.
-    function isVAAConsumed(
-        bytes32 hash
-    ) external view returns (bool);
-
     /// @notice Set the Wormhole peer contract for the given chain.
     /// @dev This function is only callable by the `owner`.
     /// @param chainId The Wormhole chain ID of the peer to set.
