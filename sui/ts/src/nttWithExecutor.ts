@@ -19,28 +19,15 @@ import {
 import { PublicKey } from "@solana/web3.js";
 import { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
-import { isValidSuiAddress, SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
+import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
 import { SuiNtt } from "./ntt.js";
-
-// TODO: Add Mainnet addresses when available
-const SUI_ADDRESSES = {
-  Mainnet: {
-    executorId:
-      "0xdb0fe8bb1e2b5be628adbea0636063325073e1070ee11e4281457dfd7f158235",
-    executorRequestsId:
-      "0xa55f6f81649b071b5967dc56227bbee289e4c411ab610caeec7abce499e262b8",
-    coreBridgeStateId:
-      "0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c",
-  },
-  Testnet: {
-    executorId:
-      "0x4000cfe2955d8355b3d3cf186f854fea9f787a457257056926fde1ec977670eb",
-    executorRequestsId:
-      "0x8e5ec98738885325294060fd067fde47e10313bedc531d0500b24a752be41788",
-    coreBridgeStateId:
-      "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
-  },
-};
+import { SUI_ADDRESSES } from "./constants.js";
+import {
+  isNativeToken,
+  getWormholePackageId,
+  getPackageId,
+  getTransceivers,
+} from "./utils.js";
 
 export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
   implements NttWithExecutor<N, C>
@@ -140,21 +127,20 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     // Get required package and object IDs
     const managerStateId = ntt.contracts.ntt!["manager"];
     const token = ntt.contracts.ntt!["token"];
-    const isNativeToken = (typeof token === "string" && token === "native") || 
-                          (typeof token === "string" && token === "0x2::sui::SUI");
+    const isNative = isNativeToken(token);
     const tokenAddress = new SuiAddress(
-      isNativeToken
+      isNative
         ? SuiPlatform.nativeTokenId(this.network, this.chain).address
         : token
     );
     const coinType: string = tokenAddress.getCoinType();
-    const { packageId, fields } = await this.getPackageId(
+    const { packageId, fields } = await getPackageId(
       ntt.provider,
       managerStateId
     );
 
     // Get transceiver info
-    const [transceiverStateId] = await this.getTransceivers(
+    const [transceiverStateId] = await getTransceivers(
       ntt.provider,
       fields.transceivers.fields.id.id
     );
@@ -164,7 +150,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     }
 
     // Get package ID for transceiver
-    const { packageId: transceiverId } = await this.getPackageId(
+    const { packageId: transceiverId } = await getPackageId(
       ntt.provider,
       transceiverStateId
     );
@@ -199,7 +185,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     // Split coins for transfer amount
     // Handle separate cases for native vs. non-native tokens
     const [coin] = await (async () => {
-      if (isNativeToken) {
+      if (isNative) {
         return tx.splitCoins(tx.gas, [tx.pure.u64(amount)]);
       } else {
         const coins = await SuiPlatform.getCoins(
@@ -261,7 +247,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       arguments: [tx.object(managerStateId)],
     });
 
-    const coreBridgePackageId = await this.getWormholePackageId(
+    const coreBridgePackageId = await getWormholePackageId(
       this.provider,
       this.coreBridgeStateId
     );
@@ -327,7 +313,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       arguments: [dust as any],
     });
 
-    if (isNativeToken) {
+    if (isNative) {
       tx.mergeCoins(tx.gas, [dustCoin as any]);
     } else {
       tx.transferObjects(
@@ -446,120 +432,5 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       "Optimism",
       "Base",
     ] as Chain[];
-  }
-
-  private getFieldsFromObjectResponse(object: any) {
-    const content = object.data?.content;
-    return content && content.dataType === "moveObject" ? content.fields : null;
-  }
-
-  private async getObjectFields(
-    provider: SuiClient,
-    objectId: string
-  ): Promise<Record<string, any> | null> {
-    if (!isValidSuiAddress(objectId)) {
-      throw new Error(`Invalid object ID: ${objectId}`);
-    }
-
-    const res = await provider.getObject({
-      id: objectId,
-      options: {
-        showContent: true,
-      },
-    });
-    return this.getFieldsFromObjectResponse(res);
-  }
-
-  private async getWormholePackageId(
-    provider: SuiClient,
-    coreBridgeStateId: string
-  ): Promise<string> {
-    let currentPackage;
-    let nextCursor;
-    do {
-      const dynamicFields = await provider.getDynamicFields({
-        parentId: coreBridgeStateId,
-        cursor: nextCursor,
-      });
-      currentPackage = dynamicFields.data.find((field) =>
-        field.name.type.endsWith("CurrentPackage")
-      );
-      nextCursor = dynamicFields.hasNextPage ? dynamicFields.nextCursor : null;
-    } while (nextCursor && !currentPackage);
-
-    if (!currentPackage) {
-      throw new Error("CurrentPackage not found");
-    }
-
-    const fields = await this.getObjectFields(
-      provider,
-      currentPackage.objectId
-    );
-    const packageId = fields?.["value"]?.fields?.package;
-    if (!packageId) {
-      throw new Error("Unable to get current package");
-    }
-
-    return packageId;
-  }
-
-  private async getPackageId(
-    provider: SuiClient,
-    stateId: string
-  ): Promise<{ packageId: string; fields?: any }> {
-    const state = await provider.getObject({
-      id: stateId,
-      options: { showContent: true },
-    });
-
-    if (!state.data?.content || state.data.content.dataType !== "moveObject") {
-      throw new Error("Failed to fetch state object");
-    }
-
-    const objectType = state.data.content.type;
-    const packageId = objectType.split("::")[0];
-    if (!packageId || !packageId.startsWith("0x")) {
-      throw new Error("Could not extract package ID from state object type");
-    }
-
-    const fields = state.data.content.fields;
-
-    return { packageId, fields };
-  }
-
-  private async getTransceivers(
-    provider: SuiClient,
-    transceiverRegistryId: string
-  ): Promise<string[]> {
-    const dynamicFields = await provider.getDynamicFields({
-      parentId: transceiverRegistryId,
-    });
-
-    for (const field of dynamicFields.data) {
-      if (field.name?.type?.includes("transceiver_registry::Key")) {
-        try {
-          const transceiverInfo = await provider.getObject({
-            id: field.objectId,
-            options: { showContent: true },
-          });
-
-          if (
-            transceiverInfo.data?.content &&
-            transceiverInfo.data.content.dataType === "moveObject"
-          ) {
-            const infoFields = (transceiverInfo.data.content.fields as any)
-              .value.fields;
-            const transceiverIndex = infoFields.id;
-
-            if (transceiverIndex === 0) {
-              return [infoFields.state_object_id as string];
-            }
-          }
-        } catch (e) {
-          console.warn(`Failed to read transceiver info: ${e}`);
-        }
-      }
-    }
-    throw new Error("Unable to find transceivers");
   }
 }

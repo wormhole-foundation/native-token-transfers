@@ -750,7 +750,7 @@ describe("SuiNtt", () => {
         mockClient.getDynamicFields.mockResolvedValue({
           data: [{
             name: { type: "CurrentPackage" },
-            objectId: "0xmockcurrentpackage123"
+            objectId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
           }],
           nextCursor: null,
           hasNextPage: false
@@ -758,7 +758,7 @@ describe("SuiNtt", () => {
         
         // Mock getObject for multiple different object IDs
         mockClient.getObject.mockImplementation((params: any) => {
-          if (params.id === "0xmockcurrentpackage123") {
+          if (params.id === "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef") {
             // Mock for CurrentPackage object in getWormholePackageId
             return Promise.resolve({
               data: {
@@ -868,7 +868,7 @@ describe("SuiNtt", () => {
           } else if (params.id === TEST_CONTRACTS.ntt.transceiver.wormhole) {
             // Mock for transceiver state object
             return Promise.resolve(mockSuiObject(`${packageId}::wormhole_transceiver::State`, {}));
-          } else if (params.id === "0xcurrent123") {
+          } else if (params.id === "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890") {
             // Mock for CurrentPackage object (from getDynamicFields)
             return Promise.resolve(mockSuiObject("CurrentPackage", {
               value: {
@@ -892,7 +892,7 @@ describe("SuiNtt", () => {
         mockClient.getDynamicFields.mockResolvedValue({
           data: [{
             name: { type: "CurrentPackage" },
-            objectId: "0xcurrent123"
+            objectId: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
           }],
           hasNextPage: false,
           nextCursor: null
