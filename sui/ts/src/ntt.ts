@@ -280,8 +280,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   }
 
   async getPauser(): Promise<AccountAddress<C> | null> {
-    // TODO
-    return null;
+    // In Sui NTT, the owner and pauser are the same (AdminCap holder)
+    return this.getOwner();
   }
 
   async getThreshold(): Promise<number> {
@@ -396,14 +396,37 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     newOwner: AccountAddress<C>,
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
-    throw new Error("Not implemented");
+    const txb = new Transaction();
+
+    // Get Admin and Upgrade cap IDs
+    const adminCapId = await this.getAdminCapId();
+    const upgradeCapId = await this.getUpgradeCapId();
+
+    // Transfer AdminCap and UpgradeCap to new owner
+    txb.transferObjects(
+      [txb.object(adminCapId), txb.object(upgradeCapId)],
+      newOwner.toString()
+    );
+
+    const unsignedTx = new SuiUnsignedTransaction(
+      txb,
+      this.network,
+      this.chain,
+      "Transfer Ownership"
+    );
+
+    yield unsignedTx;
   }
 
   async *setPauser(
     newPauser: AccountAddress<C>,
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
-    throw new Error("Not implemented");
+    // In Sui NTT, owner and pauser are the same (AdminCap holder)
+    // Use setOwner instead to change the pauser
+    throw new Error(
+      "setPauser not supported: owner and pauser are the same in Sui NTT. Use setOwner instead."
+    );
   }
 
   // Peer Management
@@ -1247,8 +1270,6 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     }
 
     // The timestamp should be in the fields of the enum variant
-    // TODO Not sure if this is the correct way to get the timestamp
-    // I wasn't able to get the exact field name while debugging live
     const releaseTimestamp = parseInt(releaseStatus.fields?.["pos0"]);
 
     // Get the full inbox item to access the transfer data
