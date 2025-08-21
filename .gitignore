@@ -2,6 +2,8 @@
 cache/
 out/
 target/
+build/
+tsconfig.tsbuildinfo
 
 # Ignores development broadcast logs
 !/broadcast
@@ -25,3 +27,6 @@ node_modules
 
 # Tilt
 .wormhole
+
+# Claude code
+.claude/settings.local.json

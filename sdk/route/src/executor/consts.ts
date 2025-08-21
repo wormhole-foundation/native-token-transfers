@@ -18,6 +18,9 @@ export const getDefaultReferrerAddress = (chain: Chain): ChainAddress => {
     address = "0x9b2A3B92b1D86938D3Ed37B0519952C227bA6D09";
   } else if (chainToPlatform(chain) === "Solana") {
     address = "9q2q3EtP1VNdyaxzju1CGfh3EDj7heGABgxAJNyQDXgT";
+  } else if (chainToPlatform(chain) === "Sui") {
+    address =
+      "0xbfa1240e48c622d97881473953be730091161b7931d89bd6afe667841cf69ef4";
   } else {
     throw new Error(`No referrer address for chain ${chain}`);
   }
