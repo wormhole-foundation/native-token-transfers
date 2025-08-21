@@ -103,7 +103,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       ntt
     );
 
-    // Create and yield the complete transaction
+    // Create and return the complete transaction
     const executorTx = new SuiUnsignedTransaction(
       tx as any,
       this.network,
@@ -111,7 +111,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       "NTT Transfer with Executor"
     );
 
-    yield executorTx;
+    return executorTx;
   }
 
   private async createSuiNttTransferWithExecutor(
@@ -420,7 +420,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
   }
 
   // Utility method to get supported destination chains
-  async getSupportedDestinationChains(): Promise<Chain[]> {
+  getSupportedDestinationChains(): Chain[] {
     // Sui executor supports Solana and EVM chains
     return [
       "Solana",

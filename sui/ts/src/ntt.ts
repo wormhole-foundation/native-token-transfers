@@ -38,7 +38,6 @@ import {
   countSetBits,
 } from "./utils.js";
 
-
 interface SuiMode {
   variant: "Locking" | "Burning";
 }
@@ -86,7 +85,6 @@ interface SuiNttState {
   admin_cap_id: string;
   upgrade_cap_id: string;
 }
-
 
 export class SuiNtt<N extends Network, C extends SuiChains>
   implements Ntt<N, C>
@@ -139,7 +137,6 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       );
     }
   }
-
 
   readonly network: N;
   readonly chain: C;
@@ -1367,7 +1364,10 @@ export class SuiNtt<N extends Network, C extends SuiChains>
           return "wormhole";
         },
         async getAddress(): Promise<ChainAddress<C>> {
-          const state = await getSuiObject(suiNtt.provider, wormholeTransceiverStateId);
+          const state = await getSuiObject(
+            suiNtt.provider,
+            wormholeTransceiverStateId
+          );
           return {
             chain: chain,
             address: toUniversal(chain, state.fields.emitter_cap.fields.id.id),
@@ -1971,6 +1971,4 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       return null;
     }
   }
-
-
 }

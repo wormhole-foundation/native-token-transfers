@@ -41,13 +41,13 @@
   },
   "dependencies": {
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
-    "@mysten/sui": "^1.26.1"
+    "@mysten/sui": "1.37.2"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^2.4.0",
-    "@wormhole-foundation/sdk-definitions": "^2.4.0",
-    "@wormhole-foundation/sdk-sui": "^2.4.0",
-    "@wormhole-foundation/sdk-sui-core": "^2.4.0"
+    "@wormhole-foundation/sdk-base": "3.3.0",
+    "@wormhole-foundation/sdk-definitions": "3.3.0",
+    "@wormhole-foundation/sdk-sui": "3.3.0",
+    "@wormhole-foundation/sdk-sui-core": "3.3.0"
   },
   "type": "module",
   "exports": {

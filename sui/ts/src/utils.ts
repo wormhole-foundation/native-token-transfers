@@ -21,8 +21,9 @@ export function isNativeToken(token: string): boolean {
  * Extracts fields from a Sui object response
  */
 export function getFieldsFromObjectResponse(object: any) {
-  const content = object.data?.content;
-  return content && content.dataType === "moveObject" ? content.fields : null;
+  return object.data?.content?.dataType === "moveObject"
+    ? object.data.content.fields
+    : null;
 }
 
 /**
@@ -151,8 +152,8 @@ export async function getTransceivers(
           transceiverInfo.data?.content &&
           transceiverInfo.data.content.dataType === "moveObject"
         ) {
-          const infoFields = (transceiverInfo.data.content.fields as any)
-            .value.fields;
+          const infoFields = (transceiverInfo.data.content.fields as any).value
+            .fields;
           const transceiverIndex = infoFields.id;
 
           if (transceiverIndex === 0) {
@@ -242,13 +243,14 @@ export function extractGenericType(typeString: string): string | null {
 }
 
 /**
- * Counts the number of set bits in a number
+ * Counts the number of set bits in a number.
+ * Uses Brian Kernighan’s Algorithm
  */
 export function countSetBits(n: number): number {
   let count = 0;
   while (n) {
-    count += n & 1;
-    n >>= 1;
+    n &= n - 1; // Remove the rightmost set bit
+    count += 1;
   }
   return count;
 }

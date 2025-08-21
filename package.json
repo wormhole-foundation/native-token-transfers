@@ -40,6 +40,6 @@
     "cli"
   ],
   "resolutions": {
-    "@mysten/sui": "1.26.1"
+    "@mysten/sui": "1.37.2"
   }
 }
