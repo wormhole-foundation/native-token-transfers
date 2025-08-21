@@ -111,7 +111,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       "NTT Transfer with Executor"
     );
 
-    return executorTx;
+    yield executorTx;
   }
 
   private async createSuiNttTransferWithExecutor(
