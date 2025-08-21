@@ -24,10 +24,6 @@ module ntt::ntt {
     const EWrongDestinationChain: vector<u8>
         = b"Wrong destination chain";
 
-    #[error]
-    const EPaused: vector<u8>
-        = b"Contract is paused";
-
     #[allow(lint(coin_field))]
     public struct TransferTicket<phantom CoinType> {
         coins: Coin<CoinType>,
@@ -130,7 +126,7 @@ module ntt::ntt {
     ): OutboxKey {
         version_gated.check_version(state);
 
-        assert!(!state.is_paused(), EPaused);
+        state.assert_not_paused();
 
         let TransferTicket {
             coins,
@@ -198,7 +194,7 @@ module ntt::ntt {
     ) {
         version_gated.check_version(state);
 
-        assert!(!state.is_paused(), EPaused);
+        state.assert_not_paused();
 
         let (chain_id, source_ntt_manager, ntt_manager_message) =
             validated_message.destruct_recipient_only(&ntt::auth::new_auth(), state);
@@ -281,7 +277,7 @@ module ntt::ntt {
 
         version_gated.check_version(state);
 
-        assert!(!state.is_paused(), EPaused);
+        state.assert_not_paused();
 
         // NOTE: this validates that the message has enough votes etc
         let released = state.try_release_in(chain_id, message, clock);

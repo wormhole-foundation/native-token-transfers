@@ -22,6 +22,10 @@ module ntt::state {
     const EThresholdTooHigh: vector<u8> =
         b"Threshold too high";
 
+    #[error]
+    const EPaused: vector<u8>
+        = b"Contract is paused";
+
     /// NOTE: this is a shared object, so anyone can grab a mutable reference to
     /// it. Thus, functions are access-controlled by (package) visibility.
     public struct State<phantom T> has key, store {
@@ -184,6 +188,8 @@ module ntt::state {
         message_id: Bytes32,
         clock: &Clock
     ): ntt_common::outbound_message::OutboundMessage<ntt::auth::ManagerAuth, TransceiverAuth> {
+        self.assert_not_paused();
+
         let transceiver_index = self.transceivers.transceiver_id<TransceiverAuth>();
         let outbox_key = outbox::new_outbox_key(message_id);
         let released = self.outbox.try_release(outbox_key, transceiver_index, clock);
@@ -331,6 +337,10 @@ module ntt::state {
     /// Check if the contract is currently paused
     public fun is_paused<T>(state: &State<T>): bool {
         state.paused
+    }
+
+    public fun assert_not_paused<T>(state: &State<T>) {
+        assert!(!state.paused, EPaused);
     }
 
     /// Get the current threshold value

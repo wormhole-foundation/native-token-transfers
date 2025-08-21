@@ -642,7 +642,7 @@ module ntt::ntt_tests {
         scenario.end();
     }
 
-    #[test, expected_failure(abort_code = ::ntt::ntt::EPaused)]
+    #[test, expected_failure(abort_code = ::ntt::state::EPaused)]
     fun test_transfer_when_paused() {
         let (admin, user_a, _, _) = ntt_scenario::test_addresses();
         let mut scenario = test_scenario::begin(admin);
@@ -695,7 +695,7 @@ module ntt::ntt_tests {
         scenario.end();
     }
 
-    #[test, expected_failure(abort_code = ::ntt::ntt::EPaused)]
+    #[test, expected_failure(abort_code = ::ntt::state::EPaused)]
     fun test_redeem_when_paused() {
         let (admin, user_a, user_b, _) = ntt_scenario::test_addresses();
         let mut scenario = test_scenario::begin(admin);
