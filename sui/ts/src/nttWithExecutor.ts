@@ -414,7 +414,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     let msgValue = 0n;
 
     // Gas limit here is an estimate based on the complexity of our operations
-    const gasLimit = 10_000_000n;
+    const gasLimit = 20_000_000n;
 
     return { msgValue, gasLimit };
   }
