@@ -11,11 +11,28 @@ import {
   UniversalAddress,
 } from "@wormhole-foundation/sdk";
 import { DummyTransferHook } from "../../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
+import { type WormholePostMessageShim } from "../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
+import { IDL as WormholePostMessageShimIdl } from "../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
 import { derivePda } from "../../ts/lib/utils.js";
+import { TxHash } from "@wormhole-foundation/sdk-definitions";
 
 export interface ErrorConstructor {
   new (...args: any[]): Error;
 }
+
+/**
+ * Wormhole Post Message Shim related types
+ */
+export type PostMessageShimMessageEvent =
+  anchor.IdlEvents<WormholePostMessageShim>["messageEvent"];
+export interface PostMessageShimInstructionData {
+  nonce: number;
+  consistencyLevel: { confirmed: {} } | { finalized: {} };
+  payload: Buffer;
+}
+export interface PostMessageShimMessageData
+  extends PostMessageShimInstructionData,
+    PostMessageShimMessageEvent {}
 
 /**
  * Assertion utility functions
@@ -86,7 +103,6 @@ export const assert = {
    * Asserts native balance for given `publicKey`
    * @param connection Connection to use
    * @param publicKey Account to query to fetch native balance
-   * @returns
    */
   nativeBalance: (
     connection: anchor.web3.Connection,
@@ -312,10 +328,20 @@ export class TestHelper {
    * Wrapper around `requestAirdrop()`
    * @param to Recipient account for airdrop
    * @param lamports Amount in lamports to airdrop
-   * @returns
+   * @returns Signature of the confirmed transaction
    */
   airdrop = async (to: anchor.web3.PublicKey, lamports: number) => {
     return this.confirm(await this.connection.requestAirdrop(to, lamports));
+  };
+
+  /**
+   * Fetches the estimated production time of the current block
+   * @returns Time of current block
+   */
+  currentTime = async () => {
+    const slot = await this.connection.getSlot();
+    const timestamp = await this.connection.getBlockTime(slot);
+    return timestamp;
   };
 }
 
@@ -596,18 +622,156 @@ export class TestDummyTransferHook {
 }
 
 /**
+ * Wormhole Post Message Shim program related test utility class
+ */
+export class TestWormholePostMessageShim {
+  program: anchor.Program<WormholePostMessageShim>;
+  borshInstructionCoder = new anchor.BorshInstructionCoder(
+    WormholePostMessageShimIdl
+  );
+
+  constructor(
+    readonly connection: anchor.web3.Connection,
+    readonly programId = new anchor.web3.PublicKey(
+      "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"
+    )
+  ) {
+    this.program = new anchor.Program(WormholePostMessageShimIdl, programId, {
+      connection,
+    });
+  }
+
+  /**
+   * @returns Event Authority PDA
+   */
+  eventAuthority = () => derivePda(["__event_authority"], this.programId);
+
+  /**
+   * Busy-waits on the transaction and parses the data necessary to re-build the message from the
+   * Post Message Shim program input instruction data and the self-CPI `MessageEvent`
+   * @param tx Transaction hash to poll
+   * @returns Parsed `PostMessageShimMessageData`
+   */
+  getMessageData = async (
+    tx: string
+  ): Promise<PostMessageShimMessageData[]> => {
+    const postMessageShimIxs = await this.getInstructions(tx);
+
+    const parsedShimMessages = [];
+
+    // NOTE: `getTransaction` flattens all nested `innerInstructions`.
+    // This means the Post Message Shim instructions would show up in `innerInstructions` in groups of 2:
+    // 1) outer CPI call from xcvr to the `postMessage` instruction
+    // 2) inner self-CPI to emit the `MessageEvent`
+    const n = postMessageShimIxs.length;
+    expect(n).toBeGreaterThanOrEqual(2);
+    expect(n % 2).toBe(0);
+    for (let i = 0; i < n; i += 2) {
+      // Parse instruction data for `nonce`, `consistency_level`, `payload`
+      const { nonce, consistencyLevel, payload } = this.parseInstructionData(
+        postMessageShimIxs[i]!.data
+      );
+      // Parse CPI event for `emitter`, `sequence`, `submission_time`
+      const { emitter, sequence, submissionTime } = this.parseMessageEvent(
+        postMessageShimIxs[i + 1]!.data
+      );
+
+      parsedShimMessages.push({
+        nonce,
+        consistencyLevel,
+        payload,
+        emitter,
+        sequence,
+        submissionTime,
+      });
+    }
+
+    return parsedShimMessages;
+  };
+
+  /**
+   * Decodes and parses the program input data to extract the `nonce`, `consistency_level`, and `payload`
+   * @param data The Post Message Shim program input data encoded as base 58
+   * @returns Parsed `PostMessageShimInstructionData`
+   */
+  parseInstructionData = (data: string): PostMessageShimInstructionData => {
+    const decodedData = anchor.utils.bytes.bs58.decode(data);
+    const ixData = this.borshInstructionCoder.decode(decodedData)
+      ?.data as PostMessageShimInstructionData;
+    expect(ixData).toBeTruthy();
+    const { nonce, consistencyLevel, payload } = ixData;
+    return {
+      nonce,
+      consistencyLevel,
+      payload,
+    };
+  };
+
+  /**
+   * Decodes and parses the program input data to extract the `MessageEvent`
+   * @param data The Post Message Shim program input data encoded as base 58
+   * @returns Parsed `PostMessageShimMessageEvent`
+   */
+  parseMessageEvent = (data: string): PostMessageShimMessageEvent => {
+    const decodedData = anchor.utils.bytes.bs58.decode(data);
+    // TODO: BorshEventCoder, BorshCoder, etc. failed to decode
+    // So we manually extract the event fields and return
+    const emitter = new anchor.web3.PublicKey(decodedData.subarray(16, 48));
+    const sequence = new anchor.BN(decodedData.subarray(48, 56), "le");
+    const submissionTime = new anchor.BN(
+      decodedData.subarray(56, 60),
+      "le"
+    ).toNumber();
+    return {
+      emitter,
+      sequence,
+      submissionTime,
+    };
+  };
+
+  /**
+   * Busy-waits on the transaction and filters the `innerInstructions` to return only the Post Message Shim instructions
+   * @param tx Transaction hash to poll
+   * @returns Post Message Shim instructions
+   */
+  getInstructions = async (tx: string) => {
+    const txDetails = await getTransactionDetails(this.connection, tx);
+
+    expect(txDetails.meta).toBeTruthy();
+    const txMeta = txDetails.meta!;
+    expect(txMeta.innerInstructions).toBeTruthy();
+    const txInnerIxs = txMeta.innerInstructions!;
+    expect(txInnerIxs.length).toBeGreaterThanOrEqual(1);
+    const innerIxs = txInnerIxs[txInnerIxs.length - 1]!.instructions;
+
+    // filter to include only Post Message Shim instructions
+    const staticAccountKeys = txDetails.transaction.message.staticAccountKeys;
+    const postMessageShimAccountIdx = staticAccountKeys.findIndex((key) =>
+      key.equals(this.programId)
+    );
+    const postMessageShimIxs = innerIxs.filter(
+      (innerIx) => innerIx.programIdIndex === postMessageShimAccountIdx
+    );
+
+    return postMessageShimIxs;
+  };
+}
+
+/**
  * Try-catch wrapper around `signSendWait`
  * @param chain Chain to execute transaction on
  * @param txs Generator of unsigned transactions
  * @param signer Signing account required by the transactions
+ * @returns Signatures of the confirmed transactions
  */
 export const signSendWait = async (
   chain: ChainContext<any, any, any>,
   txs: AsyncGenerator<any>,
   signer: Signer
-) => {
+): Promise<TxHash[] | undefined> => {
   try {
-    await ssw(chain, txs, signer);
+    const txIds = await ssw(chain, txs, signer);
+    return txIds.map(({ txid }) => txid);
   } catch (e) {
     console.error(e);
   }
@@ -642,4 +806,24 @@ export const sendAndConfirm = async (
     [payer, ...signers],
     {}
   );
+};
+
+/**
+ * Busy-wait wrapper around `getTransaction`
+ * @param connection Connection to use
+ * @param tx Transaction hash to poll
+ * @returns Confirmed transaction from the cluster
+ */
+export const getTransactionDetails = async (
+  connection: anchor.web3.Connection,
+  tx: string
+): Promise<anchor.web3.VersionedTransactionResponse> => {
+  let txDetails: anchor.web3.VersionedTransactionResponse | null = null;
+  while (!txDetails) {
+    txDetails = await connection.getTransaction(tx, {
+      maxSupportedTransactionVersion: 0,
+      commitment: "confirmed",
+    });
+  }
+  return txDetails;
 };
