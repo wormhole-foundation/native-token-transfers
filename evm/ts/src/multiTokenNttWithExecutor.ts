@@ -28,8 +28,8 @@ const multiTokenNttWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
 > = {
   Testnet: {
-    Sepolia: "0xc2EA39E0072b37C34c67C486C0B1526a96b0b77e",
-    Monad: "0x780720817647E6C2532F821C4eC925840489942B",
+    Sepolia: "0x63a193Fd7BE29632a6b32a2285807CEB2d9AC1B7",
+    Monad: "0x38415a872F5A38187C8007c02DbD4Ce1782725d5",
   },
 };
 
@@ -91,8 +91,8 @@ export class EvmMultiTokenNttWithExecutor<
     const isNativeToken = isNative(token.address);
 
     const abi = [
-      "function transfer(address multiTokenNtt, address token, uint256 amount, uint16 recipientChain, uint256 gasLimit, bytes32 recipient, bytes32 refundAddress, bytes transceiverInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64)",
-      "function transferETH(address multiTokenNtt, uint256 amount, uint16 recipientChain, uint256 gasLimit, bytes32 recipient, bytes32 refundAddress, bytes transceiverInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64)",
+      "function transfer(address multiTokenNtt, address token, uint256 amount, uint16 recipientChain, bytes32 recipient, bytes32 refundAddress, bytes transceiverInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64)",
+      "function transferETH(address multiTokenNtt, uint256 amount, uint16 recipientChain, bytes32 recipient, bytes32 refundAddress, bytes transceiverInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64)",
     ];
 
     const iface = new Interface(abi);
@@ -100,6 +100,11 @@ export class EvmMultiTokenNttWithExecutor<
     const recipientChain = toChainId(destination.chain);
     const recipient = destination.address.toUniversalAddress().toUint8Array();
     const refundAddress = sender.toUniversalAddress().toUint8Array();
+
+    // TODO: We need to get the send transceivers and their indexes and types,
+    // and fetch the quote for each transceiver.
+    // We can use the axelarQueryApi to get the gas fee for the axelar transceiver.
+    // Just use 0 as the gas fee for axelar if the fetch fails.
 
     // Calculate core bridge fee (delivery price)
     // TODO: need to pass the axelar transceiver gas required here
@@ -118,10 +123,6 @@ export class EvmMultiTokenNttWithExecutor<
       whTransceiverInstruction,
       // TODO: add the axelar transceiver instruction
     ]);
-
-    // This is the standard relayer gasLimit (not used in executor transfers),
-    // but we still need to provide it
-    const gasLimit = 0n;
 
     // Executor args from quote
     const executorArgs = {
@@ -145,7 +146,6 @@ export class EvmMultiTokenNttWithExecutor<
         multiTokenNtt.managerAddress,
         amount,
         recipientChain,
-        gasLimit,
         recipient,
         refundAddress,
         transceiverInstructions,
@@ -183,7 +183,6 @@ export class EvmMultiTokenNttWithExecutor<
         tokenAddress,
         amount,
         recipientChain,
-        gasLimit,
         recipient,
         refundAddress,
         transceiverInstructions,
