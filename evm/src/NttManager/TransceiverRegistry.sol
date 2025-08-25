@@ -25,6 +25,12 @@ abstract contract TransceiverRegistry {
         uint8 index;
     }
 
+    /// @dev Struct representing a transceiver address with its index
+    struct TransceiverWithIndex {
+        address transceiver;
+        uint8 index;
+    }
+
     /// @dev Bitmap encoding the enabled transceivers.
     /// invariant: forall (i: uint8), enabledTransceiverBitmap & i == 1 <=> transceiverInfos[i].enabled
     struct _EnabledTransceiverBitmap {
@@ -529,6 +535,49 @@ abstract contract TransceiverRegistry {
             revert NoThresholdConfiguredForChain(sourceChain);
         }
         return receiveConfig.threshold;
+    }
+
+    /// @dev Internal helper to get transceivers with indices from a TransceiverConfig
+    /// @param config The transceiver config storage pointer
+    /// @return transceivers Array of (address, index) pairs for enabled transceivers
+    function _getTransceiversWithIndicesFromConfig(
+        TransceiverConfig storage config
+    ) internal view returns (TransceiverWithIndex[] memory transceivers) {
+        address[] memory transceiverAddresses = config.transceivers;
+        transceivers = new TransceiverWithIndex[](transceiverAddresses.length);
+
+        mapping(address => TransceiverInfo) storage transceiverInfos = _getTransceiverInfosStorage();
+
+        for (uint256 i = 0; i < transceiverAddresses.length; i++) {
+            transceivers[i] = TransceiverWithIndex({
+                transceiver: transceiverAddresses[i],
+                index: transceiverInfos[transceiverAddresses[i]].index
+            });
+        }
+
+        return transceivers;
+    }
+
+    /// @notice Get the transceivers with their indices enabled for sending to a specific chain
+    /// @param targetChain The chain ID
+    /// @return transceivers Array of (address, index) pairs for enabled send transceivers
+    function getSendTransceiversWithIndicesForChain(
+        uint16 targetChain
+    ) public view returns (TransceiverWithIndex[] memory transceivers) {
+        PerChainSendTransceiverConfig storage sendConfig =
+            _getPerChainSendTransceiversStorage()[targetChain];
+        return _getTransceiversWithIndicesFromConfig(sendConfig.config);
+    }
+
+    /// @notice Get the transceivers with their indices enabled for receiving from a specific chain
+    /// @param sourceChain The chain ID
+    /// @return transceivers Array of (address, index) pairs for enabled receive transceivers
+    function getReceiveTransceiversWithIndicesForChain(
+        uint16 sourceChain
+    ) public view returns (TransceiverWithIndex[] memory transceivers) {
+        PerChainReceiveTransceiverConfig storage receiveConfig =
+            _getPerChainReceiveTransceiversStorage()[sourceChain];
+        return _getTransceiversWithIndicesFromConfig(receiveConfig.config);
     }
 
     // ============== Invariants =============================================
