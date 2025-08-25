@@ -18,7 +18,10 @@ import {
 } from "@wormhole-foundation/sdk-sui";
 import { PublicKey } from "@solana/web3.js";
 import { SuiClient } from "@mysten/sui/client";
-import { Transaction } from "@mysten/sui/transactions";
+import {
+  Transaction,
+  TransactionObjectArgument,
+} from "@mysten/sui/transactions";
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
 import { SuiNtt } from "./ntt.js";
 import { SUI_ADDRESSES } from "./constants.js";
@@ -182,14 +185,31 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     }
     const coinMetadataId = coinMetadata.id;
 
+    // For non-native tokens, we need to prepare coins once and split multiple times
+    let primaryCoinInput: TransactionObjectArgument | undefined;
+    if (!isNative) {
+      const coins = await SuiPlatform.getCoins(this.provider, sender, coinType);
+      const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
+        isSameType(coin.coinType, coinType)
+      );
+      if (primaryCoin === undefined) {
+        throw new Error(
+          `Coins array doesn't contain any coins of type ${coinType}`
+        );
+      }
+      primaryCoinInput = tx.object(primaryCoin.coinObjectId);
+      if (mergeCoins.length) {
+        tx.mergeCoins(
+          primaryCoinInput,
+          mergeCoins.map((coin) => tx.object(coin.coinObjectId))
+        );
+      }
+    }
+
     // Split coins for transfer amount
-    const [coin] = await this.splitCoinsByType(
-      tx,
-      sender,
-      coinType,
-      isNative,
-      amount
-    );
+    const [coin] = isNative
+      ? tx.splitCoins(tx.gas, [tx.pure.u64(amount)])
+      : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(amount)]);
 
     // Create VersionGated object
     const [versionGated] = tx.moveCall({
@@ -308,14 +328,10 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
         quote.referrer.address.toUint8Array()
       ).toString("hex")}`;
 
-      // Split coins for referrer fee
-      const [referrerCoin] = await this.splitCoinsByType(
-        tx,
-        sender,
-        coinType,
-        isNative,
-        quote.referrerFee
-      );
+      // Split coins for referrer fee from the same source
+      const [referrerCoin] = isNative
+        ? tx.splitCoins(tx.gas, [tx.pure.u64(quote.referrerFee)])
+        : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(quote.referrerFee)]);
 
       // Transfer the referrer fee
       tx.transferObjects([referrerCoin], referrerAddress);
@@ -400,37 +416,6 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     const gasLimit = 20_000_000n;
 
     return { msgValue, gasLimit };
-  }
-
-  // Helper function to split coins based on token type
-  async splitCoinsByType(
-    tx: Transaction,
-    sender: AccountAddress<C>,
-    coinType: string,
-    isNative: boolean,
-    splitAmount: bigint
-  ): Promise<any> {
-    if (isNative) {
-      return tx.splitCoins(tx.gas, [tx.pure.u64(splitAmount)]);
-    } else {
-      const coins = await SuiPlatform.getCoins(this.provider, sender, coinType);
-      const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
-        isSameType(coin.coinType, coinType)
-      );
-      if (primaryCoin === undefined) {
-        throw new Error(
-          `Coins array doesn't contain any coins of type ${coinType}`
-        );
-      }
-      const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
-      if (mergeCoins.length) {
-        tx.mergeCoins(
-          primaryCoinInput,
-          mergeCoins.map((coin) => tx.object(coin.coinObjectId))
-        );
-      }
-      return tx.splitCoins(primaryCoinInput, [tx.pure.u64(splitAmount)]);
-    }
   }
 
   // Helper function to get supported destination chains
