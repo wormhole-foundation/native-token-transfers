@@ -18,7 +18,10 @@ import {
 } from "@wormhole-foundation/sdk-sui";
 import { PublicKey } from "@solana/web3.js";
 import { SuiClient } from "@mysten/sui/client";
-import { Transaction } from "@mysten/sui/transactions";
+import {
+  Transaction,
+  TransactionObjectArgument,
+} from "@mysten/sui/transactions";
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
 import { SuiNtt } from "./ntt.js";
 import { SUI_ADDRESSES } from "./constants.js";
@@ -98,7 +101,6 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     const tx = await this.createSuiNttTransferWithExecutor(
       sender,
       destination,
-      amount,
       quote,
       ntt
     );
@@ -117,7 +119,6 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
   private async createSuiNttTransferWithExecutor(
     sender: AccountAddress<C>,
     destination: ChainAddress,
-    amount: bigint,
     quote: NttWithExecutor.Quote,
     ntt: SuiNtt<N, C>
   ): Promise<Transaction> {
@@ -182,35 +183,31 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     }
     const coinMetadataId = coinMetadata.id;
 
-    // Split coins for transfer amount
-    // Handle separate cases for native vs. non-native tokens
-    const [coin] = await (async () => {
-      if (isNative) {
-        return tx.splitCoins(tx.gas, [tx.pure.u64(amount)]);
-      } else {
-        const coins = await SuiPlatform.getCoins(
-          this.provider,
-          sender,
-          coinType
+    // For non-native tokens, we need to prepare coins once and split multiple times
+    let primaryCoinInput: TransactionObjectArgument | undefined;
+    if (!isNative) {
+      const coins = await SuiPlatform.getCoins(this.provider, sender, coinType);
+      const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
+        isSameType(coin.coinType, coinType)
+      );
+      if (primaryCoin === undefined) {
+        throw new Error(
+          `Coins array doesn't contain any coins of type ${coinType}`
         );
-        const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
-          isSameType(coin.coinType, coinType)
-        );
-        if (primaryCoin === undefined) {
-          throw new Error(
-            `Coins array doesn't contain any coins of type ${coinType}`
-          );
-        }
-        const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
-        if (mergeCoins.length) {
-          tx.mergeCoins(
-            primaryCoinInput,
-            mergeCoins.map((coin) => tx.object(coin.coinObjectId))
-          );
-        }
-        return tx.splitCoins(primaryCoinInput, [tx.pure.u64(amount)]);
       }
-    })();
+      primaryCoinInput = tx.object(primaryCoin.coinObjectId);
+      if (mergeCoins.length) {
+        tx.mergeCoins(
+          primaryCoinInput,
+          mergeCoins.map((coin) => tx.object(coin.coinObjectId))
+        );
+      }
+    }
+
+    // Split coins for transfer amount
+    const [coin] = isNative
+      ? tx.splitCoins(tx.gas, [tx.pure.u64(quote.remainingAmount)])
+      : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(quote.remainingAmount)]);
 
     // Create VersionGated object
     const [versionGated] = tx.moveCall({
@@ -329,10 +326,10 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
         quote.referrer.address.toUint8Array()
       ).toString("hex")}`;
 
-      // Split coins for referrer fee from gas
-      const [referrerCoin] = tx.splitCoins(tx.gas, [
-        quote.referrerFee.toString(),
-      ]);
+      // Split coins for referrer fee from the same source
+      const [referrerCoin] = isNative
+        ? tx.splitCoins(tx.gas, [tx.pure.u64(quote.referrerFee)])
+        : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(quote.referrerFee)]);
 
       // Transfer the referrer fee
       tx.transferObjects([referrerCoin], referrerAddress);
@@ -419,7 +416,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     return { msgValue, gasLimit };
   }
 
-  // Utility method to get supported destination chains
+  // Helper function to get supported destination chains
   getSupportedDestinationChains(): Chain[] {
     // Sui executor supports Solana and EVM chains
     return [
