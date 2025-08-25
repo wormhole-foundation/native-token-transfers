@@ -101,7 +101,6 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     const tx = await this.createSuiNttTransferWithExecutor(
       sender,
       destination,
-      amount,
       quote,
       ntt
     );
@@ -120,7 +119,6 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
   private async createSuiNttTransferWithExecutor(
     sender: AccountAddress<C>,
     destination: ChainAddress,
-    amount: bigint,
     quote: NttWithExecutor.Quote,
     ntt: SuiNtt<N, C>
   ): Promise<Transaction> {
@@ -208,8 +206,8 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
 
     // Split coins for transfer amount
     const [coin] = isNative
-      ? tx.splitCoins(tx.gas, [tx.pure.u64(amount)])
-      : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(amount)]);
+      ? tx.splitCoins(tx.gas, [tx.pure.u64(quote.remainingAmount)])
+      : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(quote.remainingAmount)]);
 
     // Create VersionGated object
     const [versionGated] = tx.moveCall({
