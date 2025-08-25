@@ -403,7 +403,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
   }
 
   // Helper function to split coins based on token type
-  private async splitCoinsByType(
+  async splitCoinsByType(
     tx: Transaction,
     sender: AccountAddress<C>,
     coinType: string,
