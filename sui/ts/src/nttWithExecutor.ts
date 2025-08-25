@@ -183,34 +183,13 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     const coinMetadataId = coinMetadata.id;
 
     // Split coins for transfer amount
-    // Handle separate cases for native vs. non-native tokens
-    const [coin] = await (async () => {
-      if (isNative) {
-        return tx.splitCoins(tx.gas, [tx.pure.u64(amount)]);
-      } else {
-        const coins = await SuiPlatform.getCoins(
-          this.provider,
-          sender,
-          coinType
-        );
-        const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
-          isSameType(coin.coinType, coinType)
-        );
-        if (primaryCoin === undefined) {
-          throw new Error(
-            `Coins array doesn't contain any coins of type ${coinType}`
-          );
-        }
-        const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
-        if (mergeCoins.length) {
-          tx.mergeCoins(
-            primaryCoinInput,
-            mergeCoins.map((coin) => tx.object(coin.coinObjectId))
-          );
-        }
-        return tx.splitCoins(primaryCoinInput, [tx.pure.u64(amount)]);
-      }
-    })();
+    const [coin] = await this.splitCoinsByType(
+      tx,
+      sender,
+      coinType,
+      isNative,
+      amount
+    );
 
     // Create VersionGated object
     const [versionGated] = tx.moveCall({
@@ -329,10 +308,14 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
         quote.referrer.address.toUint8Array()
       ).toString("hex")}`;
 
-      // Split coins for referrer fee from gas
-      const [referrerCoin] = tx.splitCoins(tx.gas, [
-        quote.referrerFee.toString(),
-      ]);
+      // Split coins for referrer fee
+      const [referrerCoin] = await this.splitCoinsByType(
+        tx,
+        sender,
+        coinType,
+        isNative,
+        quote.referrerFee
+      );
 
       // Transfer the referrer fee
       tx.transferObjects([referrerCoin], referrerAddress);
@@ -419,7 +402,38 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     return { msgValue, gasLimit };
   }
 
-  // Utility method to get supported destination chains
+  // Helper function to split coins based on token type
+  private async splitCoinsByType(
+    tx: Transaction,
+    sender: AccountAddress<C>,
+    coinType: string,
+    isNative: boolean,
+    splitAmount: bigint
+  ): Promise<any> {
+    if (isNative) {
+      return tx.splitCoins(tx.gas, [tx.pure.u64(splitAmount)]);
+    } else {
+      const coins = await SuiPlatform.getCoins(this.provider, sender, coinType);
+      const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
+        isSameType(coin.coinType, coinType)
+      );
+      if (primaryCoin === undefined) {
+        throw new Error(
+          `Coins array doesn't contain any coins of type ${coinType}`
+        );
+      }
+      const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
+      if (mergeCoins.length) {
+        tx.mergeCoins(
+          primaryCoinInput,
+          mergeCoins.map((coin) => tx.object(coin.coinObjectId))
+        );
+      }
+      return tx.splitCoins(primaryCoinInput, [tx.pure.u64(splitAmount)]);
+    }
+  }
+
+  // Helper function to get supported destination chains
   getSupportedDestinationChains(): Chain[] {
     // Sui executor supports Solana and EVM chains
     return [
