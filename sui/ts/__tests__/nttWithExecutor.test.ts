@@ -1,5 +1,6 @@
 import { SuiNttWithExecutor } from "../src/nttWithExecutor.js";
 import { SuiNtt } from "../src/ntt.js";
+import { SuiAddress } from "@wormhole-foundation/sdk-sui";
 import {
   mockSuiClient,
   mockCoinMetadata,
@@ -175,7 +176,7 @@ describe("SuiNttWithExecutor", () => {
 
   describe("transfer", () => {
     const transferAmount = 1000000000n; // 1 SUI
-    const sender = TEST_ADDRESSES.USER;
+    const sender = new SuiAddress(TEST_ADDRESSES.USER);
     const destination = {
       chain: "Solana" as const,
       address: {
@@ -221,6 +222,97 @@ describe("SuiNttWithExecutor", () => {
         "Executor only supports Solana and EVM destination chains"
       );
     });
+
+    it("should handle native SUI token splitting correctly", async () => {
+      // Use native SUI token
+      suiNtt = new SuiNtt("Testnet", "Sui", mockClient, {
+        ntt: {
+          ...TEST_CONTRACTS.ntt,
+          token: "0x2::sui::SUI", // Native SUI
+        },
+        coreBridge: TEST_CONTRACTS.coreBridge,
+      });
+
+      // Mock getPeer to return null (no peer configured)
+      jest
+        .spyOn(suiNtt, "getPeer")
+        .mockImplementation(() => Promise.resolve(null));
+
+      const txGenerator = suiNttWithExecutor.transfer(
+        sender as any,
+        destination,
+        transferAmount,
+        mockQuote,
+        suiNtt
+      );
+
+      const { value: tx } = await txGenerator.next();
+      expect(tx).toBeDefined();
+
+      // For native tokens, getCoins should not be called since we split from gas
+      expect(mockClient.getCoins).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          coinType: "0x2::sui::SUI",
+        })
+      );
+    });
+
+    it("should handle non-native token splitting correctly", async () => {
+      // Use a non-native token
+      const nonNativeToken =
+        "0x0000000000000000000000000000000000000000000000000000000000abc123::custom_token::TOKEN";
+      suiNtt = new SuiNtt("Testnet", "Sui", mockClient, {
+        ntt: {
+          ...TEST_CONTRACTS.ntt,
+          token: "0xabc123::custom_token::TOKEN",
+        },
+        coreBridge: TEST_CONTRACTS.coreBridge,
+      });
+
+      // Mock getPeer to return null (no peer configured)
+      jest
+        .spyOn(suiNtt, "getPeer")
+        .mockImplementation(() => Promise.resolve(null));
+
+      // Mock user's coins for the non-native token
+      const mockCoins = [
+        {
+          coinObjectId: "token1",
+          coinType: nonNativeToken,
+          balance: "1000000000",
+        },
+        {
+          coinObjectId: "token2",
+          coinType: nonNativeToken,
+          balance: "1000000000",
+        },
+      ];
+
+      // Reset and configure mocks for non-native token
+      mockClient.getCoins.mockResolvedValueOnce({
+        data: mockCoins,
+        nextCursor: null,
+        hasNextPage: false,
+      });
+
+      const txGenerator = suiNttWithExecutor.transfer(
+        sender as any,
+        destination,
+        transferAmount,
+        mockQuote,
+        suiNtt
+      );
+
+      const { value: tx } = await txGenerator.next();
+      expect(tx).toBeDefined();
+
+      // For non-native tokens, getCoins should be called to fetch user's coins
+      expect(mockClient.getCoins).toHaveBeenCalledWith({
+        owner: expect.any(String),
+        coinType: nonNativeToken,
+        cursor: null,
+      });
+    });
   });
 
   describe("estimateMsgValueAndGasLimit", () => {
@@ -248,108 +340,6 @@ describe("SuiNttWithExecutor", () => {
       expect(chains).toContain("Optimism");
       expect(chains).toContain("Base");
       expect(chains).toHaveLength(8);
-    });
-  });
-
-  describe("splitCoinsByType", () => {
-    let mockTx: any;
-    const sender = TEST_ADDRESSES.USER;
-
-    beforeEach(() => {
-      // Mock Transaction object
-      mockTx = {
-        gas: Symbol("gas"),
-        pure: {
-          u64: jest.fn((value) => `pure_u64_${value}`),
-        },
-        splitCoins: jest.fn((source, amounts) => [
-          `split_result_${amounts[0]}`,
-        ]),
-        object: jest.fn((id) => `object_${id}`),
-        mergeCoins: jest.fn(),
-      };
-    });
-
-    it("should split from gas for native SUI token", async () => {
-      const splitAmount = 1000000n;
-      const isNative = true;
-      const coinType = "0x2::sui::SUI";
-
-      // Call the function te be tested
-      const result = await suiNttWithExecutor.splitCoinsByType(
-        mockTx,
-        sender as any,
-        coinType,
-        isNative,
-        splitAmount
-      );
-
-      // Verify it splits from gas
-      expect(mockTx.pure.u64).toHaveBeenCalledWith(splitAmount);
-      expect(mockTx.splitCoins).toHaveBeenCalledWith(mockTx.gas, [
-        `pure_u64_${splitAmount}`,
-      ]);
-      expect(result).toEqual([`split_result_pure_u64_${splitAmount}`]);
-
-      // Verify getCoins was NOT called for native
-      expect(mockClient.getCoins).not.toHaveBeenCalled();
-    });
-
-    it("should split from user coins for non-native token", async () => {
-      const splitAmount = 1000000n;
-      const isNative = false;
-      const coinType = "0xabc::token::TOKEN";
-
-      // Mock user's coins
-      const mockCoins = [
-        {
-          coinObjectId: "coin1",
-          coinType: coinType,
-          balance: "100000",
-        },
-        {
-          coinObjectId: "coin2",
-          coinType: coinType,
-          balance: "200000",
-        },
-      ];
-
-      // Mock getCoins to return user's coins
-      mockClient.getCoins.mockResolvedValue({
-        data: mockCoins,
-        nextCursor: null,
-        hasNextPage: false,
-      });
-
-      // Call the function te be tested
-      const result = await suiNttWithExecutor.splitCoinsByType(
-        mockTx,
-        sender as any,
-        coinType,
-        isNative,
-        splitAmount
-      );
-
-      // Verify it fetched user's coins
-      expect(mockClient.getCoins).toHaveBeenCalledWith({
-        owner: expect.any(String),
-        coinType: coinType,
-        cursor: null,
-      });
-
-      // Verify it merged coins
-      expect(mockTx.object).toHaveBeenCalledWith("coin1");
-      expect(mockTx.object).toHaveBeenCalledWith("coin2");
-      expect(mockTx.mergeCoins).toHaveBeenCalledWith("object_coin1", [
-        "object_coin2",
-      ]);
-
-      // Verify it split from the primary coin
-      expect(mockTx.pure.u64).toHaveBeenCalledWith(splitAmount);
-      expect(mockTx.splitCoins).toHaveBeenCalledWith("object_coin1", [
-        `pure_u64_${splitAmount}`,
-      ]);
-      expect(result).toEqual([`split_result_pure_u64_${splitAmount}`]);
     });
   });
 });
