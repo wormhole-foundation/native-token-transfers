@@ -46,6 +46,16 @@ export declare namespace GmpManager {
 }
 
 export declare namespace TransceiverRegistry {
+  export type TransceiverWithIndexStruct = {
+    transceiver: AddressLike;
+    index: BigNumberish;
+  };
+
+  export type TransceiverWithIndexStructOutput = [
+    transceiver: string,
+    index: bigint
+  ] & { transceiver: string; index: bigint };
+
   export type TransceiverInfoStruct = {
     registered: boolean;
     enabled: boolean;
@@ -69,7 +79,9 @@ export interface GmpManagerInterface extends Interface {
       | "getMigratesImmutables"
       | "getPeer"
       | "getReceiveTransceiversForChain"
+      | "getReceiveTransceiversWithIndicesForChain"
       | "getSendTransceiversForChain"
+      | "getSendTransceiversWithIndicesForChain"
       | "getThreshold"
       | "getTransceiverInfo"
       | "getTransceivers"
@@ -159,7 +171,15 @@ export interface GmpManagerInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "getReceiveTransceiversWithIndicesForChain",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getSendTransceiversForChain",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getSendTransceiversWithIndicesForChain",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -292,7 +312,15 @@ export interface GmpManagerInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "getReceiveTransceiversWithIndicesForChain",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getSendTransceiversForChain",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getSendTransceiversWithIndicesForChain",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -794,9 +822,21 @@ export interface GmpManager extends BaseContract {
     "view"
   >;
 
+  getReceiveTransceiversWithIndicesForChain: TypedContractMethod<
+    [sourceChain: BigNumberish],
+    [TransceiverRegistry.TransceiverWithIndexStructOutput[]],
+    "view"
+  >;
+
   getSendTransceiversForChain: TypedContractMethod<
     [targetChain: BigNumberish],
     [string[]],
+    "view"
+  >;
+
+  getSendTransceiversWithIndicesForChain: TypedContractMethod<
+    [targetChain: BigNumberish],
+    [TransceiverRegistry.TransceiverWithIndexStructOutput[]],
     "view"
   >;
 
@@ -997,8 +1037,22 @@ export interface GmpManager extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "getReceiveTransceiversWithIndicesForChain"
+  ): TypedContractMethod<
+    [sourceChain: BigNumberish],
+    [TransceiverRegistry.TransceiverWithIndexStructOutput[]],
+    "view"
+  >;
+  getFunction(
     nameOrSignature: "getSendTransceiversForChain"
   ): TypedContractMethod<[targetChain: BigNumberish], [string[]], "view">;
+  getFunction(
+    nameOrSignature: "getSendTransceiversWithIndicesForChain"
+  ): TypedContractMethod<
+    [targetChain: BigNumberish],
+    [TransceiverRegistry.TransceiverWithIndexStructOutput[]],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "getThreshold"
   ): TypedContractMethod<[sourceChain: BigNumberish], [bigint], "view">;
