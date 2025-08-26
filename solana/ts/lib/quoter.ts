@@ -12,6 +12,7 @@ import {
   deserializeLayout,
   toChainId,
 } from "@wormhole-foundation/sdk-base";
+import IDL from "../idl/2_0_0/json/ntt_quoter.json";
 import { NttQuoter as Idl } from "../idl/2_0_0/ts/ntt_quoter.js";
 import {
   U64,
@@ -31,7 +32,6 @@ const SEED_PREFIX_INSTANCE = "instance";
 const SEED_PREFIX_REGISTERED_CHAIN = "registered_chain";
 const SEED_PREFIX_REGISTERED_NTT = "registered_ntt";
 const SEED_PREFIX_RELAY_REQUEST = "relay_request";
-const IDL = require("../idl/2_0_0/json/ntt_quoter.json");
 
 export class NttQuoter {
   readonly instance: PublicKey;
