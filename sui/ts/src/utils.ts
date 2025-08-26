@@ -1,6 +1,8 @@
 import { SuiClient } from "@mysten/sui/client";
 import { isValidSuiAddress } from "@mysten/sui/utils";
+import { bcs, fromBase64 } from "@mysten/bcs";
 import { NATIVE_TOKEN_IDENTIFIERS } from "./constants.js";
+import { InboxItemNative } from "./bcs-types.js";
 
 // TypeScript types matching the Move structs
 export interface SuiMoveObject {
@@ -253,4 +255,23 @@ export function countSetBits(n: number): number {
     count += 1;
   }
   return count;
+}
+
+// BCS parsing function for inbox items
+export function parseInboxItemNative(base64VecU8: string) {
+  const outer = fromBase64(base64VecU8); // bytes of vector<u8>
+  const inner = bcs.vector(bcs.u8()).parse(outer); // extract inner bytes[]
+  return InboxItemNative.parse(Uint8Array.from(inner)); // fully parsed struct
+}
+
+/**
+ * Extracts the NTT common package ID from a manager state's inbox type
+ * The inbox type format is: "0x<packageId>::ntt_manager_message::NttManagerMessage<...>"
+ */
+export function extractNttCommonPackageId(inboxType: string): string {
+  const match = inboxType.match("<(.+)>")?.[1]?.split("::")[0];
+  if (!match) {
+    throw new Error(`Unable to extract NTT common package ID from inbox type: ${inboxType}`);
+  }
+  return match;
 }
