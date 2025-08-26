@@ -237,6 +237,8 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     try {
       const executorQuote = await this.fetchExecutorQuote(request, params);
 
+      // TODO: fetch the delivery price, add it to the relayFee.amount (estimatedCost + deliveryPrice)
+
       const { remainingAmount, estimatedCost, gasDropOff, expires } =
         executorQuote;
 
@@ -334,6 +336,8 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     }
     return referrerFeeDbps;
   }
+
+  // TODO: we can probably make a bunch of these functions free in a utils file
 
   getReferrerAddress(fromChain: ChainContext<N>): ChainAddress {
     let referrer = getDefaultReferrerAddress(fromChain.chain);

@@ -16,6 +16,8 @@ import {
   EvmPlatform,
   EvmPlatformType,
   EvmAddress,
+  EvmUnsignedTransaction,
+  addChainId,
 } from "@wormhole-foundation/sdk-evm";
 import {
   Ntt,
@@ -39,6 +41,7 @@ export class EvmMultiTokenNttWithExecutor<
 > implements MultiTokenNttWithExecutor<N, C>
 {
   readonly chainId: bigint;
+  readonly managerAddress: string;
   readonly multiTokenNttWithExecutorAddress: string;
 
   constructor(
@@ -51,6 +54,14 @@ export class EvmMultiTokenNttWithExecutor<
       network,
       chain
     ) as bigint;
+
+    const managerAddress = contracts.multiTokenNtt?.manager;
+    if (!managerAddress) {
+      throw new Error(
+        `MultiTokenNtt manager address not found for chain ${chain} on network ${network}`
+      );
+    }
+    this.managerAddress = managerAddress;
 
     const multiTokenNttWithExecutorAddress =
       multiTokenNttWithExecutorAddresses[this.network]?.[this.chain];
@@ -143,7 +154,7 @@ export class EvmMultiTokenNttWithExecutor<
 
     if (isNativeToken) {
       data = iface.encodeFunctionData("transferETH", [
-        multiTokenNtt.managerAddress,
+        this.managerAddress,
         amount,
         recipientChain,
         recipient,
@@ -172,14 +183,14 @@ export class EvmMultiTokenNttWithExecutor<
           amount
         );
 
-        yield multiTokenNtt.createUnsignedTx(
+        yield this.createUnsignedTx(
           approveTx,
           "MultiTokenNttWithExecutor.Approve"
         );
       }
 
       data = iface.encodeFunctionData("transfer", [
-        multiTokenNtt.managerAddress,
+        this.managerAddress,
         tokenAddress,
         amount,
         recipientChain,
@@ -199,7 +210,7 @@ export class EvmMultiTokenNttWithExecutor<
       from: senderAddress,
     };
 
-    yield multiTokenNtt.createUnsignedTx(
+    yield this.createUnsignedTx(
       txReq,
       isNativeToken
         ? "MultiTokenNttWithExecutor.transferETH"
@@ -226,5 +237,19 @@ export class EvmMultiTokenNttWithExecutor<
       msgValue: 0n,
       gasLimit,
     };
+  }
+
+  createUnsignedTx(
+    txReq: TransactionRequest,
+    description: string,
+    parallelizable: boolean = false
+  ): EvmUnsignedTransaction<N, C> {
+    return new EvmUnsignedTransaction(
+      addChainId(txReq, this.chainId),
+      this.network,
+      this.chain,
+      description,
+      parallelizable
+    );
   }
 }
