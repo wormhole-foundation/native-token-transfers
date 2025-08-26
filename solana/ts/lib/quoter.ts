@@ -12,7 +12,8 @@ import {
   deserializeLayout,
   toChainId,
 } from "@wormhole-foundation/sdk-base";
-import { IDL, NttQuoter as Idl } from "../idl/2_0_0/ts/ntt_quoter.js";
+import { NttQuoter as Idl } from "../idl/2_0_0/ts/ntt_quoter.js";
+import IDL from "../idl/2_0_0/json/ntt_quoter.json" with { type: "json" };
 import {
   U64,
   chainToBytes,
