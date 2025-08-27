@@ -95,8 +95,7 @@ export class EvmMultiTokenNttWithExecutor<
     destination: ChainAddress,
     token: TokenId<C>,
     amount: bigint,
-    quote: MultiTokenNttWithExecutor.Quote,
-    multiTokenNtt: EvmMultiTokenNtt<N, C>
+    quote: MultiTokenNttWithExecutor.Quote
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
     const isNativeToken = isNative(token.address);
@@ -111,29 +110,6 @@ export class EvmMultiTokenNttWithExecutor<
     const recipientChain = toChainId(destination.chain);
     const recipient = destination.address.toUniversalAddress().toUint8Array();
     const refundAddress = sender.toUniversalAddress().toUint8Array();
-
-    // TODO: We need to get the send transceivers and their indexes and types,
-    // and fetch the quote for each transceiver.
-    // We can use the axelarQueryApi to get the gas fee for the axelar transceiver.
-    // Just use 0 as the gas fee for axelar if the fetch fails.
-
-    // Calculate core bridge fee (delivery price)
-    // TODO: need to pass the axelar transceiver gas required here
-    const deliveryPrice = await multiTokenNtt.quoteDeliveryPrice(
-      destination.chain,
-      { relayerGasLimit: 0n }
-    );
-
-    // For transceiverInstructions, we'll use empty bytes for now
-    // This should be configurable based on the specific requirements
-    const whTransceiverInstruction: Ntt.TransceiverInstruction = {
-      index: 0,
-      payload: new Uint8Array([1]),
-    };
-    const transceiverInstructions = Ntt.encodeTransceiverInstructions([
-      whTransceiverInstruction,
-      // TODO: add the axelar transceiver instruction
-    ]);
 
     // Executor args from quote
     const executorArgs = {
@@ -159,11 +135,11 @@ export class EvmMultiTokenNttWithExecutor<
         recipientChain,
         recipient,
         refundAddress,
-        transceiverInstructions,
+        Ntt.encodeTransceiverInstructions(quote.transceiverInstructions),
         executorArgs,
         feeArgs,
       ]);
-      msgValue = quote.estimatedCost + deliveryPrice + amount;
+      msgValue = quote.estimatedCost + quote.deliveryPrice + amount;
     } else {
       const tokenAddress = new EvmAddress(token.address).toString();
 
@@ -196,11 +172,11 @@ export class EvmMultiTokenNttWithExecutor<
         recipientChain,
         recipient,
         refundAddress,
-        transceiverInstructions,
+        Ntt.encodeTransceiverInstructions(quote.transceiverInstructions),
         executorArgs,
         feeArgs,
       ]);
-      msgValue = quote.estimatedCost + deliveryPrice;
+      msgValue = quote.estimatedCost + quote.deliveryPrice;
     }
 
     const txReq: TransactionRequest = {

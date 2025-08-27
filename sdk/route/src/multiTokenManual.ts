@@ -250,7 +250,7 @@ export class MultiTokenNttManualRoute<N extends Network>
     const ntt = await toChain.getProtocol("MultiTokenNtt", {
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
-    const completeXfer = ntt.redeem([receipt.attestation.attestation]);
+    const completeXfer = ntt.redeem(receipt.attestation.attestation);
 
     const txids = await signSendWait(toChain, completeXfer, signer);
     return {

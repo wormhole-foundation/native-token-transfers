@@ -86,9 +86,14 @@ export namespace MultiTokenNtt {
 export interface MultiTokenNtt<N extends Network, C extends Chain> {
   isPaused(): Promise<boolean>;
 
+  createTransceiverInstructions(
+    dstChain: Chain,
+    gasLimit: bigint
+  ): Promise<Ntt.TransceiverInstruction[]>;
+
   quoteDeliveryPrice(
     destination: Chain,
-    options: MultiTokenNtt.TransferOptions
+    instructions: Ntt.TransceiverInstruction[]
   ): Promise<bigint>;
 
   transfer(
@@ -99,7 +104,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   redeem(
-    attestations: MultiTokenNtt.Attestation[]
+    attestation: MultiTokenNtt.Attestation
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   getTokenMeta(token: TokenId): Promise<MultiTokenNtt.TokenMeta>;
