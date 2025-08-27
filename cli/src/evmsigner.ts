@@ -156,8 +156,11 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
         nonce: await this._signer.getNonce('pending'),
       };
 
-      // @ts-ignore
-      if (this._signer.increment()) await this._signer.increment();
+      // TODO: Refactor signing code and remove manually incrementing nonce as a breaking change occured when bumping sdks
+      // NonceManager should really take care of this?
+      if ('increment' in this._signer) {
+        (this._signer as Signer & NonceManager).increment();
+      }
 
       // try {
       //   const estimate = await this._signer.provider!.estimateGas(t);
