@@ -8,19 +8,21 @@
 // for lack of a better way to stop this, we patch the console.info function to
 // drop that particular message...
 // </sigh>
-const information = console.info;
-console.info = function (x: string) {
-  if (x !== "secp256k1 unavailable, reverting to browser version") {
-    information(x);
-  }
-};
+(() => {
+  const originalConsoleInfo: typeof console.info = console.info;
+  console.info = function (x?: any, ...params: any[]) {
+    if (x !== 'secp256k1 unavailable, reverting to browser version') {
+      originalConsoleInfo.call(console, x, ...params);
+    }
+  };
 
-const warning = console.warn;
-console.warn = function (x: string) {
-  if (
-    x !==
-    "bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)"
-  ) {
-    warning(x);
-  }
-};
+  const originalConsoleWarn: typeof console.warn = console.warn;
+  console.warn = function (x?: any, ...params: any[]) {
+    if (
+      x !==
+      'bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)'
+    ) {
+      originalConsoleWarn.call(console, x, ...params);
+    }
+  };
+})();
