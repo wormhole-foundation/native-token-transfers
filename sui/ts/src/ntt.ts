@@ -8,11 +8,7 @@ import {
   serialize,
 } from "@wormhole-foundation/sdk-definitions";
 import type { Chain, Network } from "@wormhole-foundation/sdk-base";
-import {
-  chainToChainId,
-  serializeLayout,
-  encoding,
-} from "@wormhole-foundation/sdk-base";
+import { chainToChainId, serializeLayout } from "@wormhole-foundation/sdk-base";
 import {
   Ntt,
   NttTransceiver,
@@ -28,7 +24,6 @@ import {
 import { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
-import { bcs } from "@mysten/bcs";
 import { SUI_ADDRESSES, RATE_LIMIT_DURATION } from "./constants.js";
 import {
   SuiMoveObject,
@@ -38,8 +33,9 @@ import {
   getPackageIdFromObject,
   countSetBits,
   extractNttCommonPackageId,
+  createNttManagerMessageObjects,
+  parseInboxItemResult,
 } from "./utils.js";
-import { InboxItemNative } from "./bcs-types.js";
 
 interface SuiMode {
   variant: "Locking" | "Burning";
@@ -1701,54 +1697,20 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       );
     }
 
-    const [native_token_transfer] = txb.moveCall({
-      target: `${nttCommonPackageId}::native_token_transfer::parse`,
-      arguments: [txb.pure.vector("u8", payloadBytes)],
-    });
-
-    if (!native_token_transfer) {
-      throw new Error("Failed to parse native token transfer");
-    }
-
     const wormholeCoreBridgePackageId = await getWormholePackageId(
       this.provider,
       this.coreBridgeStateId
     );
 
-    const [id] = txb.moveCall({
-      target: `${wormholeCoreBridgePackageId}::bytes32::from_bytes`,
-      arguments: [txb.pure.vector("u8", nttPayload.id)],
-    });
-
-    if (!id) {
-      throw new Error("Failed to create message ID from bytes");
-    }
-
-    const [sender] = txb.moveCall({
-      target: `${wormholeCoreBridgePackageId}::external_address::from_address`,
-      arguments: [
-        txb.pure.address(
-          encoding.hex.encode(nttPayload.sender.toUint8Array(), true)
-        ),
-      ],
-    });
-
-    if (!sender) {
-      throw new Error("Failed to create external address from sender");
-    }
-
-    // Get NttManagerMessage
-    const [manager_message] = txb.moveCall({
-      target: `${nttCommonPackageId}::ntt_manager_message::new`,
-      typeArguments: [
-        `${nttCommonPackageId}::native_token_transfer::NativeTokenTransfer`,
-      ],
-      arguments: [id, sender, native_token_transfer],
-    });
-
-    if (!manager_message) {
-      throw new Error("Failed to create manager message");
-    }
+    // Create the NttManagerMessage object using the utility function
+    const manager_message = createNttManagerMessageObjects(
+      txb,
+      nttCommonPackageId,
+      wormholeCoreBridgePackageId,
+      payloadBytes,
+      nttPayload.id,
+      nttPayload.sender.toUint8Array()
+    );
 
     // Create version gated object for release
     const [versionGated] = txb.moveCall({
@@ -1877,20 +1839,25 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       }
     | undefined
   > {
-    // Get the NTT state to access threshold
-    const state = await this.provider.getObject({
+    // Get the NTT state to access threshold and extract common package ID
+    const managerState = await this.provider.getObject({
       id: this.contracts.ntt!["manager"],
       options: {
         showContent: true,
       },
     });
 
-    if (!state.data?.content || state.data.content.dataType !== "moveObject") {
+    if (
+      !managerState.data?.content ||
+      managerState.data.content.dataType !== "moveObject"
+    ) {
       throw new Error("Failed to fetch NTT state object");
     }
 
-    const fields = (state.data.content as SuiMoveObject).fields;
+    const managerStateObject = managerState.data.content as SuiMoveObject;
+    const fields = managerStateObject.fields;
     const threshold = parseInt(fields.threshold);
+    const nttCommonPackageId = extractNttCommonPackageId(fields.inbox.type);
 
     // Get the coin type from the contracts configuration
     const coinType = this.contracts.ntt!["token"];
@@ -1935,53 +1902,15 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       this.contracts.coreBridge!
     );
 
-    const managerState = await this.provider.getObject({
-      id: this.contracts.ntt!["manager"],
-      options: { showContent: true },
-    });
-
-    if (
-      !managerState.data?.content ||
-      managerState.data.content.dataType !== "moveObject"
-    ) {
-      throw new Error("Failed to fetch manager state for common package");
-    }
-
-    const managerStateObject = managerState.data.content as SuiMoveObject;
-    const nttCommonPackageId = extractNttCommonPackageId(
-      managerStateObject.fields.inbox.type
+    // Create the NttManagerMessage object using the utility function
+    const manager_message = createNttManagerMessageObjects(
+      txb,
+      nttCommonPackageId,
+      wormholeCoreBridgePackageId,
+      messageBytes,
+      nttManagerPayload.id,
+      nttManagerPayload.sender.toUint8Array()
     );
-
-    // Create the native token transfer object from the serialized payload
-    const [native_token_transfer] = txb.moveCall({
-      target: `${nttCommonPackageId}::native_token_transfer::parse`,
-      arguments: [txb.pure.vector("u8", messageBytes)],
-    });
-
-    // Create the message ID from bytes
-    const [id] = txb.moveCall({
-      target: `${wormholeCoreBridgePackageId}::bytes32::from_bytes`,
-      arguments: [txb.pure.vector("u8", nttManagerPayload.id)],
-    });
-
-    // Create the sender external address
-    const [sender] = txb.moveCall({
-      target: `${wormholeCoreBridgePackageId}::external_address::from_address`,
-      arguments: [
-        txb.pure.address(
-          encoding.hex.encode(nttManagerPayload.sender.toUint8Array(), true)
-        ),
-      ],
-    });
-
-    // Create the NttManagerMessage object
-    const [manager_message] = txb.moveCall({
-      target: `${nttCommonPackageId}::ntt_manager_message::new`,
-      typeArguments: [
-        `${nttCommonPackageId}::native_token_transfer::NativeTokenTransfer`,
-      ],
-      arguments: [id!, sender!, native_token_transfer!],
-    });
 
     // Now call borrow_inbox_item with the properly constructed message object
     const [inboxItemRef] = txb.moveCall({
@@ -2010,38 +1939,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
         "0x0000000000000000000000000000000000000000000000000000000000000000",
     });
 
-    if (inspectResult.results && inspectResult.results.length > 0) {
-      // Get the last result which contains the serialized inbox item bytes from bcs::to_bytes call
-      // Transaction order: parse -> from_bytes (id) -> from_bytes (sender) -> new -> borrow_inbox_item -> to_bytes
-      const lastResult =
-        inspectResult.results[inspectResult.results.length - 1];
-      const serializedInboxItem = lastResult?.returnValues?.[0];
-
-      if (Array.isArray(serializedInboxItem)) {
-        const [bytesData, type] = serializedInboxItem;
-        if (type === "vector<u8>" && Array.isArray(bytesData)) {
-          // Parse the serialized InboxItem using BCS
-          // bytesData is a number array from devInspectTransactionBlock, convert to Uint8Array
-          // The data is wrapped as vector<u8>, so we need to unwrap it first
-          const outerBytes = new Uint8Array(bytesData);
-          const innerBytes = bcs.vector(bcs.u8()).parse(outerBytes);
-          const parsedInboxItem = InboxItemNative.parse(
-            Uint8Array.from(innerBytes)
-          );
-
-          const inboxItemFields = {
-            votes: {
-              fields: {
-                bitmap: parsedInboxItem.votes.bitmap.toString(),
-              },
-            },
-            release_status: parsedInboxItem.release_status,
-            data: parsedInboxItem.data,
-          };
-
-          return { inboxItemFields, threshold };
-        }
-      }
-    }
+    // Parse and return the result
+    return parseInboxItemResult(inspectResult, threshold);
   }
 }
