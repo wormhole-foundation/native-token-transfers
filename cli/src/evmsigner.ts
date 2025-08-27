@@ -13,23 +13,23 @@ import type {
   SignedTx,
   Signer,
   UnsignedTransaction,
-} from "@wormhole-foundation/sdk-connect";
+} from '@wormhole-foundation/sdk-connect';
 import {
   PlatformNativeSigner,
   chainToPlatform,
   isNativeSigner,
-} from "@wormhole-foundation/sdk-connect";
+} from '@wormhole-foundation/sdk-connect';
 import {
   EvmPlatform,
   type EvmChains,
   _platform,
-} from "@wormhole-foundation/sdk-evm";
+} from '@wormhole-foundation/sdk-evm';
 import type {
   Signer as EthersSigner,
   Provider,
   TransactionRequest,
-} from "ethers";
-import { NonceManager, Wallet } from "ethers";
+} from 'ethers';
+import { NonceManager, Wallet } from 'ethers';
 
 export async function getEvmSigner(
   rpc: Provider,
@@ -41,7 +41,7 @@ export async function getEvmSigner(
   }
 ): Promise<Signer> {
   const signer: EthersSigner =
-    typeof key === "string" ? new Wallet(key, rpc) : key;
+    typeof key === 'string' ? new Wallet(key, rpc) : key;
 
   const chain = opts?.chain ?? (await EvmPlatform.chainFromRpc(rpc))[1];
   const managedSigner = new NonceManager(signer);
@@ -50,7 +50,7 @@ export async function getEvmSigner(
     try {
       managedSigner.connect(rpc);
     } catch (e) {
-      console.error("Cannot connect to network for signer", e);
+      console.error('Cannot connect to network for signer', e);
     }
   }
 
@@ -74,7 +74,7 @@ export async function getEvmSignerForKey(
 export async function getEvmSignerForSigner(
   signer: EthersSigner
 ): Promise<Signer> {
-  if (!signer.provider) throw new Error("Signer must have a provider");
+  if (!signer.provider) throw new Error('Signer must have a provider');
   return getEvmSigner(signer.provider!, signer, {});
 }
 
@@ -108,10 +108,10 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
 
     // Specialized for Mantle and Arbitrum Sepolia
     switch (chain) {
-      case "Mantle":
+      case 'Mantle':
         gasLimit = 2600_000_000_000n;
         break;
-      case "ArbitrumSepolia":
+      case 'ArbitrumSepolia':
         gasLimit = 4_000_000n;
         break;
       default:
@@ -127,7 +127,7 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
     let maxPriorityFeePerGas = 1000_000_000n; // 1gwei
 
     // Celo does not support this call
-    if (chain !== "Celo") {
+    if (chain !== 'Celo') {
       const feeData = await this._signer.provider!.getFeeData();
       gasPrice = feeData.gasPrice ?? gasPrice;
       maxFeePerGas = feeData.maxFeePerGas ?? maxFeePerGas;
@@ -153,7 +153,7 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
         ...transaction,
         ...gasOpts,
         from: this.address(),
-        nonce: await this._signer.getNonce("pending"),
+        nonce: await this._signer.getNonce('pending'),
       };
 
       // @ts-ignore
@@ -191,18 +191,18 @@ export function isEvmNativeSigner<N extends Network>(
 // No type guard provided by ethers, instanceof checks will fail on even slightly different versions of ethers
 function isEthersSigner(thing: any): thing is EthersSigner {
   return (
-    "provider" in thing &&
-    typeof thing.connect === "function" &&
-    typeof thing.getAddress === "function" &&
-    typeof thing.getNonce === "function" &&
-    typeof thing.populateCall === "function" &&
-    typeof thing.populateTransaction === "function" &&
-    typeof thing.estimateGas === "function" &&
-    typeof thing.call === "function" &&
-    typeof thing.resolveName === "function" &&
-    typeof thing.signTransaction === "function" &&
-    typeof thing.sendTransaction === "function" &&
-    typeof thing.signMessage === "function" &&
-    typeof thing.signTypedData === "function"
+    'provider' in thing &&
+    typeof thing.connect === 'function' &&
+    typeof thing.getAddress === 'function' &&
+    typeof thing.getNonce === 'function' &&
+    typeof thing.populateCall === 'function' &&
+    typeof thing.populateTransaction === 'function' &&
+    typeof thing.estimateGas === 'function' &&
+    typeof thing.call === 'function' &&
+    typeof thing.resolveName === 'function' &&
+    typeof thing.signTransaction === 'function' &&
+    typeof thing.sendTransaction === 'function' &&
+    typeof thing.signMessage === 'function' &&
+    typeof thing.signTypedData === 'function'
   );
 }
