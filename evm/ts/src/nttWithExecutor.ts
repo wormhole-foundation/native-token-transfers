@@ -42,6 +42,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Sonic: "0xaCa00703bb87F31D6F9fCcc963548b48FA46DfeB",
     Unichain: "0x607723D6353Dae3ef62B7B277Cfabd0F4bc6CB4C",
     Worldchain: "0x66b1644400D51e104272337226De3EF1A820eC79",
+    XRPLEVM: "0x6bBd1ff3bB303F88835A714EE3241bF45DE26d29",
   },
   Testnet: {
     ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
@@ -54,6 +55,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Plume: "0x6Eb53371f646788De6B4D0225a4Ed1d9267188AD",
     Monad: "0x93FE94Ad887a1B04DBFf1f736bfcD1698D4cfF66",
     Celo: "0x3d69869fcB9e1CD1F4020b637fb8256030BAc8fC",
+    XRPLEVM: "0xcDD9d7C759b29680f7a516d0058de8293b2AC7b1",
   },
 };
 
