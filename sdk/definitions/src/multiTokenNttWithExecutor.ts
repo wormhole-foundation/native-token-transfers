@@ -9,9 +9,13 @@ import type {
 } from "@wormhole-foundation/sdk-connect";
 import { NttWithExecutor } from "./nttWithExecutor.js";
 import type { MultiTokenNtt } from "./multiTokenNtt.js";
+import { Ntt } from "./ntt.js";
 
 export namespace MultiTokenNttWithExecutor {
-  export type Quote = NttWithExecutor.Quote;
+  export type Quote = NttWithExecutor.Quote & {
+    deliveryPrice: bigint;
+    transceiverInstructions: Ntt.TransceiverInstruction[];
+  };
 }
 
 export interface MultiTokenNttWithExecutor<N extends Network, C extends Chain> {
@@ -20,8 +24,7 @@ export interface MultiTokenNttWithExecutor<N extends Network, C extends Chain> {
     destination: ChainAddress,
     token: TokenId<C>,
     amount: bigint,
-    quote: MultiTokenNttWithExecutor.Quote,
-    multiTokenNtt: MultiTokenNtt<N, C>
+    quote: MultiTokenNttWithExecutor.Quote
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   estimateMsgValueAndGasLimit(

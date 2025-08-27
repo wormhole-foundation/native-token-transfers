@@ -38,12 +38,13 @@ import {
   signedQuoteLayout,
   toChainId,
   toUniversal,
-  SignedQuote,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "../types.js";
 import {
   MultiTokenNtt,
+  MultiTokenNttWithExecutor,
+  Ntt,
   NttWithExecutor,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
@@ -99,7 +100,7 @@ type Vr = routes.ValidationResult<Op>;
 
 type Vp = MultiTokenNttExecutorRoute.ValidatedParams;
 
-type Q = routes.Quote<Op, Vp, NttWithExecutor.Quote>;
+type Q = routes.Quote<Op, Vp, MultiTokenNttWithExecutor.Quote>;
 type QR = routes.QuoteResult<Op, Vp>;
 
 type R = MultiTokenNttExecutorRoute.TransferReceipt;
@@ -237,7 +238,12 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     try {
       const executorQuote = await this.fetchExecutorQuote(request, params);
 
-      // TODO: fetch the delivery price, add it to the relayFee.amount (estimatedCost + deliveryPrice)
+      const { deliveryPrice, transceiverInstructions } =
+        await this.fetchDeliveryPriceAndInstructions(
+          fromChain,
+          toChain,
+          params
+        );
 
       const { remainingAmount, estimatedCost, gasDropOff, expires } =
         executorQuote;
@@ -261,7 +267,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
         relayFee: {
           token: nativeTokenId(fromChain.chain),
           amount: amount.fromBaseUnits(
-            estimatedCost,
+            estimatedCost + deliveryPrice,
             fromChain.config.nativeTokenDecimals
           ),
         },
@@ -273,7 +279,11 @@ export class MultiTokenNttExecutorRoute<N extends Network>
           finality.estimateFinalityTime(request.fromChain.chain) +
           guardians.guardianAttestationEta * 1000,
         expires,
-        details: executorQuote,
+        details: {
+          ...executorQuote,
+          deliveryPrice,
+          transceiverInstructions,
+        },
       };
 
       const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
@@ -443,31 +453,30 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     });
   }
 
-  async fetchAndDecodeQuote(
+  async fetchDeliveryPriceAndInstructions(
     fromChain: ChainContext<N>,
     toChain: ChainContext<N>,
-    relayInstructions: Uint8Array
+    params: Vp
   ): Promise<{
-    estimatedCost: bigint;
-    signedQuote: SignedQuote;
-    signedQuoteBytes: Uint8Array;
+    deliveryPrice: bigint;
+    transceiverInstructions: Ntt.TransceiverInstruction[];
   }> {
-    const quote = await fetchSignedQuote(
-      fromChain.network,
-      fromChain.chain,
+    // Get the source NTT protocol instance to quote delivery price
+    const sourceNtt = await fromChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: params.normalizedParams.sourceContracts,
+    });
+
+    // Get transceiver instructions for the transfer
+    const transceiverInstructions =
+      await sourceNtt.createTransceiverInstructions(toChain.chain, 800_000n);
+
+    // Calculate core bridge fee (delivery price) using the transceiver instructions
+    const deliveryPrice = await sourceNtt.quoteDeliveryPrice(
       toChain.chain,
-      encoding.hex.encode(relayInstructions, true)
+      transceiverInstructions
     );
 
-    if (!quote.estimatedCost) {
-      throw new Error("No estimated cost");
-    }
-    const estimatedCost = BigInt(quote.estimatedCost);
-
-    const signedQuoteBytes = encoding.hex.decode(quote.signedQuote);
-    const signedQuote = deserializeLayout(signedQuoteLayout, signedQuoteBytes);
-
-    return { estimatedCost, signedQuote, signedQuoteBytes };
+    return { deliveryPrice, transceiverInstructions };
   }
 
   async fetchExecutorQuote(
@@ -528,8 +537,20 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       recipient
     );
 
-    const { estimatedCost, signedQuote, signedQuoteBytes } =
-      await this.fetchAndDecodeQuote(fromChain, toChain, relayInstructions);
+    const quote = await fetchSignedQuote(
+      fromChain.network,
+      fromChain.chain,
+      toChain.chain,
+      encoding.hex.encode(relayInstructions, true)
+    );
+
+    if (!quote.estimatedCost) {
+      throw new Error("No estimated cost");
+    }
+
+    const estimatedCost = BigInt(quote.estimatedCost);
+    const signedQuoteBytes = encoding.hex.decode(quote.signedQuote);
+    const signedQuote = deserializeLayout(signedQuoteLayout, signedQuoteBytes);
 
     return {
       signedQuote: signedQuoteBytes,
@@ -583,17 +604,12 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       }
     );
 
-    const multiTokenNtt = await fromChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: params.normalizedParams.sourceContracts,
-    });
-
     const initTransfer = multiTokenNttWithExecutor.transfer(
       sender,
       to,
       request.source.id,
       amount.units(params.normalizedParams.amount),
-      details,
-      multiTokenNtt
+      details
     );
     const txids = await signSendWait(fromChain, initTransfer, signer);
 
@@ -650,9 +666,9 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     const multiTokenNtt = await toChain.getProtocol("MultiTokenNtt", {
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
-    const completeTransfer = multiTokenNtt.redeem([
-      receipt.attestation.attestation,
-    ]);
+    const completeTransfer = multiTokenNtt.redeem(
+      receipt.attestation.attestation
+    );
 
     const txids = await signSendWait(toChain, completeTransfer, signer);
     return {

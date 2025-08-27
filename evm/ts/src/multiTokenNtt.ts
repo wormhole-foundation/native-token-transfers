@@ -11,6 +11,7 @@ import {
   ChainsConfig,
   Contracts,
   isNative,
+  serialize,
   TokenAddress,
   TokenId,
   toNative,
@@ -30,16 +31,13 @@ import "@wormhole-foundation/sdk-evm-core";
 import {
   MultiTokenNtt,
   Ntt,
-  NttTransceiver,
   TrimmedAmount,
-  WormholeNttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import { ethers, type Provider } from "ethers";
-import { EvmNttWormholeTranceiver } from "./ntt.js";
-import { Wormhole } from "@wormhole-foundation/sdk-connect";
+import { Contract, ethers, Interface, type Provider } from "ethers";
 import {
   GmpManagerBindings,
   loadAbiVersion,
+  MultiTokenNttBindings,
   MultiTokenNttManagerBindings,
 } from "./multiTokenNttBindings.js";
 import {
@@ -47,17 +45,17 @@ import {
   EncodedTrimmedAmount,
   untrim,
 } from "./trimmedAmount.js";
+import { getAxelarGasFee } from "./axelar.js";
+import { encoding } from "@wormhole-foundation/sdk-base";
 
 export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   implements MultiTokenNtt<N, C>
 {
   readonly chainId: bigint;
-
-  manager: MultiTokenNttManagerBindings.NttManager;
-  gmpManager: GmpManagerBindings.GmpManager;
-
-  xcvrs: EvmNttWormholeTranceiver<N, C>[];
-  managerAddress: string;
+  readonly abiBindings: MultiTokenNttBindings;
+  readonly managerAddress: string;
+  readonly manager: MultiTokenNttManagerBindings.NttManager;
+  readonly gmpManager: GmpManagerBindings.GmpManager;
 
   constructor(
     readonly network: N,
@@ -73,39 +71,19 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       chain
     ) as bigint;
 
+    this.abiBindings = loadAbiVersion(this.version);
+
     this.managerAddress = contracts.multiTokenNtt.manager;
 
-    const abiBindings = loadAbiVersion(this.version);
-
-    this.manager = abiBindings.NttManager.connect(
+    this.manager = this.abiBindings.NttManager.connect(
       contracts.multiTokenNtt.manager,
       this.provider
     );
 
-    this.gmpManager = abiBindings.GmpManager.connect(
+    this.gmpManager = this.abiBindings.GmpManager.connect(
       contracts.multiTokenNtt.gmpManager,
       this.provider
     );
-
-    if (contracts.multiTokenNtt.transceiver.wormhole) {
-      this.xcvrs = [
-        // Enable more Transceivers here
-        new EvmNttWormholeTranceiver(
-          // TODO: make this compatible
-          // @ts-ignore
-          this,
-          contracts.multiTokenNtt.transceiver.wormhole,
-          abiBindings!
-        ),
-      ];
-    } else {
-      this.xcvrs = [];
-    }
-  }
-
-  async getTransceiver(ix: number): Promise<NttTransceiver<N, C, any> | null> {
-    // TODO: should we make an RPC call here, or just trust that the xcvrs are set up correctly?
-    return this.xcvrs[ix] || null;
   }
 
   async isPaused(): Promise<boolean> {
@@ -170,20 +148,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
-  encodeOptions(
-    options: MultiTokenNtt.TransferOptions
-  ): Ntt.TransceiverInstruction[] {
-    const ixs: Ntt.TransceiverInstruction[] = [];
-
-    // TODO: add comment about how if you want to use relaying, then use the executor route
-    ixs.push({
-      index: 0,
-      payload: this.xcvrs[0]!.encodeFlags({ skipRelay: true }),
-    });
-
-    return ixs;
-  }
-
   static async getVersion(
     provider: ethers.Provider,
     contracts: Contracts & { multiTokenNtt?: MultiTokenNtt.Contracts }
@@ -209,13 +173,110 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     }
   }
 
+  async getSendTransceivers(destinationChain: Chain) {
+    const sendTransceivers =
+      await this.gmpManager.getSendTransceiversWithIndicesForChain(
+        toChainId(destinationChain)
+      );
+
+    return await Promise.all(
+      sendTransceivers.map(async (transceiver) => {
+        const type = await this.getTransceiverType(transceiver.transceiver);
+        return {
+          address: transceiver.transceiver,
+          index: Number(transceiver.index),
+          type,
+        };
+      })
+    );
+  }
+
+  async getReceiveTransceivers(sourceChain: Chain) {
+    const receiveTransceivers =
+      await this.gmpManager.getReceiveTransceiversWithIndicesForChain(
+        toChainId(sourceChain)
+      );
+
+    return await Promise.all(
+      receiveTransceivers.map(async (transceiver) => {
+        const type = await this.getTransceiverType(transceiver.transceiver);
+        return {
+          address: transceiver.transceiver,
+          index: Number(transceiver.index),
+          type,
+        };
+      })
+    );
+  }
+
+  private async getTransceiverType(
+    transceiverAddress: string
+  ): Promise<string> {
+    const transceiverInterface = new Interface([
+      "function getTransceiverType() external view returns (string memory)",
+    ]);
+
+    const transceiverContract = new Contract(
+      transceiverAddress,
+      transceiverInterface,
+      this.provider
+    );
+
+    return await transceiverContract
+      .getFunction("getTransceiverType")
+      .staticCall();
+  }
+
+  async createTransceiverInstructions(
+    dstChain: Chain,
+    gasLimit: bigint
+  ): Promise<Ntt.TransceiverInstruction[]> {
+    const sendTransceivers = await this.getSendTransceivers(dstChain);
+
+    const instructions: Ntt.TransceiverInstruction[] = await Promise.all(
+      sendTransceivers.map(async (transceiver) => {
+        if (transceiver.type.toLowerCase() === "wormhole") {
+          return {
+            index: transceiver.index,
+            payload: new Uint8Array([1]), // skipRelay = true
+          };
+        } else if (transceiver.type.toLowerCase() === "axelar") {
+          // If we fail to fetch the axelar gas fee, then use 0 as a fallback
+          // The user will need to manually top up the axelar gas fee later
+          let gasFee = 0n;
+          try {
+            gasFee = await getAxelarGasFee(
+              this.network,
+              this.chain,
+              dstChain,
+              gasLimit
+            );
+          } catch {}
+          return {
+            index: transceiver.index,
+            payload: encoding.bignum.toBytes(gasFee, 32),
+          };
+        } else {
+          throw new Error(
+            `Unsupported transceiver type: ${transceiver.type} at index ${transceiver.index}`
+          );
+        }
+      })
+    );
+
+    // the contract expects the instructions to be sorted by transceiver index
+    instructions.sort((a, b) => a.index - b.index);
+
+    return instructions;
+  }
+
   async quoteDeliveryPrice(
     dstChain: Chain,
-    options: MultiTokenNtt.TransferOptions
+    instructions: Ntt.TransceiverInstruction[]
   ): Promise<bigint> {
     const [, totalPrice] = await this.gmpManager.quoteDeliveryPrice(
       toChainId(dstChain),
-      Ntt.encodeTransceiverInstructions(this.encodeOptions(options))
+      Ntt.encodeTransceiverInstructions(instructions)
     );
     return totalPrice;
   }
@@ -228,18 +289,17 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
 
-    // TODO: get rid of this
-    const options = {};
+    const transceiverInstructions = await this.createTransceiverInstructions(
+      destination.chain,
+      800_000n // TODO: make this configurable
+    );
 
     const totalPrice = await this.quoteDeliveryPrice(
       destination.chain,
-      options
+      transceiverInstructions
     );
 
     const receiver = universalAddress(destination);
-    const transceiverInstructions = Ntt.encodeTransceiverInstructions(
-      this.encodeOptions(options)
-    );
 
     let transferTx;
     if (isNative(token)) {
@@ -249,7 +309,9 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
         recipient: receiver,
         refundAddress: receiver,
         shouldQueue: false,
-        transceiverInstructions,
+        transceiverInstructions: Ntt.encodeTransceiverInstructions(
+          transceiverInstructions
+        ),
         additionalPayload: "0x",
       };
 
@@ -288,7 +350,9 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
         recipient: receiver,
         refundAddress: receiver,
         shouldQueue: false,
-        transceiverInstructions,
+        transceiverInstructions: Ntt.encodeTransceiverInstructions(
+          transceiverInstructions
+        ),
         permit: {
           permitted: {
             token: token.toString(),
@@ -314,25 +378,27 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
-  async *redeem(attestations: MultiTokenNtt.Attestation[]) {
-    if (attestations.length !== this.xcvrs.length)
-      throw new Error(
-        "Not enough attestations for the registered Transceivers"
-      );
+  // TODO: this only supports redeeming with a Wormhole transceiver for now
+  async *redeem(attestation: MultiTokenNtt.Attestation) {
+    const transceivers = await this.getReceiveTransceivers(
+      attestation.emitterChain
+    );
 
-    for (const idx in this.xcvrs) {
-      const xcvr = this.xcvrs[idx]!;
-      const attestation = attestations[idx];
-      if (attestation?.payloadName !== "WormholeTransfer") {
-        // TODO: support standard relayer attestations
-        // which must be submitted to the delivery provider
-        throw new Error("Invalid attestation type for redeem");
-      }
-      // TODO: deserialize is throwing. casting is fine for now
-      // const serialized = serialize(attestation);
-      // const vaa = deserialize("Ntt:WormholeTransfer", serialized);
-      yield* xcvr.receive(attestation as unknown as WormholeNttTransceiver.VAA);
+    const wormholeTransceiver = transceivers.find((t) => t.type === "wormhole");
+    if (!wormholeTransceiver) {
+      throw new Error("No Wormhole transceiver registered for this chain");
     }
+
+    const transceiver = this.abiBindings.NttTransceiver.connect(
+      wormholeTransceiver.address,
+      this.provider
+    );
+
+    const tx = await transceiver.receiveMessage.populateTransaction(
+      serialize(attestation)
+    );
+
+    yield this.createUnsignedTx(tx, "NttTransceiver.receiveMessage");
   }
 
   async getTokenMeta(token: TokenId): Promise<MultiTokenNtt.TokenMeta> {
@@ -485,12 +551,12 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
     if (localToken === ethers.ZeroAddress) return null;
 
-    return Wormhole.tokenId(this.chain, localToken);
+    return { chain: this.chain, address: toNative(this.chain, localToken) };
   }
 
   async getWrappedNativeToken(): Promise<TokenId> {
     const wethAddress = await this.manager.WETH();
-    return Wormhole.tokenId(this.chain, wethAddress);
+    return { chain: this.chain, address: toNative(this.chain, wethAddress) };
   }
 
   async calculateLocalTokenAddress(
