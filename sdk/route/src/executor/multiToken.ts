@@ -79,6 +79,8 @@ export namespace MultiTokenNttExecutorRoute {
     sourceTokenId: TokenId;
     destinationTokenId: TokenId;
     originalTokenId: MultiTokenNtt.OriginalTokenId;
+    gasLimit: bigint;
+    msgValue: bigint;
   };
 
   export interface ValidatedParams
@@ -184,7 +186,6 @@ export class MultiTokenNttExecutorRoute<N extends Network>
 
     const parsedAmount = amount.parse(params.amount, request.source.decimals);
 
-    // IMPORTANT: The EVM NttManager will revert if there is dust
     const trimmedAmount = NttRoute.trimAmount(
       parsedAmount,
       request.destination.decimals
@@ -212,6 +213,32 @@ export class MultiTokenNttExecutorRoute<N extends Network>
 
     const originalTokenId = await sourceNtt.getOriginalToken(sourceToken);
 
+    const destinationNttWithExecutor = await request.fromChain.getProtocol(
+      "MultiTokenNttWithExecutor",
+      {
+        multiTokenNtt: destinationContracts,
+      }
+    );
+
+    const destinationNtt = await request.fromChain.getProtocol(
+      "MultiTokenNtt",
+      {
+        multiTokenNtt: destinationContracts,
+      }
+    );
+
+    let { msgValue, gasLimit } =
+      await destinationNttWithExecutor.estimateMsgValueAndGasLimit(
+        originalTokenId,
+        destinationNtt
+      );
+
+    ({ msgValue, gasLimit } = this.getGasOverrides(
+      request,
+      msgValue,
+      gasLimit
+    ));
+
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
@@ -222,6 +249,8 @@ export class MultiTokenNttExecutorRoute<N extends Network>
         sourceTokenId: request.source.id,
         destinationTokenId: request.destination.id,
         originalTokenId,
+        gasLimit,
+        msgValue,
       },
       options,
     };
@@ -415,70 +444,6 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     return { msgValue, gasLimit };
   }
 
-  buildRelayInstructions(
-    gasLimit: bigint,
-    msgValue: bigint,
-    gasDropOff: bigint,
-    recipient?: ChainAddress
-  ): Uint8Array {
-    const relayRequests = [];
-
-    // Add the gas instruction
-    relayRequests.push({
-      request: {
-        type: "GasInstruction" as const,
-        gasLimit,
-        msgValue,
-      },
-    });
-
-    // Add the gas drop-off instruction if applicable
-    if (gasDropOff > 0n) {
-      relayRequests.push({
-        request: {
-          type: "GasDropOffInstruction" as const,
-          dropOff: gasDropOff,
-          // If the recipient is undefined (e.g. the user hasn't connected their wallet yet),
-          // we temporarily use a dummy address to fetch a quote.
-          // The recipient address is validated later in the `initiate` method, which will throw if it's still missing.
-          recipient: recipient
-            ? recipient.address.toUniversalAddress()
-            : new UniversalAddress(new Uint8Array(32)),
-        },
-      });
-    }
-
-    return serializeLayout(relayInstructionsLayout, {
-      requests: relayRequests,
-    });
-  }
-
-  async fetchDeliveryPriceAndInstructions(
-    fromChain: ChainContext<N>,
-    toChain: ChainContext<N>,
-    params: Vp
-  ): Promise<{
-    deliveryPrice: bigint;
-    transceiverInstructions: Ntt.TransceiverInstruction[];
-  }> {
-    // Get the source NTT protocol instance to quote delivery price
-    const sourceNtt = await fromChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: params.normalizedParams.sourceContracts,
-    });
-
-    // Get transceiver instructions for the transfer
-    const transceiverInstructions =
-      await sourceNtt.createTransceiverInstructions(toChain.chain, 800_000n);
-
-    // Calculate core bridge fee (delivery price) using the transceiver instructions
-    const deliveryPrice = await sourceNtt.quoteDeliveryPrice(
-      toChain.chain,
-      transceiverInstructions
-    );
-
-    return { deliveryPrice, transceiverInstructions };
-  }
-
   async fetchExecutorQuote(
     request: routes.RouteTransferRequest<N>,
     params: Vp
@@ -504,38 +469,39 @@ export class MultiTokenNttExecutorRoute<N extends Network>
 
     const { recipient } = request;
 
-    const destinationNttWithExecutor = await toChain.getProtocol(
-      "MultiTokenNttWithExecutor",
-      {
-        multiTokenNtt: params.normalizedParams.destinationContracts,
-      }
-    );
-
     const gasDropOffLimit = BigInt(destinationCapabilities.gasDropOffLimit);
     const gasDropOff = this.calculateGasDropOff(gasDropOffLimit, params);
 
-    const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: params.normalizedParams.destinationContracts,
+    const relayRequests = [];
+
+    // Add the gas instruction
+    relayRequests.push({
+      request: {
+        type: "GasInstruction" as const,
+        gasLimit: params.normalizedParams.gasLimit,
+        msgValue: params.normalizedParams.msgValue,
+      },
     });
 
-    let { msgValue, gasLimit } =
-      await destinationNttWithExecutor.estimateMsgValueAndGasLimit(
-        params.normalizedParams.originalTokenId,
-        destinationNtt
-      );
+    // Add the gas drop-off instruction if applicable
+    if (gasDropOff > 0n) {
+      relayRequests.push({
+        request: {
+          type: "GasDropOffInstruction" as const,
+          dropOff: gasDropOff,
+          // If the recipient is undefined (e.g. the user hasn't connected their wallet yet),
+          // we temporarily use a dummy address to fetch a quote.
+          // The recipient address is validated later in the `initiate` method, which will throw if it's still missing.
+          recipient: recipient
+            ? recipient.address.toUniversalAddress()
+            : new UniversalAddress(new Uint8Array(32)),
+        },
+      });
+    }
 
-    ({ msgValue, gasLimit } = this.getGasOverrides(
-      request,
-      msgValue,
-      gasLimit
-    ));
-
-    const relayInstructions = this.buildRelayInstructions(
-      gasLimit,
-      msgValue,
-      gasDropOff,
-      recipient
-    );
+    const relayInstructions = serializeLayout(relayInstructionsLayout, {
+      requests: relayRequests,
+    });
 
     const quote = await fetchSignedQuote(
       fromChain.network,
@@ -564,6 +530,32 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       expires: signedQuote.quote.expiryTime,
       gasDropOff,
     };
+  }
+
+  async fetchDeliveryPriceAndInstructions(
+    fromChain: ChainContext<N>,
+    toChain: ChainContext<N>,
+    params: Vp
+  ): Promise<{
+    deliveryPrice: bigint;
+    transceiverInstructions: Ntt.TransceiverInstruction[];
+  }> {
+    const sourceNtt = await fromChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: params.normalizedParams.sourceContracts,
+    });
+
+    const transceiverInstructions =
+      await sourceNtt.createTransceiverInstructions(
+        toChain.chain,
+        params.normalizedParams.gasLimit
+      );
+
+    const deliveryPrice = await sourceNtt.quoteDeliveryPrice(
+      toChain.chain,
+      transceiverInstructions
+    );
+
+    return { deliveryPrice, transceiverInstructions };
   }
 
   async initiate(
@@ -761,6 +753,8 @@ export class MultiTokenNttExecutorRoute<N extends Network>
           destinationTokenId,
           originalTokenId,
           referrerFeeDbps: 0n,
+          gasLimit: 0n,
+          msgValue: 0n,
         },
         options: {
           nativeGas: undefined,
