@@ -64,7 +64,8 @@ interface SuiOutbox {
 }
 
 interface SuiInbox {
-  entries: SuiTable;
+  type: string;
+  fields: SuiTable;
 }
 
 interface SuiNttState {
@@ -1230,7 +1231,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   async getIsExecuted(attestation: Ntt.Attestation): Promise<boolean> {
     const releaseStatus = await this.getTransferReleaseStatus(attestation);
 
-    // Check if release_status is Released (using BCS format)
+    // Check if release_status is Released
     return releaseStatus?.$kind === "Released";
   }
 
@@ -1239,7 +1240,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   ): Promise<boolean> {
     const releaseStatus = await this.getTransferReleaseStatus(attestation);
 
-    // Check if release_status is ReleaseAfter(timestamp) (using BCS format)
+    // Check if release_status is ReleaseAfter
     return releaseStatus?.$kind === "ReleaseAfter";
   }
 
@@ -1259,12 +1260,12 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     // Get the release status
     const releaseStatus = await this.getTransferReleaseStatus(attestation);
 
-    // Check if it's queued (ReleaseAfter) (using BCS format)
+    // Check if it's queued (ReleaseAfter)
     if (releaseStatus?.$kind !== "ReleaseAfter") {
       return null;
     }
 
-    // The timestamp should be in the ReleaseAfter field (BCS format)
+    // The timestamp should be in the ReleaseAfter field
     const releaseTimestamp = parseInt(releaseStatus.ReleaseAfter);
 
     // Get the full inbox item to access the transfer data
@@ -1839,25 +1840,10 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       }
     | undefined
   > {
-    // Get the NTT state to access threshold and extract common package ID
-    const managerState = await this.provider.getObject({
-      id: this.contracts.ntt!["manager"],
-      options: {
-        showContent: true,
-      },
-    });
+    const nttState = await this.getNttState();
 
-    if (
-      !managerState.data?.content ||
-      managerState.data.content.dataType !== "moveObject"
-    ) {
-      throw new Error("Failed to fetch NTT state object");
-    }
-
-    const managerStateObject = managerState.data.content as SuiMoveObject;
-    const fields = managerStateObject.fields;
-    const threshold = parseInt(fields.threshold);
-    const nttCommonPackageId = extractNttCommonPackageId(fields.inbox.type);
+    const threshold = parseInt(nttState.threshold);
+    const nttCommonPackageId = extractNttCommonPackageId(nttState.inbox.type);
 
     // Get the coin type from the contracts configuration
     const coinType = this.contracts.ntt!["token"];
@@ -1923,7 +1909,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       ],
     });
 
-    // Then serialize the inbox item reference to bytes using BCS
+    // Then serialize the inbox item reference to bytes
     txb.moveCall({
       target: `0x2::bcs::to_bytes`,
       typeArguments: [
