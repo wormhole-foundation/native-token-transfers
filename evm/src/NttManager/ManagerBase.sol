@@ -106,10 +106,11 @@ abstract contract ManagerBase is
         uint16 recipientChain,
         bytes memory transceiverInstructions
     ) public view returns (uint256[] memory, uint256) {
+        uint256 numRegisteredTransceivers = _getRegisteredTransceiversStorage().length;
         address[] memory enabledTransceivers = getSendTransceiversForChain(recipientChain);
 
         TransceiverStructs.TransceiverInstruction[] memory instructions = TransceiverStructs
-            .parseTransceiverInstructions(transceiverInstructions, enabledTransceivers.length);
+            .parseTransceiverInstructions(transceiverInstructions, numRegisteredTransceivers);
 
         return _quoteDeliveryPrice(recipientChain, instructions, enabledTransceivers);
     }
