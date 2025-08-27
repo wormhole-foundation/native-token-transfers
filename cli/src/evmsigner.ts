@@ -158,7 +158,7 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
 
       // TODO: Refactor signing code and remove manually incrementing nonce as a breaking change occured when bumping sdks
       // NonceManager should really take care of this?
-      if (Object.hasOwn(this._signer, 'increment')) {
+      if ('increment' in this._signer) {
         (this._signer as Signer & NonceManager).increment();
       }
 
