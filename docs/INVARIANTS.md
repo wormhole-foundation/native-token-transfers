@@ -260,3 +260,10 @@
 - **Error Codes**: `PayloadTooLong` (EVM)
 - **Code Reference**: `TransceiverStructs.sol` (EVM), implementation of `Writable` trait for `NativeTokenTransfer` (Solana)
 
+### INV-029: Transceiver Instruction Length Limitation
+
+- **Invariant**: Individual transceiver instruction payloads must not exceed uint8 in size
+- **Description**: Prevents unbounded message sizes that could cause processing issues
+- **Enforcement**: Assertions in encoding logic
+- **Error Codes**: `PayloadTooLong` (EVM)
+- **Code Reference**: `encodeTransceiverInstruction()` (EVM)
