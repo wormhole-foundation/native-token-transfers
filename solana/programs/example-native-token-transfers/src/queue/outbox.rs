@@ -1,7 +1,6 @@
-use std::ops::{Deref, DerefMut};
-
 use anchor_lang::prelude::*;
 use ntt_messages::{chain_id::ChainId, trimmed_amount::TrimmedAmount};
+use std::ops::{Deref, DerefMut};
 
 use crate::{bitmap::*, clock::current_timestamp, error::NTTError};
 

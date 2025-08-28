@@ -1,6 +1,6 @@
 [package]
 name = "example-native-token-transfers"
-version = "3.0.0"
+version = "4.0.0"
 description = "Example implementation of native token transfer standard"
 edition = "2021"
 
@@ -16,12 +16,13 @@ no-log-ix-name = []
 cpi = ["no-entrypoint"]
 idl-build = [
   "anchor-lang/idl-build",
-  "anchor-spl/idl-build"
+  "anchor-spl/idl-build",
 ]
 # cargo-test-sbf will pass this along
 test-sbf = []
 # networks
 mainnet = [ "wormhole-anchor-sdk/mainnet" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env" ]
 solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
 tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
 tilt-devnet2 = [ "tilt-devnet" ]
@@ -32,6 +33,7 @@ workspace = true
 [dependencies]
 
 ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
+wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 bitmaps = "3.2.1"
@@ -45,8 +47,12 @@ wormhole-io.workspace = true
 wormhole-solana-utils.workspace = true
 
 [dev-dependencies]
+ntt-transceiver = { path = "../ntt-transceiver" }
+wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
+wormhole-svm-shim = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface" }
 wormhole-governance = { path = "../wormhole-governance", features = ["no-entrypoint"] }
 solana-program-test.workspace = true
+solana-banks-interface.workspace = true
 serde_json = "1.0.113"
 serde = "1.0.196"
 base64 = "0.21.7"
