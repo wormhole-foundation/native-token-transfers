@@ -173,7 +173,9 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     }
   }
 
-  async getSendTransceivers(destinationChain: Chain) {
+  async getSendTransceivers(
+    destinationChain: Chain
+  ): Promise<Ntt.TransceiverMeta[]> {
     const sendTransceivers =
       await this.gmpManager.getSendTransceiversWithIndicesForChain(
         toChainId(destinationChain)
@@ -191,7 +193,9 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
-  async getReceiveTransceivers(sourceChain: Chain) {
+  async getReceiveTransceivers(
+    sourceChain: Chain
+  ): Promise<Ntt.TransceiverMeta[]> {
     const receiveTransceivers =
       await this.gmpManager.getReceiveTransceiversWithIndicesForChain(
         toChainId(sourceChain)
@@ -235,36 +239,44 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
     const instructions: Ntt.TransceiverInstruction[] = await Promise.all(
       sendTransceivers.map(async (transceiver) => {
-        if (transceiver.type.toLowerCase() === "wormhole") {
-          return {
-            index: transceiver.index,
-            payload: new Uint8Array([1]), // skipRelay = true
-          };
-        } else if (transceiver.type.toLowerCase() === "axelar") {
-          // If we fail to fetch the axelar gas fee, then use 0 as a fallback
-          // The user will need to manually top up the axelar gas fee later
-          let gasFee = 0n;
-          try {
-            gasFee = await getAxelarGasFee(
-              this.network,
-              this.chain,
-              dstChain,
-              gasLimit
+        switch (transceiver.type.toLowerCase()) {
+          case "wormhole":
+            return {
+              index: transceiver.index,
+              payload: new Uint8Array([1]), // skipRelay = true
+            };
+          case "axelar": {
+            let gasFee = 0n;
+            try {
+              gasFee = await getAxelarGasFee(
+                this.network,
+                this.chain,
+                dstChain,
+                gasLimit
+              );
+            } catch (e) {
+              // If we fail to fetch the gas fee, then use 0 as a fallback.
+              // The Axelar relay should fail and the track() method will
+              // surface a RelayFailedError that a UI can use to inform the user.
+              // We don't want to block the transfer entirely just because
+              // of a failure to fetch the gas fee.
+              gasFee = 100000000000000n; // 0.0001 ETH
+              console.error(`Failed to fetch axelar gas fee: ${e}`);
+            }
+            return {
+              index: transceiver.index,
+              payload: encoding.bignum.toBytes(gasFee, 32),
+            };
+          }
+          default:
+            throw new Error(
+              `Unsupported transceiver type: ${transceiver.type} at index ${transceiver.index}`
             );
-          } catch {}
-          return {
-            index: transceiver.index,
-            payload: encoding.bignum.toBytes(gasFee, 32),
-          };
-        } else {
-          throw new Error(
-            `Unsupported transceiver type: ${transceiver.type} at index ${transceiver.index}`
-          );
         }
       })
     );
 
-    // the contract expects the instructions to be sorted by transceiver index
+    // The contract expects the instructions to be sorted by transceiver index.
     instructions.sort((a, b) => a.index - b.index);
 
     return instructions;
@@ -378,12 +390,12 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
-  // TODO: this only supports redeeming with a Wormhole transceiver for now
   async *redeem(attestation: MultiTokenNtt.Attestation) {
     const transceivers = await this.getReceiveTransceivers(
       attestation.emitterChain
     );
 
+    // TODO: support other transceiver types
     const wormholeTransceiver = transceivers.find((t) => t.type === "wormhole");
     if (!wormholeTransceiver) {
       throw new Error("No Wormhole transceiver registered for this chain");
@@ -514,8 +526,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
   async *completeInboundQueuedTransfer(
     fromChain: Chain,
-    transceiverMessage: MultiTokenNtt.Message,
-    payer?: AccountAddress<C>
+    transceiverMessage: MultiTokenNtt.Message
   ) {
     const tx =
       await this.manager.completeInboundQueuedTransfer.populateTransaction(
@@ -540,7 +551,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     };
   }
 
-  // This will return null if the token is not yet created
+  // This will return null if the token doesn't exist
   async getLocalToken(
     originalToken: MultiTokenNtt.OriginalTokenId
   ): Promise<TokenId | null> {
@@ -559,6 +570,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     return { chain: this.chain, address: toNative(this.chain, wethAddress) };
   }
 
+  // If the local token doesn't exist yet, this will return the address where it will be deployed
   async calculateLocalTokenAddress(
     originalToken: MultiTokenNtt.OriginalTokenId,
     tokenMeta: MultiTokenNtt.TokenMeta

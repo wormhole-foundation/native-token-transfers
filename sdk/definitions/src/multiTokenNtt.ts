@@ -52,8 +52,6 @@ export namespace MultiTokenNtt {
     >
   >;
 
-  export type TransferOptions = {};
-
   export type OriginalTokenId<C extends Chain = Chain> = {
     chain: C;
     address: UniversalAddress;
@@ -85,6 +83,10 @@ export namespace MultiTokenNtt {
 
 export interface MultiTokenNtt<N extends Network, C extends Chain> {
   isPaused(): Promise<boolean>;
+
+  getSendTransceivers(dstChain: Chain): Promise<Ntt.TransceiverMeta[]>;
+
+  getReceiveTransceivers(srcChain: Chain): Promise<Ntt.TransceiverMeta[]>;
 
   createTransceiverInstructions(
     dstChain: Chain,
@@ -140,8 +142,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
 
   completeInboundQueuedTransfer(
     fromChain: Chain,
-    transceiverMessage: MultiTokenNtt.Message,
-    payer?: AccountAddress<C>
+    transceiverMessage: MultiTokenNtt.Message
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   getOriginalToken(localToken: TokenId): Promise<MultiTokenNtt.OriginalTokenId>;
