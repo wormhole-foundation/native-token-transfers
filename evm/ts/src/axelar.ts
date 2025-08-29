@@ -18,7 +18,7 @@ export async function getAxelarGasFee(
   destinationChain: Chain,
   gasLimit: bigint
 ): Promise<bigint> {
-  const axelarQueryApi = new AxelarQueryAPI({
+  const api = new AxelarQueryAPI({
     environment:
       network === "Mainnet" ? Environment.MAINNET : Environment.TESTNET,
   });
@@ -33,7 +33,7 @@ export async function getAxelarGasFee(
     throw new Error(`Unsupported destination chain: ${destinationChain}`);
   }
 
-  const response = await axelarQueryApi.estimateGasFee(
+  const response = await api.estimateGasFee(
     axelarSourceChain,
     axelarDestinationChain,
     gasLimit
