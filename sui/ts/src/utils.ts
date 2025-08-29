@@ -1,6 +1,8 @@
 import { SuiClient } from "@mysten/sui/client";
 import { isValidSuiAddress } from "@mysten/sui/utils";
+import { bcs, fromBase64 } from "@mysten/bcs";
 import { NATIVE_TOKEN_IDENTIFIERS } from "./constants.js";
+import { InboxItemNative } from "./bcs-types.js";
 
 // TypeScript types matching the Move structs
 export interface SuiMoveObject {
@@ -253,4 +255,113 @@ export function countSetBits(n: number): number {
     count += 1;
   }
   return count;
+}
+
+/**
+ * BCS parsing function for inbox items
+ */
+export function parseInboxItemNative(base64VecU8: string) {
+  const outer = fromBase64(base64VecU8); // bytes of vector<u8>
+  const inner = bcs.vector(bcs.u8()).parse(outer); // extract inner bytes[]
+  return InboxItemNative.parse(Uint8Array.from(inner)); // fully parsed struct
+}
+
+/**
+ * Extracts the NTT common package ID from a manager state's inbox type
+ * The inbox type format is: "0x<packageId>::ntt_manager_message::NttManagerMessage<...>"
+ */
+export function extractNttCommonPackageId(inboxType: string): string {
+  const match = inboxType.match("<(.+)>")?.[1]?.split("::")[0];
+  if (!match) {
+    throw new Error(
+      `Unable to extract NTT common package ID from inbox type: ${inboxType}`
+    );
+  }
+  return match;
+}
+
+/**
+ * Creates Move objects for NttManagerMessage construction in a Sui transaction
+ */
+export function createNttManagerMessageObjects(
+  txb: any,
+  nttCommonPackageId: string,
+  wormholeCoreBridgePackageId: string,
+  messageBytes: Uint8Array,
+  messageId: Uint8Array,
+  senderAddress: Uint8Array
+) {
+  // Create the native token transfer object from the serialized payload
+  const [native_token_transfer] = txb.moveCall({
+    target: `${nttCommonPackageId}::native_token_transfer::parse`,
+    arguments: [txb.pure.vector("u8", messageBytes)],
+  });
+
+  // Create the message ID from bytes
+  const [id] = txb.moveCall({
+    target: `${wormholeCoreBridgePackageId}::bytes32::from_bytes`,
+    arguments: [txb.pure.vector("u8", messageId)],
+  });
+
+  // Create the sender external address
+  const [sender] = txb.moveCall({
+    target: `${wormholeCoreBridgePackageId}::external_address::from_address`,
+    arguments: [
+      txb.pure.address("0x" + Buffer.from(senderAddress).toString("hex")),
+    ],
+  });
+
+  // Create the NttManagerMessage object
+  const [manager_message] = txb.moveCall({
+    target: `${nttCommonPackageId}::ntt_manager_message::new`,
+    typeArguments: [
+      `${nttCommonPackageId}::native_token_transfer::NativeTokenTransfer`,
+    ],
+    arguments: [id!, sender!, native_token_transfer!],
+  });
+
+  return manager_message;
+}
+
+/**
+ * Parses the result of devInspectTransactionBlock to extract and deserialize inbox item data
+ */
+export function parseInboxItemResult(
+  inspectResult: any,
+  threshold: number
+): { inboxItemFields: any; threshold: number } {
+  if (!inspectResult.results || inspectResult.results.length === 0) {
+    throw new Error("No results returned from devInspectTransactionBlock");
+  }
+
+  // Get the last result which contains the serialized inbox item bytes from bcs::to_bytes call
+  const lastResult = inspectResult.results[inspectResult.results.length - 1];
+  const serializedInboxItem = lastResult?.returnValues?.[0];
+
+  if (!Array.isArray(serializedInboxItem)) {
+    throw new Error("Invalid result format from devInspectTransactionBlock");
+  }
+
+  const [bytesData, type] = serializedInboxItem;
+  if (type !== "vector<u8>" || !Array.isArray(bytesData)) {
+    throw new Error(`Expected vector<u8> but got ${type}`);
+  }
+
+  // Parse the serialized InboxItem using BCS
+  // The data is wrapped as vector<u8>, so we need to unwrap it first
+  const outerBytes = new Uint8Array(bytesData);
+  const innerBytes = bcs.vector(bcs.u8()).parse(outerBytes);
+  const parsedInboxItem = InboxItemNative.parse(Uint8Array.from(innerBytes));
+
+  const inboxItemFields = {
+    votes: {
+      fields: {
+        bitmap: parsedInboxItem.votes.bitmap.toString(),
+      },
+    },
+    release_status: parsedInboxItem.release_status,
+    data: parsedInboxItem.data,
+  };
+
+  return { inboxItemFields, threshold };
 }

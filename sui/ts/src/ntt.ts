@@ -8,11 +8,7 @@ import {
   serialize,
 } from "@wormhole-foundation/sdk-definitions";
 import type { Chain, Network } from "@wormhole-foundation/sdk-base";
-import {
-  chainToChainId,
-  serializeLayout,
-  encoding,
-} from "@wormhole-foundation/sdk-base";
+import { chainToChainId, serializeLayout } from "@wormhole-foundation/sdk-base";
 import {
   Ntt,
   NttTransceiver,
@@ -36,6 +32,9 @@ import {
   getWormholePackageId,
   getPackageIdFromObject,
   countSetBits,
+  extractNttCommonPackageId,
+  createNttManagerMessageObjects,
+  parseInboxItemResult,
 } from "./utils.js";
 
 interface SuiMode {
@@ -65,7 +64,8 @@ interface SuiOutbox {
 }
 
 interface SuiInbox {
-  entries: SuiTable;
+  type: string;
+  fields: SuiTable;
 }
 
 interface SuiNttState {
@@ -1232,8 +1232,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     const releaseStatus = await this.getTransferReleaseStatus(attestation);
 
     // Check if release_status is Released
-    // In Move, this would be an enum variant, so we check for the Released variant
-    return releaseStatus?.variant === "Released";
+    return releaseStatus?.$kind === "Released";
   }
 
   async getIsTransferInboundQueued(
@@ -1241,8 +1240,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   ): Promise<boolean> {
     const releaseStatus = await this.getTransferReleaseStatus(attestation);
 
-    // Check if release_status is ReleaseAfter(timestamp)
-    return releaseStatus?.variant === "ReleaseAfter";
+    // Check if release_status is ReleaseAfter
+    return releaseStatus?.$kind === "ReleaseAfter";
   }
 
   async getInboundQueuedTransfer<PC extends Chain>(
@@ -1262,12 +1261,12 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     const releaseStatus = await this.getTransferReleaseStatus(attestation);
 
     // Check if it's queued (ReleaseAfter)
-    if (releaseStatus?.variant !== "ReleaseAfter") {
+    if (releaseStatus?.$kind !== "ReleaseAfter") {
       return null;
     }
 
-    // The timestamp should be in the fields of the enum variant
-    const releaseTimestamp = parseInt(releaseStatus.fields?.["pos0"]);
+    // The timestamp should be in the ReleaseAfter field
+    const releaseTimestamp = parseInt(releaseStatus.ReleaseAfter);
 
     // Get the full inbox item to access the transfer data
     const inboxItem = await this.getInboxItem(attestation);
@@ -1675,16 +1674,10 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
     const managerStateObject = managerState.data.content as SuiMoveObject;
 
-    // Extract nttCommonPackageId from manager object
-    const nttCommonPackageId = managerStateObject.fields.inbox.type
-      .match("<(.+)>")?.[1]
-      ?.split("::")[0];
-
-    if (!nttCommonPackageId) {
-      throw new Error(
-        `Unable to parse inbox type from manager state: ${managerStateObject.fields.inbox.type}`
-      );
-    }
+    // Extract nttCommonPackageId from manager object's inbox type
+    const nttCommonPackageId = extractNttCommonPackageId(
+      managerStateObject.fields.inbox.type
+    );
 
     // Get manager payload
     const nttPayload = (wormholeAttestation.payload as any).nttManagerPayload;
@@ -1705,54 +1698,20 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       );
     }
 
-    const [native_token_transfer] = txb.moveCall({
-      target: `${nttCommonPackageId}::native_token_transfer::parse`,
-      arguments: [txb.pure.vector("u8", payloadBytes)],
-    });
-
-    if (!native_token_transfer) {
-      throw new Error("Failed to parse native token transfer");
-    }
-
     const wormholeCoreBridgePackageId = await getWormholePackageId(
       this.provider,
       this.coreBridgeStateId
     );
 
-    const [id] = txb.moveCall({
-      target: `${wormholeCoreBridgePackageId}::bytes32::from_bytes`,
-      arguments: [txb.pure.vector("u8", nttPayload.id)],
-    });
-
-    if (!id) {
-      throw new Error("Failed to create message ID from bytes");
-    }
-
-    const [sender] = txb.moveCall({
-      target: `${wormholeCoreBridgePackageId}::external_address::from_address`,
-      arguments: [
-        txb.pure.address(
-          encoding.hex.encode(nttPayload.sender.toUint8Array(), true)
-        ),
-      ],
-    });
-
-    if (!sender) {
-      throw new Error("Failed to create external address from sender");
-    }
-
-    // Get NttManagerMessage
-    const [manager_message] = txb.moveCall({
-      target: `${nttCommonPackageId}::ntt_manager_message::new`,
-      typeArguments: [
-        `${nttCommonPackageId}::native_token_transfer::NativeTokenTransfer`,
-      ],
-      arguments: [id, sender, native_token_transfer],
-    });
-
-    if (!manager_message) {
-      throw new Error("Failed to create manager message");
-    }
+    // Create the NttManagerMessage object using the utility function
+    const manager_message = createNttManagerMessageObjects(
+      txb,
+      nttCommonPackageId,
+      wormholeCoreBridgePackageId,
+      payloadBytes,
+      nttPayload.id,
+      nttPayload.sender.toUint8Array()
+    );
 
     // Create version gated object for release
     const [versionGated] = txb.moveCall({
@@ -1874,101 +1833,99 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   }
 
   // Helper function to get inbox item from an NTT attestation
-  private async getInboxItem(attestation: Ntt.Attestation): Promise<{
-    inboxItemFields: any;
-    threshold: number;
-  } | null> {
-    try {
-      // Get the NTT state to access inbox and threshold
-      const state = await this.provider.getObject({
-        id: this.contracts.ntt!["manager"],
-        options: {
-          showContent: true,
-        },
-      });
-
-      if (
-        !state.data?.content ||
-        state.data.content.dataType !== "moveObject"
-      ) {
-        throw new Error("Failed to fetch NTT state object");
+  private async getInboxItem(attestation: Ntt.Attestation): Promise<
+    | {
+        inboxItemFields: any;
+        threshold: number;
       }
+    | undefined
+  > {
+    const nttState = await this.getNttState();
 
-      const fields = (state.data.content as SuiMoveObject).fields;
-      const inboxTable = fields.inbox.fields.entries;
-      const threshold = parseInt(fields.threshold);
+    const threshold = parseInt(nttState.threshold);
+    const nttCommonPackageId = extractNttCommonPackageId(nttState.inbox.type);
 
-      // Get chain ID
-      const sourceChain = attestation.emitterChain;
+    // Get the coin type from the contracts configuration
+    const coinType = this.contracts.ntt!["token"];
 
-      if (!sourceChain) {
-        return null;
-      }
-
-      const sourceChainId = chainToChainId(sourceChain);
-
-      // Since we can't easily query by the complex key structure,
-      // let's get all dynamic fields and find the matching one
-      const dynamicFields = await this.provider.getDynamicFields({
-        parentId: inboxTable.fields.id.id,
-      });
-
-      // Look for an inbox entry that matches our chain and message
-      let inboxEntry: any = null;
-      for (const field of dynamicFields.data) {
-        try {
-          // Check if this field matches our criteria
-          if (field.name?.value) {
-            const keyValue = field.name.value as any;
-            // Check if chain_id matches
-            if (keyValue?.chain_id === sourceChainId) {
-              // Get the first matching chain_id
-              const inboxEntryObject = await this.provider.getObject({
-                id: field.objectId,
-                options: { showContent: true },
-              });
-
-              // Verify this is the right message by checking the message ID if available
-              if (inboxEntryObject.data?.content?.dataType === "moveObject") {
-                // Check if the message ID matches (if we have it in the attestation)
-                if (
-                  (attestation.payload as any).nttManagerPayload?.id &&
-                  keyValue?.message?.id?.data
-                ) {
-                  // Compare the message ID from the key with our expected hash
-                  // Convert both Uint8Arrays to hex strings for proper comparison
-                  const msgIdStr = Buffer.from(
-                    keyValue.message.id.data
-                  ).toString("hex");
-                  const attestationMsgIdStr = Buffer.from(
-                    (attestation.payload as any).nttManagerPayload?.id
-                  ).toString("hex");
-                  if (msgIdStr === attestationMsgIdStr) {
-                    // Found the exact match
-                    inboxEntry = inboxEntryObject;
-                    break;
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          // Skip this field if we can't read it
-          continue;
-        }
-      }
-
-      // Check if we found a matching inbox entry
-      if (!inboxEntry) {
-        return null;
-      }
-
-      const inboxItemFields = (inboxEntry.data.content as SuiMoveObject).fields
-        .value.fields;
-      return { inboxItemFields, threshold };
-    } catch (error) {
-      // Entry not found or there was an error
-      return null;
+    // Get chain ID
+    const sourceChain = attestation.emitterChain;
+    if (!sourceChain) {
+      throw new Error("No emitter chain found in attestation");
     }
+    const sourceChainId = chainToChainId(sourceChain);
+
+    // Get the NTT package ID
+    const nttPackageId = await this.getPackageId();
+
+    // Extract the NTT message from attestation
+    const nttManagerPayload = (attestation.payload as any).nttManagerPayload;
+    if (!nttManagerPayload) {
+      throw new Error("No NTT manager payload found in attestation");
+    }
+
+    // Prepare the message bytes for the Move call
+    let messageBytes: Uint8Array;
+    try {
+      messageBytes = serializeLayout(
+        nativeTokenTransferLayout,
+        nttManagerPayload.payload
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to serialize native token transfer payload: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+
+    // Create transaction to call borrow_inbox_item
+    const txb = new Transaction();
+
+    // Get the wormhole core bridge package ID for creating message components
+    const wormholeCoreBridgePackageId = await getWormholePackageId(
+      this.provider,
+      this.contracts.coreBridge!
+    );
+
+    // Create the NttManagerMessage object using the utility function
+    const manager_message = createNttManagerMessageObjects(
+      txb,
+      nttCommonPackageId,
+      wormholeCoreBridgePackageId,
+      messageBytes,
+      nttManagerPayload.id,
+      nttManagerPayload.sender.toUint8Array()
+    );
+
+    // Now call borrow_inbox_item with the properly constructed message object
+    const [inboxItemRef] = txb.moveCall({
+      target: `${nttPackageId}::state::borrow_inbox_item`,
+      typeArguments: [coinType],
+      arguments: [
+        txb.object(this.contracts.ntt!["manager"]!), // State object
+        txb.pure.u16(sourceChainId), // Chain ID
+        manager_message!, // NttManagerMessage object (not raw bytes)
+      ],
+    });
+
+    // Then serialize the inbox item reference to bytes
+    txb.moveCall({
+      target: `0x2::bcs::to_bytes`,
+      typeArguments: [
+        `${nttPackageId}::inbox::InboxItem<${nttCommonPackageId}::native_token_transfer::NativeTokenTransfer>`,
+      ],
+      arguments: [inboxItemRef!],
+    });
+
+    // Execute the transaction in dev inspect mode to read the result
+    const inspectResult = await this.provider.devInspectTransactionBlock({
+      transactionBlock: txb,
+      sender:
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+    });
+
+    // Parse and return the result
+    return parseInboxItemResult(inspectResult, threshold);
   }
 }
