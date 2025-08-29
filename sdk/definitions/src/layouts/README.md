@@ -1,5 +1,4 @@
-NTT Layouts
------------
+## NTT Layouts
 
 Ntt:WormholeTransfer
 
@@ -15,7 +14,7 @@ const data = {
             trimmedAmount: {amount: number, decimals: 123},
             sourceToken: [ UniversalAddress ],
             recipientAddress: [ UniversalAddress ],
-            recipientChain: 'Neon'
+            recipientChain: 'Ethereum'
         }
     },
     transceiverPayload: null
