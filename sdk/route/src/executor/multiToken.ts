@@ -780,11 +780,9 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
-    const sender = Wormhole.chainAddress(signer.chain(), signer.address());
     const completeTransfer = destinationNtt.completeInboundQueuedTransfer(
       receipt.from,
-      vaa.payload.nttManagerPayload,
-      sender.address
+      vaa.payload.nttManagerPayload
     );
     const finalizeTxs = await signSendWait(toChain, completeTransfer, signer);
     return {

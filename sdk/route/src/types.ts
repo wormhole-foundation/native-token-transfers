@@ -266,7 +266,6 @@ export namespace NttRoute {
     return truncatedAmount;
   }
 }
-
 export namespace MultiTokenNttRoute {
   export type Config = {
     contracts: MultiTokenNtt.Contracts[];
