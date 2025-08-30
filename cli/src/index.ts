@@ -3991,7 +3991,7 @@ function searchBufferInBinary(binaryPath: string, searchBuffer: Buffer): boolean
 }
 
 function getSlowFlag(chain: Chain): string {
-    return chain === "Mezo" || chain === "HyperEVM" ? "--slow" : "";
+    return chain === "Mezo" || chain === "HyperEVM" || chain == "XRPLEVM" ? "--slow" : "";
 }
 
 export function ensureNttRoot(pwd: string = ".") {
