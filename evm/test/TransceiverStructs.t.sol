@@ -80,7 +80,7 @@ contract TestTransceiverStructs is Test {
             amount: packTrimmedAmount(uint64(1234567), 7),
             sourceToken: hex"BEEFFACE",
             to: hex"FEEBCAFE",
-            toChain: 17,
+            toChain: 2,
             additionalPayload: ""
         });
 
@@ -127,7 +127,7 @@ contract TestTransceiverStructs is Test {
             amount: packTrimmedAmount(uint64(1234567), 7),
             sourceToken: hex"BEEFFACE",
             to: hex"FEEBCAFE",
-            toChain: 17,
+            toChain: 2,
             additionalPayload: ""
         });
 
@@ -167,7 +167,7 @@ contract TestTransceiverStructs is Test {
             amount: packTrimmedAmount(uint64(1234567), 7),
             sourceToken: hex"BEEFFACE",
             to: hex"FEEBCAFE",
-            toChain: 17,
+            toChain: 2,
             additionalPayload: hex"deadbeef000000000000000000000000000000000000000000000000deadbeef"
         });
 

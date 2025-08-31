@@ -1,6 +1,13 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["ts/index.ts", "ts/sdk/**/*.ts", "ts/sdk/**/*.json", "ts/lib/**/*.ts", "ts/idl/**/*.ts", "ts/idl/**/*.json"],
+  "include": [
+    "ts/index.ts",
+    "ts/sdk/**/*.ts",
+    "ts/sdk/**/*.json",
+    "ts/lib/**/*.ts",
+    "ts/idl/**/*.ts",
+    "ts/idl/**/*.json"
+  ],
   "exclude": ["jest.config.ts"],
   "compilerOptions": {
     "outDir": "dist/esm",
