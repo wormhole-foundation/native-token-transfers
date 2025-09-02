@@ -1,14 +1,15 @@
 import { Chain, Network } from "@wormhole-foundation/sdk-base";
 import {
-  AxelarQueryAPI,
+  AxelarGMPRecoveryAPI,
   Environment,
-  EvmChain,
+  GMPStatusResponse,
 } from "@axelar-network/axelarjs-sdk";
 
-export const axelarChains: Partial<Record<Chain, EvmChain>> = {
-  Sepolia: EvmChain.SEPOLIA,
-  // Monad: EvmChain.MONAD,
-  Ethereum: EvmChain.ETHEREUM,
+// See: https://github.com/axelarnetwork/axelarjs-sdk/blob/main/src/constants/EvmChain.ts
+export const axelarChains: Partial<Record<Chain, string>> = {
+  Ethereum: "ethereum",
+  Monad: "monad",
+  Sepolia: "ethereum-sepolia",
   // add more as needed
 };
 
@@ -16,12 +17,13 @@ export async function getAxelarGasFee(
   network: Network,
   sourceChain: Chain,
   destinationChain: Chain,
-  gasLimit: bigint
+  gasLimit: bigint,
+  timeoutMs = 10000
 ): Promise<bigint> {
-  const api = new AxelarQueryAPI({
-    environment:
-      network === "Mainnet" ? Environment.MAINNET : Environment.TESTNET,
-  });
+  const baseUrl =
+    network === "Mainnet"
+      ? "https://api.axelarscan.io/gmp/estimateGasFee"
+      : "https://testnet.api.axelarscan.io/gmp/estimateGasFee";
 
   const axelarSourceChain = axelarChains[sourceChain];
   if (!axelarSourceChain) {
@@ -33,15 +35,54 @@ export async function getAxelarGasFee(
     throw new Error(`Unsupported destination chain: ${destinationChain}`);
   }
 
-  const response = await api.estimateGasFee(
-    axelarSourceChain,
-    axelarDestinationChain,
-    gasLimit
-  );
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (typeof response !== "string") {
-    throw new Error(`Unexpected response type: ${typeof response}`);
+  try {
+    const response = await fetch(baseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sourceChain: axelarSourceChain,
+        destinationChain: axelarDestinationChain,
+        sourceTokenAddress: "0x0000000000000000000000000000000000000000",
+        gasMultiplier: "auto",
+        gasLimit: gasLimit.toString(),
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to estimate gas fee: ${response.status} ${errorText}`
+      );
+    }
+
+    const result = await response.json();
+
+    return BigInt(result);
+  } finally {
+    clearTimeout(timeoutId);
   }
+}
 
-  return BigInt(response);
+export async function getAxelarTransactionStatus(
+  network: Network,
+  txHash: string
+): Promise<GMPStatusResponse> {
+  const api = new AxelarGMPRecoveryAPI({
+    environment:
+      network === "Mainnet" ? Environment.MAINNET : Environment.TESTNET,
+  });
+  const status = await api.queryTransactionStatus(txHash);
+  return status;
+}
+
+export function getAxelarExplorerUrl(network: Network, txHash: string): string {
+  return network === "Mainnet"
+    ? `https://axelarscan.io/gmp/${txHash}`
+    : `https://testnet.axelarscan.io/gmp/${txHash}`;
 }

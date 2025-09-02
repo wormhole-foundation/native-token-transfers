@@ -44,7 +44,7 @@
     "test": "jest --config ./jest.config.ts"
   },
   "dependencies": {
-    "@axelar-network/axelarjs-sdk": "^0.17.4",
+    "@axelar-network/axelarjs-sdk": "^0.17.6-alpha.2",
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
     "ethers": "^6.5.1"
   },

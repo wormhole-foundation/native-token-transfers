@@ -27,16 +27,15 @@ import {
   nativeTokenId,
   toUniversal,
   isNative,
-  isCompleted,
   isFailed,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "./types.js";
 import { MultiTokenNtt } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
-  AxelarGMPRecoveryAPI,
-  Environment,
-} from "@axelar-network/axelarjs-sdk";
+  getAxelarTransactionStatus,
+  getAxelarExplorerUrl,
+} from "@wormhole-foundation/sdk-evm-ntt";
 
 type Op = routes.Options;
 type Tp = routes.TransferParams<Op>;
@@ -134,6 +133,10 @@ export class MultiTokenNttManualRoute<N extends Network>
 
     const originalToken = await sourceNtt.getOriginalToken(sourceToken);
 
+    const sendTransceivers = await sourceNtt.getSendTransceivers(
+      request.toChain.chain
+    );
+
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
@@ -143,6 +146,7 @@ export class MultiTokenNttManualRoute<N extends Network>
         sourceTokenId: request.source.id,
         destinationTokenId: request.destination.id,
         originalTokenId: originalToken,
+        sendTransceivers,
       },
       options,
     };
@@ -261,15 +265,32 @@ export class MultiTokenNttManualRoute<N extends Network>
     const ntt = await toChain.getProtocol("MultiTokenNtt", {
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
+
+    const { sendTransceivers } = receipt.params.normalizedParams;
+    const wormhole = sendTransceivers.find(
+      (t) => t.type.toLowerCase() === "wormhole"
+    );
+    if (!wormhole) {
+      throw new Error(
+        "No Wormhole transceiver found, cannot complete manual transfer"
+      );
+    }
+
+    const wormholeAttested = await ntt.transceiverAttestedToMessage(
+      receipt.from,
+      receipt.attestation.attestation.payload.nttManagerPayload,
+      wormhole.index
+    );
+    if (wormholeAttested) {
+      // already attested by the wormhole transceiver
+      return receipt;
+    }
+
     const completeXfer = ntt.redeem(receipt.attestation.attestation);
 
-    const txids = await signSendWait(toChain, completeXfer, signer);
-    return {
-      ...receipt,
-      state: TransferState.DestinationInitiated,
-      attestation: receipt.attestation,
-      destinationTxs: txids,
-    };
+    await signSendWait(toChain, completeXfer, signer);
+
+    return receipt;
   }
 
   // TODO: this is nearly identical to the executor version
@@ -330,6 +351,10 @@ export class MultiTokenNttManualRoute<N extends Network>
       originalTokenId
     );
 
+    const sendTransceivers = await sourceNtt.getSendTransceivers(
+      payload.toChain
+    );
+
     const msgId: WormholeMessageId = {
       chain: vaa.emitterChain,
       emitter: vaa.emitterAddress,
@@ -354,6 +379,7 @@ export class MultiTokenNttManualRoute<N extends Network>
           sourceTokenId,
           destinationTokenId,
           originalTokenId,
+          sendTransceivers,
         },
         options: {},
       },
@@ -388,20 +414,6 @@ export class MultiTokenNttManualRoute<N extends Network>
   }
 
   public override async *track(receipt: R, timeout?: number) {
-    if (isCompleted(receipt)) return receipt;
-
-    // TODO: we can put the send transceivers on the receipt
-    // first track the status of the wormhole transfer.
-    // when the wormhole message is approved and the transfer is not yet executed,
-    // check the status of the axelar transfer. if the status is failed, mark the transfer as failed.
-    // but we want to continue tracking until the destination is finalized.
-
-    // I think the right thing to do here is to put the track method on the transceivers.
-    // create an axelar transceiver.
-    // we track the status of the wormhole transceiver first.
-    // then track the status of the axelar transceiver.
-    // in here, we will always check if the
-
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
       const { txid } = receipt.originTxs.at(-1)!;
       const vaa = await this.wh.getVaa(
@@ -429,11 +441,6 @@ export class MultiTokenNttManualRoute<N extends Network>
       yield receipt;
     }
 
-    const fromChain = this.wh.getChain(receipt.from);
-    const sourceNtt = await fromChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: receipt.params.normalizedParams.sourceContracts,
-    });
-
     const toChain = this.wh.getChain(receipt.to);
     const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
@@ -449,69 +456,65 @@ export class MultiTokenNttManualRoute<N extends Network>
       } = receipt;
 
       if (await destinationNtt.getIsApproved(vaa)) {
+        // All transceivers have approved the transfer
         receipt = {
           ...receipt,
           state: TransferState.DestinationInitiated,
           attestation: receipt.attestation,
-          // TODO: check for destination event transactions to get dest Txids
         } satisfies RedeemedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
         yield receipt;
       } else {
-        // We tracked the Wormhole message, it was approved, but the transfer was not executed.
-        // Let's track the other transceivers (if any) to see if they failed.
-        const sendTransceivers = await sourceNtt.getSendTransceivers(
-          toChain.chain
+        // At this point the wormhole message has been emitted, but we need to check
+        // the status of the axelar transceiver if configured
+        const { sendTransceivers } = receipt.params.normalizedParams;
+        const axelarTransceiver = sendTransceivers.find(
+          (t) => t.type.toLowerCase() === "axelar"
         );
+        if (axelarTransceiver) {
+          const axelarAttested =
+            await destinationNtt.transceiverAttestedToMessage(
+              receipt.from,
+              receipt.attestation.attestation.payload.nttManagerPayload,
+              axelarTransceiver.index
+            );
 
-        const hasAxelar = sendTransceivers.some(
-          (t: { type: string }) => t.type.toLowerCase() === "axelar"
-        );
+          if (!axelarAttested) {
+            try {
+              const txid = receipt.originTxs.at(-1)!.txid;
+              const axelarStatus = await getAxelarTransactionStatus(
+                this.wh.network,
+                txid
+              );
+              if (axelarStatus.error) {
+                receipt = {
+                  ...receipt,
+                  state: TransferState.Failed,
+                  error: new routes.RelayFailedError(
+                    `Axelar transceiver error: ${axelarStatus.error.message}`,
+                    {
+                      url: getAxelarExplorerUrl(this.wh.network, txid),
+                      explorerName: "Axelarscan",
+                    }
+                  ),
+                };
+                yield receipt;
+              } else if (isFailed(receipt)) {
+                // if we previously marked it as failed, but now it's not an error, clear the error
+                receipt = {
+                  ...receipt,
+                  state: TransferState.Attested,
+                  attestation: receipt.attestation,
+                  // @ts-ignore
+                  error: undefined,
+                } satisfies AttestedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt> as R;
+                yield receipt;
+              }
 
-        if (hasAxelar) {
-          try {
-            const api = new AxelarGMPRecoveryAPI({
-              environment:
-                fromChain.network === "Mainnet"
-                  ? Environment.MAINNET
-                  : Environment.TESTNET,
-            });
-
-            const txid = receipt.originTxs.at(-1)!.txid;
-
-            const axelarStatus = await api.queryTransactionStatus(txid);
-
-            if (axelarStatus.error) {
-              receipt = {
-                ...receipt,
-                state: TransferState.Failed,
-                error: new routes.RelayFailedError(
-                  `Axelar transceiver error: ${axelarStatus.error.message}`,
-                  {
-                    url:
-                      this.wh.network === "Mainnet"
-                        ? `https://axelarscan.io/gmp/${txid}`
-                        : `https://testnet.axelarscan.io/gmp/${txid}`,
-                    explorerName: "Axelarscan",
-                  }
-                ),
-              };
-              yield receipt;
-            } else if (isFailed(receipt)) {
-              // if we previously marked it as failed, but now it's not an error, clear the error
-              receipt = {
-                ...receipt,
-                state: TransferState.Attested,
-                attestation: receipt.attestation,
-                // @ts-ignore
-                error: undefined,
-              } satisfies AttestedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt> as R;
-              yield receipt;
+              console.log("Axelar transceiver status:", axelarStatus);
+            } catch (error) {
+              // Log but don't fail - continue with standard tracking
+              console.warn("Failed to query Axelar transceiver status:", error);
             }
-
-            console.log("Axelar transceiver status:", axelarStatus);
-          } catch (error) {
-            // Log but don't fail - continue with standard tracking
-            console.warn("Failed to query Axelar transceiver status:", error);
           }
         }
       }
