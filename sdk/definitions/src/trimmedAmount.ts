@@ -1,9 +1,6 @@
-export type EncodedTrimmedAmount = bigint; // uint72
+import { TrimmedAmount } from "./layouts/amount.js";
 
-export type TrimmedAmount = {
-  amount: bigint;
-  decimals: number;
-};
+export type EncodedTrimmedAmount = bigint; // uint72
 
 export function decodeTrimmedAmount(
   encoded: EncodedTrimmedAmount

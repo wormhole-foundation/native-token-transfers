@@ -278,6 +278,7 @@ export namespace MultiTokenNttRoute {
     sourceTokenId: TokenId;
     destinationTokenId: TokenId;
     originalTokenId: MultiTokenNtt.OriginalTokenId;
+    sendTransceivers: Ntt.TransceiverMeta[];
   };
 
   export interface ValidatedParams

@@ -30,9 +30,12 @@ import {
 import "@wormhole-foundation/sdk-evm-core";
 
 import {
+  decodeTrimmedAmount,
+  EncodedTrimmedAmount,
   EvmNttTransceiver,
   Ntt,
   NttTransceiver,
+  untrim,
   WormholeNttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import { Contract, type Provider, type TransactionRequest } from "ethers";
@@ -42,12 +45,6 @@ import {
   NttTransceiverBindings,
   loadAbiVersion,
 } from "./bindings.js";
-import {
-  decodeTrimmedAmount,
-  EncodedTrimmedAmount,
-  TrimmedAmount,
-  untrim,
-} from "./trimmedAmount.js";
 
 export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
   implements
@@ -438,7 +435,9 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       return abiVersion;
     } catch (e) {
       console.error(
-        `Failed to get NTT_MANAGER_VERSION from contract ${contracts.ntt?.manager} on ${(await provider.getNetwork()).name}`
+        `Failed to get NTT_MANAGER_VERSION from contract ${
+          contracts.ntt?.manager
+        } on ${(await provider.getNetwork()).name}`
       );
       throw e;
     }
@@ -590,7 +589,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     const encoded: EncodedTrimmedAmount = (
       await this.manager.getOutboundLimitParams()
     ).limit;
-    const trimmedAmount: TrimmedAmount = decodeTrimmedAmount(encoded);
+    const trimmedAmount = decodeTrimmedAmount(encoded);
     const tokenDecimals = await this.getTokenDecimals();
 
     return untrim(trimmedAmount, tokenDecimals);
@@ -609,7 +608,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     const encoded: EncodedTrimmedAmount = (
       await this.manager.getInboundLimitParams(toChainId(fromChain))
     ).limit;
-    const trimmedAmount: TrimmedAmount = decodeTrimmedAmount(encoded);
+    const trimmedAmount = decodeTrimmedAmount(encoded);
     const tokenDecimals = await this.getTokenDecimals();
 
     return untrim(trimmedAmount, tokenDecimals);

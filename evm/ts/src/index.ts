@@ -9,12 +9,15 @@ import "@wormhole-foundation/sdk-definitions-ntt";
 registerProtocol(_platform, "Ntt", EvmNtt);
 registerProtocol(_platform, "NttWithExecutor", EvmNttWithExecutor);
 registerProtocol(_platform, "MultiTokenNtt", EvmMultiTokenNtt);
-registerProtocol(_platform, "MultiTokenNttWithExecutor", EvmMultiTokenNttWithExecutor);
+registerProtocol(
+  _platform,
+  "MultiTokenNttWithExecutor",
+  EvmMultiTokenNttWithExecutor
+);
 
 export * as ethers_contracts from "./ethers-contracts/index.js";
 export * from "./ntt.js";
 export * from "./nttWithExecutor.js";
 export * from "./multiTokenNtt.js";
 export * from "./multiTokenNttWithExecutor.js";
-export * from "./trimmedAmount.js";
-   
+export * from "./axelar.js";
