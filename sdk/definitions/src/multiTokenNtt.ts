@@ -88,6 +88,12 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
 
   getReceiveTransceivers(srcChain: Chain): Promise<Ntt.TransceiverMeta[]>;
 
+  transceiverAttestedToMessage(
+    fromChain: Chain,
+    transceiverMessage: MultiTokenNtt.Message,
+    index: number
+  ): Promise<boolean>;
+
   createTransceiverInstructions(
     dstChain: Chain,
     gasLimit: bigint

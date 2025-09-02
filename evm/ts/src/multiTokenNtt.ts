@@ -29,9 +29,12 @@ import {
 import "@wormhole-foundation/sdk-evm-core";
 
 import {
+  decodeTrimmedAmount,
+  EncodedTrimmedAmount,
   MultiTokenNtt,
   Ntt,
   TrimmedAmount,
+  untrim,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import { Contract, ethers, Interface, type Provider } from "ethers";
 import {
@@ -40,11 +43,6 @@ import {
   MultiTokenNttBindings,
   MultiTokenNttManagerBindings,
 } from "./multiTokenNttBindings.js";
-import {
-  decodeTrimmedAmount,
-  EncodedTrimmedAmount,
-  untrim,
-} from "./trimmedAmount.js";
 import { getAxelarGasFee } from "./axelar.js";
 import { encoding } from "@wormhole-foundation/sdk-base";
 
@@ -213,6 +211,17 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
+  async transceiverAttestedToMessage(
+    fromChain: Chain,
+    transceiverMessage: MultiTokenNtt.Message,
+    index: number
+  ): Promise<boolean> {
+    return await this.gmpManager.transceiverAttestedToMessage(
+      MultiTokenNtt.messageDigest(fromChain, transceiverMessage),
+      index
+    );
+  }
+
   private async getTransceiverType(
     transceiverAddress: string
   ): Promise<string> {
@@ -254,12 +263,12 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
                 dstChain,
                 gasLimit
               );
+              console.log(`Fetched axelar gas fee: ${gasFee} wei`);
             } catch (e) {
               // If we fail to fetch the gas fee, then use 0 as a fallback.
               // The Axelar relay should fail and the track() method will
-              // surface a RelayFailedError that a UI can use to inform the user.
-              // We don't want to block the transfer entirely just because
-              // of a failure to fetch the gas fee.
+              // surface a RelayFailedError. We don't want to fail the entire
+              // transfer just because we couldn't fetch the gas fee quote.
               gasFee = 100000000000000n; // 0.0001 ETH
               console.error(`Failed to fetch axelar gas fee: ${e}`);
             }
