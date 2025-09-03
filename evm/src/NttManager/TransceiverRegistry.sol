@@ -98,7 +98,15 @@ abstract contract TransceiverRegistry {
     error InvalidChainId();
 
     modifier onlyTransceiver() {
-        // TODO: change this to take chain id as argument (and accordingly look up whether it's enabled for that chain)
+        /// NOTE: this modifier is quite coarse-grained, and is only used on the
+        /// `attestationReceived` function, to check that the caller is a *known* transceiver.
+        ///
+        /// This is important because later on, the transceiver's index is used
+        /// to record its vote, and if the address is not known, it would return
+        /// 0 from the mapping.
+        /// We could even change this to check `.registered` instead of `.enabled`,
+        /// because the when counting the votes, we consult the enabled bitmap
+        /// anyway, so letting disabled transceivers vote is not a problem.
         if (!_getTransceiverInfosStorage()[msg.sender].enabled) {
             revert CallerNotTransceiver(msg.sender);
         }
