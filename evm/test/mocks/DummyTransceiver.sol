@@ -7,7 +7,7 @@ import "../../src/Transceiver/NttTransceiver.sol";
 import "../interfaces/ITransceiverReceiver.sol";
 import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
 
-contract DummyTransceiver is Transceiver, ITransceiverReceiver, Test {
+contract GenericDummyTransceiver is GenericTransceiver, ITransceiverReceiver, Test {
     bytes4 public constant TEST_TRANSCEIVER_PAYLOAD_PREFIX = 0x99455454;
 
     bytes[] public messages;
@@ -25,7 +25,7 @@ contract DummyTransceiver is Transceiver, ITransceiverReceiver, Test {
 
     constructor(
         address nttManager
-    ) GenericTransceiver(nttManager) Transceiver(nttManager) {}
+    ) GenericTransceiver(nttManager) {}
 
     function getTransceiverType() external pure override returns (string memory) {
         return "dummy";
@@ -80,5 +80,15 @@ contract DummyTransceiver is Transceiver, ITransceiverReceiver, Test {
             parsedTransceiverMessage.recipientNttManagerAddress,
             parsedNttManagerMessage
         );
+    }
+}
+
+contract DummyTransceiver is Transceiver, GenericDummyTransceiver {
+    constructor(
+        address nttManager
+    ) GenericDummyTransceiver(nttManager) Transceiver(nttManager) {}
+
+    function _checkImmutables() internal view override(GenericTransceiver, Transceiver) {
+        super._checkImmutables();
     }
 }

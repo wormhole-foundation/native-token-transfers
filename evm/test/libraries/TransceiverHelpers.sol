@@ -70,8 +70,8 @@ library TransceiverHelpersLib {
         for (uint256 i; i < transceivers.length; i++) {
             ITransceiverReceiver e = transceivers[i];
             // Wrap in DummyTransceiverMessage format
-            DummyTransceiver.DummyTransceiverMessage memory dummyMessage = DummyTransceiver
-                .DummyTransceiverMessage({
+            GenericDummyTransceiver.DummyTransceiverMessage memory dummyMessage =
+            GenericDummyTransceiver.DummyTransceiverMessage({
                 sourceChainId: SENDING_CHAIN_ID,
                 transceiverMessage: encodedEm
             });

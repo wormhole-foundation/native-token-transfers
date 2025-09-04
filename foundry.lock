@@ -1,0 +1,17 @@
+{
+  "evm/lib/openzeppelin-contracts": {
+    "rev": "0457042d93d9dfd760dbaa06a4d2f1216fdbe297"
+  },
+  "evm/lib/forge-std": {
+    "rev": "36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3"
+  },
+  "evm/lib/wormhole-solidity-sdk": {
+    "rev": "b9e129e65d34827d92fceeed8c87d3ecdfc801d0"
+  },
+  "evm/lib/solidity-bytes-utils": {
+    "rev": "e0115c4d231910df47ce3b60625ce562fe4af985"
+  },
+  "lib/openzeppelin-contracts-upgradeable": {
+    "rev": "7ec6d2a3117eb3487a5f9029203e80ceb89bd984"
+  }
+}

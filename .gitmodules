@@ -10,3 +10,6 @@
 [submodule "evm/lib/solidity-bytes-utils"]
 	path = evm/lib/solidity-bytes-utils
 	url = https://github.com/GNSPS/solidity-bytes-utils
+[submodule "evm/lib/openzeppelin-contracts-upgradeable"]
+	path = evm/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable

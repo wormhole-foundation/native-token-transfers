@@ -593,8 +593,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
                 TransceiverHelpersLib.TEST_TRANSCEIVER_PAYLOAD_PREFIX, em
             );
             // Wrap in DummyTransceiverMessage format
-            DummyTransceiver.DummyTransceiverMessage memory dummyMessage = DummyTransceiver
-                .DummyTransceiverMessage({
+            GenericDummyTransceiver.DummyTransceiverMessage memory dummyMessage =
+            GenericDummyTransceiver.DummyTransceiverMessage({
                 sourceChainId: TransceiverHelpersLib.SENDING_CHAIN_ID,
                 transceiverMessage: rawTransceiverMessage
             });
@@ -1099,8 +1099,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
                 TransceiverHelpersLib.TEST_TRANSCEIVER_PAYLOAD_PREFIX, em
             );
             // Wrap in DummyTransceiverMessage format
-            DummyTransceiver.DummyTransceiverMessage memory dummyMessage = DummyTransceiver
-                .DummyTransceiverMessage({
+            GenericDummyTransceiver.DummyTransceiverMessage memory dummyMessage =
+            GenericDummyTransceiver.DummyTransceiverMessage({
                 sourceChainId: TransceiverHelpersLib.SENDING_CHAIN_ID,
                 transceiverMessage: rawTransceiverMessage
             });
