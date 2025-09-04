@@ -1,10 +1,7 @@
 import {
-  AttestedTransferReceipt,
   Chain,
   ChainAddress,
   ChainContext,
-  CompletedTransferReceipt,
-  DestinationQueuedTransferReceipt,
   Network,
   RedeemedTransferReceipt,
   Signer,
@@ -28,14 +25,13 @@ import {
   toUniversal,
   isNative,
   isFailed,
+  CompletedTransferReceipt,
+  DestinationQueuedTransferReceipt,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "./types.js";
-import { MultiTokenNtt, Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
-import {
-  getAxelarTransactionStatus,
-  getAxelarExplorerUrl,
-} from "@wormhole-foundation/sdk-evm-ntt";
+import { MultiTokenNtt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { trackAxelar } from "./tracking.js";
 
 type Op = routes.Options;
 type Tp = routes.TransferParams<Op>;
@@ -113,6 +109,11 @@ export class MultiTokenNttManualRoute<N extends Network>
 
     const parsedAmount = amount.parse(params.amount, request.source.decimals);
 
+    const trimmedAmount = NttRoute.trimAmount(
+      parsedAmount,
+      request.destination.decimals
+    );
+
     const sourceContracts = MultiTokenNttRoute.resolveContracts(
       this.staticConfig,
       request.fromChain.chain
@@ -140,7 +141,7 @@ export class MultiTokenNttManualRoute<N extends Network>
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
-        amount: parsedAmount,
+        amount: trimmedAmount,
         sourceContracts,
         destinationContracts,
         sourceTokenId: request.source.id,
@@ -413,145 +414,30 @@ export class MultiTokenNttManualRoute<N extends Network>
     };
   }
 
-  async trackWormholeAttestation(receipt: R, timeout?: number): Promise<R> {
-    if (!isSourceInitiated(receipt) && !isSourceFinalized(receipt)) {
-      return receipt;
-    }
-
-    const { txid } = receipt.originTxs.at(-1)!;
-    const vaa = await this.wh.getVaa(
-      txid,
-      "MultiTokenNtt:WormholeTransfer",
-      timeout
-    );
-    if (!vaa) throw new Error("No VAA found for transaction: " + txid);
-
-    const msgId: WormholeMessageId = {
-      chain: vaa.emitterChain,
-      emitter: vaa.emitterAddress,
-      sequence: vaa.sequence,
-    };
-
-    return {
-      ...receipt,
-      state: TransferState.Attested,
-      attestation: {
-        id: msgId,
-        attestation: vaa,
-      },
-    } satisfies AttestedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt> as R;
-  }
-
-  async trackAxelarTransceiver(
-    receipt: R,
-    destinationNtt: MultiTokenNtt<N, Chain>,
-    axelarTransceiver: Ntt.TransceiverMeta
-  ): Promise<R> {
-    if (!isAttested(receipt) && !isFailed(receipt)) {
-      return receipt;
-    }
-
-    if (!receipt.attestation) {
-      throw new Error("No attestation found on the transfer receipt");
-    }
-
-    const axelarAttested = await destinationNtt.transceiverAttestedToMessage(
-      receipt.from,
-      receipt.attestation!.attestation.payload.nttManagerPayload,
-      axelarTransceiver.index
-    );
-
-    if (axelarAttested) {
-      // Axelar has attested - if we were in failed state, reset to attested
-      if (isFailed(receipt)) {
-        return {
-          ...receipt,
-          state: TransferState.Attested,
-          attestation: receipt.attestation,
-          // @ts-ignore
-          error: undefined,
-        } satisfies AttestedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt> as R;
-      }
-      return receipt;
-    }
-
-    // Axelar hasn't attested yet - check status via API
-    try {
-      const txid = receipt.originTxs.at(-1)!.txid;
-      const axelarStatus = await getAxelarTransactionStatus(
-        this.wh.network,
-        txid
-      );
-
-      if (axelarStatus.error) {
-        return {
-          ...receipt,
-          state: TransferState.Failed,
-          error: new routes.RelayFailedError(
-            `Axelar transceiver error: ${axelarStatus.error.message}`,
-            // @ts-ignore
-            {
-              url: getAxelarExplorerUrl(this.wh.network, txid),
-              explorerName: "Axelarscan",
-            }
-          ),
-        };
-      } else if (isFailed(receipt)) {
-        // if we previously marked it as failed, but now it's not an error, clear the error
-        return {
-          ...receipt,
-          state: TransferState.Attested,
-          attestation: receipt.attestation,
-          // @ts-ignore
-          error: undefined,
-        } satisfies AttestedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt> as R;
-      }
-
-      console.log("Axelar transceiver status:", axelarStatus);
-    } catch (error) {
-      // Log but don't fail - continue with standard tracking
-      console.warn("Failed to query Axelar transceiver status:", error);
-    }
-
-    return receipt;
-  }
-
-  async checkDestinationQueue(
-    receipt: R,
-    destinationNtt: MultiTokenNtt<N, Chain>
-  ): Promise<R> {
-    if (!isRedeemed(receipt)) {
-      return receipt;
-    }
-
-    const vaa = receipt.attestation!.attestation;
-
-    const queuedTransfer = await destinationNtt.getInboundQueuedTransfer(
-      vaa.emitterChain,
-      vaa.payload.nttManagerPayload
-    );
-
-    if (queuedTransfer !== null) {
-      return {
-        ...receipt,
-        state: TransferState.DestinationQueued,
-        queueReleaseTime: new Date(
-          queuedTransfer.rateLimitExpiryTimestamp * 1000
-        ),
-      } satisfies DestinationQueuedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt> as R;
-    } else if (await destinationNtt.getIsExecuted(vaa)) {
-      return {
-        ...receipt,
-        state: TransferState.DestinationFinalized,
-      } satisfies CompletedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt> as R;
-    }
-
-    return receipt;
-  }
-
   public override async *track(receipt: R, timeout?: number) {
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      receipt = await this.trackWormholeAttestation(receipt, timeout);
+      const { txid } = receipt.originTxs.at(-1)!;
+      const vaa = await this.wh.getVaa(
+        txid,
+        "MultiTokenNtt:WormholeTransfer",
+        timeout
+      );
+      if (!vaa) throw new Error("No VAA found for transaction: " + txid);
+
+      const msgId: WormholeMessageId = {
+        chain: vaa.emitterChain,
+        emitter: vaa.emitterAddress,
+        sequence: vaa.sequence,
+      };
+
+      receipt = {
+        ...receipt,
+        state: TransferState.Attested,
+        attestation: {
+          id: msgId,
+          attestation: vaa,
+        },
+      };
       yield receipt;
     }
 
@@ -576,14 +462,14 @@ export class MultiTokenNttManualRoute<N extends Network>
         } satisfies RedeemedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
         yield receipt;
       } else {
-        // Wormhole transceiver has attested, check Axelar transceiver (if enabled)
         const { sendTransceivers } = receipt.params.normalizedParams;
         const axelarTransceiver = sendTransceivers.find(
           (t) => t.type.toLowerCase() === "axelar"
         );
 
         if (axelarTransceiver) {
-          const updatedReceipt = await this.trackAxelarTransceiver(
+          const updatedReceipt = await trackAxelar(
+            this.wh.network,
             receipt,
             destinationNtt,
             axelarTransceiver
@@ -597,13 +483,26 @@ export class MultiTokenNttManualRoute<N extends Network>
     }
 
     if (isRedeemed(receipt) || isDestinationQueued(receipt)) {
-      const updatedReceipt = await this.checkDestinationQueue(
-        receipt,
-        destinationNtt
+      const vaa = receipt.attestation.attestation;
+
+      const queuedTransfer = await destinationNtt.getInboundQueuedTransfer(
+        vaa.emitterChain,
+        vaa.payload.nttManagerPayload
       );
-      if (updatedReceipt !== receipt) {
-        receipt = updatedReceipt;
-        yield receipt;
+
+      if (queuedTransfer !== null) {
+        return {
+          ...receipt,
+          state: TransferState.DestinationQueued,
+          queueReleaseTime: new Date(
+            queuedTransfer.rateLimitExpiryTimestamp * 1000
+          ),
+        } satisfies DestinationQueuedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
+      } else if (await destinationNtt.getIsExecuted(vaa)) {
+        return {
+          ...receipt,
+          state: TransferState.DestinationFinalized,
+        } satisfies CompletedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
       }
     }
 

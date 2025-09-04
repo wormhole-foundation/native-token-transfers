@@ -37,13 +37,7 @@ import {
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "../types.js";
-import {
-  calculateReferrerFee,
-  fetchCapabilities,
-  fetchSignedQuote,
-  fetchStatus,
-  RelayStatus,
-} from "./utils.js";
+import { calculateReferrerFee } from "./utils.js";
 import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   isNative,
