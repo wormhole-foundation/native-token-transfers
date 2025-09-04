@@ -2210,12 +2210,8 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
 
     let verifyArgs: string = "";
     if (evmVerify) {
-        // TODO: verify etherscan api key?
-        const etherscanApiKey = configuration.get(ctx.chain, "scan_api_key", { reportError: true })
-        if (!etherscanApiKey) {
-            process.exit(1);
-        }
-        verifyArgs = `--verify --etherscan-api-key ${etherscanApiKey}`;
+        const verifyArgsArray = buildVerifierArgs(ctx.chain);
+        verifyArgs = verifyArgsArray.join(' ');
     }
 
     console.log("Upgrading manager...");
@@ -2520,14 +2516,9 @@ async function deployEvm<N extends Network, C extends Chain>(
     const signer = await getSigner(ch, signerType);
     const signerArgs = forgeSignerArgs(signer.source);
 
-    // TODO: verify etherscan api key?
     let verifyArgs: string[] = [];
     if (verify) {
-        const etherscanApiKey = configuration.get(ch.chain, "scan_api_key", { reportError: true })
-        if (!etherscanApiKey) {
-            process.exit(1);
-        }
-        verifyArgs = ["--verify", "--etherscan-api-key", etherscanApiKey]
+        verifyArgs = buildVerifierArgs(ch.chain);
     }
 
     console.log("Installing forge dependencies...")
@@ -4186,6 +4177,30 @@ function retryWithExponentialBackoff<T>(
         }
     };
     return attempt(0);
+}
+
+function buildVerifierArgs(chain: Chain): string[] {
+    const verifier = configuration.get(chain, "verifier", { reportError: true });
+    const apiKey = configuration.get(chain, "scan_api_key", { reportError: true });
+
+    if (!apiKey) {
+        process.exit(1);
+    }
+
+    const verifierType = verifier || "etherscan";
+
+    switch (verifierType.toLowerCase()) {
+        case "blockscout":
+            const verifierUrl = configuration.get(chain, "verifier_url", { reportError: true });
+            if (!verifierUrl) {
+                console.error(`verifier_url is required when using blockscout verifier for ${chain}`);
+                process.exit(1);
+            }
+            return ["--verify", "--verifier", "blockscout", "--verifier-url", verifierUrl, "--verifier-api-key", apiKey];
+        case "etherscan":
+        default:
+            return ["--verify", "--verifier", "etherscan", "--verifier-api-key", apiKey];
+    }
 }
 
 function nttVersion(): { version: string, commit: string, path: string, remote: string } | null {

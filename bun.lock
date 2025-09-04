@@ -8,7 +8,7 @@
         "@solana/web3.js": "^1.95.8",
         "@types/jest": "^29.5.12",
         "@types/node": "^20.12.2",
-        "@wormhole-foundation/sdk": "^2.4.0",
+        "@wormhole-foundation/sdk": "^2.5.0",
         "@wormhole-foundation/wormchain-sdk": "^0.0.1",
         "ethers": "^6.5.1",
         "ts-jest": "^29.1.2",
@@ -23,7 +23,7 @@
         "ntt": "src/index.ts",
       },
       "dependencies": {
-        "@mysten/sui": "^1.33.0",
+        "@mysten/sui": "1.37.2",
         "@wormhole-foundation/sdk-sui-ntt": "^0.5.0",
         "chalk": "^5.3.0",
         "yargs": "^17.7.2",
@@ -49,25 +49,25 @@
         "typechain": "^8.3.2",
       },
       "peerDependencies": {
-        "@wormhole-foundation/sdk-base": "^2.4.0",
-        "@wormhole-foundation/sdk-definitions": "^2.4.0",
-        "@wormhole-foundation/sdk-evm": "^2.4.0",
-        "@wormhole-foundation/sdk-evm-core": "^2.4.0",
+        "@wormhole-foundation/sdk-base": "^2.5.0",
+        "@wormhole-foundation/sdk-definitions": "^2.5.0",
+        "@wormhole-foundation/sdk-evm": "^2.5.0",
+        "@wormhole-foundation/sdk-evm-core": "^2.5.0",
       },
     },
     "sdk/definitions": {
       "name": "@wormhole-foundation/sdk-definitions-ntt",
       "version": "1.0.0",
       "peerDependencies": {
-        "@wormhole-foundation/sdk-base": "^2.4.0",
-        "@wormhole-foundation/sdk-definitions": "^2.4.0",
+        "@wormhole-foundation/sdk-base": "^2.5.0",
+        "@wormhole-foundation/sdk-definitions": "^2.5.0",
       },
     },
     "sdk/examples": {
       "name": "@wormhole-foundation/sdk-examples-ntt",
       "version": "1.0.0",
       "dependencies": {
-        "@wormhole-foundation/sdk": "^2.4.0",
+        "@wormhole-foundation/sdk": "^2.5.0",
         "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
         "@wormhole-foundation/sdk-evm-ntt": "1.0.0",
         "@wormhole-foundation/sdk-route-ntt": "1.0.0",
@@ -95,7 +95,7 @@
         "ts-node": "^10.9.2",
       },
       "peerDependencies": {
-        "@wormhole-foundation/sdk-connect": "^2.4.0",
+        "@wormhole-foundation/sdk-connect": "^2.5.0",
         "axios": "^1.9.0",
       },
     },
@@ -118,29 +118,29 @@
         "tsx": "^4.7.2",
       },
       "peerDependencies": {
-        "@wormhole-foundation/sdk-base": "^2.4.0",
-        "@wormhole-foundation/sdk-definitions": "^2.4.0",
-        "@wormhole-foundation/sdk-solana": "^2.4.0",
-        "@wormhole-foundation/sdk-solana-core": "^2.4.0",
+        "@wormhole-foundation/sdk-base": "^2.5.0",
+        "@wormhole-foundation/sdk-definitions": "^2.5.0",
+        "@wormhole-foundation/sdk-solana": "^2.5.0",
+        "@wormhole-foundation/sdk-solana-core": "^2.5.0",
       },
     },
     "sui/ts": {
       "name": "@wormhole-foundation/sdk-sui-ntt",
       "version": "0.5.0",
       "dependencies": {
-        "@mysten/sui": "^1.26.1",
+        "@mysten/sui": "1.37.2",
         "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
       },
       "peerDependencies": {
-        "@wormhole-foundation/sdk-base": "^2.4.0",
-        "@wormhole-foundation/sdk-definitions": "^2.4.0",
-        "@wormhole-foundation/sdk-sui": "^2.4.0",
-        "@wormhole-foundation/sdk-sui-core": "^2.4.0",
+        "@wormhole-foundation/sdk-base": "^2.5.0",
+        "@wormhole-foundation/sdk-definitions": "^2.5.0",
+        "@wormhole-foundation/sdk-sui": "^2.5.0",
+        "@wormhole-foundation/sdk-sui-core": "^2.5.0",
       },
     },
   },
   "overrides": {
-    "@mysten/sui": "1.26.1",
+    "@mysten/sui": "1.37.2",
   },
   "packages": {
     "@0no-co/graphql.web": ["@0no-co/graphql.web@1.1.2", "", { "peerDependencies": { "graphql": "^14.0.0 || ^15.0.0 || ^16.0.0" } }, "sha512-N2NGsU5FLBhT8NZ+3l2YrzZSHITjNXNuDhC4iDiikv0IujaJ0Xc6xIxQZ/Ek3Cb+rgPjnLHYyJm11tInuJn+cw=="],
@@ -381,7 +381,7 @@
 
     "@ethersproject/wordlists": ["@ethersproject/wordlists@5.7.0", "", { "dependencies": { "@ethersproject/bytes": "^5.7.0", "@ethersproject/hash": "^5.7.0", "@ethersproject/logger": "^5.7.0", "@ethersproject/properties": "^5.7.0", "@ethersproject/strings": "^5.7.0" } }, "sha512-S2TFNJNfHWVHNE6cNDjbVlZ6MgE17MIxMbMg2zv3wn+3XSJGosL1m9ZVv3GXCf/2ymSsQ+hRI5IzoMJTG6aoVA=="],
 
-    "@gql.tada/cli-utils": ["@gql.tada/cli-utils@1.6.3", "", { "dependencies": { "@0no-co/graphqlsp": "^1.12.13", "@gql.tada/internal": "1.0.8", "graphql": "^15.5.0 || ^16.0.0 || ^17.0.0" }, "peerDependencies": { "@0no-co/graphqlsp": "^1.12.13", "@gql.tada/svelte-support": "1.0.1", "@gql.tada/vue-support": "1.0.1", "graphql": "^15.5.0 || ^16.0.0 || ^17.0.0", "typescript": "^5.0.0" }, "optionalPeers": ["@gql.tada/svelte-support", "@gql.tada/vue-support"] }, "sha512-jFFSY8OxYeBxdKi58UzeMXG1tdm4FVjXa8WHIi66Gzu9JWtCE6mqom3a8xkmSw+mVaybFW5EN2WXf1WztJVNyQ=="],
+    "@gql.tada/cli-utils": ["@gql.tada/cli-utils@1.7.1", "", { "dependencies": { "@0no-co/graphqlsp": "^1.12.13", "@gql.tada/internal": "1.0.8", "graphql": "^15.5.0 || ^16.0.0 || ^17.0.0" }, "peerDependencies": { "@gql.tada/svelte-support": "1.0.1", "@gql.tada/vue-support": "1.0.1", "typescript": "^5.0.0" }, "optionalPeers": ["@gql.tada/svelte-support", "@gql.tada/vue-support"] }, "sha512-wg5ysZNQxtNQm67T3laVWmZzLpGb7QfyYWZdaUD2r1OjDj5Bgftq7eQlplmH+hsdffjuUyhJw/b5XAjeE2mJtg=="],
 
     "@gql.tada/internal": ["@gql.tada/internal@1.0.8", "", { "dependencies": { "@0no-co/graphql.web": "^1.0.5" }, "peerDependencies": { "graphql": "^15.5.0 || ^16.0.0 || ^17.0.0", "typescript": "^5.0.0" } }, "sha512-XYdxJhtHC5WtZfdDqtKjcQ4d7R1s0d1rnlSs3OcBEUbYiPoJJfZU7tWsVXuv047Z6msvmr4ompJ7eLSK5Km57g=="],
 
@@ -459,9 +459,11 @@
 
     "@metamask/eth-sig-util": ["@metamask/eth-sig-util@4.0.1", "", { "dependencies": { "ethereumjs-abi": "^0.6.8", "ethereumjs-util": "^6.2.1", "ethjs-util": "^0.1.6", "tweetnacl": "^1.0.3", "tweetnacl-util": "^0.15.1" } }, "sha512-tghyZKLHZjcdlDqCA3gNZmLeR0XvOE9U1qoQO9ohyAZT6Pya+H9vkBPcsyXytmYLNgVoin7CKCmweo/R43V+tQ=="],
 
-    "@mysten/bcs": ["@mysten/bcs@1.6.0", "", { "dependencies": { "@scure/base": "^1.2.4" } }, "sha512-ydDRYdIkIFCpHCcPvAkMC91fVwumjzbTgjqds0KsphDQI3jUlH3jFG5lfYNTmV6V3pkhOiRk1fupLBcsQsiszg=="],
+    "@mysten/bcs": ["@mysten/bcs@1.7.0", "", { "dependencies": { "@mysten/utils": "0.1.1", "@scure/base": "^1.2.6" } }, "sha512-8zE2Jzj2ai55RlVXx2pEMbbq+X3vB+uPGBvZr0F79IdTwuwcu4QdFG3PT/zHsytsvATkn+z0f2YDWhM5916u2A=="],
 
-    "@mysten/sui": ["@mysten/sui@1.26.1", "", { "dependencies": { "@graphql-typed-document-node/core": "^3.2.0", "@mysten/bcs": "1.6.0", "@noble/curves": "^1.8.1", "@noble/hashes": "^1.7.1", "@scure/base": "^1.2.4", "@scure/bip32": "^1.6.2", "@scure/bip39": "^1.5.4", "gql.tada": "^1.8.2", "graphql": "^16.9.0", "poseidon-lite": "^0.2.0", "valibot": "^0.36.0" } }, "sha512-bBVvn2wZKipAvuUkKzHwGhs1JiIM33+b97d0uIWg3T6dJH/n1nfnGrzkBQsMGpoBAFOIUnKQAZmDwT4qvJbKkg=="],
+    "@mysten/sui": ["@mysten/sui@1.37.2", "", { "dependencies": { "@graphql-typed-document-node/core": "^3.2.0", "@mysten/bcs": "1.7.0", "@mysten/utils": "0.1.1", "@noble/curves": "^1.9.4", "@noble/hashes": "^1.8.0", "@scure/base": "^1.2.6", "@scure/bip32": "^1.7.0", "@scure/bip39": "^1.6.0", "gql.tada": "^1.8.12", "graphql": "^16.11.0", "poseidon-lite": "^0.2.0", "valibot": "^0.36.0" } }, "sha512-HZLsKfiqbIgZvmoSPdW+AVNEzj9OYf9TV/VP9qEAIKERLS9EEeBYpz3Ju7WR6apuQvjOtPGs5yimEOuQQ7sRww=="],
+
+    "@mysten/utils": ["@mysten/utils@0.1.1", "", { "dependencies": { "@scure/base": "^1.2.6" } }, "sha512-jvhJC6/2la1QHltukQXzfyTZ+VVHxe187JjPx+mEXRUWyAo6jCSdioOQJIfaGu4K4i+37KeiydXRwV/bq/7UJQ=="],
 
     "@noble/curves": ["@noble/curves@1.8.1", "", { "dependencies": { "@noble/hashes": "1.7.1" } }, "sha512-warwspo+UYUPep0Q+vtdVB4Ugn8GGQj8iyB3gnRWsztmUHTI3S1nhdiWNsPUGL0vud7JlRRk1XEu7Lq1KGTnMQ=="],
 
@@ -487,11 +489,11 @@
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.0", "", {}, "sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw=="],
 
-    "@scure/base": ["@scure/base@1.2.4", "", {}, "sha512-5Yy9czTO47mqz+/J8GM6GIId4umdCk1wc1q8rKERQulIoc8VP9pzDcghv10Tl2E7R96ZUx/PhND3ESYUQX8NuQ=="],
+    "@scure/base": ["@scure/base@1.2.6", "", {}, "sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg=="],
 
-    "@scure/bip32": ["@scure/bip32@1.6.2", "", { "dependencies": { "@noble/curves": "~1.8.1", "@noble/hashes": "~1.7.1", "@scure/base": "~1.2.2" } }, "sha512-t96EPDMbtGgtb7onKKqxRLfE5g05k7uHnHRM2xdE6BP/ZmxaLtPek4J4KfVn/90IQNrU1IOAqMgiDtUdtbe3nw=="],
+    "@scure/bip32": ["@scure/bip32@1.7.0", "", { "dependencies": { "@noble/curves": "~1.9.0", "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-E4FFX/N3f4B80AKWp5dP6ow+flD1LQZo/w8UnLGYZO674jS6YnYeepycOOksv+vLPSpgN35wgKgy+ybfTb2SMw=="],
 
-    "@scure/bip39": ["@scure/bip39@1.5.4", "", { "dependencies": { "@noble/hashes": "~1.7.1", "@scure/base": "~1.2.4" } }, "sha512-TFM4ni0vKvCfBpohoh+/lY05i9gRbSwXWngAsF4CABQxoaOHijxuaZ2R6cStDQ5CHtHO9aGJTr4ksVJASRRyMA=="],
+    "@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.27.8", "", {}, "sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA=="],
 
@@ -553,7 +555,7 @@
 
     "@types/bn.js": ["@types/bn.js@5.1.5", "", { "dependencies": { "@types/node": "*" } }, "sha512-V46N0zwKRF5Q00AZ6hWtN0T8gGmDUaUzLWQvHFo5yThtVwK/VCenFY3wXVbOvNfajEpsTfQM4IN9k/d6gUVX3A=="],
 
-    "@types/bun": ["@types/bun@1.2.19", "", { "dependencies": { "bun-types": "1.2.19" } }, "sha512-d9ZCmrH3CJ2uYKXQIUuZ/pUnTqIvLDS0SK7pFmbx8ma+ziH/FRMoAq5bYpRG7y+w1gl+HgyNZbtqgMq4W4e2Lg=="],
+    "@types/bun": ["@types/bun@1.2.21", "", { "dependencies": { "bun-types": "1.2.21" } }, "sha512-NiDnvEqmbfQ6dmZ3EeUO577s4P5bf4HCTXtI6trMc6f6RzirY5IrF3aIookuSpyslFzrnvv2lmEWv5HyC1X79A=="],
 
     "@types/cacheable-request": ["@types/cacheable-request@6.0.3", "", { "dependencies": { "@types/http-cache-semantics": "*", "@types/keyv": "^3.1.4", "@types/node": "*", "@types/responselike": "^1.0.0" } }, "sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw=="],
 
@@ -599,77 +601,77 @@
 
     "@wormhole-foundation/ntt-cli": ["@wormhole-foundation/ntt-cli@workspace:cli"],
 
-    "@wormhole-foundation/sdk": ["@wormhole-foundation/sdk@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-algorand": "2.4.0", "@wormhole-foundation/sdk-algorand-core": "2.4.0", "@wormhole-foundation/sdk-algorand-tokenbridge": "2.4.0", "@wormhole-foundation/sdk-aptos": "2.4.0", "@wormhole-foundation/sdk-aptos-cctp": "2.4.0", "@wormhole-foundation/sdk-aptos-core": "2.4.0", "@wormhole-foundation/sdk-aptos-tokenbridge": "2.4.0", "@wormhole-foundation/sdk-base": "2.4.0", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-cosmwasm": "2.4.0", "@wormhole-foundation/sdk-cosmwasm-core": "2.4.0", "@wormhole-foundation/sdk-cosmwasm-ibc": "2.4.0", "@wormhole-foundation/sdk-cosmwasm-tokenbridge": "2.4.0", "@wormhole-foundation/sdk-definitions": "2.4.0", "@wormhole-foundation/sdk-evm": "2.4.0", "@wormhole-foundation/sdk-evm-cctp": "2.4.0", "@wormhole-foundation/sdk-evm-core": "2.4.0", "@wormhole-foundation/sdk-evm-portico": "2.4.0", "@wormhole-foundation/sdk-evm-tbtc": "2.4.0", "@wormhole-foundation/sdk-evm-tokenbridge": "2.4.0", "@wormhole-foundation/sdk-solana": "2.4.0", "@wormhole-foundation/sdk-solana-cctp": "2.4.0", "@wormhole-foundation/sdk-solana-core": "2.4.0", "@wormhole-foundation/sdk-solana-tbtc": "2.4.0", "@wormhole-foundation/sdk-solana-tokenbridge": "2.4.0", "@wormhole-foundation/sdk-sui": "2.4.0", "@wormhole-foundation/sdk-sui-cctp": "2.4.0", "@wormhole-foundation/sdk-sui-core": "2.4.0", "@wormhole-foundation/sdk-sui-tokenbridge": "2.4.0" } }, "sha512-3NwbCNyT/MdzoRtYXHDI0EBJJcTfJ5FHQX71nNcp87I/UcbOc/BHqRCOTKGL8CSSJR13fEAVCFmhZa2jcimQPg=="],
+    "@wormhole-foundation/sdk": ["@wormhole-foundation/sdk@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-algorand": "2.5.0", "@wormhole-foundation/sdk-algorand-core": "2.5.0", "@wormhole-foundation/sdk-algorand-tokenbridge": "2.5.0", "@wormhole-foundation/sdk-aptos": "2.5.0", "@wormhole-foundation/sdk-aptos-cctp": "2.5.0", "@wormhole-foundation/sdk-aptos-core": "2.5.0", "@wormhole-foundation/sdk-aptos-tokenbridge": "2.5.0", "@wormhole-foundation/sdk-base": "2.5.0", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-cosmwasm": "2.5.0", "@wormhole-foundation/sdk-cosmwasm-core": "2.5.0", "@wormhole-foundation/sdk-cosmwasm-ibc": "2.5.0", "@wormhole-foundation/sdk-cosmwasm-tokenbridge": "2.5.0", "@wormhole-foundation/sdk-definitions": "2.5.0", "@wormhole-foundation/sdk-evm": "2.5.0", "@wormhole-foundation/sdk-evm-cctp": "2.5.0", "@wormhole-foundation/sdk-evm-core": "2.5.0", "@wormhole-foundation/sdk-evm-portico": "2.5.0", "@wormhole-foundation/sdk-evm-tbtc": "2.5.0", "@wormhole-foundation/sdk-evm-tokenbridge": "2.5.0", "@wormhole-foundation/sdk-solana": "2.5.0", "@wormhole-foundation/sdk-solana-cctp": "2.5.0", "@wormhole-foundation/sdk-solana-core": "2.5.0", "@wormhole-foundation/sdk-solana-tbtc": "2.5.0", "@wormhole-foundation/sdk-solana-tokenbridge": "2.5.0", "@wormhole-foundation/sdk-sui": "2.5.0", "@wormhole-foundation/sdk-sui-cctp": "2.5.0", "@wormhole-foundation/sdk-sui-core": "2.5.0", "@wormhole-foundation/sdk-sui-tokenbridge": "2.5.0" } }, "sha512-muCdAh8D/GYhiN261/OMmUS137E7PUaOoJsQBVetxyzaaEoS1LOHm0RB/iKc3p+kalxXhAgJuyRrh4tRsddREg=="],
 
-    "@wormhole-foundation/sdk-algorand": ["@wormhole-foundation/sdk-algorand@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.4.0", "algosdk": "2.7.0" } }, "sha512-tO9ZgbTgVBHs4afm8G6WTAyZZubNL50VPu7m7bwBuE7yEi68j7AZ9sWrejH/+RhdINr275Pok539Mg9IB3GwcQ=="],
+    "@wormhole-foundation/sdk-algorand": ["@wormhole-foundation/sdk-algorand@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.5.0", "algosdk": "2.7.0" } }, "sha512-mE1jjKpf5V0SfgAjYPlYztcJ0lYQqhWnFztcbNcGgllQOvto/qrN/iQL9S7cPKfcbhhcd1UJaNMs5MPoOYiLig=="],
 
-    "@wormhole-foundation/sdk-algorand-core": ["@wormhole-foundation/sdk-algorand-core@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-algorand": "2.4.0", "@wormhole-foundation/sdk-connect": "2.4.0" } }, "sha512-isqvcIQJwtUDwCfhpSvBgcebQfS2RXVew7jKnIz/4YXUkTjX7N4CzQ/yg0raUZRyB3y5iA/RRdvid94r2MHI8A=="],
+    "@wormhole-foundation/sdk-algorand-core": ["@wormhole-foundation/sdk-algorand-core@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-algorand": "2.5.0", "@wormhole-foundation/sdk-connect": "2.5.0" } }, "sha512-ZdJ4fdH4QARQVve+igruBR5cMtPF6m6ZzIoFKjLju3VVYkidAPjIUnjy4NxGFcTBrB1S7VK+slP0lcYIWx57Qw=="],
 
-    "@wormhole-foundation/sdk-algorand-tokenbridge": ["@wormhole-foundation/sdk-algorand-tokenbridge@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-algorand": "2.4.0", "@wormhole-foundation/sdk-algorand-core": "2.4.0", "@wormhole-foundation/sdk-connect": "2.4.0" } }, "sha512-aqx3H2LEoPnKQGjp5zJNg2wmVlPtUTsj07yVU96JJSBsBnNCADkcch87V1FOHwffAyUbUS1tw51NzTjjxoqeDg=="],
+    "@wormhole-foundation/sdk-algorand-tokenbridge": ["@wormhole-foundation/sdk-algorand-tokenbridge@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-algorand": "2.5.0", "@wormhole-foundation/sdk-algorand-core": "2.5.0", "@wormhole-foundation/sdk-connect": "2.5.0" } }, "sha512-lj2eDC7r4w+YxTzjBgO+HBCHlC9E2ZmpoxxbMw9Q9iaQ6Z8jMKljQtXmY0UrgoOh653NFXco7JnizSfIOev4uQ=="],
 
-    "@wormhole-foundation/sdk-aptos": ["@wormhole-foundation/sdk-aptos@2.4.0", "", { "dependencies": { "@aptos-labs/ts-sdk": "^2.0.0", "@wormhole-foundation/sdk-connect": "2.4.0" } }, "sha512-F7Y+eZ5d6xXYamXJE4yVNtLjGBHfKwYzvAeFVKCTLI3QconoyMBSrC7sQhVA1PRLmjb3Phz36LaS7Y50ekThyA=="],
+    "@wormhole-foundation/sdk-aptos": ["@wormhole-foundation/sdk-aptos@2.5.0", "", { "dependencies": { "@aptos-labs/ts-sdk": "^2.0.0", "@wormhole-foundation/sdk-connect": "2.5.0" } }, "sha512-SVOdh/EGol/wXqSbMqvTptZVicpcNWdRGjkMi3g8FEKQHApt32iPR7mKR6yQ2RwWdTi/GyRIqfV5Qu7L+91u0w=="],
 
-    "@wormhole-foundation/sdk-aptos-cctp": ["@wormhole-foundation/sdk-aptos-cctp@2.4.0", "", { "dependencies": { "@aptos-labs/ts-sdk": "^2.0.0", "@wormhole-foundation/sdk-aptos": "2.4.0", "@wormhole-foundation/sdk-connect": "2.4.0" } }, "sha512-ZHcKRdqlV0ijD5g41ohwhjXG1N+YYgbMER2ZkS3P1EO5YmcjRKM8OtI4JqySOIKpF5+SGalZRDAouclWqdM3Cg=="],
+    "@wormhole-foundation/sdk-aptos-cctp": ["@wormhole-foundation/sdk-aptos-cctp@2.5.0", "", { "dependencies": { "@aptos-labs/ts-sdk": "^2.0.0", "@wormhole-foundation/sdk-aptos": "2.5.0", "@wormhole-foundation/sdk-connect": "2.5.0" } }, "sha512-5pUXZRvq7U0KS1ntV/ntaTR1L8vy7LDQpfrpLPHPKtDp2HzH1MlxjcAVhf8gJXiJNOxAq0HHVvfNkcEqC2I6cQ=="],
 
-    "@wormhole-foundation/sdk-aptos-core": ["@wormhole-foundation/sdk-aptos-core@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-aptos": "2.4.0", "@wormhole-foundation/sdk-connect": "2.4.0" } }, "sha512-ZRICJ6fb2nis28Pf88mtRXqPoKtdErysGfn7tKebcfdWQJunoRxR2Kj73GN7kLH41+Xw7GUR3hZKl/Y+61i52g=="],
+    "@wormhole-foundation/sdk-aptos-core": ["@wormhole-foundation/sdk-aptos-core@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-aptos": "2.5.0", "@wormhole-foundation/sdk-connect": "2.5.0" } }, "sha512-8s9yB6aqofoTywiRwkrktIqP1H27SyKzTv8W11gBtkjUsHqle8w/zE7XnQOZJ1o9eYRPAD8OlqyE/1iZxGAScA=="],
 
-    "@wormhole-foundation/sdk-aptos-tokenbridge": ["@wormhole-foundation/sdk-aptos-tokenbridge@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-aptos": "2.4.0", "@wormhole-foundation/sdk-connect": "2.4.0" } }, "sha512-dnsPzM9THVzryicxhty9g56eIshjLDnRn6MBy2T8rxHco8/saW2unCuL9qpVLJZhU4qBytTyGK6SgFGwxmWL5Q=="],
+    "@wormhole-foundation/sdk-aptos-tokenbridge": ["@wormhole-foundation/sdk-aptos-tokenbridge@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-aptos": "2.5.0", "@wormhole-foundation/sdk-connect": "2.5.0" } }, "sha512-Kgp2TQO0rwT9Sq1ViL8ptIXcqJmqp8qPt4ksmdQGWdJ081n2RQK9asvx+iLuJQ61HCOGM7//uJmYzvxnOUUQkA=="],
 
-    "@wormhole-foundation/sdk-base": ["@wormhole-foundation/sdk-base@2.4.0", "", { "dependencies": { "@scure/base": "^1.1.3", "binary-layout": "^1.0.3" } }, "sha512-8LbhBMeiDgykZSYc3hkV48bUbasYppCTt3CBQltqBGNUO56sr08HLLCde7R1y9/15qmgQv4cijjp0i/0fNu5hA=="],
+    "@wormhole-foundation/sdk-base": ["@wormhole-foundation/sdk-base@2.5.0", "", { "dependencies": { "@scure/base": "^1.1.3", "binary-layout": "^1.0.3" } }, "sha512-oDpNAimvs3oy8uWeo/1MqDoyz+5S/VlYsgRCUHUIvWAolmU1wMzcHWSoiya+/sLwwpxPJEHHpXZ7q9OvTqs4EQ=="],
 
-    "@wormhole-foundation/sdk-connect": ["@wormhole-foundation/sdk-connect@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-base": "2.4.0", "@wormhole-foundation/sdk-definitions": "2.4.0", "axios": "^1.4.0" } }, "sha512-KyY9AC6o6I65M/B+J0s6v1NGGigU2Ghk7RJOSY7vErQ0cNcGjXVEdwrmbeEqKGkhMahawNLZcUiOVmAcPSoiYg=="],
+    "@wormhole-foundation/sdk-connect": ["@wormhole-foundation/sdk-connect@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-base": "2.5.0", "@wormhole-foundation/sdk-definitions": "2.5.0", "axios": "^1.4.0" } }, "sha512-JeGnLTUdh8z+wm549oyBGHmMWAu9Zv8nBDAVEV5VKrFbgLXWLiBpZJhWNVcbOYoNyBXKaJyW5vQMxG4fPTG5NA=="],
 
-    "@wormhole-foundation/sdk-cosmwasm": ["@wormhole-foundation/sdk-cosmwasm@2.4.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@cosmjs/proto-signing": "^0.32.0", "@cosmjs/stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.4.0", "cosmjs-types": "^0.9.0" } }, "sha512-y67TtEfWzfiqInzdEF4GfxvRuN4Gefw7UPwzXGS4r0R34ALu3fUfkWhbCEy69MSFEPCGYNWvKJGZbAlLLCnyNQ=="],
+    "@wormhole-foundation/sdk-cosmwasm": ["@wormhole-foundation/sdk-cosmwasm@2.5.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@cosmjs/proto-signing": "^0.32.0", "@cosmjs/stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.5.0", "cosmjs-types": "^0.9.0" } }, "sha512-82dNKZIqkXIfXD9LR3wH/tTxVY0zzhIxzElx61lUXkHugJVyvF6EU0JrDRlAX7AC0aUcitaR2L93mUolZn9pnQ=="],
 
-    "@wormhole-foundation/sdk-cosmwasm-core": ["@wormhole-foundation/sdk-cosmwasm-core@2.4.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@cosmjs/stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-cosmwasm": "2.4.0" } }, "sha512-m+ZhcnOqbtJXaKJARbUhrKOB2vMWGDJkmzS5kNvjGItCumt9CLfLWwJKaR7gMqzh3EddPZadARx3zlqMISboTQ=="],
+    "@wormhole-foundation/sdk-cosmwasm-core": ["@wormhole-foundation/sdk-cosmwasm-core@2.5.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@cosmjs/stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-cosmwasm": "2.5.0" } }, "sha512-OWzEMb9ofQo8W3dBxlNSMzLRALqlFQgO7F2D8duXccAQUlGO8xQwB43gQAm3dQSEcXkbtZrBZw7YBC6BIJgqZQ=="],
 
-    "@wormhole-foundation/sdk-cosmwasm-ibc": ["@wormhole-foundation/sdk-cosmwasm-ibc@2.4.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@cosmjs/stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-cosmwasm": "2.4.0", "@wormhole-foundation/sdk-cosmwasm-core": "2.4.0", "cosmjs-types": "^0.9.0" } }, "sha512-1JGQNwmrnyTm60RNkKeC7Cb/ayPm//rZt27JBL6JgqEqUM1NxVVyz6b99KHTvNNV2TvMLVSx+NWTeWHlSyvLkQ=="],
+    "@wormhole-foundation/sdk-cosmwasm-ibc": ["@wormhole-foundation/sdk-cosmwasm-ibc@2.5.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@cosmjs/stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-cosmwasm": "2.5.0", "@wormhole-foundation/sdk-cosmwasm-core": "2.5.0", "cosmjs-types": "^0.9.0" } }, "sha512-+ZYDtmjzLKtrkrun5hNk1Srzd9ubjtdLLfVGy0+U73YDtNQW63CuwSXfeBZuLhsx+PW7GoANOE7XKLL6N7g80A=="],
 
-    "@wormhole-foundation/sdk-cosmwasm-tokenbridge": ["@wormhole-foundation/sdk-cosmwasm-tokenbridge@2.4.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-cosmwasm": "2.4.0" } }, "sha512-YD8IT8xwp+0BDuRSwx4OHlCkdZwS9egcohDpiRZsr3MWzBehmb4wLBaQUvAlWLdTkpf6xak4zRPHsSDCiwicfg=="],
+    "@wormhole-foundation/sdk-cosmwasm-tokenbridge": ["@wormhole-foundation/sdk-cosmwasm-tokenbridge@2.5.0", "", { "dependencies": { "@cosmjs/cosmwasm-stargate": "^0.32.0", "@injectivelabs/sdk-ts": "^1.14.13-beta.2", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-cosmwasm": "2.5.0" } }, "sha512-dJTTitJY5vFwKQJHRF6dTBnLVkmT3su8CdwT56qW6f/wIHqAXc8kh+CHkKC3tsE4B0FIWg7S5xx1gR9Pbq2pDg=="],
 
-    "@wormhole-foundation/sdk-definitions": ["@wormhole-foundation/sdk-definitions@2.4.0", "", { "dependencies": { "@noble/curves": "^1.4.0", "@noble/hashes": "^1.3.1", "@wormhole-foundation/sdk-base": "2.4.0" } }, "sha512-Aqx3/XLaBzbt5kt70N0lnVj3acGe/DYN66R4lG7AVv7VvDTSj2PKC0qOdbKgMh+bzFbjKK03fJkpUzl/d6eo+A=="],
+    "@wormhole-foundation/sdk-definitions": ["@wormhole-foundation/sdk-definitions@2.5.0", "", { "dependencies": { "@noble/curves": "^1.4.0", "@noble/hashes": "^1.3.1", "@wormhole-foundation/sdk-base": "2.5.0" } }, "sha512-brkjiawUGYMSyzCRBrMwwnIztrNZjCZD+vYb2YJaD1+2mDouNCMHdd1g/El4d/eAYdtFHb1kW0y3f2fmGEEZMQ=="],
 
     "@wormhole-foundation/sdk-definitions-ntt": ["@wormhole-foundation/sdk-definitions-ntt@workspace:sdk/definitions"],
 
-    "@wormhole-foundation/sdk-evm": ["@wormhole-foundation/sdk-evm@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.4.0", "ethers": "^6.5.1" } }, "sha512-RqlsY1782GRG1IYe1LCzMxCKTyQUghOCSKUzc9Oe/5n1U5wn8tYnxh7d6MmGWWRUy2xT6gY1ZrCfdmSrG1VyPQ=="],
+    "@wormhole-foundation/sdk-evm": ["@wormhole-foundation/sdk-evm@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.5.0", "ethers": "^6.5.1" } }, "sha512-G1bmHcTAtBHyc/l7KqDMsrh0ROq5g5SCzwlKBL3LH1iY3HAnodp2j4Wqy2FwX15mMNDxZjWvvBHNgXjwfDpfFA=="],
 
-    "@wormhole-foundation/sdk-evm-cctp": ["@wormhole-foundation/sdk-evm-cctp@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-evm": "2.4.0", "@wormhole-foundation/sdk-evm-core": "2.4.0", "ethers": "^6.5.1" } }, "sha512-kdVi8oDjGpl12C4LMYZ/yqr3+ege8QDtwxQQJ/a8nJ3dBhwmMWqr0sMcgxLu56kHLwUyB3zhhBKQbxjO3R6bdA=="],
+    "@wormhole-foundation/sdk-evm-cctp": ["@wormhole-foundation/sdk-evm-cctp@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-evm": "2.5.0", "@wormhole-foundation/sdk-evm-core": "2.5.0", "ethers": "^6.5.1" } }, "sha512-nexegJS/QVDdHo/xjycBx7oDkOC4Uu4c0gB0McZxawofp2nwNh1+NG3FYjzyPBfexn+11PQVS1CoqJYQMKzz2A=="],
 
-    "@wormhole-foundation/sdk-evm-core": ["@wormhole-foundation/sdk-evm-core@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-evm": "2.4.0", "ethers": "^6.5.1" } }, "sha512-FKT+BeslNi1Pevx6lCfL4IgxCxgaTMVonKUqZj+FSMHmXIiOQxPKslTVwmhK85jLoT9tfVYSUR9nxP7+YyFI7g=="],
+    "@wormhole-foundation/sdk-evm-core": ["@wormhole-foundation/sdk-evm-core@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-evm": "2.5.0", "ethers": "^6.5.1" } }, "sha512-41RcEaN62hU9aPufhgISoAcyUcBEoZPzsEkCYvdgMFHz3A1KVD2zh2B0sqFFynh6vmCUcIdkN3n3RO9+23jeKA=="],
 
     "@wormhole-foundation/sdk-evm-ntt": ["@wormhole-foundation/sdk-evm-ntt@workspace:evm/ts"],
 
-    "@wormhole-foundation/sdk-evm-portico": ["@wormhole-foundation/sdk-evm-portico@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-evm": "2.4.0", "@wormhole-foundation/sdk-evm-core": "2.4.0", "@wormhole-foundation/sdk-evm-tokenbridge": "2.4.0", "ethers": "^6.5.1" } }, "sha512-NXBGAzDEUptnagb+PQTNN+fM7tHXaPlbRXguGczMXzGLv/sy/eRYuHJRRyHaJlnWUm0+wT8KZmb4h+pKLqYTrA=="],
+    "@wormhole-foundation/sdk-evm-portico": ["@wormhole-foundation/sdk-evm-portico@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-evm": "2.5.0", "@wormhole-foundation/sdk-evm-core": "2.5.0", "@wormhole-foundation/sdk-evm-tokenbridge": "2.5.0", "ethers": "^6.5.1" } }, "sha512-4S7ur6+jsG7l8TTa99fFnuGFvGZyUgccKVZnL4l059sKjpeiFJodI2s38Xo8LphWDNiPeK7kBBOlVrGjjN4NRQ=="],
 
-    "@wormhole-foundation/sdk-evm-tbtc": ["@wormhole-foundation/sdk-evm-tbtc@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-evm": "2.4.0", "@wormhole-foundation/sdk-evm-core": "2.4.0", "ethers": "^6.5.1" } }, "sha512-+aAIA38cKU75mJSB1NzePSLVCPXSG7jPqszUdEm9AWIB/gdv3HuH/UOuST/WlefU5dTjDsQHc5b5tEl+c7fKIA=="],
+    "@wormhole-foundation/sdk-evm-tbtc": ["@wormhole-foundation/sdk-evm-tbtc@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-evm": "2.5.0", "@wormhole-foundation/sdk-evm-core": "2.5.0", "ethers": "^6.5.1" } }, "sha512-okeMk1Ah5tbAbGsFqojhojc9YJypcJex5oKSAurl36KDLg6YhXKB5B8Qj1Dv/NxANiL3fBOfrkGPk53sbH/Ngg=="],
 
-    "@wormhole-foundation/sdk-evm-tokenbridge": ["@wormhole-foundation/sdk-evm-tokenbridge@2.4.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-evm": "2.4.0", "@wormhole-foundation/sdk-evm-core": "2.4.0", "ethers": "^6.5.1" } }, "sha512-msyS03Q18Ue58MgCzukcJMLbMtcM0sgA4BEe3uoNH7rADIybUaCwZ31H6R0At3870dJ5RJvDwT0HBhXmeIR1vg=="],
+    "@wormhole-foundation/sdk-evm-tokenbridge": ["@wormhole-foundation/sdk-evm-tokenbridge@2.5.0", "", { "dependencies": { "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-evm": "2.5.0", "@wormhole-foundation/sdk-evm-core": "2.5.0", "ethers": "^6.5.1" } }, "sha512-8R/7w5ZYvF4IeXUcNRtWQRiVDUg0cIhvdzWPsL4tXehs2QF+2j5fK5M9+XB3tOOJAwdxmoFM0GhbONYHWXdABw=="],
 
     "@wormhole-foundation/sdk-examples-ntt": ["@wormhole-foundation/sdk-examples-ntt@workspace:sdk/examples"],
 
     "@wormhole-foundation/sdk-route-ntt": ["@wormhole-foundation/sdk-route-ntt@workspace:sdk/route"],
 
-    "@wormhole-foundation/sdk-solana": ["@wormhole-foundation/sdk-solana@2.4.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@coral-xyz/borsh": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.4.0", "rpc-websockets": "^7.10.0" } }, "sha512-OCH0INsRZoLb40nqQFST3l3jgOSmFsEBr6D8gqfwEa/TAgL53x9W6LO7gs9UHnV46+UU3jgDeyz84YjqUGzX/A=="],
+    "@wormhole-foundation/sdk-solana": ["@wormhole-foundation/sdk-solana@2.5.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@coral-xyz/borsh": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.5.0", "rpc-websockets": "^7.10.0" } }, "sha512-TTuyzbRBvYXrQ7A21mP7cCismAbBHg24lDqisO2wNJ6wF2mtnO7/K/HHF2VcXu70aN4SvaKCF+FVJveDuyUiEw=="],
 
-    "@wormhole-foundation/sdk-solana-cctp": ["@wormhole-foundation/sdk-solana-cctp@2.4.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-solana": "2.4.0" } }, "sha512-GeL/pW9nQicODm+Lf3CZsAzssYbwVD1qGC+xtxCuftFcPQZMY9DyNUCar3XPe+mkM0EOMePbbamWo+hQWASOHg=="],
+    "@wormhole-foundation/sdk-solana-cctp": ["@wormhole-foundation/sdk-solana-cctp@2.5.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-solana": "2.5.0" } }, "sha512-HXEgVfGzA4NEu0tRJHshqYdS7Bt1z1nVTqlSz58CunNPBdnqX90H69zRCKLWVC7EEfBnWi+Bfo74TLFua/JtbA=="],
 
-    "@wormhole-foundation/sdk-solana-core": ["@wormhole-foundation/sdk-solana-core@2.4.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@coral-xyz/borsh": "0.29.0", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-solana": "2.4.0" } }, "sha512-ZLXHjnVf3QmGWw022ZhFLpj0m/Dg1GuBZTV0S9iKchrFlXm3LD5i7ekhEzaHmLCFUxOWe/berCXIcPeMBJfeBA=="],
+    "@wormhole-foundation/sdk-solana-core": ["@wormhole-foundation/sdk-solana-core@2.5.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@coral-xyz/borsh": "0.29.0", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-solana": "2.5.0" } }, "sha512-d8NprA3v81jSgWFOOpomDRbEZ5YpIyrryOCrTV9t7Ya+J7ifShLIk7eLSCbnQ1XkXbX/5rucOZ9E8RIc1z/bEQ=="],
 
     "@wormhole-foundation/sdk-solana-ntt": ["@wormhole-foundation/sdk-solana-ntt@workspace:solana"],
 
-    "@wormhole-foundation/sdk-solana-tbtc": ["@wormhole-foundation/sdk-solana-tbtc@2.4.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-solana": "2.4.0", "@wormhole-foundation/sdk-solana-core": "2.4.0", "@wormhole-foundation/sdk-solana-tokenbridge": "2.4.0" } }, "sha512-/ngGNO/auKy7yajeRxcXYq0j/+WruK60+ODAemwuAmMEHOVxWupc6zWtwSwlPoteN1Us6l1avKsemkWefQN0iw=="],
+    "@wormhole-foundation/sdk-solana-tbtc": ["@wormhole-foundation/sdk-solana-tbtc@2.5.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-solana": "2.5.0", "@wormhole-foundation/sdk-solana-core": "2.5.0", "@wormhole-foundation/sdk-solana-tokenbridge": "2.5.0" } }, "sha512-/+4Qp8PHe39E8eITge0N8NA1vX4bBIb9V8hjfFzDdUbon/LRnA1iHWs7MwBVzOw04qcZ1ioXc2si2INgItleMQ=="],
 
-    "@wormhole-foundation/sdk-solana-tokenbridge": ["@wormhole-foundation/sdk-solana-tokenbridge@2.4.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-solana": "2.4.0", "@wormhole-foundation/sdk-solana-core": "2.4.0" } }, "sha512-zKXHRyUe/mAuULPag+gK9vp9+qOaL6AhD1TFoViusJ508HT5XzH/W6m0zMAAtLiS6QH5KvaUQs4Mxhslpq++mA=="],
+    "@wormhole-foundation/sdk-solana-tokenbridge": ["@wormhole-foundation/sdk-solana-tokenbridge@2.5.0", "", { "dependencies": { "@coral-xyz/anchor": "0.29.0", "@solana/spl-token": "0.3.9", "@solana/web3.js": "^1.95.8", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-solana": "2.5.0", "@wormhole-foundation/sdk-solana-core": "2.5.0" } }, "sha512-nQqmb3hpuYrD1W84Mhqtyk/Au6U7YwIFCqHsIZIHEy6qSR+mATGstUwevn8gzdT4SwVbPGrYlySJVDI/Kr+agw=="],
 
-    "@wormhole-foundation/sdk-sui": ["@wormhole-foundation/sdk-sui@2.4.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.4.0" } }, "sha512-kWOvd/q57dar9M5Lh5XZwpJ33NencnYLAKuefIqwPwstF/3nhSyOawOZNKF5to9r2io/OvlV/MZ7L6cPmlVQNQ=="],
+    "@wormhole-foundation/sdk-sui": ["@wormhole-foundation/sdk-sui@2.5.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.5.0" } }, "sha512-JDCNI05AlslyRkr4knMcR42SBlSUN8jUc5ZNN2Fy8Hf1enfzLhitCGlBpQx4MK9nLfLg835Z7/qibN0QhRsqNA=="],
 
-    "@wormhole-foundation/sdk-sui-cctp": ["@wormhole-foundation/sdk-sui-cctp@2.4.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-sui": "2.4.0" } }, "sha512-l92V/9QaFg2BsE4Y1yfRpH1gSxbnX5hBUghFlgZpfV51rI2mxdCSFKfDCQsPcmHkjBS49Q61kpOSjYml3G8UDw=="],
+    "@wormhole-foundation/sdk-sui-cctp": ["@wormhole-foundation/sdk-sui-cctp@2.5.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-sui": "2.5.0" } }, "sha512-Fyb0RXXX3ZIhkcmPYWCsBZGvuepVDddBSv65NQ70gDE5DJITnbmT3kP/1JwxpyKbLyvrh7FtBIH6ALdfKsmJOQ=="],
 
-    "@wormhole-foundation/sdk-sui-core": ["@wormhole-foundation/sdk-sui-core@2.4.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-sui": "2.4.0" } }, "sha512-y+E0lLRqFscXht6olP0xwtWvPx9Lv6D+9+k/PVeiHPyREusTQdDOFB6rymAvEFkLLASwiPHzdt4AnqyuLSXl3w=="],
+    "@wormhole-foundation/sdk-sui-core": ["@wormhole-foundation/sdk-sui-core@2.5.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-sui": "2.5.0" } }, "sha512-4Po/epxsOhzph6Qa8J62k62sQXiICBTOvlNu6zMTvoURDHSiJAebheJZBtXVG9oNU10O8yXrhef7GpQhbxwh9g=="],
 
     "@wormhole-foundation/sdk-sui-ntt": ["@wormhole-foundation/sdk-sui-ntt@workspace:sui/ts"],
 
-    "@wormhole-foundation/sdk-sui-tokenbridge": ["@wormhole-foundation/sdk-sui-tokenbridge@2.4.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.4.0", "@wormhole-foundation/sdk-sui": "2.4.0", "@wormhole-foundation/sdk-sui-core": "2.4.0" } }, "sha512-fDfmn0OmDyXH64NFyN8T9GQVtqBngvAXctoBg6Ob8559FByFveXVaqSRLvVOc+EZkWxhkCAiFj2FYiHDN37WOA=="],
+    "@wormhole-foundation/sdk-sui-tokenbridge": ["@wormhole-foundation/sdk-sui-tokenbridge@2.5.0", "", { "dependencies": { "@mysten/sui": "^1.21.2", "@wormhole-foundation/sdk-connect": "2.5.0", "@wormhole-foundation/sdk-sui": "2.5.0", "@wormhole-foundation/sdk-sui-core": "2.5.0" } }, "sha512-zfWYO3gMgrc5mHJR8o9MO6uZn5GfdAeKLH4LAXTsknh3YZT6czCi6ODwKHTYx/Rpfv7OL+MhsZpchmcRZ8TmUw=="],
 
     "@wormhole-foundation/wormchain-sdk": ["@wormhole-foundation/wormchain-sdk@0.0.1", "", { "dependencies": { "@certusone/wormhole-sdk": "^0.2.0", "@cosmjs/cosmwasm-stargate": "^0.27.1", "@cosmjs/launchpad": "^0.27.1", "@cosmjs/math": "^0.27.1", "@cosmjs/proto-signing": "^0.27.1", "@cosmjs/stargate": "^0.27.1", "@cosmjs/tendermint-rpc": "^0.27.1", "axios": "^0.26.0", "bech32": "^2.0.0", "elliptic": "^6.5.4", "ethers": "^5.5.4", "keccak256": "^1.0.6", "node-fetch": "^2.6.7", "protobufjs": "^6.11.2", "ts-jest": "^27.1.3", "tslint": "^6.1.3", "typescript": "^4.5.5" } }, "sha512-yZbhgyizH6mdAhECtarDMejjgNkrhXlfyPjC5+qVS6NfIxdLv3zcwv0IFiDo92hxbo3Q7Kq67ssa/hdlvLpLCQ=="],
 
@@ -789,7 +791,7 @@
 
     "builtin-modules": ["builtin-modules@1.1.1", "", {}, "sha512-wxXCdllwGhI2kCC0MnvTGYTMvnVZTvqgypkiTI8Pa5tcz2i6VqsqwYGgqwXji+4RgCzms6EajE4IxiUH6HH8nQ=="],
 
-    "bun-types": ["bun-types@1.2.19", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-uAOTaZSPuYsWIXRpj7o56Let0g/wjihKCkeRqUBhlLVM/Bt+Fj9xTo+LhC1OV1XDaGkz4hNC80et5xgy+9KTHQ=="],
+    "bun-types": ["bun-types@1.2.21", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-sa2Tj77Ijc/NTLS0/Odjq/qngmEPZfbfnOERi0KRUYhT9R8M4VBioWVmMWE5GrYbKMc+5lVybXygLdibHaqVqw=="],
 
     "cacheable-lookup": ["cacheable-lookup@5.0.4", "", {}, "sha512-2/kNscPhpcxrOigMZzbiWF7dz8ilhb/nIHU3EyZiXWXpeq/au8qJ8VhdftMkty3n7Gj6HIGalQG8oiBNB3AJgA=="],
 
@@ -1005,11 +1007,11 @@
 
     "got": ["got@11.8.6", "", { "dependencies": { "@sindresorhus/is": "^4.0.0", "@szmarczak/http-timer": "^4.0.5", "@types/cacheable-request": "^6.0.1", "@types/responselike": "^1.0.0", "cacheable-lookup": "^5.0.3", "cacheable-request": "^7.0.2", "decompress-response": "^6.0.0", "http2-wrapper": "^1.0.0-beta.5.2", "lowercase-keys": "^2.0.0", "p-cancelable": "^2.0.0", "responselike": "^2.0.0" } }, "sha512-6tfZ91bOr7bOXnK7PRDCGBLa1H4U080YHNaAQ2KsMGlLEzRbk44nsZF2E1IeRc3vtJHPVbKCYgdFbaGO2ljd8g=="],
 
-    "gql.tada": ["gql.tada@1.8.10", "", { "dependencies": { "@0no-co/graphql.web": "^1.0.5", "@0no-co/graphqlsp": "^1.12.13", "@gql.tada/cli-utils": "1.6.3", "@gql.tada/internal": "1.0.8" }, "peerDependencies": { "typescript": "^5.0.0" }, "bin": { "gql-tada": "bin/cli.js", "gql.tada": "bin/cli.js" } }, "sha512-FrvSxgz838FYVPgZHGOSgbpOjhR+yq44rCzww3oOPJYi0OvBJjAgCiP6LEokZIYND2fUTXzQAyLgcvgw1yNP5A=="],
+    "gql.tada": ["gql.tada@1.8.13", "", { "dependencies": { "@0no-co/graphql.web": "^1.0.5", "@0no-co/graphqlsp": "^1.12.13", "@gql.tada/cli-utils": "1.7.1", "@gql.tada/internal": "1.0.8" }, "peerDependencies": { "typescript": "^5.0.0" }, "bin": { "gql-tada": "bin/cli.js", "gql.tada": "bin/cli.js" } }, "sha512-fYoorairdPgxtE7Sf1X9/6bSN9Kt2+PN8KLg3hcF8972qFnawwUgs1OLVU8efZMHwL7EBHhhKBhrsGPlOs2lZQ=="],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 
-    "graphql": ["graphql@16.10.0", "", {}, "sha512-AjqGKbDGUFRKIRCP9tCKiIGHyriz2oHEbPIbEtcSLSs4YjReZOIPQQWek4+6hjw62H9QShXHyaGivGiYVLeYFQ=="],
+    "graphql": ["graphql@16.11.0", "", {}, "sha512-mS1lbMsxgQj6hge1XZ6p7GPhbrtFwUFYi3wRzXAC/FmYnyXMTvvI3td3rjmQ2u8ewXueaSvRPWaEcgVVOT9Jnw=="],
 
     "graphql-tag": ["graphql-tag@2.12.6", "", { "dependencies": { "tslib": "^2.1.0" }, "peerDependencies": { "graphql": "^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0" } }, "sha512-FdSNcu2QQcWnM2VNvSCCDCVS5PpPqpzgFT8+GXzqJuoDd0CBncxCY278u4mhRO7tMgo2JjgJA5aZ+nWSQ/Z+xg=="],
 
@@ -1611,11 +1613,17 @@
 
     "zen-observable-ts": ["zen-observable-ts@1.2.5", "", { "dependencies": { "zen-observable": "0.8.15" } }, "sha512-QZWQekv6iB72Naeake9hS1KxHlotfRpe+WGNbNx5/ta+R3DNjVO2bswf63gXlWDcs+EMd7XY8HfVQyP1X6T4Zg=="],
 
+    "@0no-co/graphqlsp/graphql": ["graphql@16.10.0", "", {}, "sha512-AjqGKbDGUFRKIRCP9tCKiIGHyriz2oHEbPIbEtcSLSs4YjReZOIPQQWek4+6hjw62H9QShXHyaGivGiYVLeYFQ=="],
+
     "@ampproject/remapping/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.25", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ=="],
 
     "@apollo/client/symbol-observable": ["symbol-observable@4.0.0", "", {}, "sha512-b19dMThMV4HVFynSAM1++gBHAbk2Tc/osgLIBZMKsyqh34jb2e8Os7T6ZW/Bt3pJFdBTd2JwAnAAEQV7rSNvcQ=="],
 
     "@aptos-labs/aptos-cli/commander": ["commander@12.1.0", "", {}, "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA=="],
+
+    "@aptos-labs/ts-sdk/@scure/bip32": ["@scure/bip32@1.6.2", "", { "dependencies": { "@noble/curves": "~1.8.1", "@noble/hashes": "~1.7.1", "@scure/base": "~1.2.2" } }, "sha512-t96EPDMbtGgtb7onKKqxRLfE5g05k7uHnHRM2xdE6BP/ZmxaLtPek4J4KfVn/90IQNrU1IOAqMgiDtUdtbe3nw=="],
+
+    "@aptos-labs/ts-sdk/@scure/bip39": ["@scure/bip39@1.5.4", "", { "dependencies": { "@noble/hashes": "~1.7.1", "@scure/base": "~1.2.4" } }, "sha512-TFM4ni0vKvCfBpohoh+/lY05i9gRbSwXWngAsF4CABQxoaOHijxuaZ2R6cStDQ5CHtHO9aGJTr4ksVJASRRyMA=="],
 
     "@aptos-labs/ts-sdk/eventemitter3": ["eventemitter3@5.0.1", "", {}, "sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA=="],
 
@@ -1683,6 +1691,8 @@
 
     "@injectivelabs/sdk-ts/@ethersproject/bytes": ["@ethersproject/bytes@5.8.0", "", { "dependencies": { "@ethersproject/logger": "^5.8.0" } }, "sha512-vTkeohgJVCPVHu5c25XWaWQOZ4v+DkGoC42/TS2ond+PARCxTJvgTFUNDZovyQ/uAQ4EcpqqowKydcdmRKjg7A=="],
 
+    "@injectivelabs/sdk-ts/graphql": ["graphql@16.10.0", "", {}, "sha512-AjqGKbDGUFRKIRCP9tCKiIGHyriz2oHEbPIbEtcSLSs4YjReZOIPQQWek4+6hjw62H9QShXHyaGivGiYVLeYFQ=="],
+
     "@istanbuljs/load-nyc-config/camelcase": ["camelcase@5.3.1", "", {}, "sha512-L28STB170nwWS63UjtlEOE3dldQApaJXZkOI1uMFfzf3rRuPegHaHesyee+YxQ+W6SvRDQV6UrdOdRiR153wJg=="],
 
     "@jest/console/chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
@@ -1709,6 +1719,16 @@
 
     "@metamask/eth-sig-util/ethereumjs-util": ["ethereumjs-util@6.2.1", "", { "dependencies": { "@types/bn.js": "^4.11.3", "bn.js": "^4.11.0", "create-hash": "^1.1.2", "elliptic": "^6.5.2", "ethereum-cryptography": "^0.1.3", "ethjs-util": "0.1.6", "rlp": "^2.2.3" } }, "sha512-W2Ktez4L01Vexijrm5EB6w7dg4n/TgpoYU4avuT5T3Vmnw/eCRtiBrJfQYS/DCSvDIOLn2k57GcHdeBcgVxAqw=="],
 
+    "@mysten/sui/@noble/curves": ["@noble/curves@1.9.7", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw=="],
+
+    "@mysten/sui/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
+
+    "@scure/bip32/@noble/curves": ["@noble/curves@1.9.7", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw=="],
+
+    "@scure/bip32/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
+
+    "@scure/bip39/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
+
     "@terra-money/terra.js/axios": ["axios@0.27.2", "", { "dependencies": { "follow-redirects": "^1.14.9", "form-data": "^4.0.0" } }, "sha512-t+yRIyySRTp/wua5xEr+z1q60QmLq8ABsS5O9Me1AsE5dfKqgnCFzwiCZZ/cGNd1lq4/7akDWMxdhVlucjmnOQ=="],
 
     "@terra-money/terra.js/ws": ["ws@7.5.9", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": "^5.0.2" } }, "sha512-F+P9Jil7UiSKSkppIiD94dN07AwvFixvLIj1Og1Rl9GGMuNipJnV9JzjD6XuqmAeiswGvUmNLjr5cFuXwNS77Q=="],
@@ -1728,6 +1748,10 @@
     "@wormhole-foundation/sdk-cosmwasm-ibc/@cosmjs/stargate": ["@cosmjs/stargate@0.32.4", "", { "dependencies": { "@confio/ics23": "^0.6.8", "@cosmjs/amino": "^0.32.4", "@cosmjs/encoding": "^0.32.4", "@cosmjs/math": "^0.32.4", "@cosmjs/proto-signing": "^0.32.4", "@cosmjs/stream": "^0.32.4", "@cosmjs/tendermint-rpc": "^0.32.4", "@cosmjs/utils": "^0.32.4", "cosmjs-types": "^0.9.0", "xstream": "^11.14.0" } }, "sha512-usj08LxBSsPRq9sbpCeVdyLx2guEcOHfJS9mHGCLCXpdAPEIEQEtWLDpEUc0LEhWOx6+k/ChXTc5NpFkdrtGUQ=="],
 
     "@wormhole-foundation/sdk-cosmwasm-tokenbridge/@cosmjs/cosmwasm-stargate": ["@cosmjs/cosmwasm-stargate@0.32.4", "", { "dependencies": { "@cosmjs/amino": "^0.32.4", "@cosmjs/crypto": "^0.32.4", "@cosmjs/encoding": "^0.32.4", "@cosmjs/math": "^0.32.4", "@cosmjs/proto-signing": "^0.32.4", "@cosmjs/stargate": "^0.32.4", "@cosmjs/tendermint-rpc": "^0.32.4", "@cosmjs/utils": "^0.32.4", "cosmjs-types": "^0.9.0", "pako": "^2.0.2" } }, "sha512-Fuo9BGEiB+POJ5WeRyBGuhyKR1ordvxZGLPuPosFJOH9U0gKMgcjwKMCgAlWFkMlHaTB+tNdA8AifWiHrI7VgA=="],
+
+    "@wormhole-foundation/sdk-definitions/@noble/curves": ["@noble/curves@1.9.7", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw=="],
+
+    "@wormhole-foundation/sdk-definitions/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
 
     "@wormhole-foundation/sdk-solana/rpc-websockets": ["rpc-websockets@7.11.2", "", { "dependencies": { "eventemitter3": "^4.0.7", "uuid": "^8.3.2", "ws": "^8.5.0" }, "optionalDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": "^5.0.2" } }, "sha512-pL9r5N6AVHlMN/vT98+fcO+5+/UcPLf/4tq+WUaid/PPUGS/ttJ3y8e9IqmaWKtShNAysMSjkczuEA49NuV7UQ=="],
 
@@ -1926,6 +1950,10 @@
     "wordwrapjs/typical": ["typical@5.2.0", "", {}, "sha512-dvdQgNDNJo+8B2uBQoqdb11eUCE1JQXhvjC/CZtgvZseVd5TYMXnq0+vuUemXbd/Se29cTaUuPX3YIc2xgbvIg=="],
 
     "wrap-ansi/ansi-styles": ["ansi-styles@4.3.0", "", { "dependencies": { "color-convert": "^2.0.1" } }, "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg=="],
+
+    "@aptos-labs/ts-sdk/@scure/bip32/@scure/base": ["@scure/base@1.2.4", "", {}, "sha512-5Yy9czTO47mqz+/J8GM6GIId4umdCk1wc1q8rKERQulIoc8VP9pzDcghv10Tl2E7R96ZUx/PhND3ESYUQX8NuQ=="],
+
+    "@aptos-labs/ts-sdk/@scure/bip39/@scure/base": ["@scure/base@1.2.4", "", {}, "sha512-5Yy9czTO47mqz+/J8GM6GIId4umdCk1wc1q8rKERQulIoc8VP9pzDcghv10Tl2E7R96ZUx/PhND3ESYUQX8NuQ=="],
 
     "@babel/helper-compilation-targets/lru-cache/yallist": ["yallist@3.1.1", "", {}, "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g=="],
 
