@@ -2,6 +2,7 @@
 pragma solidity >=0.8.8 <0.9.0;
 
 import "../interfaces/IManagerBase.sol";
+import "./ChainRegistry.sol";
 
 /// @title TransceiverRegistry
 /// @author Wormhole Project Contributors.
@@ -11,7 +12,7 @@ import "../interfaces/IManagerBase.sol";
 ///         1. If a transceiver is not registered, it should be enabled.
 ///         2. The value set in the bitmap of trannsceivers
 ///            should directly correspond to the whether the transceiver is enabled
-abstract contract TransceiverRegistry {
+abstract contract TransceiverRegistry is ChainRegistry {
     constructor() {
         // Per-chain configuration is now required, so no global invariants to check
     }
@@ -410,6 +411,8 @@ abstract contract TransceiverRegistry {
         PerChainSendTransceiverConfig storage sendConfig =
             _getPerChainSendTransceiversStorage()[targetChain];
         _addTransceiverToConfig(targetChain, transceiver, sendConfig.config);
+
+        _addToKnownChains(targetChain);
     }
 
     /// @notice Remove a transceiver for sending to a specific chain
@@ -434,6 +437,8 @@ abstract contract TransceiverRegistry {
         if (receiveConfig.threshold == 0) {
             receiveConfig.threshold = 1;
         }
+
+        _addToKnownChains(sourceChain);
     }
 
     /// @notice Remove a transceiver for receiving from a specific chain
@@ -652,5 +657,30 @@ abstract contract TransceiverRegistry {
         assert(transceiverInEnabledTransceivers == transceiverEnabled);
 
         assert(transceiverInfo.index < _numTransceivers.registered);
+    }
+
+    /// @dev Remove a transceiver from all per-chain configurations
+    function _removeTransceiverFromAllChains(
+        address transceiver
+    ) internal {
+        uint16[] storage knownChains = _getKnownChainsStorage();
+        uint8 transceiverIndex = _getTransceiverInfosStorage()[transceiver].index;
+        uint64 transceiverBit = uint64(1 << transceiverIndex);
+
+        for (uint256 i = 0; i < knownChains.length; i++) {
+            uint16 chainId = knownChains[i];
+
+            PerChainSendTransceiverConfig storage sendConfig =
+                _getPerChainSendTransceiversStorage()[chainId];
+            if ((sendConfig.config.bitmap & transceiverBit) != 0) {
+                _removeSendTransceiverForChain(chainId, transceiver);
+            }
+
+            PerChainReceiveTransceiverConfig storage receiveConfig =
+                _getPerChainReceiveTransceiversStorage()[chainId];
+            if ((receiveConfig.config.bitmap & transceiverBit) != 0) {
+                _removeReceiveTransceiverForChain(chainId, transceiver);
+            }
+        }
     }
 }

@@ -387,6 +387,10 @@ abstract contract ManagerBase is
             revert ZeroThreshold(); // Reusing this error since it's about threshold requirements
         }
 
+        // remove from all per-chain configurations first
+        _removeTransceiverFromAllChains(transceiver);
+
+        // then remove globally
         _removeTransceiver(transceiver);
 
         // Note: Global threshold is no longer maintained since we use per-chain thresholds.
@@ -445,6 +449,21 @@ abstract contract ManagerBase is
     function setThreshold(uint16 sourceChain, uint8 threshold) external onlyOwner {
         _setThresholdForChain(sourceChain, threshold);
         emit ThresholdUpdatedForChain(sourceChain, threshold);
+    }
+
+    /// @notice Register a known chain for migration purposes
+    /// @dev This function is used to populate the known chains list for existing deployments
+    ///      that were created before the chain registry was introduced. It verifies the peer
+    ///      relationship before adding the chain to ensure only valid chains are registered.
+    ///      This function can be called by anyone since it only adds valid peer chains.
+    /// @param peerChainId The chain ID to register
+    /// @param peerAddress The peer address on that chain (used for verification)
+    function registerKnownChain(uint16 peerChainId, bytes32 peerAddress) external {
+        // Verify this is a valid peer relationship
+        _verifyPeer(peerChainId, peerAddress);
+
+        // If verification passes, add to known chains
+        _addToKnownChains(peerChainId);
     }
 
     // =============== Internal ==============================================================

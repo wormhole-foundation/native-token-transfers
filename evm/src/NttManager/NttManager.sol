@@ -144,6 +144,8 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         uint8 toDecimals = tokenDecimals();
         _setInboundLimit(inboundLimit.trim(toDecimals, toDecimals), peerChainId);
 
+        _addToKnownChains(peerChainId);
+
         emit PeerUpdated(
             peerChainId, oldPeer.peerAddress, oldPeer.tokenDecimals, peerContract, decimals
         );

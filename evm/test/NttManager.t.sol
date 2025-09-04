@@ -1313,4 +1313,194 @@ contract TestNttManager is Test, IRateLimiterEvents {
             encodedInstructions
         );
     }
+
+    function test_removeTransceiverCleansUpPerChainConfig() public {
+        assertEq(nttManager.getTransceivers().length, 1);
+
+        // Create multiple transceivers
+        DummyTransceiver e1 = new DummyTransceiver(address(nttManager));
+        DummyTransceiver e2 = new DummyTransceiver(address(nttManager));
+        DummyTransceiver e3 = new DummyTransceiver(address(nttManager));
+
+        // Set up transceivers globally
+        nttManager.setTransceiver(address(e1));
+        nttManager.setTransceiver(address(e2));
+        nttManager.setTransceiver(address(e3));
+
+        // Set up peers to enable chain tracking
+        uint16 chainId3 = 9;
+        nttManager.setPeer(chainId2, toWormholeFormat(address(0x123)), 9, type(uint64).max);
+        nttManager.setPeer(chainId3, toWormholeFormat(address(0x456)), 9, type(uint64).max);
+
+        // Configure transceivers for different chains
+        // e1: configured for both chains (send + receive)
+        nttManager.setSendTransceiverForChain(chainId2, address(e1));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e1));
+        nttManager.setSendTransceiverForChain(chainId3, address(e1));
+        nttManager.setReceiveTransceiverForChain(chainId3, address(e1));
+
+        // e2: configured for chain2 only (send + receive)
+        nttManager.setSendTransceiverForChain(chainId2, address(e2));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e2));
+
+        // e3: configured for chain3 only (receive only)
+        nttManager.setReceiveTransceiverForChain(chainId3, address(e3));
+
+        // Set thresholds
+        nttManager.setThreshold(chainId2, 2);
+        nttManager.setThreshold(chainId3, 2);
+
+        // Verify initial configuration
+        address[] memory sendTransceivers2 = nttManager.getSendTransceiversForChain(chainId2);
+        assertEq(sendTransceivers2.length, 2); // e1, e2
+
+        address[] memory sendTransceivers3 = nttManager.getSendTransceiversForChain(chainId3);
+        assertEq(sendTransceivers3.length, 1); // e1
+
+        (address[] memory receiveTransceivers2,) =
+            nttManager.getReceiveTransceiversForChain(chainId2);
+        assertEq(receiveTransceivers2.length, 2); // e1, e2
+
+        (address[] memory receiveTransceivers3,) =
+            nttManager.getReceiveTransceiversForChain(chainId3);
+        assertEq(receiveTransceivers3.length, 2); // e1, e3
+
+        // Remove e1 (should remove from all chains)
+        nttManager.removeTransceiver(address(e1));
+
+        // Verify e1 is removed from all chains but others remain
+        sendTransceivers2 = nttManager.getSendTransceiversForChain(chainId2);
+        assertEq(sendTransceivers2.length, 1); // only e2
+        assertEq(sendTransceivers2[0], address(e2));
+
+        (receiveTransceivers2,) = nttManager.getReceiveTransceiversForChain(chainId2);
+        assertEq(receiveTransceivers2.length, 1); // only e2
+        assertEq(receiveTransceivers2[0], address(e2));
+
+        // chain3 should only have e3 for receive, no send transceivers
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TransceiverRegistry.NoTransceiversConfiguredForChain.selector, chainId3
+            )
+        );
+        nttManager.getSendTransceiversForChain(chainId3);
+
+        (receiveTransceivers3,) = nttManager.getReceiveTransceiversForChain(chainId3);
+        assertEq(receiveTransceivers3.length, 1); // only e3
+        assertEq(receiveTransceivers3[0], address(e3));
+
+        // e2 and e3 should still be globally enabled
+        address[] memory globalTransceivers = nttManager.getTransceivers();
+        assertEq(globalTransceivers.length, 3);
+
+        // verify e1 is globally disabled
+        bool e1Found = false;
+        for (uint256 i = 0; i < globalTransceivers.length; i++) {
+            if (globalTransceivers[i] == address(e1)) {
+                e1Found = true;
+                break;
+            }
+        }
+        assertFalse(e1Found);
+    }
+
+    function test_removeTransceiverWithComplexSetup() public {
+        assertEq(nttManager.getTransceivers().length, 1);
+
+        DummyTransceiver e1 = new DummyTransceiver(address(nttManager));
+        DummyTransceiver e2 = new DummyTransceiver(address(nttManager));
+        DummyTransceiver e3 = new DummyTransceiver(address(nttManager));
+        DummyTransceiver e4 = new DummyTransceiver(address(nttManager));
+
+        nttManager.setTransceiver(address(e1));
+        nttManager.setTransceiver(address(e2));
+        nttManager.setTransceiver(address(e3));
+        nttManager.setTransceiver(address(e4));
+
+        // set up 3 chains
+        uint16 chainId3 = 9;
+        uint16 chainId4 = 10;
+        nttManager.setPeer(chainId2, toWormholeFormat(address(0x123)), 9, type(uint64).max);
+        nttManager.setPeer(chainId3, toWormholeFormat(address(0x456)), 9, type(uint64).max);
+        nttManager.setPeer(chainId4, toWormholeFormat(address(0x789)), 9, type(uint64).max);
+
+        // chain 2: e1, e2, e3
+        nttManager.setSendTransceiverForChain(chainId2, address(e1));
+        nttManager.setSendTransceiverForChain(chainId2, address(e2));
+        nttManager.setSendTransceiverForChain(chainId2, address(e3));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e1));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e2));
+        nttManager.setReceiveTransceiverForChain(chainId2, address(e3));
+
+        // chain 3: e2, e4
+        nttManager.setSendTransceiverForChain(chainId3, address(e2));
+        nttManager.setSendTransceiverForChain(chainId3, address(e4));
+        nttManager.setReceiveTransceiverForChain(chainId3, address(e2));
+        nttManager.setReceiveTransceiverForChain(chainId3, address(e4));
+
+        // chain 4: e2 only
+        nttManager.setSendTransceiverForChain(chainId4, address(e2));
+        nttManager.setReceiveTransceiverForChain(chainId4, address(e2));
+
+        nttManager.setThreshold(chainId2, 3);
+        nttManager.setThreshold(chainId3, 1);
+        nttManager.setThreshold(chainId4, 1);
+
+        // remove e2 (used everywhere)
+        nttManager.removeTransceiver(address(e2));
+
+        // verify e2 is removed from all chains
+        // chain 2: should have e1, e3
+        address[] memory sendTransceivers2 = nttManager.getSendTransceiversForChain(chainId2);
+        assertEq(sendTransceivers2.length, 2);
+
+        bool hasE1 = false;
+        bool hasE3 = false;
+        bool hasE2 = false;
+        for (uint256 i = 0; i < sendTransceivers2.length; i++) {
+            if (sendTransceivers2[i] == address(e1)) hasE1 = true;
+            if (sendTransceivers2[i] == address(e2)) hasE2 = true;
+            if (sendTransceivers2[i] == address(e3)) hasE3 = true;
+        }
+        assertTrue(hasE1);
+        assertTrue(hasE3);
+        assertFalse(hasE2);
+
+        // threshold bumped down to 2
+        assertEq(nttManager.getThreshold(chainId2), 2);
+
+        // chain 3: should have e4 only
+        address[] memory sendTransceivers3 = nttManager.getSendTransceiversForChain(chainId3);
+        assertEq(sendTransceivers3.length, 1);
+        assertEq(sendTransceivers3[0], address(e4));
+
+        // chain 4: should have no transceivers
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TransceiverRegistry.NoTransceiversConfiguredForChain.selector, chainId4
+            )
+        );
+        nttManager.getSendTransceiversForChain(chainId4);
+
+        // Global transceivers should be e1, e3, e4
+        address[] memory globalTransceivers = nttManager.getTransceivers();
+        assertEq(globalTransceivers.length, 4);
+
+        hasE1 = false;
+        hasE2 = false;
+        hasE3 = false;
+        bool hasE4 = false;
+
+        for (uint256 i = 0; i < globalTransceivers.length; i++) {
+            if (globalTransceivers[i] == address(e1)) hasE1 = true;
+            if (globalTransceivers[i] == address(e2)) hasE2 = true;
+            if (globalTransceivers[i] == address(e3)) hasE3 = true;
+            if (globalTransceivers[i] == address(e4)) hasE4 = true;
+        }
+
+        assertTrue(hasE1);
+        assertFalse(hasE2);
+        assertTrue(hasE3);
+        assertTrue(hasE4);
+    }
 }
