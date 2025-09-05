@@ -45,7 +45,6 @@ contract MultiTokenNtt is
     uint16 immutable chainId;
     IWETH public immutable WETH;
 
-    // TODO: mode is maybe not the right name for this
     enum Mode {
         LOCKING,
         BURNING
@@ -67,6 +66,7 @@ contract MultiTokenNtt is
     error NttTokenReceiverCallFailed(address recipient);
     error PayloadTooLong(uint256 length);
     error TransferFailed();
+    error QueuedTransferWithPayload();
 
     event TransferSent(
         uint64 sequence,
@@ -570,10 +570,11 @@ contract MultiTokenNtt is
                         );
                     }
 
-                    uint64 sequence = gmpManager.reserveMessageSequence();
+                    if (params.args.additionalPayload.length != 0) {
+                        revert QueuedTransferWithPayload();
+                    }
 
-                    // TODO: verify chain has not forked?
-                    // checkFork(evmChainId);
+                    uint64 sequence = gmpManager.reserveMessageSequence();
 
                     emit OutboundTransferRateLimited(
                         msg.sender,
