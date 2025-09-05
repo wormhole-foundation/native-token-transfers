@@ -491,18 +491,20 @@ export class MultiTokenNttManualRoute<N extends Network>
       );
 
       if (queuedTransfer !== null) {
-        return {
+        receipt = {
           ...receipt,
           state: TransferState.DestinationQueued,
           queueReleaseTime: new Date(
             queuedTransfer.rateLimitExpiryTimestamp * 1000
           ),
         } satisfies DestinationQueuedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
+        yield receipt;
       } else if (await destinationNtt.getIsExecuted(vaa)) {
-        return {
+        receipt = {
           ...receipt,
           state: TransferState.DestinationFinalized,
         } satisfies CompletedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
+        yield receipt;
       }
     }
 
