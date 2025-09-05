@@ -339,9 +339,9 @@ abstract contract TransceiverRegistry is ChainRegistry {
             revert InvalidChainId();
         }
 
-        // Transceiver must be registered
-        if (!transceiverInfos[transceiver].registered) {
-            revert NonRegisteredTransceiver(transceiver);
+        // Transceiver must be enabled
+        if (!transceiverInfos[transceiver].enabled) {
+            revert DisabledTransceiver(transceiver);
         }
 
         uint8 index = transceiverInfos[transceiver].index;
