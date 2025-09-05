@@ -20,6 +20,8 @@ type ChainConfig = Partial<typeof configTemplate>;
 // TODO: per-network configuration? (i.e. mainnet, testnet, etc)
 const configTemplate = {
     scan_api_key: "",
+    verifier: "",
+    verifier_url: "",
 };
 
 function assertChainConfigKey(key: string): asserts key is keyof ChainConfig {
@@ -97,7 +99,7 @@ export const command = (args: yargs.Argv<{}>) => args
             const scope = resolveScope(argv.local, argv.global);
             assertChainConfigKey(argv.key);
             assertChain(argv.chain);
-            const val = getChainConfig(argv.scope as Scope, argv.chain, argv.key);
+            const val = getChainConfig(scope, argv.chain, argv.key);
             if (!val) {
                 console.error("undefined");
             } else {
