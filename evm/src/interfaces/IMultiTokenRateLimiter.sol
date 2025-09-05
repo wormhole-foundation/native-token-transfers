@@ -33,15 +33,12 @@ interface IMultiTokenRateLimiter {
 
     /// @notice Parameters for an inbound queued transfer.
     /// @dev
-    ///   - amount: the amount of the transfer, trimmed.
     ///   - txTimestamp: the timestamp of the transfer.
-    ///   - recipient: the recipient of the transfer.
+    ///   - sourceChainId: the chain ID where the transfer originated.
+    /// @dev Other transfer details (amount, token, recipient) are passed when completing the transfer.
     struct InboundQueuedTransfer {
         uint64 txTimestamp; // 8 bytes
-        TrimmedAmount amount; // 9 bytes
-        address token; // 20 bytes
-        // --
-        address recipient;
+        uint16 sourceChainId; // 2 bytes
     }
 
     function getCurrentOutboundCapacity(

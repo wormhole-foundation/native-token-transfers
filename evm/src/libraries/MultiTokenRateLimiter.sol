@@ -215,17 +215,10 @@ abstract contract MultiTokenRateLimiter is IMultiTokenRateLimiter, IRateLimiterE
         emit OutboundTransferQueued(sequence);
     }
 
-    function _enqueueInboundTransfer(
-        bytes32 digest,
-        address token,
-        TrimmedAmount amount,
-        address recipient
-    ) internal {
+    function _enqueueInboundTransfer(bytes32 digest, uint16 sourceChainId) internal {
         _getInboundQueueStorage()[digest] = InboundQueuedTransfer({
-            amount: amount,
-            token: token,
-            recipient: recipient,
-            txTimestamp: uint64(block.timestamp)
+            txTimestamp: uint64(block.timestamp),
+            sourceChainId: sourceChainId
         });
 
         emit InboundTransferQueued(digest);

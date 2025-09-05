@@ -284,7 +284,7 @@ contract MultiTokenNtt is
                 _isInboundAmountRateLimited(info.token, nativeTransferAmount, sourceChainId);
             if (isRateLimited) {
                 // queue up the transfer
-                _enqueueInboundTransfer(digest, token, nativeTransferAmount, transferRecipient);
+                _enqueueInboundTransfer(digest, sourceChainId);
 
                 // end execution early
                 return;
@@ -315,8 +315,12 @@ contract MultiTokenNtt is
     }
 
     function completeInboundQueuedTransfer(
-        bytes32 digest
+        NativeTokenTransferCodec.NativeTokenTransfer memory nativeTokenTransfer
     ) external nonReentrant whenNotPaused {
+        // compute the digest from the provided transfer
+        bytes32 digest =
+            keccak256(NativeTokenTransferCodec.encodeNativeTokenTransfer(nativeTokenTransfer));
+
         // find the message in the queue
         InboundQueuedTransfer memory queuedTransfer = getInboundQueuedTransfer(digest);
         if (queuedTransfer.txTimestamp == 0) {
@@ -331,16 +335,24 @@ contract MultiTokenNtt is
         // remove transfer from the queue
         delete _getInboundQueueStorage()[digest];
 
+        // get token and recipient from the provided transfer struct
+        address token = _getOrCreateToken(nativeTokenTransfer.token);
+        address transferRecipient = fromWormholeFormat(nativeTokenTransfer.to);
+
+        uint8 toDecimals = _tokenDecimals(nativeTokenTransfer.token.token);
+        TrimmedAmount nativeTransferAmount =
+            (nativeTokenTransfer.amount.untrim(toDecimals)).trim(toDecimals, toDecimals);
+
         // run it through the mint/unlock logic
         _mintOrUnlockToRecipient(
             digest,
-            queuedTransfer.token,
-            queuedTransfer.recipient,
-            queuedTransfer.amount,
+            token,
+            transferRecipient,
+            nativeTransferAmount,
             false,
-            "", // No additional payload for queued transfers
-            0, // No source chain info for queued transfers
-            bytes32(0) // No source address for queued transfers
+            nativeTokenTransfer.additionalPayload,
+            queuedTransfer.sourceChainId,
+            nativeTokenTransfer.sender
         );
     }
 

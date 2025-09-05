@@ -757,7 +757,9 @@ contract MultiTokenNttTest is Test {
 
         // completeInboundQueuedTransfer() should revert when paused
         vm.expectRevert(abi.encodeWithSelector(RequireContractIsNotPaused.selector));
-        ntt.completeInboundQueuedTransfer(bytes32(0));
+
+        NativeTokenTransferCodec.NativeTokenTransfer memory dummyTransfer;
+        ntt.completeInboundQueuedTransfer(dummyTransfer);
     }
 
     function test_pauseEvents() public {

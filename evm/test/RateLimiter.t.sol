@@ -249,8 +249,7 @@ contract RateLimiterTest is Test {
         IMultiTokenRateLimiter.InboundQueuedTransfer memory emptyTransfer =
             chain2.ntt().getInboundQueuedTransfer(nonExistentDigest);
         assertEq(emptyTransfer.txTimestamp, 0);
-        assertEq(emptyTransfer.token, address(0));
-        assertEq(emptyTransfer.amount.getAmount(), 0);
+        assertEq(emptyTransfer.sourceChainId, 0);
     }
 
     function test_GetLimitParamsBeforeSet() public {
