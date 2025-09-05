@@ -80,7 +80,8 @@ jobs:
 
           mkdir -p "${BPF_OUT_DIR}"
 
-          cargo build-sbf --features "mainnet"
+          cargo build-sbf -- -p "ntt-transceiver" --features "mainnet,testing"
+          cargo build-sbf -- --workspace --exclude "ntt-transceiver" --features "mainnet"
           cargo test-sbf --features "mainnet"
           cargo test
 

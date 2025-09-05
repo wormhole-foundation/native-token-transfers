@@ -1,12 +1,8 @@
-use std::path::PathBuf;
-
 use anchor_lang::prelude::{Error, Id, Pubkey};
 use anchor_spl::token::{Mint, Token};
-use example_native_token_transfers::{
-    instructions::{InitializeArgs, SetPeerArgs},
-    transceivers::wormhole::SetTransceiverPeerArgs,
-};
+use example_native_token_transfers::instructions::{InitializeArgs, SetPeerArgs};
 use ntt_messages::{chain_id::ChainId, mode::Mode};
+use ntt_transceiver::wormhole::instructions::SetTransceiverPeerArgs;
 use solana_program::{bpf_loader_upgradeable::UpgradeableLoaderState, rent::Rent};
 use solana_program_runtime::log_collector::log::{trace, warn};
 use solana_program_test::{find_file, read_file, ProgramTest, ProgramTestContext};
@@ -15,20 +11,23 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use spl_associated_token_account::get_associated_token_address_with_program_id;
+use std::path::PathBuf;
 use wormhole_anchor_sdk::wormhole::{BridgeData, FeeCollector};
+use wormhole_svm_definitions::solana::{POST_MESSAGE_SHIM_PROGRAM_ID, VERIFY_VAA_SHIM_PROGRAM_ID};
 
-use crate::sdk::{
-    accounts::{good_ntt, Governance, NTTAccounts},
-    instructions::{
-        admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
-        initialize::{initialize_with_token_program_id, Initialize},
+use crate::{
+    common::{
+        account_json_utils::{add_account_unchecked, AccountLoadable},
+        submit::Submittable,
     },
-    transceivers::wormhole::instructions::admin::{set_transceiver_peer, SetTransceiverPeer},
-};
-
-use super::{
-    account_json_utils::{add_account_unchecked, AccountLoadable},
-    submit::Submittable,
+    sdk::{
+        accounts::{good_ntt, good_ntt_transceiver, Governance, NTTAccounts},
+        instructions::{
+            admin::{register_transceiver, set_peer, RegisterTransceiver, SetPeer},
+            initialize::{initialize_with_token_program_id, Initialize},
+        },
+        transceivers::wormhole::instructions::admin::{set_transceiver_peer, SetTransceiverPeer},
+    },
 };
 
 // TODO: maybe make these configurable? I think it's fine like this:
@@ -120,6 +119,13 @@ pub async fn setup_programs(program_owner: Pubkey) -> Result<ProgramTest, Error>
 
     add_program_upgradeable(
         &mut program_test,
+        "ntt_transceiver",
+        ntt_transceiver::ID,
+        Some(program_owner),
+    );
+
+    add_program_upgradeable(
+        &mut program_test,
         "wormhole_governance",
         wormhole_governance::ID,
         None,
@@ -128,7 +134,21 @@ pub async fn setup_programs(program_owner: Pubkey) -> Result<ProgramTest, Error>
     add_program_upgradeable(
         &mut program_test,
         "mainnet_core_bridge",
-        wormhole_anchor_sdk::wormhole::program::ID,
+        wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
+        None,
+    );
+
+    add_program_upgradeable(
+        &mut program_test,
+        "mainnet_wormhole_post_message_shim",
+        POST_MESSAGE_SHIM_PROGRAM_ID,
+        None,
+    );
+
+    add_program_upgradeable(
+        &mut program_test,
+        "mainnet_wormhole_verify_vaa_shim",
+        VERIFY_VAA_SHIM_PROGRAM_ID,
         None,
     );
 
@@ -204,7 +224,7 @@ pub async fn setup_ntt_with_token_program_id(
         RegisterTransceiver {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
-            transceiver: example_native_token_transfers::ID, // standalone ntt_manager&transceiver
+            transceiver: ntt_transceiver::ID, // standalone transceiver
         },
     )
     .submit_with_signers(&[&test_data.program_owner], ctx)
@@ -213,6 +233,7 @@ pub async fn setup_ntt_with_token_program_id(
 
     set_transceiver_peer(
         &good_ntt,
+        &good_ntt_transceiver,
         SetTransceiverPeer {
             payer: ctx.payer.pubkey(),
             owner: test_data.program_owner.pubkey(),
