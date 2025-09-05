@@ -690,12 +690,17 @@ contract MultiTokenNtt is
         uint64 reservedSequence,
         bytes memory message,
         bytes memory transceiverInstructions
-    ) internal returns (uint64) {
+    ) internal returns (uint64 messageSequence) {
         bytes32 peerAddress = _getPeersStorage()[recipientChain].peerAddress;
         if (peerAddress == bytes32(0)) {
             revert InvalidPeerZeroAddress();
         }
-        return _sendMessage(
+        // _sendMessage invokes the GmpManager contract which takes the payment
+        // for sending the message (including paying the transceivers).
+        // It then refunds any excess back to this contract, which we refund to
+        // the sender of this transaction.
+        uint256 balanceBefore = address(this).balance;
+        messageSequence = _sendMessage(
             msgValue,
             recipientChain,
             peerAddress,
@@ -704,6 +709,8 @@ contract MultiTokenNtt is
             message,
             transceiverInstructions
         );
+        uint256 refundAmount = address(this).balance - balanceBefore;
+        _refundToSender(refundAmount);
     }
 
     // Returns 0 if the token is not yet created
