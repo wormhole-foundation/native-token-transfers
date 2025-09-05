@@ -37,10 +37,6 @@ import {
   signedQuoteLayout,
   toChainId,
   toUniversal,
-  fetchStatus,
-  fetchQuote,
-  Capabilities,
-  fetchCapabilities,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "../types.js";
@@ -50,7 +46,13 @@ import {
   Ntt,
   NttWithExecutor,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import { calculateReferrerFee } from "./utils.js";
+import {
+  calculateReferrerFee,
+  Capabilities,
+  fetchCapabilities,
+  fetchSignedQuote,
+  fetchStatus,
+} from "./utils.js";
 import { getDefaultReferrerAddress } from "./consts.js";
 import { NttExecutorRoute } from "./executor.js";
 import { trackAxelar, trackExecutor } from "../tracking.js";
@@ -206,19 +208,16 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       request.toChain.chain
     );
 
-    const destinationNttWithExecutor = await request.fromChain.getProtocol(
+    const destinationNttWithExecutor = await request.toChain.getProtocol(
       "MultiTokenNttWithExecutor",
       {
         multiTokenNtt: destinationContracts,
       }
     );
 
-    const destinationNtt = await request.fromChain.getProtocol(
-      "MultiTokenNtt",
-      {
-        multiTokenNtt: destinationContracts,
-      }
-    );
+    const destinationNtt = await request.toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: destinationContracts,
+    });
 
     const referrerFeeDbps = this.getReferrerFeeDbps(request);
 
@@ -499,7 +498,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       requests: relayRequests,
     });
 
-    const quote = await fetchQuote(
+    const quote = await fetchSignedQuote(
       fromChain.network,
       fromChain.chain,
       toChain.chain,
