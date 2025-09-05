@@ -12,6 +12,7 @@ import {
   getAxelarTransactionStatus,
   getAxelarExplorerUrl,
 } from "@wormhole-foundation/sdk-evm-ntt";
+import { fetchStatus, isRelayStatusFailed } from "./executor/utils.js";
 
 export async function trackExecutor<
   R extends MultiTokenNttRoute.ManualTransferReceipt
@@ -36,15 +37,17 @@ export async function trackExecutor<
   );
 
   if (wormholeAttested) {
-    return isFailed(receipt)
-      ? {
-          ...receipt,
-          state: TransferState.Attested,
-          // reset the error if we were previously failed
-          // @ts-ignore
-          error: undefined,
-        }
-      : receipt;
+    // Clear error state if relay status is not an error
+    if (isFailed(receipt)) {
+      return {
+        ...receipt,
+        state: TransferState.Attested,
+        // @ts-ignore
+        error: undefined,
+      };
+    }
+
+    return receipt;
   }
 
   // Check if the relay was successful or failed
@@ -53,12 +56,7 @@ export async function trackExecutor<
   if (!txStatus) throw new Error("No transaction status found");
 
   const relayStatus = txStatus.status;
-  if (
-    relayStatus === RelayStatus.Failed || // this could happen if simulation fails
-    relayStatus === RelayStatus.Underpaid || // only happens if you don't pay at least the costEstimate
-    relayStatus === RelayStatus.Unsupported || // capabilities check didn't pass
-    relayStatus === RelayStatus.Aborted // An unrecoverable error indicating the attempt should stop (bad data, pre-flight checks failed, or chain-specific conditions)
-  ) {
+  if (isRelayStatusFailed(relayStatus)) {
     receipt = {
       ...receipt,
       state: TransferState.Failed,
@@ -104,15 +102,20 @@ export async function trackAxelar<
     axelarTransceiver.index
   );
 
+  console.log("Axelar attested:", axelarAttested);
+
   if (axelarAttested) {
-    return isFailed(receipt)
-      ? {
-          ...receipt,
-          state: TransferState.Attested,
-          // reset the error if we were previously failed
-          error: undefined,
-        }
-      : receipt;
+    // Clear error state if relay status is not an error
+    if (isFailed(receipt)) {
+      return {
+        ...receipt,
+        state: TransferState.Attested,
+        // @ts-ignore
+        error: undefined,
+      };
+    }
+
+    return receipt;
   }
 
   // Check relayer status
@@ -122,6 +125,8 @@ export async function trackAxelar<
     receipt.from,
     txid
   );
+
+  console.log("Axelar status:", axelarStatus);
 
   if (axelarStatus.error) {
     return {
