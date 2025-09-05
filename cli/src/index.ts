@@ -4181,25 +4181,23 @@ function retryWithExponentialBackoff<T>(
 
 function buildVerifierArgs(chain: Chain): string[] {
     const verifier = configuration.get(chain, "verifier", { reportError: true });
-    const apiKey = configuration.get(chain, "scan_api_key", { reportError: true });
-
-    if (!apiKey) {
-        process.exit(1);
-    }
-
     const verifierType = verifier || "etherscan";
 
-    switch (verifierType.toLowerCase()) {
-        case "blockscout":
-            const verifierUrl = configuration.get(chain, "verifier_url", { reportError: true });
-            if (!verifierUrl) {
-                console.error(`verifier_url is required when using blockscout verifier for ${chain}`);
-                process.exit(1);
-            }
-            return ["--verify", "--verifier", "blockscout", "--verifier-url", verifierUrl, "--verifier-api-key", apiKey];
-        case "etherscan":
-        default:
-            return ["--verify", "--verifier", "etherscan", "--verifier-api-key", apiKey];
+    if (verifierType === "blockscout") {
+        const verifierUrl = configuration.get(chain, "verifier_url", { reportError: true });
+        if (!verifierUrl) {
+            console.error(`verifier_url is required when using blockscout verifier for ${chain}`);
+            process.exit(1);
+        }
+
+        return ["--verify", "--verifier", "blockscout", "--verifier-url", verifierUrl];
+    } else {
+        const apiKey = configuration.get(chain, "scan_api_key", { reportError: true });
+        if (!apiKey) {
+            process.exit(1);
+        }
+
+        return ["--verify", "--etherscan-api-key", apiKey];
     }
 }
 
