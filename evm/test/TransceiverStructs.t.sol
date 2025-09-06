@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import "../src/libraries/TransceiverStructs.sol";
 import "../src/interfaces/IManagerBase.sol";
-import "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import "../src/Transceiver/WormholeTransceiver/NttWormholeTransceiver.sol";
 import "../src/interfaces/INttManager.sol";
 
 contract TestTransceiverStructs is Test {

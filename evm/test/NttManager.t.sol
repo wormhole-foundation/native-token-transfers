@@ -335,13 +335,6 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.setTransceiver(address(e2));
     }
 
-    function test_transceiverIncompatibleNttManager() public {
-        // Transceiver instantiation reverts if the nttManager doesn't have the proper token method
-        address dummyManager = address(new DummyManager());
-        vm.expectRevert(bytes(""));
-        new DummyTransceiver(dummyManager);
-    }
-
     function test_transceiverWrongNttManager() public {
         // TODO: this is accepted currently. should we include a check to ensure
         // only transceivers whose nttManager is us can be registered? (this would be

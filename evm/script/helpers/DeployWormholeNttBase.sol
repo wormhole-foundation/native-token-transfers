@@ -9,7 +9,7 @@ import "../../src/interfaces/IWormholeTransceiver.sol";
 
 import {NttManager} from "../../src/NttManager/NttManager.sol";
 import {WormholeTransceiver} from
-    "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+    "../../src/Transceiver/WormholeTransceiver/NttWormholeTransceiver.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 interface IWormhole {

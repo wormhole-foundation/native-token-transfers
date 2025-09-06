@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import {WormholeTransceiver} from
-    "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+    "../../src/Transceiver/WormholeTransceiver/NttWormholeTransceiver.sol";
 import {DummyToken, DummyTokenMintAndBurn} from "../../src/mocks/DummyToken.sol";
 import "../../src/libraries/TrimmedAmount.sol";
 import {Utils} from "./../libraries/Utils.sol";

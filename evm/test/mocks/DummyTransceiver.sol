@@ -3,7 +3,7 @@
 pragma solidity >=0.8.8 <0.9.0;
 
 import "forge-std/Test.sol";
-import "../../src/Transceiver/Transceiver.sol";
+import "../../src/Transceiver/NttTransceiver.sol";
 import "../interfaces/ITransceiverReceiver.sol";
 import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
 
@@ -25,7 +25,7 @@ contract DummyTransceiver is Transceiver, ITransceiverReceiver, Test {
 
     constructor(
         address nttManager
-    ) Transceiver(nttManager) {}
+    ) GenericTransceiver(nttManager) Transceiver(nttManager) {}
 
     function getTransceiverType() external pure override returns (string memory) {
         return "dummy";

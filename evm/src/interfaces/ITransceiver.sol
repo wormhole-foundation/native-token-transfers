@@ -40,9 +40,6 @@ interface ITransceiver {
     /// @notice Returns the owner address of the NTT Manager that this transceiver is related to.
     function getNttManagerOwner() external view returns (address);
 
-    /// @notice Returns the address of the token associated with this NTT deployment.
-    function getNttManagerToken() external view returns (address);
-
     /// @notice Returns the string type of the transceiver. E.g. "wormhole", "axelar", etc.
     function getTransceiverType() external view returns (string memory);
 

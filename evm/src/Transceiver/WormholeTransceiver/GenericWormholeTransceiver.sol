@@ -13,19 +13,16 @@ import "../../interfaces/INttManager.sol";
 
 import "./WormholeTransceiverState.sol";
 
-/// @title WormholeTransceiver
+/// @title GenericWormholeTransceiver
 /// @author Wormhole Project Contributors.
 /// @notice Transceiver implementation for Wormhole.
 ///
 /// @dev This contract is responsible for sending and receiving NTT messages
 ///      that are authenticated through Wormhole Core.
 ///
-/// @dev Messages can be delivered either via standard relaying or special relaying, or
-///      manually via the core layer.
-///
 /// @dev Once a message is received, it is delivered to its corresponding
 ///      NttManager contract.
-contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
+contract GenericWormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
     using BytesParsing for bytes;
 
     string public constant WORMHOLE_TRANSCEIVER_VERSION = "1.1.0";
@@ -35,7 +32,10 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
         address wormholeCoreBridge,
         uint8 _consistencyLevel,
         uint256 _gasLimit
-    ) WormholeTransceiverState(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
+    )
+        WormholeTransceiverState(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit)
+        GenericTransceiver(nttManager)
+    {}
 
     // ==================== External Interface ===============================================
 

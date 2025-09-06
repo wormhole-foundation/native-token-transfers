@@ -7,7 +7,8 @@ import "../src/interfaces/IWormholeTransceiver.sol";
 import "../src/interfaces/ITransceiver.sol";
 import "../src/interfaces/INttManager.sol";
 
-import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import {WormholeTransceiver} from
+    "../src/Transceiver/WormholeTransceiver/NttWormholeTransceiver.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {ParseNttConfig} from "./helpers/ParseNttConfig.sol";

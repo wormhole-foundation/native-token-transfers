@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "../src/NttManager/NttManager.sol";
-import "../src/Transceiver/Transceiver.sol";
+import "../src/Transceiver/NttTransceiver.sol";
 import "../src/interfaces/INttManager.sol";
 import "../src/interfaces/IRateLimiter.sol";
 import "../src/interfaces/ITransceiver.sol";
@@ -14,7 +14,8 @@ import "../src/interfaces/IRateLimiterEvents.sol";
 import {Utils} from "./libraries/Utils.sol";
 import {DummyToken, DummyTokenMintAndBurn} from "./NttManager.t.sol";
 import "../src/interfaces/IWormholeTransceiver.sol";
-import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import {WormholeTransceiver} from
+    "../src/Transceiver/WormholeTransceiver/NttWormholeTransceiver.sol";
 import "../src/libraries/TransceiverStructs.sol";
 import "./mocks/MockNttManager.sol";
 import "./mocks/MockTransceivers.sol";

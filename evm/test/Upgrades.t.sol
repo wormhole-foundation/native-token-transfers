@@ -14,7 +14,8 @@ import "../src/libraries/external/Initializable.sol";
 import "../src/libraries/Implementation.sol";
 import {Utils} from "./libraries/Utils.sol";
 import {DummyToken, DummyTokenMintAndBurn} from "./NttManager.t.sol";
-import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import {WormholeTransceiver} from
+    "../src/Transceiver/WormholeTransceiver/NttWormholeTransceiver.sol";
 import "../src/libraries/TransceiverStructs.sol";
 import "./mocks/MockNttManager.sol";
 import "./mocks/MockTransceivers.sol";

@@ -11,7 +11,7 @@ import "../libraries/Implementation.sol";
 import "../interfaces/INttManager.sol";
 import "../interfaces/ITransceiver.sol";
 
-/// @title Transceiver
+/// @title GenericTransceiver
 /// @author Wormhole Project Contributors.
 /// @notice This contract is a base contract for Transceivers.
 /// @dev The Transceiver provides basic functionality for transmitting / receiving NTT messages.
@@ -20,7 +20,7 @@ import "../interfaces/ITransceiver.sol";
 /// @dev The interface for receiving messages is not enforced by this contract.
 ///      Instead, inheriting contracts should implement their own receiving logic,
 ///      based on the verification model and serde logic associated with message handling.
-abstract contract Transceiver is
+abstract contract GenericTransceiver is
     ITransceiver,
     PausableOwnable,
     ReentrancyGuardUpgradeable,
@@ -30,14 +30,12 @@ abstract contract Transceiver is
     /// Projects should implement their own governance to remove the old Transceiver
     /// contract address and then add the new one.
     address public immutable nttManager;
-    address public immutable nttManagerToken;
     address immutable deployer;
 
     constructor(
         address _nttManager
     ) {
         nttManager = _nttManager;
-        nttManagerToken = INttManager(nttManager).token();
         deployer = msg.sender;
     }
 
@@ -83,17 +81,12 @@ abstract contract Transceiver is
     // are correct When new immutable variables are added, this function should be updated.
     function _checkImmutables() internal view virtual override {
         assert(this.nttManager() == nttManager);
-        assert(this.nttManagerToken() == nttManagerToken);
     }
 
     /// =============== GETTERS & SETTERS ===============================================
 
     function getNttManagerOwner() public view returns (address) {
         return IOwnableUpgradeable(nttManager).owner();
-    }
-
-    function getNttManagerToken() public view virtual returns (address) {
-        return nttManagerToken;
     }
 
     function getTransceiverType() external view virtual returns (string memory);

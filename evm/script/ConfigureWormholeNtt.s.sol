@@ -9,7 +9,8 @@ import "../src/interfaces/IWormholeTransceiver.sol";
 import "../src/interfaces/IOwnableUpgradeable.sol";
 
 import {ParseNttConfig} from "./helpers/ParseNttConfig.sol";
-import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import {WormholeTransceiver} from
+    "../src/Transceiver/WormholeTransceiver/NttWormholeTransceiver.sol";
 import {WormholeTransceiverState} from
     "../src/Transceiver/WormholeTransceiver/WormholeTransceiverState.sol";
 
