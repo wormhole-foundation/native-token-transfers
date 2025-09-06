@@ -51,6 +51,7 @@ abstract contract GenericTransceiver is
     /// =============== ADMIN ===============================================
 
     function _initialize() internal virtual override {
+        super._initialize();
         // check if the owner is the deployer of this contract
         if (msg.sender != deployer) {
             revert UnexpectedDeployer(deployer, msg.sender);
@@ -80,6 +81,7 @@ abstract contract GenericTransceiver is
     // @define This method checks that the the referecnes to the nttManager and its corresponding function
     // are correct When new immutable variables are added, this function should be updated.
     function _checkImmutables() internal view virtual override {
+        super._checkImmutables();
         assert(this.nttManager() == nttManager);
     }
 

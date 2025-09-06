@@ -9,12 +9,15 @@ contract TestImplementation is Implementation {
     uint256 public upgradeCount;
 
     function _initialize() internal override {
+        super._initialize();
         upgradeCount = 0;
     }
 
     function _migrate() internal override {}
 
-    function _checkImmutables() internal view override {}
+    function _checkImmutables() internal view override {
+        super._checkImmutables();
+    }
 
     function upgrade(
         address newImplementation
@@ -36,13 +39,17 @@ contract TestImplementation is Implementation {
 contract TestImplementation2 is Implementation {
     uint256 public upgradeCount;
 
-    function _initialize() internal override {}
+    function _initialize() internal override {
+        super._initialize();
+    }
 
     function _migrate() internal override {
         incrementCounter();
     }
 
-    function _checkImmutables() internal view override {}
+    function _checkImmutables() internal view override {
+        super._checkImmutables();
+    }
 
     function upgrade(
         address newImplementation

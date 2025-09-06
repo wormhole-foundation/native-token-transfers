@@ -73,9 +73,9 @@ abstract contract Implementation is Initializable, ERC1967Upgrade {
 
     function _migrate() internal virtual;
 
-    function _initialize() internal virtual;
+    function _initialize() internal virtual {}
 
-    function _checkImmutables() internal view virtual;
+    function _checkImmutables() internal view virtual {}
 
     function _upgrade(
         address newImplementation

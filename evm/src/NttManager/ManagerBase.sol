@@ -513,6 +513,7 @@ abstract contract ManagerBase is
 
     /// @dev When we add new immutables, this function should be updated
     function _checkImmutables() internal view virtual override {
+        super._checkImmutables();
         assert(this.chainId() == chainId);
     }
 

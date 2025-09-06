@@ -77,6 +77,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     }
 
     function _initialize() internal virtual override {
+        super._initialize();
         __NttManager_init();
         // Note: _checkThresholdInvariants() removed since we don't maintain global thresholds
         _checkTransceiversInvariants();
