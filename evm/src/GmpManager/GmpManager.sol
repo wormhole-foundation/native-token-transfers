@@ -104,6 +104,15 @@ contract GmpManager is IGmpManager, ManagerBase {
         _getReservedSequencesStorage()[msg.sender][sequence] = true;
     }
 
+    function _verifyAndConsumeReservedMessageSequence(
+        uint64 sequence
+    ) internal {
+        if (!_getReservedSequencesStorage()[msg.sender][sequence]) {
+            revert SequenceNotReservedBySender(sequence, msg.sender);
+        }
+        _getReservedSequencesStorage()[msg.sender][sequence] = false;
+    }
+
     // this exists just to minimise the number of local variable assignments :(
     struct PreparedTransfer {
         address[] enabledTransceivers;
@@ -173,12 +182,7 @@ contract GmpManager is IGmpManager, ManagerBase {
             // No sequence provided, allocate a new one
             sequence = _useMessageSequence();
         } else {
-            // Sequence provided, check if it's reserved by the caller
-            if (!_getReservedSequencesStorage()[msg.sender][reservedSequence]) {
-                revert SequenceNotReservedBySender(reservedSequence, msg.sender);
-            }
-            // Mark the sequence as consumed
-            _getReservedSequencesStorage()[msg.sender][reservedSequence] = false;
+            _verifyAndConsumeReservedMessageSequence(reservedSequence);
             sequence = reservedSequence;
         }
 
