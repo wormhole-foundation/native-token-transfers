@@ -90,8 +90,8 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
     // ==================== Internal ========================================================
 
     function _quoteDeliveryPrice(
-        uint16 targetChain,
-        TransceiverStructs.TransceiverInstruction memory instruction
+        uint16, /* targetChain */
+        TransceiverStructs.TransceiverInstruction memory /* instruction */
     ) internal view override returns (uint256 nativePriceQuote) {
         return wormhole.messageFee();
     }
@@ -101,8 +101,8 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
         uint256 deliveryPayment,
         address caller,
         bytes32 recipientNttManagerAddress,
-        bytes32 refundAddress,
-        TransceiverStructs.TransceiverInstruction memory instruction,
+        bytes32, /* refundAddress */
+        TransceiverStructs.TransceiverInstruction memory, /* instruction */
         bytes memory nttManagerMessage
     ) internal override {
         (
@@ -115,9 +115,6 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
             nttManagerMessage,
             new bytes(0)
         );
-
-        WormholeTransceiverInstruction memory weIns =
-            parseWormholeTransceiverInstruction(instruction.payload);
 
         wormhole.publishMessage{value: deliveryPayment}(
             0, encodedTransceiverPayload, consistencyLevel
