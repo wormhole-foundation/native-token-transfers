@@ -58,37 +58,55 @@ export async function getAxelarGasFee(
     );
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const maxRetries = 3;
+  let lastResult: bigint | null = null;
 
-  try {
-    const response = await fetch(baseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sourceChain: axelarSourceChain,
-        destinationChain: axelarDestinationChain,
-        gasMultiplier: "auto",
-        gasLimit: gasLimit.toString(),
-      }),
-      signal: controller.signal,
-    });
+  // TODO: the Axelar API sometimes returns 0 gas fee. Retry a few times if we get 0.
+  // The issue is intermittent and the Axelar team is looking into it.
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Failed to estimate gas fee: ${response.status} ${errorText}`
-      );
+    try {
+      const response = await fetch(baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sourceChain: axelarSourceChain,
+          destinationChain: axelarDestinationChain,
+          gasMultiplier: "auto",
+          gasLimit: gasLimit.toString(),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to estimate gas fee: ${response.status} ${errorText}`
+        );
+      }
+
+      const result = await response.json();
+      lastResult = BigInt(result);
+
+      if (lastResult !== 0n) {
+        return lastResult;
+      }
+
+      // If we got 0 and have more retries, wait 1 second before trying again
+      if (attempt < maxRetries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const result = await response.json();
-
-    return BigInt(result);
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  // If all retries returned 0, just return 0
+  return lastResult ?? 0n;
 }
 
 export async function getAxelarTransactionStatus(

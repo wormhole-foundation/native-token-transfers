@@ -564,7 +564,8 @@ export class NttExecutorRoute<N extends Network>
   }
 
   async resume(tx: TransactionId): Promise<R> {
-    const vaa = await this.wh.getVaa(tx.txid, "Ntt:WormholeTransfer");
+    // @ts-ignore
+    const vaa = await this.wh.getVaa(tx, "Ntt:WormholeTransfer");
     if (!vaa) throw new Error("No VAA found for transaction: " + tx.txid);
 
     const msgId: WormholeMessageId = {
@@ -674,9 +675,10 @@ export class NttExecutorRoute<N extends Network>
   public override async *track(receipt: R, timeout?: number) {
     // First we fetch the attestation (VAA) for the transfer
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      const { txid } = receipt.originTxs.at(-1)!;
+      const txid = receipt.originTxs.at(-1)!;
+      // @ts-ignore
       const vaa = await this.wh.getVaa(txid, "Ntt:WormholeTransfer", timeout);
-      if (!vaa) throw new Error("No VAA found for transaction: " + txid);
+      if (!vaa) throw new Error("No VAA found for transaction: " + txid.txid);
 
       const msgId: WormholeMessageId = {
         chain: vaa.emitterChain,

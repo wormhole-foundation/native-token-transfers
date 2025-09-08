@@ -813,13 +813,14 @@ export class MultiTokenNttExecutorRoute<N extends Network>
 
   public override async *track(receipt: R, timeout?: number) {
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      const { txid } = receipt.originTxs.at(-1)!;
+      const txid = receipt.originTxs.at(-1)!;
       const vaa = await this.wh.getVaa(
+        // @ts-ignore
         txid,
         "MultiTokenNtt:WormholeTransfer",
         timeout
       );
-      if (!vaa) throw new Error("No VAA found for transaction: " + txid);
+      if (!vaa) throw new Error("No VAA found for transaction: " + txid.txid);
 
       const msgId: WormholeMessageId = {
         chain: vaa.emitterChain,
