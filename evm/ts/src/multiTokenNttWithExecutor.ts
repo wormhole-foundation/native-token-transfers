@@ -30,8 +30,8 @@ const multiTokenNttWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
 > = {
   Testnet: {
-    Sepolia: "0x63a193Fd7BE29632a6b32a2285807CEB2d9AC1B7",
-    Monad: "0x38415a872F5A38187C8007c02DbD4Ce1782725d5",
+    Sepolia: "0x70b1CD25Aa1DEbEf2BCa0eDbc11228C5EB4dAD0F",
+    Monad: "0xFEA937F7124E19124671f1685671d3f04a9Af4E4",
   },
 };
 

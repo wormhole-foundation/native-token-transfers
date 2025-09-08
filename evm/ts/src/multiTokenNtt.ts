@@ -1,6 +1,7 @@
 import {
   Chain,
   Network,
+  encoding,
   nativeChainIds,
   toChain,
   toChainId,
@@ -44,7 +45,6 @@ import {
   MultiTokenNttManagerBindings,
 } from "./multiTokenNttBindings.js";
 import { getAxelarGasFee } from "./axelar.js";
-import { encoding } from "@wormhole-foundation/sdk-base";
 
 export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   implements MultiTokenNtt<N, C>
@@ -252,26 +252,20 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
           case "wormhole":
             return {
               index: transceiver.index,
-              payload: new Uint8Array([1]), // skipRelay = true
+              payload: new Uint8Array([1]), // disable standard relayer
             };
           case "axelar": {
-            let gasFee = 0n;
-            try {
-              gasFee = await getAxelarGasFee(
-                this.network,
-                this.chain,
-                dstChain,
-                gasLimit
-              );
-              console.log(`Fetched axelar gas fee: ${gasFee} wei`);
-            } catch (e) {
-              // If we fail to fetch the gas fee, then use 0 as a fallback.
-              // The Axelar relay should fail and the track() method will
-              // surface a RelayFailedError. We don't want to fail the entire
-              // transfer just because we couldn't fetch the gas fee quote.
-              gasFee = 100000000000000n; // 0.0001 ETH
-              console.error(`Failed to fetch axelar gas fee: ${e}`);
-            }
+            // If we fail to fetch the gas fee, then use 0 as a fallback.
+            // The Axelar relay should fail and the track() method will
+            // surface a RelayFailedError. We don't want to fail the entire
+            // transfer just because we couldn't fetch the gas fee quote.
+            const gasFee = await getAxelarGasFee(
+              this.network,
+              this.chain,
+              dstChain,
+              gasLimit
+            ).catch(() => 0n);
+            console.log("gas fee", gasFee);
             return {
               index: transceiver.index,
               payload: encoding.bignum.toBytes(gasFee, 32),
@@ -374,16 +368,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
         transceiverInstructions: Ntt.encodeTransceiverInstructions(
           transceiverInstructions
         ),
-        permit: {
-          permitted: {
-            token: token.toString(),
-            amount: 0n,
-          },
-          nonce: 0n,
-          deadline: 0n,
-        },
-        permitOwner: ethers.ZeroAddress,
-        permitSignature: "0x",
         additionalPayload: "0x",
       };
 

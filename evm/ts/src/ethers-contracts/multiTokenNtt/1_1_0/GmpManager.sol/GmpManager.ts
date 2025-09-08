@@ -76,6 +76,7 @@ export interface GmpManagerInterface extends Interface {
       | "attestationReceived"
       | "chainId"
       | "executeMsg"
+      | "getKnownChains"
       | "getMigratesImmutables"
       | "getPeer"
       | "getReceiveTransceiversForChain"
@@ -97,6 +98,7 @@ export interface GmpManagerInterface extends Interface {
       | "pause"
       | "pauser"
       | "quoteDeliveryPrice"
+      | "registerKnownChain"
       | "removeReceiveTransceiverForChain"
       | "removeSendTransceiverForChain"
       | "removeTransceiver"
@@ -157,6 +159,10 @@ export interface GmpManagerInterface extends Interface {
       BytesLike,
       TransceiverStructs.NttManagerMessageStruct
     ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getKnownChains",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "getMigratesImmutables",
@@ -225,6 +231,10 @@ export interface GmpManagerInterface extends Interface {
   encodeFunctionData(functionFragment: "pauser", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "quoteDeliveryPrice",
+    values: [BigNumberish, BytesLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "registerKnownChain",
     values: [BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
@@ -303,6 +313,10 @@ export interface GmpManagerInterface extends Interface {
   decodeFunctionResult(functionFragment: "chainId", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "executeMsg", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "getKnownChains",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getMigratesImmutables",
     data: BytesLike
   ): Result;
@@ -363,6 +377,10 @@ export interface GmpManagerInterface extends Interface {
   decodeFunctionResult(functionFragment: "pauser", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "quoteDeliveryPrice",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "registerKnownChain",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -808,6 +826,8 @@ export interface GmpManager extends BaseContract {
     "nonpayable"
   >;
 
+  getKnownChains: TypedContractMethod<[], [bigint[]], "view">;
+
   getMigratesImmutables: TypedContractMethod<[], [boolean], "view">;
 
   getPeer: TypedContractMethod<
@@ -896,6 +916,12 @@ export interface GmpManager extends BaseContract {
     [recipientChain: BigNumberish, transceiverInstructions: BytesLike],
     [[bigint[], bigint]],
     "view"
+  >;
+
+  registerKnownChain: TypedContractMethod<
+    [peerChainId: BigNumberish, peerAddress: BytesLike],
+    [void],
+    "nonpayable"
   >;
 
   removeReceiveTransceiverForChain: TypedContractMethod<
@@ -1020,6 +1046,9 @@ export interface GmpManager extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "getKnownChains"
+  ): TypedContractMethod<[], [bigint[]], "view">;
+  getFunction(
     nameOrSignature: "getMigratesImmutables"
   ): TypedContractMethod<[], [boolean], "view">;
   getFunction(
@@ -1113,6 +1142,13 @@ export interface GmpManager extends BaseContract {
     [recipientChain: BigNumberish, transceiverInstructions: BytesLike],
     [[bigint[], bigint]],
     "view"
+  >;
+  getFunction(
+    nameOrSignature: "registerKnownChain"
+  ): TypedContractMethod<
+    [peerChainId: BigNumberish, peerAddress: BytesLike],
+    [void],
+    "nonpayable"
   >;
   getFunction(
     nameOrSignature: "removeReceiveTransceiverForChain"

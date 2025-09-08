@@ -99,34 +99,6 @@ export declare namespace Peers {
   };
 }
 
-export declare namespace ISignatureTransfer {
-  export type TokenPermissionsStruct = {
-    token: AddressLike;
-    amount: BigNumberish;
-  };
-
-  export type TokenPermissionsStructOutput = [token: string, amount: bigint] & {
-    token: string;
-    amount: bigint;
-  };
-
-  export type PermitTransferFromStruct = {
-    permitted: ISignatureTransfer.TokenPermissionsStruct;
-    nonce: BigNumberish;
-    deadline: BigNumberish;
-  };
-
-  export type PermitTransferFromStructOutput = [
-    permitted: ISignatureTransfer.TokenPermissionsStructOutput,
-    nonce: bigint,
-    deadline: bigint
-  ] & {
-    permitted: ISignatureTransfer.TokenPermissionsStructOutput;
-    nonce: bigint;
-    deadline: bigint;
-  };
-}
-
 export declare namespace MultiTokenNtt {
   export type TransferArgsStruct = {
     token: AddressLike;
@@ -136,9 +108,6 @@ export declare namespace MultiTokenNtt {
     refundAddress: BytesLike;
     shouldQueue: boolean;
     transceiverInstructions: BytesLike;
-    permit: ISignatureTransfer.PermitTransferFromStruct;
-    permitOwner: AddressLike;
-    permitSignature: BytesLike;
     additionalPayload: BytesLike;
   };
 
@@ -150,9 +119,6 @@ export declare namespace MultiTokenNtt {
     refundAddress: string,
     shouldQueue: boolean,
     transceiverInstructions: string,
-    permit: ISignatureTransfer.PermitTransferFromStructOutput,
-    permitOwner: string,
-    permitSignature: string,
     additionalPayload: string
   ] & {
     token: string;
@@ -162,9 +128,6 @@ export declare namespace MultiTokenNtt {
     refundAddress: string;
     shouldQueue: boolean;
     transceiverInstructions: string;
-    permit: ISignatureTransfer.PermitTransferFromStructOutput;
-    permitOwner: string;
-    permitSignature: string;
     additionalPayload: string;
   };
 
@@ -201,7 +164,6 @@ export interface MultiTokenNttInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "NTT_MANAGER_VERSION"
-      | "PERMIT2"
       | "WETH"
       | "cancelOutboundQueuedTransfer"
       | "completeInboundQueuedTransfer"
@@ -264,7 +226,6 @@ export interface MultiTokenNttInterface extends Interface {
     functionFragment: "NTT_MANAGER_VERSION",
     values?: undefined
   ): string;
-  encodeFunctionData(functionFragment: "PERMIT2", values?: undefined): string;
   encodeFunctionData(functionFragment: "WETH", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "cancelOutboundQueuedTransfer",
@@ -389,7 +350,6 @@ export interface MultiTokenNttInterface extends Interface {
     functionFragment: "NTT_MANAGER_VERSION",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "PERMIT2", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "WETH", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "cancelOutboundQueuedTransfer",
@@ -808,8 +768,6 @@ export interface MultiTokenNtt extends BaseContract {
 
   NTT_MANAGER_VERSION: TypedContractMethod<[], [string], "view">;
 
-  PERMIT2: TypedContractMethod<[], [string], "view">;
-
   WETH: TypedContractMethod<[], [string], "view">;
 
   cancelOutboundQueuedTransfer: TypedContractMethod<
@@ -970,9 +928,6 @@ export interface MultiTokenNtt extends BaseContract {
 
   getFunction(
     nameOrSignature: "NTT_MANAGER_VERSION"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "PERMIT2"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "WETH"

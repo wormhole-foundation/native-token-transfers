@@ -62,7 +62,7 @@ const recoverTxids: TransactionId[] = [
   console.log("Source txs", txids);
 
   const vaa = await wh.getVaa(
-    txids[txids.length - 1]!.txid,
+    txids[txids.length - 1]!,
     "Ntt:WormholeTransfer",
     25 * 60 * 1000
   );

@@ -251,10 +251,8 @@ export class NttAutomaticRoute<N extends Network>
   }
 
   async resume(tx: TransactionId): Promise<R> {
-    const vaa = await this.wh.getVaa(
-      tx.txid,
-      "Ntt:WormholeTransferStandardRelayer"
-    );
+    //@ts-ignore
+    const vaa = await this.wh.getVaa(tx, "Ntt:WormholeTransferStandardRelayer");
     if (!vaa) throw new Error("No VAA found for transaction: " + tx.txid);
 
     const msgId: WormholeMessageId = {
@@ -368,7 +366,7 @@ export class NttAutomaticRoute<N extends Network>
 
   public override async *track(receipt: R, timeout?: number) {
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      const { txid } = receipt.originTxs[receipt.originTxs.length - 1]!;
+      const txid = receipt.originTxs[receipt.originTxs.length - 1]!;
 
       const isEvmPlatform = (chain: Chain) => chainToPlatform(chain) === "Evm";
       const vaaType =
@@ -376,9 +374,10 @@ export class NttAutomaticRoute<N extends Network>
           ? // Automatic NTT transfers between EVM chains use standard relayers
             "Ntt:WormholeTransferStandardRelayer"
           : "Ntt:WormholeTransfer";
+      // @ts-ignore
       const vaa = await this.wh.getVaa(txid, vaaType, timeout);
       if (!vaa) {
-        throw new Error(`No VAA found for transaction: ${txid}`);
+        throw new Error(`No VAA found for transaction: ${txid.txid}`);
       }
 
       const msgId: WormholeMessageId = {
