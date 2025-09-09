@@ -24,7 +24,6 @@ import {
   type MultiTokenNtt,
   type MultiTokenNttWithExecutor,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import { EvmMultiTokenNtt } from "./multiTokenNtt.js";
 
 const multiTokenNttWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
@@ -192,27 +191,6 @@ export class EvmMultiTokenNttWithExecutor<
         ? "MultiTokenNttWithExecutor.transferETH"
         : "MultiTokenNttWithExecutor.transfer"
     );
-  }
-
-  async estimateMsgValueAndGasLimit(
-    originalToken: MultiTokenNtt.OriginalTokenId,
-    multiTokenNtt: EvmMultiTokenNtt<N, C>
-  ): Promise<{ msgValue: bigint; gasLimit: bigint }> {
-    const GAS_LIMIT = 500_000n;
-
-    // More gas is needed to create the token on the destination chain
-    const GAS_LIMIT_CREATE_TOKEN = 1_000_000n;
-
-    // Check if the token already exists on the destination chain
-    const existingToken = await multiTokenNtt.getLocalToken(originalToken);
-    const isUnattested = existingToken === null;
-
-    const gasLimit = isUnattested ? GAS_LIMIT_CREATE_TOKEN : GAS_LIMIT;
-
-    return {
-      msgValue: 0n,
-      gasLimit,
-    };
   }
 
   createUnsignedTx(

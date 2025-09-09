@@ -265,7 +265,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
               dstChain,
               gasLimit
             ).catch(() => 0n);
-            console.log("gas fee", gasFee);
             return {
               index: transceiver.index,
               payload: encoding.bignum.toBytes(gasFee, 32),
@@ -300,13 +299,14 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     sender: AccountAddress<C>,
     token: TokenAddress<C>,
     amount: bigint,
-    destination: ChainAddress
+    destination: ChainAddress,
+    destinationGasLimit: bigint
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
 
     const transceiverInstructions = await this.createTransceiverInstructions(
       destination.chain,
-      800_000n // TODO: make this configurable
+      destinationGasLimit
     );
 
     const totalPrice = await this.quoteDeliveryPrice(
@@ -624,5 +624,22 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       description,
       parallelizable
     );
+  }
+
+  async estimateGasLimit(
+    originalToken: MultiTokenNtt.OriginalTokenId
+  ): Promise<bigint> {
+    const GAS_LIMIT = 500_000n;
+
+    // More gas is needed to create the token on the destination chain
+    const GAS_LIMIT_CREATE_TOKEN = 1_000_000n;
+
+    // Check if the token already exists on the destination chain
+    const existingToken = await this.getLocalToken(originalToken);
+    const isUnattested = existingToken === null;
+
+    const gasLimit = isUnattested ? GAS_LIMIT_CREATE_TOKEN : GAS_LIMIT;
+
+    return gasLimit;
   }
 }

@@ -27,6 +27,7 @@ import {
   isFailed,
   CompletedTransferReceipt,
   DestinationQueuedTransferReceipt,
+  canonicalAddress,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "./types.js";
@@ -43,8 +44,6 @@ type Q = routes.Quote<Op, Vp>;
 
 type R = MultiTokenNttRoute.ManualTransferReceipt;
 
-// TODO: should be a way to override the gasLimit for the axelar transceiver
-// on a per-token basis
 export function multiTokenNttManualRoute(config: MultiTokenNttRoute.Config) {
   class MultiTokenNttRouteImpl<
     N extends Network
@@ -70,11 +69,14 @@ export class MultiTokenNttManualRoute<N extends Network>
   static meta = { name: "MultiTokenNttManualRoute" };
 
   static supportedNetworks(): Network[] {
-    return MultiTokenNttRoute.resolveSupportedNetworks(this.config);
+    return MultiTokenNttRoute.resolveSupportedNetworks(this.config.contracts);
   }
 
   static supportedChains(network: Network): Chain[] {
-    return MultiTokenNttRoute.resolveSupportedChains(this.config, network);
+    return MultiTokenNttRoute.resolveSupportedChains(
+      this.config.contracts,
+      network
+    );
   }
 
   static async supportedDestinationTokens<N extends Network>(
@@ -86,7 +88,7 @@ export class MultiTokenNttManualRoute<N extends Network>
       sourceToken,
       fromChain,
       toChain,
-      this.config
+      this.config.contracts
     );
     return [destinationTokenId];
   }
@@ -105,6 +107,14 @@ export class MultiTokenNttManualRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     params: Tp
   ): Promise<Vr> {
+    if (request.fromChain.chain === request.toChain.chain) {
+      return {
+        valid: false,
+        error: new Error("Source and destination chains must differ"),
+        params,
+      };
+    }
+
     const options = params.options ?? this.getDefaultOptions();
 
     const parsedAmount = amount.parse(params.amount, request.source.decimals);
@@ -115,12 +125,12 @@ export class MultiTokenNttManualRoute<N extends Network>
     );
 
     const sourceContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig,
+      this.staticConfig.contracts,
       request.fromChain.chain
     );
 
     const destinationContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig,
+      this.staticConfig.contracts,
       request.toChain.chain
     );
 
@@ -138,6 +148,8 @@ export class MultiTokenNttManualRoute<N extends Network>
       request.toChain.chain
     );
 
+    const gasLimit = await this.estimateGasLimit(request, originalTokenId);
+
     const validatedParams: Vp = {
       amount: params.amount,
       normalizedParams: {
@@ -148,11 +160,41 @@ export class MultiTokenNttManualRoute<N extends Network>
         destinationTokenId: request.destination.id,
         originalTokenId,
         sendTransceivers,
+        gasLimit,
       },
       options,
     };
 
     return { valid: true, params: validatedParams };
+  }
+
+  async estimateGasLimit(
+    request: routes.RouteTransferRequest<N>,
+    originalTokenId: MultiTokenNtt.OriginalTokenId
+  ): Promise<bigint> {
+    if (this.staticConfig.perTokenOverrides) {
+      const destinationTokenAddress = canonicalAddress(request.destination.id);
+      const override =
+        this.staticConfig.perTokenOverrides[request.destination.id.chain]?.[
+          destinationTokenAddress
+        ];
+      if (override?.gasLimit !== undefined) {
+        return override.gasLimit;
+      }
+    }
+
+    const destinationContracts = MultiTokenNttRoute.resolveContracts(
+      this.staticConfig.contracts,
+      request.toChain.chain
+    );
+
+    const destinationNtt = await request.toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: destinationContracts,
+    });
+
+    const gasLimit = await destinationNtt.estimateGasLimit(originalTokenId);
+
+    return gasLimit;
   }
 
   async quote(
@@ -237,7 +279,8 @@ export class MultiTokenNttManualRoute<N extends Network>
       sender,
       params.normalizedParams.sourceTokenId.address,
       amount.units(params.normalizedParams.amount),
-      to
+      to,
+      params.normalizedParams.gasLimit
     );
     const txids = await signSendWait(fromChain, initXfer, signer);
 
@@ -306,7 +349,7 @@ export class MultiTokenNttManualRoute<N extends Network>
     const { payload } = vaa.payload.nttManagerPayload;
 
     const sourceContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig,
+      this.staticConfig.contracts,
       fromChain.chain
     );
     if (
@@ -318,7 +361,7 @@ export class MultiTokenNttManualRoute<N extends Network>
     }
 
     const destinationContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig,
+      this.staticConfig.contracts,
       payload.toChain
     );
 
@@ -348,7 +391,7 @@ export class MultiTokenNttManualRoute<N extends Network>
       sourceTokenId,
       fromChain,
       this.wh.getChain(payload.toChain),
-      this.staticConfig,
+      this.staticConfig.contracts,
       originalTokenId
     );
 
@@ -381,6 +424,7 @@ export class MultiTokenNttManualRoute<N extends Network>
           destinationTokenId,
           originalTokenId,
           sendTransceivers,
+          gasLimit: 0n,
         },
         options: {},
       },
