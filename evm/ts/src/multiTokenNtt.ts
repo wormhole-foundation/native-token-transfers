@@ -146,12 +146,25 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
+  private static versionCache = new Map<string, string>();
+
   static async getVersion(
     provider: ethers.Provider,
     contracts: Contracts & { multiTokenNtt?: MultiTokenNtt.Contracts }
   ) {
+    const multiTokenNtt = contracts.multiTokenNtt;
+    if (!multiTokenNtt) {
+      throw new Error("No multiTokenNtt contracts configured");
+    }
+
+    const cacheKey = `${multiTokenNtt.chain}-${multiTokenNtt.manager}`;
+    const cached = EvmMultiTokenNtt.versionCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const contract = new ethers.Contract(
-      contracts.multiTokenNtt!.manager,
+      multiTokenNtt.manager,
       ["function NTT_MANAGER_VERSION() public view returns (string)"],
       provider
     );
@@ -162,6 +175,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       if (!abiVersion) {
         throw new Error("NTT_MANAGER_VERSION not found");
       }
+      EvmMultiTokenNtt.versionCache.set(cacheKey, abiVersion);
       return abiVersion;
     } catch (e) {
       console.error(
@@ -252,7 +266,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
           case "wormhole":
             return {
               index: transceiver.index,
-              payload: new Uint8Array([1]), // disable standard relayer
+              payload: new Uint8Array([1]), // disable standard relayer, use executor route for automatic relay
             };
           case "axelar": {
             // If we fail to fetch the gas fee, then use 0 as a fallback.
@@ -626,6 +640,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     );
   }
 
+  // Upper bound estimate of gas limit needed for transfer on the destination chain
   async estimateGasLimit(
     originalToken: MultiTokenNtt.OriginalTokenId
   ): Promise<bigint> {

@@ -35,9 +35,6 @@ export namespace MultiTokenNtt {
     chain: Chain;
     manager: string;
     gmpManager: string;
-    transceiver: {
-      wormhole?: string;
-    };
   };
 
   export interface TokenMeta {

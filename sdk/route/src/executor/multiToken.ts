@@ -302,33 +302,15 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       });
 
       const duration = await destinationNtt.getRateLimitDuration();
-
-      if (duration > 0n) {
-        const inboundLimit = await destinationNtt.getInboundLimit(
-          params.normalizedParams.originalTokenId,
-          fromChain.chain
-        );
-
-        if (inboundLimit !== null) {
-          const capacity = await destinationNtt.getCurrentInboundCapacity(
-            params.normalizedParams.originalTokenId,
-            fromChain.chain
-          );
-
-          if (
-            NttRoute.isCapacityThresholdExceeded(
-              amount.units(receivedAmount),
-              capacity
-            )
-          ) {
-            result.warnings = [
-              {
-                type: "DestinationCapacityWarning",
-                delayDurationSec: Number(duration),
-              },
-            ];
-          }
-        }
+      const warnings = await MultiTokenNttRoute.checkRateLimit(
+        destinationNtt,
+        fromChain.chain,
+        params.normalizedParams.originalTokenId,
+        receivedAmount,
+        duration
+      );
+      if (warnings) {
+        result.warnings = warnings;
       }
 
       return result;
@@ -409,29 +391,12 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     originalTokenId: MultiTokenNtt.OriginalTokenId
   ): Promise<bigint> {
-    if (this.staticConfig.referrerFee?.perTokenOverrides) {
-      const destinationTokenAddress = canonicalAddress(request.destination.id);
-      const override =
-        this.staticConfig.referrerFee.perTokenOverrides[
-          request.destination.id.chain
-        ]?.[destinationTokenAddress];
-      if (override?.gasLimit !== undefined) {
-        return override.gasLimit;
-      }
-    }
-
-    const destinationContracts = MultiTokenNttRoute.resolveContracts(
+    return MultiTokenNttRoute.estimateGasLimit(
+      request,
+      originalTokenId,
       this.staticConfig.contracts,
-      request.toChain.chain
+      this.staticConfig.referrerFee?.perTokenOverrides
     );
-
-    const destinationNtt = await request.toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: destinationContracts,
-    });
-
-    const gasLimit = await destinationNtt.estimateGasLimit(originalTokenId);
-
-    return gasLimit;
   }
 
   async fetchExecutorQuote(
