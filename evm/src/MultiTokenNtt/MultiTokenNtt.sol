@@ -723,8 +723,10 @@ contract MultiTokenNtt is
             message,
             transceiverInstructions
         );
-        uint256 refundAmount = address(this).balance - balanceBefore;
-        _refundToSender(refundAmount);
+        uint256 paid = balanceBefore - address(this).balance;
+        if (paid < msgValue) {
+            _refundToSender(msgValue - paid);
+        }
     }
 
     // Returns 0 if the token is not yet created
