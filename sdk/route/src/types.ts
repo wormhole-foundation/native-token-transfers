@@ -269,6 +269,17 @@ export namespace NttRoute {
 export namespace MultiTokenNttRoute {
   export type Config = {
     contracts: MultiTokenNtt.Contracts[];
+    perTokenOverrides?: Partial<
+      Record<
+        Chain,
+        Record<
+          string,
+          {
+            gasLimit?: bigint;
+          }
+        >
+      >
+    >;
   };
 
   export type NormalizedParams = {
@@ -279,6 +290,7 @@ export namespace MultiTokenNttRoute {
     destinationTokenId: TokenId;
     originalTokenId: MultiTokenNtt.OriginalTokenId;
     sendTransceivers: Ntt.TransceiverMeta[];
+    gasLimit: bigint;
   };
 
   export interface ValidatedParams
@@ -298,22 +310,24 @@ export namespace MultiTokenNttRoute {
     params: ValidatedParams;
   };
 
-  export function resolveSupportedNetworks(config: Config): Network[] {
+  export function resolveSupportedNetworks(
+    contracts: MultiTokenNtt.Contracts[]
+  ): Network[] {
     return ["Mainnet", "Testnet"];
   }
 
   export function resolveSupportedChains(
-    config: Config,
+    contracts: MultiTokenNtt.Contracts[],
     network: Network
   ): Chain[] {
-    return config.contracts.flatMap((c) => c.chain);
+    return contracts.flatMap((c) => c.chain);
   }
 
   export function resolveContracts(
-    config: Config,
+    contracts: MultiTokenNtt.Contracts[],
     chain: Chain
   ): MultiTokenNtt.Contracts {
-    const cfg = config.contracts.find((c) => c.chain === chain);
+    const cfg = contracts.find((c) => c.chain === chain);
     if (!cfg) {
       throw new Error(
         "Cannot find MultiTokenNtt contracts in config for: " + chain
@@ -327,7 +341,7 @@ export namespace MultiTokenNttRoute {
     sourceToken: TokenId,
     fromChain: ChainContext<N>,
     toChain: ChainContext<N>,
-    config: MultiTokenNttRoute.Config,
+    contracts: MultiTokenNtt.Contracts[],
     originalToken?: MultiTokenNtt.OriginalTokenId
   ): Promise<TokenId> {
     if (sourceToken.chain !== fromChain.chain) {
@@ -336,13 +350,16 @@ export namespace MultiTokenNttRoute {
 
     const sourceNtt = await fromChain.getProtocol("MultiTokenNtt", {
       multiTokenNtt: MultiTokenNttRoute.resolveContracts(
-        config,
+        contracts,
         fromChain.chain
       ),
     });
 
     const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: MultiTokenNttRoute.resolveContracts(config, toChain.chain),
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
+        contracts,
+        toChain.chain
+      ),
     });
 
     if (isNative(sourceToken.address)) {

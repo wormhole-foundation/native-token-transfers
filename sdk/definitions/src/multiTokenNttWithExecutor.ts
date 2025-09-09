@@ -8,7 +8,6 @@ import type {
   UnsignedTransaction,
 } from "@wormhole-foundation/sdk-connect";
 import { NttWithExecutor } from "./nttWithExecutor.js";
-import type { MultiTokenNtt } from "./multiTokenNtt.js";
 import { Ntt } from "./ntt.js";
 
 export namespace MultiTokenNttWithExecutor {
@@ -26,11 +25,6 @@ export interface MultiTokenNttWithExecutor<N extends Network, C extends Chain> {
     amount: bigint,
     quote: MultiTokenNttWithExecutor.Quote
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
-
-  estimateMsgValueAndGasLimit(
-    originalToken: MultiTokenNtt.OriginalTokenId,
-    multiTokenNtt: MultiTokenNtt<N, C>
-  ): Promise<{ msgValue: bigint; gasLimit: bigint }>;
 }
 
 declare module "@wormhole-foundation/sdk-definitions" {

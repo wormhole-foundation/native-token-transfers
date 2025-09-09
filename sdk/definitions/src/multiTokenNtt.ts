@@ -108,7 +108,8 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
     sender: AccountAddress<C>,
     token: TokenAddress<C>,
     amount: bigint,
-    destination: ChainAddress
+    destination: ChainAddress,
+    destinationGasLimit: bigint
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   redeem(
@@ -163,6 +164,10 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   ): Promise<TokenAddress<C>>;
 
   getWrappedNativeToken(): Promise<TokenId>;
+
+  estimateGasLimit(
+    originalToken: MultiTokenNtt.OriginalTokenId
+  ): Promise<bigint>;
 }
 
 declare module "@wormhole-foundation/sdk-definitions" {

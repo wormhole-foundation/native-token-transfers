@@ -59,7 +59,7 @@ import { trackAxelar, trackExecutor } from "../tracking.js";
 
 export namespace MultiTokenNttExecutorRoute {
   export type Config = {
-    ntt: MultiTokenNttRoute.Config;
+    contracts: MultiTokenNtt.Contracts[];
     referrerFee?: ReferrerFeeConfig;
   };
 
@@ -72,8 +72,6 @@ export namespace MultiTokenNttExecutorRoute {
 
   export type NormalizedParams = MultiTokenNttRoute.NormalizedParams & {
     referrerFeeDbps: bigint;
-    gasLimit: bigint;
-    msgValue: bigint;
   };
 
   export interface ValidatedParams
@@ -122,16 +120,19 @@ export class MultiTokenNttExecutorRoute<N extends Network>
   readonly staticConfig: MultiTokenNttExecutorRoute.Config =
     // @ts-ignore
     this.constructor.config;
-  static config: MultiTokenNttExecutorRoute.Config = { ntt: { contracts: [] } };
+  static config: MultiTokenNttExecutorRoute.Config = { contracts: [] };
 
   static meta = { name: "MultiTokenNttExecutorRoute" };
 
   static supportedNetworks(): Network[] {
-    return MultiTokenNttRoute.resolveSupportedNetworks(this.config.ntt);
+    return MultiTokenNttRoute.resolveSupportedNetworks(this.config.contracts);
   }
 
   static supportedChains(network: Network): Chain[] {
-    return MultiTokenNttRoute.resolveSupportedChains(this.config.ntt, network);
+    return MultiTokenNttRoute.resolveSupportedChains(
+      this.config.contracts,
+      network
+    );
   }
 
   static async supportedDestinationTokens<N extends Network>(
@@ -143,7 +144,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       sourceToken,
       fromChain,
       toChain,
-      this.config.ntt
+      this.config.contracts
     );
     return [destinationTokenId];
   }
@@ -164,6 +165,14 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     params: Tp
   ): Promise<Vr> {
+    if (request.fromChain.chain === request.toChain.chain) {
+      return {
+        valid: false,
+        error: new Error("Source and destination chains must differ"),
+        params,
+      };
+    }
+
     const options = params.options ?? this.getDefaultOptions();
 
     if (
@@ -185,12 +194,12 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     );
 
     const sourceContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.ntt,
+      this.staticConfig.contracts,
       request.fromChain.chain
     );
 
     const destinationContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.ntt,
+      this.staticConfig.contracts,
       request.toChain.chain
     );
 
@@ -208,30 +217,9 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       request.toChain.chain
     );
 
-    const destinationNttWithExecutor = await request.toChain.getProtocol(
-      "MultiTokenNttWithExecutor",
-      {
-        multiTokenNtt: destinationContracts,
-      }
-    );
-
-    const destinationNtt = await request.toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: destinationContracts,
-    });
-
     const referrerFeeDbps = this.getReferrerFeeDbps(request);
 
-    let { msgValue, gasLimit } =
-      await destinationNttWithExecutor.estimateMsgValueAndGasLimit(
-        originalTokenId,
-        destinationNtt
-      );
-
-    ({ msgValue, gasLimit } = this.getGasOverrides(
-      request,
-      msgValue,
-      gasLimit
-    ));
+    const gasLimit = await this.estimateGasLimit(request, originalTokenId);
 
     const validatedParams: Vp = {
       amount: params.amount,
@@ -244,7 +232,6 @@ export class MultiTokenNttExecutorRoute<N extends Network>
         destinationTokenId: request.destination.id,
         originalTokenId,
         gasLimit,
-        msgValue,
         sendTransceivers,
       },
       options,
@@ -418,11 +405,10 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       : 0n;
   }
 
-  getGasOverrides(
+  async estimateGasLimit(
     request: routes.RouteTransferRequest<N>,
-    msgValue: bigint,
-    gasLimit: bigint
-  ): { msgValue: bigint; gasLimit: bigint } {
+    originalTokenId: MultiTokenNtt.OriginalTokenId
+  ): Promise<bigint> {
     if (this.staticConfig.referrerFee?.perTokenOverrides) {
       const destinationTokenAddress = canonicalAddress(request.destination.id);
       const override =
@@ -430,13 +416,22 @@ export class MultiTokenNttExecutorRoute<N extends Network>
           request.destination.id.chain
         ]?.[destinationTokenAddress];
       if (override?.gasLimit !== undefined) {
-        gasLimit = override.gasLimit;
-      }
-      if (override?.msgValue !== undefined) {
-        msgValue = override.msgValue;
+        return override.gasLimit;
       }
     }
-    return { msgValue, gasLimit };
+
+    const destinationContracts = MultiTokenNttRoute.resolveContracts(
+      this.staticConfig.contracts,
+      request.toChain.chain
+    );
+
+    const destinationNtt = await request.toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: destinationContracts,
+    });
+
+    const gasLimit = await destinationNtt.estimateGasLimit(originalTokenId);
+
+    return gasLimit;
   }
 
   async fetchExecutorQuote(
@@ -474,7 +469,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       request: {
         type: "GasInstruction" as const,
         gasLimit: params.normalizedParams.gasLimit,
-        msgValue: params.normalizedParams.msgValue,
+        msgValue: 0n,
       },
     });
 
@@ -647,7 +642,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     }
 
     if (!receipt.attestation) {
-      throw new Error("No attestation found for the transfer");
+      throw new Error("No attestation found on the transfer receipt");
     }
 
     const toChain = this.wh.getChain(receipt.to);
@@ -674,15 +669,12 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       // already attested by the wormhole transceiver
       return receipt;
     }
-    const completeTransfer = ntt.redeem(receipt.attestation.attestation);
 
-    const txids = await signSendWait(toChain, completeTransfer, signer);
-    return {
-      ...receipt,
-      state: TransferState.DestinationInitiated,
-      attestation: receipt.attestation,
-      destinationTxs: txids,
-    };
+    const completeXfer = ntt.redeem(receipt.attestation.attestation);
+
+    await signSendWait(toChain, completeXfer, signer);
+
+    return receipt;
   }
 
   async resume(tx: TransactionId): Promise<R> {
@@ -696,7 +688,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     const { payload } = vaa.payload.nttManagerPayload;
 
     const sourceContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.ntt,
+      this.staticConfig.contracts,
       fromChain.chain
     );
     if (
@@ -708,7 +700,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     }
 
     const destinationContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.ntt,
+      this.staticConfig.contracts,
       payload.toChain
     );
 
@@ -738,7 +730,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       sourceTokenId,
       fromChain,
       this.wh.getChain(payload.toChain),
-      this.staticConfig.ntt,
+      this.staticConfig.contracts,
       originalTokenId
     );
 
@@ -773,7 +765,6 @@ export class MultiTokenNttExecutorRoute<N extends Network>
           sendTransceivers,
           referrerFeeDbps: 0n,
           gasLimit: 0n,
-          msgValue: 0n,
         },
         options: {
           nativeGas: undefined,
