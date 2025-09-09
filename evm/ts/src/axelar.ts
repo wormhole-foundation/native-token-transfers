@@ -34,6 +34,20 @@ export interface GMPError {
   message: string;
 }
 
+export function getAxelarApiUrl(network: Network): string {
+  return network === "Mainnet"
+    ? "https://api.axelarscan.io"
+    : "https://testnet.api.axelarscan.io";
+}
+
+export function getAxelarChain(chain: Chain): string {
+  const axelarChain = axelarChains[chain];
+  if (!axelarChain) {
+    throw new Error(`Unsupported axelar chain: ${chain}`);
+  }
+  return axelarChain;
+}
+
 export async function getAxelarGasFee(
   network: Network,
   sourceChain: Chain,
@@ -41,34 +55,21 @@ export async function getAxelarGasFee(
   gasLimit: bigint,
   timeoutMs = 10000
 ): Promise<bigint> {
-  const baseUrl =
-    network === "Mainnet"
-      ? "https://api.axelarscan.io/gmp/estimateGasFee"
-      : "https://testnet.api.axelarscan.io/gmp/estimateGasFee";
-
-  const axelarSourceChain = axelarChains[sourceChain];
-  if (!axelarSourceChain) {
-    throw new Error(`Unsupported axelar source chain: ${sourceChain}`);
-  }
-
-  const axelarDestinationChain = axelarChains[destinationChain];
-  if (!axelarDestinationChain) {
-    throw new Error(
-      `Unsupported axelar destination chain: ${destinationChain}`
-    );
-  }
+  const url = `${getAxelarApiUrl(network)}/gmp/estimateGasFee`;
+  const axelarSourceChain = getAxelarChain(sourceChain);
+  const axelarDestinationChain = getAxelarChain(destinationChain);
 
   const maxRetries = 3;
   let lastResult: bigint | null = null;
 
   // TODO: the Axelar API sometimes returns 0 gas fee. Retry a few times if we get 0.
-  // The issue is intermittent and the Axelar team is looking into it.
+  // The issue is intermittent and the Axelar team is looking into fixing it.
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(baseUrl, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -115,21 +116,15 @@ export async function getAxelarTransactionStatus(
   txHash: string,
   timeoutMs = 10000
 ): Promise<{ status: GMPStatus | string; error?: GMPError }> {
-  const baseUrl =
-    network === "Mainnet"
-      ? "https://api.axelarscan.io"
-      : "https://testnet.api.axelarscan.io";
+  const url = `${getAxelarApiUrl(network)}/gmp/searchGMP`;
 
-  const axelarSourceChain = axelarChains[sourceChain];
-  if (!axelarSourceChain) {
-    throw new Error(`Unsupported axelar source chain: ${sourceChain}`);
-  }
+  const axelarSourceChain = getAxelarChain(sourceChain);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${baseUrl}/gmp/searchGMP`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

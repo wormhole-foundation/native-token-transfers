@@ -3,6 +3,7 @@ import {
   ChainAddress,
   ChainContext,
   Network,
+  QuoteWarning,
   TokenId,
   UnattestedTokenId,
   VAA,
@@ -269,17 +270,7 @@ export namespace NttRoute {
 export namespace MultiTokenNttRoute {
   export type Config = {
     contracts: MultiTokenNtt.Contracts[];
-    perTokenOverrides?: Partial<
-      Record<
-        Chain,
-        Record<
-          string,
-          {
-            gasLimit?: bigint;
-          }
-        >
-      >
-    >;
+    perTokenOverrides?: MultiTokenNttRoute.PerTokenGasLimit;
   };
 
   export type NormalizedParams = {
@@ -400,5 +391,83 @@ export namespace MultiTokenNttRoute {
         sourceToken.address.toString()
       ),
     } as UnattestedTokenId;
+  }
+
+  export type PerTokenGasLimit = Partial<
+    Record<
+      Chain,
+      Record<
+        string,
+        {
+          gasLimit?: bigint;
+        }
+      >
+    >
+  >;
+
+  export async function estimateGasLimit<N extends Network>(
+    request: routes.RouteTransferRequest<N>,
+    originalTokenId: MultiTokenNtt.OriginalTokenId,
+    contracts: MultiTokenNtt.Contracts[],
+    overrides?: PerTokenGasLimit
+  ): Promise<bigint> {
+    if (overrides) {
+      const destinationTokenAddress = canonicalAddress(request.destination.id);
+      const override =
+        overrides[request.destination.id.chain]?.[destinationTokenAddress];
+      if (override?.gasLimit !== undefined) {
+        return override.gasLimit;
+      }
+    }
+
+    const destinationContracts = MultiTokenNttRoute.resolveContracts(
+      contracts,
+      request.toChain.chain
+    );
+
+    const destinationNtt = await request.toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: destinationContracts,
+    });
+
+    const gasLimit = await destinationNtt.estimateGasLimit(originalTokenId);
+
+    return gasLimit;
+  }
+
+  export async function checkRateLimit<N extends Network>(
+    destinationNtt: MultiTokenNtt<N, Chain>,
+    fromChain: Chain,
+    originalTokenId: MultiTokenNtt.OriginalTokenId,
+    receivedAmount: amount.Amount,
+    duration: bigint
+  ): Promise<QuoteWarning[] | undefined> {
+    if (duration > 0n) {
+      const inboundLimit = await destinationNtt.getInboundLimit(
+        originalTokenId,
+        fromChain
+      );
+
+      if (inboundLimit !== null) {
+        const capacity = await destinationNtt.getCurrentInboundCapacity(
+          originalTokenId,
+          fromChain
+        );
+
+        if (
+          NttRoute.isCapacityThresholdExceeded(
+            amount.units(receivedAmount),
+            capacity
+          )
+        ) {
+          return [
+            {
+              type: "DestinationCapacityWarning",
+              delayDurationSec: Number(duration),
+            },
+          ];
+        }
+      }
+    }
+    return undefined;
   }
 }

@@ -17,26 +17,18 @@ import {
 import { getSigner } from "./helpers.js";
 
 const config: MultiTokenNttExecutorRoute.Config = {
-  ntt: {
-    contracts: [
-      {
-        chain: "Sepolia",
-        manager: "0x6c5aAE4622B835058A41879bA5e128019B9047d6",
-        gmpManager: "0xDaeE3A6B4196E3e46015b364F1DAe54CEAE74A91",
-        transceiver: {
-          wormhole: "0x3D11D1c1a8763c8508e0F3d4F6ec08D0D6cC293e",
-        },
-      },
-      {
-        chain: "Monad",
-        manager: "0x600D3C45Cd002E7359D12597Bb8058a0C32A20Df",
-        gmpManager: "0x641a6608e2959c0D7Fe2a5F267DFDA519ED43d98",
-        transceiver: {
-          wormhole: "0xf72AbB2B4C53B722643355A9816Ddddcd7F215F4",
-        },
-      },
-    ],
-  },
+  contracts: [
+    {
+      chain: "Sepolia",
+      manager: "0x6c5aAE4622B835058A41879bA5e128019B9047d6",
+      gmpManager: "0xDaeE3A6B4196E3e46015b364F1DAe54CEAE74A91",
+    },
+    {
+      chain: "Monad",
+      manager: "0x600D3C45Cd002E7359D12597Bb8058a0C32A20Df",
+      gmpManager: "0x641a6608e2959c0D7Fe2a5F267DFDA519ED43d98",
+    },
+  ],
 };
 
 (async function () {
