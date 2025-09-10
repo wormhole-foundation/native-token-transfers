@@ -158,7 +158,7 @@ async fn test_reregister_all_transceivers() {
 }
 
 #[tokio::test]
-async fn test_deregister_final_enabled_transceiver() {
+async fn test_deregister_last_enabled_transceiver() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
     // attempt to deregister only enabled transceiver (baked-in transceiver)
@@ -206,7 +206,7 @@ async fn test_deregister_final_enabled_transceiver() {
     .await
     .unwrap();
 
-    // attempt to deregister final enabled transceiver (dummy transceiver)
+    // attempt to deregister last enabled transceiver (dummy transceiver)
     let err = deregister_transceiver(
         &good_ntt,
         DeregisterTransceiver {
