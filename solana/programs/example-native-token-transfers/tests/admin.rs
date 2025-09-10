@@ -158,6 +158,75 @@ async fn test_reregister_all_transceivers() {
 }
 
 #[tokio::test]
+async fn test_deregister_final_enabled_transceiver() {
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    // attempt to deregister only enabled transceiver (baked-in transceiver)
+    let err = deregister_transceiver(
+        &good_ntt,
+        DeregisterTransceiver {
+            owner: test_data.program_owner.pubkey(),
+            transceiver: example_native_token_transfers::ID,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+    .await
+    .unwrap_err();
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(NTTError::ZeroThreshold.into())
+        )
+    );
+
+    // register arbitrary executable program as dummy transceiver
+    let dummy_transceiver = wormhole_anchor_sdk::wormhole::program::ID;
+    register_transceiver(
+        &good_ntt,
+        RegisterTransceiver {
+            payer: ctx.payer.pubkey(),
+            owner: test_data.program_owner.pubkey(),
+            transceiver: dummy_transceiver,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+    .await
+    .unwrap();
+
+    // deregister baked-in transceiver
+    deregister_transceiver(
+        &good_ntt,
+        DeregisterTransceiver {
+            owner: test_data.program_owner.pubkey(),
+            transceiver: example_native_token_transfers::ID,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+    .await
+    .unwrap();
+
+    // attempt to deregister final enabled transceiver (dummy transceiver)
+    let err = deregister_transceiver(
+        &good_ntt,
+        DeregisterTransceiver {
+            owner: test_data.program_owner.pubkey(),
+            transceiver: dummy_transceiver,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+    .await
+    .unwrap_err();
+    assert_eq!(
+        err.unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(NTTError::ZeroThreshold.into())
+        )
+    );
+}
+
+#[tokio::test]
 async fn test_zero_threshold() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
 
