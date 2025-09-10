@@ -24,14 +24,14 @@ describe("calculateLocalTokenAddress", () => {
       decimals: 18,
     };
 
-    const mockManager = {
+    const mockMultiTokenNtt = {
       tokenImplementation: jest.fn().mockResolvedValue(tokenImplementation),
       tokenProxyCreationCode: jest.fn().mockResolvedValue(creationCode),
     };
 
     // Minimal implementation of MultiTokenNtt for testing
     const multiTokenNtt = {
-      manager: mockManager,
+      multiTokenNtt: mockMultiTokenNtt,
       managerAddress: "0x600D3C45Cd002E7359D12597Bb8058a0C32A20Df",
       chain: "Monad",
       calculateLocalTokenAddress:
