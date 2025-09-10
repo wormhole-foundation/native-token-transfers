@@ -425,9 +425,14 @@ export class MultiTokenNttManualRoute<N extends Network>
   public override async *track(receipt: R, timeout?: number) {
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
       const txid = receipt.originTxs.at(-1)!;
+
+      // TODO: can pass txid when this is published: https://github.com/wormhole-foundation/wormhole-sdk-ts/pull/909
+      const fromChain = this.wh.getChain(receipt.from);
+      const [msg] = await fromChain.parseTransaction(txid.txid);
+      if (!msg) throw new Error("No Wormhole messages found");
+
       const vaa = await this.wh.getVaa(
-        // @ts-ignore
-        txid,
+        msg,
         "MultiTokenNtt:WormholeTransfer",
         timeout
       );
