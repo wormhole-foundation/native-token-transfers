@@ -44,6 +44,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Worldchain: '0x66b1644400D51e104272337226De3EF1A820eC79',
     // @ts-ignore
     XRPLEVM: '0x6bBd1ff3bB303F88835A714EE3241bF45DE26d29',
+    Seievm: '0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445',
   },
   Testnet: {
     ArbitrumSepolia: '0xd048170F1ECB8D47E499D3459aC379DA023E2C1B',
@@ -85,11 +86,11 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     readonly network: N,
     readonly chain: C,
     readonly provider: Provider,
-    readonly contracts: Contracts & { ntt?: Ntt.Contracts }
+    readonly contracts: Contracts & { ntt?: Ntt.Contracts },
   ) {
     this.chainId = nativeChainIds.networkChainToNativeChainId.get(
       network,
-      chain
+      chain,
     ) as bigint;
 
     const executorAddress =
@@ -101,7 +102,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
 
   static async fromRpc<N extends Network>(
     provider: Provider,
-    config: ChainsConfig<N, EvmPlatformType>
+    config: ChainsConfig<N, EvmPlatformType>,
   ): Promise<EvmNttWithExecutor<N, EvmChains>> {
     const [network, chain] = await EvmPlatform.chainFromRpc(provider);
     const conf = config[chain]!;
@@ -112,7 +113,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       network as N,
       chain,
       provider,
-      conf.contracts
+      conf.contracts,
     );
   }
 
@@ -122,7 +123,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     amount: bigint,
     quote: NttWithExecutor.Quote,
     ntt: EvmNtt<N, C>,
-    wrapNative: boolean = false
+    wrapNative: boolean = false,
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
 
@@ -131,7 +132,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     // This will include any transceiver fees
     const deliveryPrice = await ntt.quoteDeliveryPrice(
       destination.chain,
-      options
+      options,
     );
 
     if (wrapNative) {
@@ -140,18 +141,18 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
 
     const tokenContract = EvmPlatform.getTokenImplementation(
       this.provider,
-      ntt.tokenAddress
+      ntt.tokenAddress,
     );
 
     const allowance = await tokenContract.allowance(
       senderAddress,
-      this.executorAddress
+      this.executorAddress,
     );
 
     if (allowance < amount) {
       const txReq = await tokenContract.approve.populateTransaction(
         this.executorAddress,
-        amount
+        amount,
       );
 
       yield ntt.createUnsignedTx(txReq, 'Ntt.Approve');
@@ -172,7 +173,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       .toUint8Array();
     const refundAddress = sender.toUniversalAddress().toUint8Array();
     const encodedInstructions = Ntt.encodeTransceiverInstructions(
-      ntt.encodeOptions({ queue: false, automatic: false })
+      ntt.encodeOptions({ queue: false, automatic: false }),
     );
     const executorArgs = {
       value: quote.estimatedCost,
@@ -206,7 +207,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
   }
 
   async estimateMsgValueAndGasLimit(
-    recipient: ChainAddress | undefined
+    recipient: ChainAddress | undefined,
   ): Promise<{ msgValue: bigint; gasLimit: bigint }> {
     const gasLimit = gasLimitOverrides[this.network]?.[this.chain] ?? 500_000n;
     return { msgValue: 0n, gasLimit };
