@@ -21,7 +21,7 @@ import type {
   TypedLogDescription,
   TypedListener,
   TypedContractMethod,
-} from "../common.js";
+} from "./common.js";
 
 export declare namespace TransceiverStructs {
   export type NttManagerMessageStruct = {

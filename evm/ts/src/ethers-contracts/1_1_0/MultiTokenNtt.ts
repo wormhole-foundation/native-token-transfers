@@ -21,7 +21,19 @@ import type {
   TypedLogDescription,
   TypedListener,
   TypedContractMethod,
-} from "../common.js";
+} from "./common.js";
+
+export type TokenMetaStruct = {
+  name: BytesLike;
+  symbol: BytesLike;
+  decimals: BigNumberish;
+};
+
+export type TokenMetaStructOutput = [
+  name: string,
+  symbol: string,
+  decimals: bigint
+] & { name: string; symbol: string; decimals: bigint };
 
 export type TokenIdStruct = { chainId: BigNumberish; tokenAddress: BytesLike };
 
@@ -29,6 +41,37 @@ export type TokenIdStructOutput = [chainId: bigint, tokenAddress: string] & {
   chainId: bigint;
   tokenAddress: string;
 };
+
+export type TokenInfoStruct = { meta: TokenMetaStruct; token: TokenIdStruct };
+
+export type TokenInfoStructOutput = [
+  meta: TokenMetaStructOutput,
+  token: TokenIdStructOutput
+] & { meta: TokenMetaStructOutput; token: TokenIdStructOutput };
+
+export declare namespace NativeTokenTransferCodec {
+  export type NativeTokenTransferStruct = {
+    amount: BigNumberish;
+    token: TokenInfoStruct;
+    sender: BytesLike;
+    to: BytesLike;
+    additionalPayload: BytesLike;
+  };
+
+  export type NativeTokenTransferStructOutput = [
+    amount: bigint,
+    token: TokenInfoStructOutput,
+    sender: string,
+    to: string,
+    additionalPayload: string
+  ] & {
+    amount: bigint;
+    token: TokenInfoStructOutput;
+    sender: string;
+    to: string;
+    additionalPayload: string;
+  };
+}
 
 export declare namespace RateLimitLib {
   export type RateLimitParamsStruct = {
@@ -47,17 +90,13 @@ export declare namespace RateLimitLib {
 export declare namespace IMultiTokenRateLimiter {
   export type InboundQueuedTransferStruct = {
     txTimestamp: BigNumberish;
-    amount: BigNumberish;
-    token: AddressLike;
-    recipient: AddressLike;
+    sourceChainId: BigNumberish;
   };
 
   export type InboundQueuedTransferStructOutput = [
     txTimestamp: bigint,
-    amount: bigint,
-    token: string,
-    recipient: string
-  ] & { txTimestamp: bigint; amount: bigint; token: string; recipient: string };
+    sourceChainId: bigint
+  ] & { txTimestamp: bigint; sourceChainId: bigint };
 
   export type OutboundQueuedTransferStruct = {
     recipient: BytesLike;
@@ -233,7 +272,7 @@ export interface MultiTokenNttInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "completeInboundQueuedTransfer",
-    values: [BytesLike]
+    values: [NativeTokenTransferCodec.NativeTokenTransferStruct]
   ): string;
   encodeFunctionData(
     functionFragment: "completeOutboundQueuedTransfer",
@@ -777,7 +816,7 @@ export interface MultiTokenNtt extends BaseContract {
   >;
 
   completeInboundQueuedTransfer: TypedContractMethod<
-    [digest: BytesLike],
+    [nativeTokenTransfer: NativeTokenTransferCodec.NativeTokenTransferStruct],
     [void],
     "nonpayable"
   >;
@@ -937,7 +976,11 @@ export interface MultiTokenNtt extends BaseContract {
   ): TypedContractMethod<[messageSequence: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "completeInboundQueuedTransfer"
-  ): TypedContractMethod<[digest: BytesLike], [void], "nonpayable">;
+  ): TypedContractMethod<
+    [nativeTokenTransfer: NativeTokenTransferCodec.NativeTokenTransferStruct],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "completeOutboundQueuedTransfer"
   ): TypedContractMethod<[messageSequence: BigNumberish], [bigint], "payable">;
