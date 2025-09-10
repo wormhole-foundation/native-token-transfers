@@ -142,6 +142,7 @@ pub fn register_transceiver(ctx: Context<RegisterTransceiver>) -> Result<()> {
     Ok(())
 }
 
+// TODO: Rename to DisableTransceiver
 #[derive(Accounts)]
 pub struct DeregisterTransceiver<'info> {
     #[account(
