@@ -10,20 +10,20 @@ export const abiVersions = [["1.1.0", _1_1_0]] as const;
 export type AbiVersion = (typeof abiVersions)[number][0];
 
 export interface MultiTokenNttBindings {
-  NttManager: MultiTokenNttManagerBindings;
+  MultiTokenNtt: MultiTokenNttBindings;
   GmpManager: GmpManagerBindings;
   NttTransceiver: NttTransceiverBindings;
 }
 
-export namespace MultiTokenNttManagerBindings {
-  export type NttManager = ReturnType<typeof _1_1_0.NttManager.connect>;
+export namespace MultiTokenNttBindings {
+  export type MultiTokenNtt = ReturnType<typeof _1_1_0.MultiTokenNtt.connect>;
 }
 
-export interface MultiTokenNttManagerBindings {
+export interface MultiTokenNttBindings {
   connect(
     address: string,
     provider: Provider
-  ): MultiTokenNttManagerBindings.NttManager;
+  ): MultiTokenNttBindings.MultiTokenNtt;
 }
 
 export namespace GmpManagerBindings {

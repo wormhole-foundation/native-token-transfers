@@ -42,18 +42,18 @@ import {
   GmpManagerBindings,
   loadAbiVersion,
   MultiTokenNttBindings,
-  MultiTokenNttManagerBindings,
 } from "./multiTokenNttBindings.js";
 import { getAxelarGasFee } from "./axelar.js";
+import { NativeTokenTransferCodec } from "./ethers-contracts/1_1_0/MultiTokenNtt.js";
 
 export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   implements MultiTokenNtt<N, C>
 {
   readonly chainId: bigint;
-  readonly abiBindings: MultiTokenNttBindings;
   readonly managerAddress: string;
-  readonly manager: MultiTokenNttManagerBindings.NttManager;
+  readonly multiTokenNtt: MultiTokenNttBindings.MultiTokenNtt;
   readonly gmpManager: GmpManagerBindings.GmpManager;
+  readonly abiBindings: ReturnType<typeof loadAbiVersion>;
 
   constructor(
     readonly network: N,
@@ -73,7 +73,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
     this.managerAddress = contracts.multiTokenNtt.manager;
 
-    this.manager = this.abiBindings.NttManager.connect(
+    this.multiTokenNtt = this.abiBindings.MultiTokenNtt.connect(
       contracts.multiTokenNtt.manager,
       this.provider
     );
@@ -85,7 +85,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   async isPaused(): Promise<boolean> {
-    return await this.manager.isPaused();
+    return await this.multiTokenNtt.isPaused();
   }
 
   async getIsExecuted(
@@ -157,6 +157,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       throw new Error("No multiTokenNtt contracts configured");
     }
 
+    // Use cached version to save on RPC calls
     const cacheKey = `${multiTokenNtt.chain}-${multiTokenNtt.manager}`;
     const cached = EvmMultiTokenNtt.versionCache.get(cacheKey);
     if (cached) {
@@ -345,7 +346,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       };
 
       transferTx =
-        await this.manager.wrapAndTransferGasToken.populateTransaction(
+        await this.multiTokenNtt.wrapAndTransferGasToken.populateTransaction(
           gasTokenTransferArgs,
           { value: amount + totalPrice }
         );
@@ -385,7 +386,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
         additionalPayload: "0x",
       };
 
-      transferTx = await this.manager.transfer.populateTransaction(
+      transferTx = await this.multiTokenNtt.transfer.populateTransaction(
         transferArgs,
         { value: totalPrice }
       );
@@ -447,7 +448,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   async getCurrentOutboundCapacity(localToken: TokenId): Promise<bigint> {
     const { chain, address } = await this.getOriginalToken(localToken);
 
-    return await this.manager.getCurrentOutboundCapacity({
+    return await this.multiTokenNtt.getCurrentOutboundCapacity({
       chainId: toChainId(chain),
       tokenAddress: address.toUint8Array(),
     });
@@ -457,7 +458,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     const { chain, address } = await this.getOriginalToken(localToken);
 
     const encoded: EncodedTrimmedAmount = (
-      await this.manager.getOutboundLimitParams({
+      await this.multiTokenNtt.getOutboundLimitParams({
         chainId: toChainId(chain),
         tokenAddress: address.toUint8Array(),
       })
@@ -473,7 +474,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     originalToken: MultiTokenNtt.OriginalTokenId,
     fromChain: Chain
   ): Promise<bigint> {
-    return await this.manager.getCurrentInboundCapacity(
+    return await this.multiTokenNtt.getCurrentInboundCapacity(
       {
         chainId: toChainId(originalToken.chain),
         tokenAddress: originalToken.address.toUint8Array(),
@@ -490,7 +491,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     if (localToken === null) return null; // Token not yet created
 
     const encoded: EncodedTrimmedAmount = (
-      await this.manager.getInboundLimitParams(
+      await this.multiTokenNtt.getInboundLimitParams(
         {
           chainId: toChainId(originalToken.chain),
           tokenAddress: originalToken.address.toUint8Array(),
@@ -509,22 +510,22 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   async getRateLimitDuration(): Promise<bigint> {
-    return await this.manager.rateLimitDuration();
+    return await this.multiTokenNtt.rateLimitDuration();
   }
 
   async getInboundQueuedTransfer(
     fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
-  ): Promise<Ntt.InboundQueuedTransfer<C> | null> {
-    const queuedTransfer = await this.manager.getInboundQueuedTransfer(
-      MultiTokenNtt.messageDigest(fromChain, transceiverMessage)
+  ): Promise<MultiTokenNtt.InboundQueuedTransfer | null> {
+    const digest = MultiTokenNtt.messageDigest(fromChain, transceiverMessage);
+    const queuedTransfer = await this.multiTokenNtt.getInboundQueuedTransfer(
+      digest
     );
     if (queuedTransfer.txTimestamp > 0n) {
-      const { recipient, amount, txTimestamp } = queuedTransfer;
+      const { sourceChainId, txTimestamp } = queuedTransfer;
       const duration = await this.getRateLimitDuration();
       return {
-        recipient: new EvmAddress(recipient) as AccountAddress<C>,
-        amount: amount,
+        sourceChain: toChain(sourceChainId),
         rateLimitExpiryTimestamp: Number(txTimestamp + duration),
       };
     }
@@ -535,17 +536,35 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
   ) {
+    const { trimmedAmount, token, sender, to } =
+      transceiverMessage.payload.data;
+
+    const nttStruct: NativeTokenTransferCodec.NativeTokenTransferStruct = {
+      amount: trimmedAmount.amount,
+      token: {
+        meta: token.meta,
+        token: {
+          chainId: toChainId(token.token.chainId),
+          tokenAddress: token.token.tokenAddress.toString(),
+        },
+      },
+      sender: sender.toString(),
+      to: to.toString(),
+      additionalPayload: "0x",
+    };
+
     const tx =
-      await this.manager.completeInboundQueuedTransfer.populateTransaction(
-        MultiTokenNtt.messageDigest(fromChain, transceiverMessage)
+      await this.multiTokenNtt.completeInboundQueuedTransfer.populateTransaction(
+        nttStruct
       );
+
     yield this.createUnsignedTx(tx, "Ntt.completeInboundQueuedTransfer");
   }
 
   async getOriginalToken(
     localToken: TokenId
   ): Promise<MultiTokenNtt.OriginalTokenId> {
-    const [tokenId] = await this.manager.getTokenId(
+    const [tokenId] = await this.multiTokenNtt.getTokenId(
       localToken.address.toString()
     );
 
@@ -562,7 +581,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   async getLocalToken(
     originalToken: MultiTokenNtt.OriginalTokenId
   ): Promise<TokenId | null> {
-    const localToken = await this.manager.getToken({
+    const localToken = await this.multiTokenNtt.getToken({
       chainId: toChainId(originalToken.chain),
       tokenAddress: originalToken.address.toUint8Array(),
     });
@@ -573,7 +592,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   async getWrappedNativeToken(): Promise<TokenId> {
-    const wethAddress = await this.manager.WETH();
+    const wethAddress = await this.multiTokenNtt.WETH();
     return { chain: this.chain, address: toNative(this.chain, wethAddress) };
   }
 
@@ -582,7 +601,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     originalToken: MultiTokenNtt.OriginalTokenId,
     tokenMeta: MultiTokenNtt.TokenMeta
   ): Promise<TokenAddress<C>> {
-    const tokenImplementation = await this.manager.tokenImplementation();
+    const tokenImplementation = await this.multiTokenNtt.tokenImplementation();
 
     const initializeSelector = ethers.id("initialize(string,string,uint8)");
 
@@ -606,7 +625,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       ]
     );
 
-    const creationCode = await this.manager.tokenProxyCreationCode();
+    const creationCode = await this.multiTokenNtt.tokenProxyCreationCode();
 
     const initCode = ethers.concat([creationCode, constructorArgs]);
     const initCodeHash = ethers.keccak256(initCode);

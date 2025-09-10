@@ -340,8 +340,6 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     return referrerFeeDbps;
   }
 
-  // TODO: we can probably make a bunch of these functions free in a utils file
-
   getReferrerAddress(fromChain: ChainContext<N>): ChainAddress {
     let referrer = getDefaultReferrerAddress(fromChain.chain);
     const referrerFeeConfig = this.staticConfig.referrerFee;
@@ -597,7 +595,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     };
   }
 
-  // TODO: this is nearly identical to the MultiTokenManualRoute version
+  // TODO: this is identical to the MultiTokenManualRoute version
   async complete(signer: Signer, receipt: R): Promise<R> {
     if (!isAttested(receipt) && !isFailed(receipt)) {
       if (isRedeemed(receipt)) return receipt;

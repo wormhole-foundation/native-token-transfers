@@ -56,6 +56,11 @@ export namespace MultiTokenNtt {
 
   export type Attestation = VAA<"MultiTokenNtt:WormholeTransfer">;
 
+  export type InboundQueuedTransfer = {
+    sourceChain: Chain;
+    rateLimitExpiryTimestamp: number;
+  };
+
   /**
    * messageDigest hashes a message for the Ntt manager, the digest is used
    * to uniquely identify the message
@@ -142,7 +147,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   getInboundQueuedTransfer(
     fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
-  ): Promise<Ntt.InboundQueuedTransfer<C> | null>;
+  ): Promise<MultiTokenNtt.InboundQueuedTransfer | null>;
 
   completeInboundQueuedTransfer(
     fromChain: Chain,
