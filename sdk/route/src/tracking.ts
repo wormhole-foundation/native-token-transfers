@@ -102,8 +102,6 @@ export async function trackAxelar<
     axelarTransceiver.index
   );
 
-  console.log("Axelar attested:", axelarAttested);
-
   if (axelarAttested) {
     // Clear error state if relay status is not an error
     if (isFailed(receipt)) {
@@ -125,8 +123,6 @@ export async function trackAxelar<
     receipt.from,
     txid
   );
-
-  console.log("Axelar status:", axelarStatus);
 
   if (axelarStatus.error) {
     return {
