@@ -1,12 +1,10 @@
 import {
-  Chain,
   Network,
   TransferState,
   isFailed,
   routes,
   isAttested,
 } from "@wormhole-foundation/sdk-connect";
-import { MultiTokenNtt, Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute } from "./types.js";
 import {
   getAxelarTransactionStatus,
@@ -16,37 +14,8 @@ import { fetchStatus, isRelayStatusFailed } from "./executor/utils.js";
 
 export async function trackExecutor<
   R extends MultiTokenNttRoute.ManualTransferReceipt
->(
-  network: Network,
-  receipt: R,
-  destinationNtt: MultiTokenNtt<Network, Chain>,
-  wormholeTransceiver: Ntt.TransceiverMeta
-): Promise<R> {
+>(network: Network, receipt: R): Promise<R> {
   if (!isAttested(receipt) && !isFailed(receipt)) {
-    return receipt;
-  }
-
-  if (!receipt.attestation) {
-    throw new Error("No attestation found on the transfer receipt");
-  }
-
-  const wormholeAttested = await destinationNtt.transceiverAttestedToMessage(
-    receipt.from,
-    receipt.attestation.attestation.payload.nttManagerPayload,
-    wormholeTransceiver.index
-  );
-
-  if (wormholeAttested) {
-    // Clear error state if relay status is not an error
-    if (isFailed(receipt)) {
-      return {
-        ...receipt,
-        state: TransferState.Attested,
-        // @ts-ignore
-        error: undefined,
-      };
-    }
-
     return receipt;
   }
 
@@ -57,14 +26,13 @@ export async function trackExecutor<
 
   const relayStatus = txStatus.status;
   if (isRelayStatusFailed(relayStatus)) {
-    receipt = {
+    return {
       ...receipt,
       state: TransferState.Failed,
       error: new routes.RelayFailedError(
         `Relay failed with status: ${relayStatus}`
       ),
     };
-    return receipt;
   }
 
   // Clear error state if relay status is not an error
@@ -82,37 +50,8 @@ export async function trackExecutor<
 
 export async function trackAxelar<
   R extends MultiTokenNttRoute.ManualTransferReceipt
->(
-  network: Network,
-  receipt: R,
-  destinationNtt: MultiTokenNtt<Network, Chain>,
-  axelarTransceiver: Ntt.TransceiverMeta
-): Promise<R> {
+>(network: Network, receipt: R): Promise<R> {
   if (!isAttested(receipt) && !isFailed(receipt)) {
-    return receipt;
-  }
-
-  if (!receipt.attestation) {
-    throw new Error("No attestation found on the transfer receipt");
-  }
-
-  const axelarAttested = await destinationNtt.transceiverAttestedToMessage(
-    receipt.from,
-    receipt.attestation.attestation.payload.nttManagerPayload,
-    axelarTransceiver.index
-  );
-
-  if (axelarAttested) {
-    // Clear error state if relay status is not an error
-    if (isFailed(receipt)) {
-      return {
-        ...receipt,
-        state: TransferState.Attested,
-        // @ts-ignore
-        error: undefined,
-      };
-    }
-
     return receipt;
   }
 
@@ -130,7 +69,6 @@ export async function trackAxelar<
       state: TransferState.Failed,
       error: new routes.RelayFailedError(
         `Axelar error: ${axelarStatus.error.message}`,
-        // @ts-ignore
         {
           url: getAxelarExplorerUrl(network, txid),
           name: "Axelarscan",

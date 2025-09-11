@@ -37,6 +37,7 @@ import {
   signedQuoteLayout,
   toChainId,
   toUniversal,
+  AttestedTransferReceipt,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "../types.js";
@@ -84,6 +85,9 @@ export namespace MultiTokenNttExecutorRoute {
     DC extends Chain = Chain
   > = _TransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt, SC, DC> & {
     params: ValidatedParams;
+    trackingInfo: {
+      transceiverAttested: { [type: string]: boolean };
+    };
   };
 }
 
@@ -592,6 +596,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       state: TransferState.SourceInitiated,
       originTxs: txids,
       params,
+      trackingInfo: { transceiverAttested: {} },
     };
   }
 
@@ -716,6 +721,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
         id: msgId,
         attestation: vaa,
       },
+      trackingInfo: { transceiverAttested: {} },
       params: {
         amount: amount.display(amt),
         normalizedParams: {
@@ -821,37 +827,42 @@ export class MultiTokenNttExecutorRoute<N extends Network>
         yield receipt;
       } else {
         const { sendTransceivers } = receipt.params.normalizedParams;
-        const wormholeTransceiver = sendTransceivers.find(
-          (t) => t.type.toLowerCase() === "wormhole"
-        );
-        if (wormholeTransceiver) {
-          const updatedReceipt = await trackExecutor(
-            this.wh.network,
-            receipt,
-            destinationNtt,
-            wormholeTransceiver
-          );
-          if (updatedReceipt !== receipt) {
-            receipt = updatedReceipt;
-            yield receipt;
+        for (const transceiver of sendTransceivers) {
+          const transceiverType = transceiver.type.toLowerCase();
+          if (receipt.trackingInfo.transceiverAttested[transceiverType]) {
+            continue;
           }
-        }
 
-        const axelarTransceiver = sendTransceivers.find(
-          (t) => t.type.toLowerCase() === "axelar"
-        );
-
-        if (axelarTransceiver) {
-          const updatedReceipt = await trackAxelar(
-            this.wh.network,
-            receipt,
-            destinationNtt,
-            axelarTransceiver
+          const attested = await destinationNtt.transceiverAttestedToMessage(
+            receipt.from,
+            receipt.attestation!.attestation.payload.nttManagerPayload,
+            transceiver.index
           );
-          if (updatedReceipt !== receipt) {
-            receipt = updatedReceipt;
-            yield receipt;
+          if (attested) {
+            receipt.trackingInfo.transceiverAttested[transceiverType] = true;
+            if (isFailed(receipt)) {
+              // Reset the receipt status if the transceiver attested
+              receipt = {
+                ...receipt,
+                attestation: receipt.attestation!,
+                state: TransferState.Attested,
+              } satisfies AttestedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
+              yield receipt;
+            }
+            continue;
           }
+
+          if (transceiverType === "wormhole") {
+            receipt = await trackExecutor(this.wh.network, receipt);
+          } else if (transceiverType === "axelar") {
+            receipt = await trackAxelar(this.wh.network, receipt);
+          } else {
+            throw new Error(
+              `Unsupported transceiver type: ${transceiver.type}`
+            );
+          }
+          yield receipt;
+          break;
         }
       }
     }

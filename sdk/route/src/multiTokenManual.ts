@@ -480,16 +480,14 @@ export class MultiTokenNttManualRoute<N extends Network>
         const axelarTransceiver = sendTransceivers.find(
           (t) => t.type.toLowerCase() === "axelar"
         );
-
         if (axelarTransceiver) {
-          const updatedReceipt = await trackAxelar(
-            this.wh.network,
-            receipt,
-            destinationNtt,
-            axelarTransceiver
+          const attested = await destinationNtt.transceiverAttestedToMessage(
+            receipt.from,
+            receipt.attestation!.attestation.payload.nttManagerPayload,
+            axelarTransceiver.index
           );
-          if (updatedReceipt !== receipt) {
-            receipt = updatedReceipt;
+          if (!attested) {
+            receipt = await trackAxelar(this.wh.network, receipt);
             yield receipt;
           }
         }
