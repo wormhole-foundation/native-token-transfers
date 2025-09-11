@@ -69,6 +69,7 @@ export async function trackAxelar<
       state: TransferState.Failed,
       error: new routes.RelayFailedError(
         `Axelar error: ${axelarStatus.error.message}`,
+        // @ts-ignore
         {
           url: getAxelarExplorerUrl(network, txid),
           name: "Axelarscan",
