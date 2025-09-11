@@ -3,7 +3,9 @@ import {
   ChainAddress,
   ChainContext,
   Network,
+  QuoteWarning,
   TokenId,
+  UnattestedTokenId,
   VAA,
   Wormhole,
   WormholeMessageId,
@@ -11,10 +13,11 @@ import {
   amount,
   canonicalAddress,
   isNative,
+  isSameToken,
   nativeTokenId,
   routes,
 } from "@wormhole-foundation/sdk-connect";
-import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { MultiTokenNtt, Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 export namespace NttRoute {
   // Currently only wormhole attestations supported
@@ -262,5 +265,209 @@ export namespace NttRoute {
       Math.min(amt.decimals, dstTokenDecimals, NttRoute.TRIMMED_DECIMALS)
     );
     return truncatedAmount;
+  }
+}
+export namespace MultiTokenNttRoute {
+  export type Config = {
+    contracts: MultiTokenNtt.Contracts[];
+    perTokenOverrides?: MultiTokenNttRoute.PerTokenGasLimit;
+  };
+
+  export type NormalizedParams = {
+    amount: amount.Amount;
+    sourceContracts: MultiTokenNtt.Contracts;
+    destinationContracts: MultiTokenNtt.Contracts;
+    sourceTokenId: TokenId;
+    destinationTokenId: TokenId;
+    originalTokenId: MultiTokenNtt.OriginalTokenId;
+    sendTransceivers: Ntt.TransceiverMeta[];
+    gasLimit: bigint;
+  };
+
+  export interface ValidatedParams
+    extends routes.ValidatedTransferParams<routes.Options> {
+    normalizedParams: NormalizedParams;
+  }
+
+  export type ManualAttestationReceipt = {
+    id: WormholeMessageId;
+    attestation: VAA<"MultiTokenNtt:WormholeTransfer">;
+  };
+
+  export type ManualTransferReceipt<
+    SC extends Chain = Chain,
+    DC extends Chain = Chain
+  > = _TransferReceipt<ManualAttestationReceipt, SC, DC> & {
+    params: ValidatedParams;
+  };
+
+  export function resolveSupportedNetworks(
+    contracts: MultiTokenNtt.Contracts[]
+  ): Network[] {
+    return ["Mainnet", "Testnet"];
+  }
+
+  export function resolveSupportedChains(
+    contracts: MultiTokenNtt.Contracts[],
+    network: Network
+  ): Chain[] {
+    return contracts.flatMap((c) => c.chain);
+  }
+
+  export function resolveContracts(
+    contracts: MultiTokenNtt.Contracts[],
+    chain: Chain
+  ): MultiTokenNtt.Contracts {
+    const cfg = contracts.find((c) => c.chain === chain);
+    if (!cfg) {
+      throw new Error(
+        "Cannot find MultiTokenNtt contracts in config for: " + chain
+      );
+    }
+    return cfg;
+  }
+
+  // Helper function to get the destination TokenId
+  export async function getDestinationTokenId<N extends Network>(
+    sourceToken: TokenId,
+    fromChain: ChainContext<N>,
+    toChain: ChainContext<N>,
+    contracts: MultiTokenNtt.Contracts[],
+    originalToken?: MultiTokenNtt.OriginalTokenId
+  ): Promise<TokenId> {
+    if (sourceToken.chain !== fromChain.chain) {
+      throw new Error("Source token must be native to the source chain");
+    }
+
+    const sourceNtt = await fromChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
+        contracts,
+        fromChain.chain
+      ),
+    });
+
+    const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: MultiTokenNttRoute.resolveContracts(
+        contracts,
+        toChain.chain
+      ),
+    });
+
+    if (isNative(sourceToken.address)) {
+      sourceToken = await sourceNtt.getWrappedNativeToken();
+    }
+
+    originalToken =
+      originalToken ?? (await sourceNtt.getOriginalToken(sourceToken));
+
+    // If the token exists on the destination chain, return it
+    const destinationToken = await destinationNtt.getLocalToken(originalToken);
+    if (destinationToken) {
+      // If the destination token is the wrapped native token,
+      // return the native token since it gets unwrapped by the contract
+      const wrappedNativeToken = await destinationNtt.getWrappedNativeToken();
+      if (isSameToken(wrappedNativeToken, destinationToken)) {
+        return nativeTokenId(toChain.chain);
+      }
+      return destinationToken;
+    }
+
+    // Otherwise the token will be created by the contract when the transfer is completed
+    const tokenMeta = await sourceNtt.getTokenMeta(sourceToken);
+
+    // The destination token address is deterministic, so calculate it here
+    // NOTE: there is a very slim race condition where the token is overridden before a transfer is completed
+    const destinationTokenAddress =
+      await destinationNtt.calculateLocalTokenAddress(originalToken, tokenMeta);
+
+    return {
+      chain: toChain.chain,
+      address: destinationTokenAddress,
+      isUnattested: true,
+      // TODO: decimals may need to be adjusted for non-EVM platforms if we support them
+      decimals: tokenMeta.decimals,
+      originalTokenId: Wormhole.tokenId(
+        sourceToken.chain,
+        sourceToken.address.toString()
+      ),
+    } as UnattestedTokenId;
+  }
+
+  export type PerTokenGasLimit = Partial<
+    Record<
+      Chain,
+      Record<
+        string,
+        {
+          gasLimit?: bigint;
+        }
+      >
+    >
+  >;
+
+  export async function estimateGasLimit<N extends Network>(
+    request: routes.RouteTransferRequest<N>,
+    originalTokenId: MultiTokenNtt.OriginalTokenId,
+    contracts: MultiTokenNtt.Contracts[],
+    overrides?: PerTokenGasLimit
+  ): Promise<bigint> {
+    if (overrides) {
+      const destinationTokenAddress = canonicalAddress(request.destination.id);
+      const override =
+        overrides[request.destination.id.chain]?.[destinationTokenAddress];
+      if (override?.gasLimit !== undefined) {
+        return override.gasLimit;
+      }
+    }
+
+    const destinationContracts = MultiTokenNttRoute.resolveContracts(
+      contracts,
+      request.toChain.chain
+    );
+
+    const destinationNtt = await request.toChain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: destinationContracts,
+    });
+
+    const gasLimit = await destinationNtt.estimateGasLimit(originalTokenId);
+
+    return gasLimit;
+  }
+
+  export async function checkRateLimit<N extends Network>(
+    destinationNtt: MultiTokenNtt<N, Chain>,
+    fromChain: Chain,
+    originalTokenId: MultiTokenNtt.OriginalTokenId,
+    receivedAmount: amount.Amount,
+    duration: bigint
+  ): Promise<QuoteWarning[] | undefined> {
+    if (duration > 0n) {
+      const inboundLimit = await destinationNtt.getInboundLimit(
+        originalTokenId,
+        fromChain
+      );
+
+      if (inboundLimit !== null) {
+        const capacity = await destinationNtt.getCurrentInboundCapacity(
+          originalTokenId,
+          fromChain
+        );
+
+        if (
+          NttRoute.isCapacityThresholdExceeded(
+            amount.units(receivedAmount),
+            capacity
+          )
+        ) {
+          return [
+            {
+              type: "DestinationCapacityWarning",
+              delayDurationSec: Number(duration),
+            },
+          ];
+        }
+      }
+    }
+    return undefined;
   }
 }
