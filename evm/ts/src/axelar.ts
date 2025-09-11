@@ -106,8 +106,8 @@ export async function getAxelarGasFee(
     }
   }
 
-  // If all retries returned 0, just return 0
-  return lastResult ?? 0n;
+  // If all retries returned 0, just return 1 wei
+  return lastResult ?? 1n;
 }
 
 export async function getAxelarTransactionStatus(

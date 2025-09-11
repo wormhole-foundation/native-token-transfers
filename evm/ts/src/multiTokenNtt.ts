@@ -270,16 +270,17 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
               payload: new Uint8Array([1]), // disable standard relayer, use executor route for automatic relay
             };
           case "axelar": {
-            // If we fail to fetch the gas fee, then use 0 as a fallback.
-            // The Axelar relay should fail and the track() method will
-            // surface a RelayFailedError. We don't want to fail the entire
-            // transfer just because we couldn't fetch the gas fee quote.
+            // If we fail to fetch the gas fee, then use 1 wei as a fallback.
+            // Do *NOT* use 0 wei as the Axelar status API will not return an error.
+            // The Axelar relay status should return an invalid gas fee error
+            // and the track() method will surface a RelayFailedError for the user
+            // to top up the gas fee.
             const gasFee = await getAxelarGasFee(
               this.network,
               this.chain,
               dstChain,
               gasLimit
-            ).catch(() => 0n);
+            ).catch(() => 1n);
             return {
               index: transceiver.index,
               payload: encoding.bignum.toBytes(gasFee, 32),
