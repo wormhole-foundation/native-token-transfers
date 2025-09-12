@@ -1,5 +1,5 @@
 {
-  "guardianSetIndex": 3,
+  "guardianSetIndex": 4,
   "chains": [
     {
       "description": "Ethereum",
@@ -30,6 +30,12 @@
       "evmNetworkId": 8453,
       "chainId": 30,
       "rpc": "https://mainnet.base.org"
+    },
+    {
+      "description": "XRPL EVM",
+      "evmNetworkId": 1440000,
+      "chainId": 57,
+      "rpc": "https://rpc.xrplevm.org"
     }
   ]
 }

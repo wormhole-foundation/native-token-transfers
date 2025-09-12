@@ -167,6 +167,10 @@
     {
       "address": "0x838a95B6a3E06B6f11C437e22f3C7561a6ec40F1",
       "chainId": 30
+    },
+    {
+      "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
+      "chainId": 57
     }
   ]
 }
