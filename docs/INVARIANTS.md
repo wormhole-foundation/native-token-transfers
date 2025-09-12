@@ -126,7 +126,7 @@
 
 ### INV-014: Pause Functionality
 
-- **Invariant**: The protocol must be pausable in emergency situations
+- **Invariant**: The protocol must be pausable in emergency situations. This should prevent inbound and outbound flows of assets.
 - **Description**: Allows immediate halt of operations if vulnerabilities are discovered
 - **Enforcement**: Pause state with operation blocking modifiers/constraints
 - **Error Codes**: `Paused` (Solana), **MISSING** (Sui)
@@ -208,33 +208,36 @@
 - **Enforcement**: Assertions on transceiver management code paths
 - **Code Reference**: `TransceiverRegistry.sol` (EVM)
 
-### INV-023: Attestation Threshold Bounds
+### INV-023: Minimum and Maximum Threshold Bounds
 
-- **Invariant**: `threshold <= number_of_enabled_transceivers && threshold > 0`
+- **Invariant**: Threshold must be 1) greater than zero and 2) less than or equal to the number of enabled transceivers
 - **Description**: Attestation threshold must not exceed available transceivers and must be positive
 - **Enforcement**: Explicit bounds checking in threshold setting functions
-- **Error Codes**: `ThresholdTooHigh`, `ZeroThreshold` (EVM/Solana), **MISSING VALIDATION** (Sui)
+- **Error Codes**: `ThresholdTooHigh`, `ZeroThreshold` (EVM/Solana)
 - **Code Reference**: `_checkThresholdInvariants()` (EVM), error enforcement (Solana), `EThresholdTooHigh` (Sui)
 
-### INV-024: Non-Zero Threshold Requirement
+### INV-024: Minimum Transceiver Requirement
 
-- **Invariant**: When transceivers are registered, threshold must be greater than zero
-- **Description**: Prevents configuration where messages cannot be approved due to zero threshold
-- **Enforcement**: Zero threshold validation when transceivers exist
-- **Error Codes**: `ZeroThreshold` (EVM/Solana), `EZeroThreshold` (Sui)
-- **Code Reference**: `if (numTransceivers.registered > 0 && threshold == 0) revert ZeroThreshold();`
-
-### INV-025: Minimum Transceiver Requirement
-
-- **Invariant**: At least one transceiver must be enabled for operations
+- **Invariant**: At least one transceiver must be enabled for operations (after initial deployment)
 - **Description**: Prevents operations when no transceivers are available to process messages
 - **Enforcement**: Enabled transceiver count validation before operations
 - **Error Codes**: `NoEnabledTransceivers` (EVM), `NoRegisteredTransceivers` (Solana)
-- **Code Reference**: `if (numEnabledTransceivers == 0) revert NoEnabledTransceivers();`
+
+### INV-025: Transceiver Registration Requirement
+
+- **Invariant**: A transceiver cannot be unregistered and its index must not change
+- **Description**: Transceivers should never be truly deleted, only disabled. This preserves their index into the bitmap which is crucial for attestation.
+- **Enforcement**: Assertions on transceiver management code paths
+
+### INV-026: Transceiver index should always increase
+
+- **Invariant**: The next transceiver index must always increase monotically
+- **Description**: The next transceiver index should always go up by one. This guarantees uniqueness of indices into the bitmap which is crucial for attestation.
+- **Enforcement**: Assertions on transceiver management code paths
 
 ## Timing and Release Controls
 
-### INV-026: Release Timing Validation
+### INV-027: Release Timing Validation
 
 - **Invariant**: Transfers can only be released after rate limit delay expires
 - **Description**: Enforces time-based delays for rate-limited transfers
@@ -242,7 +245,7 @@
 - **Error Codes**: `CantReleaseYet` (Solana), `ECantReleaseYet` (Sui)
 - **Code Reference**: Rate limiter queue system with timestamp checks, `try_release()` functions
 
-### INV-027: Transfer Redemption Controls
+### INV-028: Transfer Redemption Controls
 
 - **Invariant**: Transfers must be properly approved and not already redeemed before processing
 - **Description**: Prevents unauthorized or duplicate transfer redemptions
@@ -252,7 +255,7 @@
 
 ## Message Size Constraints
 
-### INV-028: Payload Length Limitation
+### INV-029: Payload Length Limitation
 
 - **Invariant**: NttManagerMessages and AdditionalPayloads must not exceed uint16 in size
 - **Description**: Prevents unbounded message sizes that could cause processing issues
@@ -260,7 +263,7 @@
 - **Error Codes**: `PayloadTooLong` (EVM)
 - **Code Reference**: `TransceiverStructs.sol` (EVM), implementation of `Writable` trait for `NativeTokenTransfer` (Solana)
 
-### INV-029: Transceiver Instruction Length Limitation
+### INV-030: Transceiver Instruction Length Limitation
 
 - **Invariant**: Individual transceiver instruction payloads must not exceed uint8 in size
 - **Description**: Prevents unbounded message sizes that could cause processing issues
