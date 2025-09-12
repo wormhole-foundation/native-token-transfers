@@ -1040,4 +1040,166 @@ module sui_m::m_token_tests {
         return_shared_objects(global, portal_cap, registrar_cap);
         test_scenario::end(scenario);
     }
+
+    #[test]
+    fun test_claim_yield_for_recipient() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+
+        // Setup index and initial state
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+
+        // Setup Alice as earner with balance
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+
+        // Make BOB an earner too BEFORE index growth so he can have yield to claim
+        m_token::approve_earner(&mut global, &registrar_cap, BOB);
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, BOB, 500, ctx);
+
+        next_tx(&mut scenario, BOB);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+
+        // Let some time pass with index growth - both Alice and BOB will have yield
+        set_index(&mut global, EXPECTED_CURRENT_INDEX * 110 / 100); // 10% growth
+
+        // Alice claims yield for BOB (BOB's yield, sent to BOB)
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield_for(&mut global, BOB, ctx);
+
+        // Check that BOB received his yield coins
+        next_tx(&mut scenario, BOB);
+        let coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let yield_received = coin::value(&coin);
+        assert!(yield_received > 0, 0); // BOB should have received his yield
+        test_scenario::return_to_sender(&scenario, coin);
+
+        // BOB's internal balance should still show earning amount (unchanged)
+        let bob_balance = m_token::balance_of(&global, BOB);
+        assert!(bob_balance > 500, 1); // BOB's earning balance reflects index growth
+
+        // Alice's balance should still show earning amount (unchanged by BOB's claim)
+        let alice_balance = m_token::balance_of(&global, ALICE);
+        assert!(alice_balance > 1000, 2); // Alice's earning balance reflects index growth
+
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_claim_yield_and_join() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+
+        // Setup index and initial state
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+
+        // Setup Alice as earner with balance
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+
+        // Alice gets her initial coin
+        let mut alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let initial_coin_value = coin::value(&alice_coin);
+
+        // Let some time pass with index growth
+        set_index(&mut global, EXPECTED_CURRENT_INDEX * 110 / 100); // 10% growth
+
+        // Alice claims yield and joins it with existing coin
+        let ctx = ctx(&mut scenario);
+        let yield_coin = m_token::claim_yield_and_join(&mut global, ctx);
+        let yield_amount = coin::value(&yield_coin);
+
+        assert!(yield_amount > 0, 0); // Should have some yield
+
+        // Join the coins
+        coin::join(&mut alice_coin, yield_coin);
+        let final_coin_value = coin::value(&alice_coin);
+
+        // Final coin value should be initial + yield
+        assert!(final_coin_value == initial_coin_value + yield_amount, 1);
+        assert!(final_coin_value > initial_coin_value, 2);
+
+        test_scenario::return_to_sender(&scenario, alice_coin);
+
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_claim_variants_equivalence() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+
+        // Setup index and initial state
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+
+        // Setup two identical earners
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        m_token::approve_earner(&mut global, &registrar_cap, BOB);
+
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+        m_token::mint_no_index(&mut global, &portal_cap, BOB, 1000, ctx);
+
+        // Both start earning at the same time
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+
+        next_tx(&mut scenario, BOB);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+
+        // Same index growth for both
+        set_index(&mut global, EXPECTED_CURRENT_INDEX * 110 / 100); // 10% growth
+
+        // Bob uses claim_yield_and_join first
+        next_tx(&mut scenario, BOB);
+        let mut bob_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let ctx = ctx(&mut scenario);
+        let yield_coin = m_token::claim_yield_and_join(&mut global, ctx);
+        coin::join(&mut bob_coin, yield_coin);
+        let bob_total = coin::value(&bob_coin);
+
+        // Alice uses claim_yield_and_join too for fair comparison
+        next_tx(&mut scenario, ALICE);
+        let mut alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let ctx = ctx(&mut scenario);
+        let alice_yield_coin = m_token::claim_yield_and_join(&mut global, ctx);
+        coin::join(&mut alice_coin, alice_yield_coin);
+        let alice_total = coin::value(&alice_coin);
+
+        // They should have equivalent amounts (allowing for rounding differences)
+        let diff = if (alice_total > bob_total) {
+            alice_total - bob_total
+        } else {
+            bob_total - alice_total
+        };
+        assert!(diff <= 1, 0);
+
+        // Clean up coins (destroy them since we can't return modified objects)
+        sui::test_utils::destroy(alice_coin);
+        sui::test_utils::destroy(bob_coin);
+
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
 }

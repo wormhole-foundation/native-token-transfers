@@ -425,58 +425,101 @@ module sui_m::m_token {
         stop_earning_internal(global , account);
     }
 
-    /// Claim accrued yield for earning account
+    /// Claim accrued yield for specified recipient and transfer to them
+    /// Calculates yield based on recipient's index growth since last claim and mints it to recipient
+    public fun claim_yield_for(
+        global: &mut MTokenGlobal,
+        recipient: address,
+        ctx: &mut TxContext
+    ) {
+        let yield_coin = claim_yield_internal(global, recipient, ctx);
+        
+        // Transfer to recipient if yield was generated
+        if (coin::value(&yield_coin) > 0) {
+            transfer::public_transfer(yield_coin, recipient);
+        } else {
+            // Destroy zero-value coin
+            coin::destroy_zero(yield_coin);
+        };
+    }
+    
+    /// Claim accrued yield for sender and return coin for joining
+    /// Calculates yield based on sender's index growth since last claim and returns coin for joining
+    public fun claim_yield_and_join(
+        global: &mut MTokenGlobal,
+        ctx: &mut TxContext
+    ): Coin<M_TOKEN> {
+        let sender = tx_context::sender(ctx);
+        let yield_coin = claim_yield_internal(global, sender, ctx);
+        
+        // Return the yield coin to be joined by the caller
+        yield_coin
+    }
+    
+    /// Claim accrued yield for earning account (legacy function - claims for self)
     /// Calculates yield based on index growth since last claim and mints it to caller
     public fun claim_yield(
         global: &mut MTokenGlobal, 
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
-        
-        // Must have a balance entry
-        assert!(table::contains(&global.balances, sender), EAccountNotFound);
+        claim_yield_for(global, sender, ctx);
+    }
+
+    /// Internal function that performs the actual yield claiming logic
+    /// Returns a coin with the yield amount that can be handled by the caller
+    fun claim_yield_internal(
+        global: &mut MTokenGlobal,
+        account: address, 
+        ctx: &mut TxContext
+    ): Coin<M_TOKEN> {
+        // Check account exists and is earning
+        assert!(table::contains(&global.balances, account), EAccountNotFound);
         
         let current_idx = current_index(global);
-        let balance = table::borrow_mut(&mut global.balances, sender);
+        let balance = table::borrow_mut(&mut global.balances, account);
         
-        // Must be earning to claim
-        assert!(balance.is_earning, ENotApprovedEarner); // Using existing error for simplicity
+        // Must be earning account to claim yield
+        assert!(balance.is_earning, ENotApprovedEarner);
         
+        // Get current principal and last claim index
         let current_principal = (balance.raw_balance as u128);
-        if (current_principal == 0) return; // No principal, no yield
-        
         let last_claim_idx = balance.last_claim_index;
-        if (current_idx <= last_claim_idx) return; // No yield to claim
         
-        // Calculate current balance value with current index
-        let current_balance = get_present_amount_with_index(current_principal, current_idx);
+        // Calculate yield based on index growth
+        let present_amount_at_last_claim = get_present_amount_with_index(current_principal, last_claim_idx);
+        let present_amount_now = get_present_amount_with_index(current_principal, current_idx);
         
-        // Calculate balance value at last claim index
-        let balance_at_last_claim = get_present_amount_with_index(current_principal, last_claim_idx);
+        // Yield is the difference (may be 0 if no index growth)
+        let yield_amount = if (present_amount_now > present_amount_at_last_claim) {
+            present_amount_now - present_amount_at_last_claim
+        } else {
+            0
+        };
         
-        // Yield is the difference
-        let yield_amount = current_balance - balance_at_last_claim;
-        if (yield_amount == 0) return; // No yield due to rounding
-        
-        // Simply update the claim index - keep the principal unchanged
+        // Update last claim index to current (even if yield is 0)
         balance.last_claim_index = current_idx;
         
-        // The actual yield to mint is just the calculated yield
-        let actual_yield = yield_amount;
-        
-        // Mint the actual yield amount to the user
-        if (actual_yield > 0) {
-            let yield_coin = coin::mint(&mut global.treasury_cap, (actual_yield as u64), ctx);
-            transfer::public_transfer(yield_coin, sender);
-            
-            // Emit event
-            event::emit(ClaimedYield {
-                account: sender,
-                yield_amount: actual_yield,
-                new_principal: current_principal, // Principal stays the same
-                claim_index: current_idx
-            });
+        // If no yield, return zero coin
+        if (yield_amount == 0) {
+            return coin::zero(ctx)
         };
+        
+        // Update global earning supply to include the yield
+        global.total_earning_supply = global.total_earning_supply + yield_amount;
+        
+        // Mint yield coins
+        let yield_coin = coin::mint(&mut global.treasury_cap, (yield_amount as u64), ctx);
+        
+        // Emit claim event
+        event::emit(ClaimedYield { 
+            account,
+            yield_amount,
+            new_principal: current_principal,  // Principal stays the same
+            claim_index: current_idx
+        });
+        
+        yield_coin
     }
 
     /// Internal function to stop earning for an account
