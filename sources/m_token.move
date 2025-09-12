@@ -75,6 +75,8 @@ module sui_m::m_token {
         total_non_earning_supply: u256,
         /// Principal of total earning supply (uint112 → u128)
         principal_of_total_earning_supply: u128,
+        /// Actual total earning supply (tracked directly for exact consistency)
+        total_earning_supply: u256,
         /// Account balances table
         balances: Table<address, AccountBalance>,
         /// Approved earners table (managed by registrar logic)
@@ -147,6 +149,7 @@ module sui_m::m_token {
             registrar: deployer, // Will be updated to actual registrar
             total_non_earning_supply: 0,
             principal_of_total_earning_supply: 0,
+            total_earning_supply: 0,
             balances: table::new(ctx),
             approved_earners: table::new(ctx)
         };
@@ -228,26 +231,39 @@ module sui_m::m_token {
         let current_idx = current_index(global);
         let balance = table::borrow_mut(&mut global.balances, recipient);
 
-        if (balance.is_earning) {
-            // Add earning amount (principal rounded down)
-            let principal_amount =
-                get_principal_amount_rounded_down_with_index(amount, current_idx);
-            balance.raw_balance = balance.raw_balance + (principal_amount as u256);
-            global.principal_of_total_earning_supply =
-                global.principal_of_total_earning_supply + principal_amount;
-        } else {
-            // Add non-earning amount
-            balance.raw_balance = balance.raw_balance + amount;
-            global.total_non_earning_supply = global.total_non_earning_supply + amount;
-        };
+        // Calculate the actual amount to mint (may be rounded down for earners)
+        let actual_mint_amount =
+            if (balance.is_earning) {
+                // For earning accounts, mint only what we can account for (rounded down)
+                let principal_amount =
+                    get_principal_amount_rounded_down_with_index(amount, current_idx);
+                balance.raw_balance = balance.raw_balance + (principal_amount as u256);
+                global.principal_of_total_earning_supply =
+                    global.principal_of_total_earning_supply + principal_amount;
+
+                // Calculate the present amount corresponding to this principal (rounded down)
+                let present_amount =
+                    get_present_amount_with_index(principal_amount, current_idx);
+                global.total_earning_supply = global.total_earning_supply
+                    + present_amount;
+                present_amount
+            } else {
+                // For non-earning accounts, mint the full amount
+                balance.raw_balance = balance.raw_balance + amount;
+                global.total_non_earning_supply = global.total_non_earning_supply
+                    + amount;
+                amount
+            };
 
         // Mint actual coins and transfer to recipient
-        let coin = coin::mint(&mut global.treasury_cap, (amount as u64), ctx);
+        let coin = coin::mint(&mut global.treasury_cap, (actual_mint_amount as u64), ctx);
         transfer::public_transfer(coin, recipient);
 
-        // Emit event
-        event::emit(Mint { recipient, amount });
+        // Emit event for actual minted amount
+        event::emit(Mint { recipient, amount: actual_mint_amount });
     }
+
+    // TODO: Inspect whether or not to burn `coin_to_burn` or a rounded DOWN value (for earners)
 
     /// Burn tokens from caller (requires Portal capability)
     public fun burn(
@@ -276,6 +292,7 @@ module sui_m::m_token {
             balance.raw_balance = balance.raw_balance - (principal_amount as u256);
             global.principal_of_total_earning_supply =
                 global.principal_of_total_earning_supply - principal_amount;
+            global.total_earning_supply = global.total_earning_supply - amount;
         } else {
             // Subtract non-earning amount
             assert!(balance.raw_balance >= amount, EInsufficientBalance);
@@ -366,10 +383,16 @@ module sui_m::m_token {
             get_principal_amount_rounded_down_with_index(amount, current_idx);
         balance.raw_balance = (principal_amount as u256);
 
+        // Calculate the actual earning amount (may be less than original due to rounding)
+        let earning_amount = get_present_amount_with_index(
+            principal_amount, current_idx
+        );
+
         // Update global accounting
         global.principal_of_total_earning_supply =
             global.principal_of_total_earning_supply + principal_amount;
         global.total_non_earning_supply = global.total_non_earning_supply - amount;
+        global.total_earning_supply = global.total_earning_supply + earning_amount;
     }
 
     /// Stop earning (caller stops their own earning)
@@ -414,10 +437,16 @@ module sui_m::m_token {
         let amount = get_present_amount_with_index(principal_amount, current_idx);
         balance.raw_balance = amount;
 
+        // Calculate the earning amount being removed (what was actually tracked)
+        let earning_amount_removed =
+            get_present_amount_with_index(principal_amount, current_idx);
+
         // Update global accounting
         global.total_non_earning_supply = global.total_non_earning_supply + amount;
         global.principal_of_total_earning_supply =
             global.principal_of_total_earning_supply - principal_amount;
+        global.total_earning_supply = global.total_earning_supply
+            - earning_amount_removed;
     }
 
     // ============ Helper Functions ============
@@ -447,9 +476,7 @@ module sui_m::m_token {
 
     /// Get total earning supply
     public fun total_earning_supply(global: &MTokenGlobal): u256 {
-        get_present_amount_with_index(
-            global.principal_of_total_earning_supply, current_index(global)
-        )
+        global.total_earning_supply
     }
 
     /// Get total supply (earning + non-earning)
@@ -529,18 +556,19 @@ module sui_m::m_token {
     public fun principal_of_total_earning_supply(global: &MTokenGlobal): u128 {
         global.principal_of_total_earning_supply
     }
-    
+
     // ============ Test Helper Functions ============
-    
+
     #[test_only]
     /// Initialize module for testing
     public fun test_init(ctx: &mut TxContext) {
         init(M_TOKEN {}, ctx)
     }
-    
+
     #[test_only]
     /// Get mutable reference to indexing for testing
-    public fun get_indexing_mut_for_testing(global: &mut MTokenGlobal): &mut ContinuousIndexing {
+    public fun get_indexing_mut_for_testing(global: &mut MTokenGlobal):
+        &mut ContinuousIndexing {
         &mut global.indexing
     }
 }
