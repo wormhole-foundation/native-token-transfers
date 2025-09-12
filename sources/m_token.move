@@ -529,4 +529,18 @@ module sui_m::m_token {
     public fun principal_of_total_earning_supply(global: &MTokenGlobal): u128 {
         global.principal_of_total_earning_supply
     }
+    
+    // ============ Test Helper Functions ============
+    
+    #[test_only]
+    /// Initialize module for testing
+    public fun test_init(ctx: &mut TxContext) {
+        init(M_TOKEN {}, ctx)
+    }
+    
+    #[test_only]
+    /// Get mutable reference to indexing for testing
+    public fun get_indexing_mut_for_testing(global: &mut MTokenGlobal): &mut ContinuousIndexing {
+        &mut global.indexing
+    }
 }
