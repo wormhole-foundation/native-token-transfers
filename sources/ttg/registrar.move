@@ -21,6 +21,7 @@ module sui_m::registrar {
         values: Table<vector<u8>, vector<u8>>
     }
 
+    // TODO: replicate immutability of portal module
     /// Portal capability - allows modifying registrar data
     public struct PortalCap has key, store {
         id: UID
