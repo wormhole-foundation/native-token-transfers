@@ -1,8 +1,9 @@
 module sui_m::m_token {
-    use sui::object;
-    use sui::coin::{Self, TreasuryCap};
+    use sui::coin::{Self, TreasuryCap, Coin};
     use sui::table::{Self, Table};
+    use sui::event;
     use sui_m::continuous_indexing::{Self, ContinuousIndexing};
+    use sui_m::continuous_indexing_math::{divide_down, divide_up, multiply_down};
 
     // ============ Constants ============
 
@@ -10,7 +11,7 @@ module sui_m::m_token {
     const DECIMALS: u8 = 6;
 
     /// Token name
-    const NAME: vector<u8> = b"M by M^0";
+    const NAME: vector<u8> = b"M by M0";
 
     /// Token symbol
     const SYMBOL: vector<u8> = b"M";
@@ -32,23 +33,17 @@ module sui_m::m_token {
     /// Error when calling startEarning for a non-approved earner
     const ENotApprovedEarner: u64 = 4;
 
-    /// Error when the caller is not the Portal
-    const ENotPortal: u64 = 5;
-
     /// Error when principal of total supply would overflow
     const EOverflowsPrincipalOfTotalSupply: u64 = 6;
-
-    /// Error when the Portal address is zero
-    const EZeroPortal: u64 = 7;
-
-    /// Error when the Registrar address is zero
-    const EZeroRegistrar: u64 = 8;
 
     /// Error when amount is zero
     const EInsufficientAmount: u64 = 9;
 
     /// Error when recipient is invalid
     const EInvalidRecipient: u64 = 10;
+
+    /// Error when account balance not found
+    const EAccountNotFound: u64 = 11;
 
     // ============ Structs ============
 
@@ -173,59 +168,365 @@ module sui_m::m_token {
         transfer::public_freeze_object(metadata);
     }
 
-    // ============ Portal Functions (to be implemented) ============
+    // ============ Portal Functions ============
 
-    // Mint with index update
-    // public fun mint(global: &mut MTokenGlobal, cap: &PortalCap, recipient: address, amount: u256, index: u128, ctx: &mut TxContext)
+    /// Mint tokens with index update (requires Portal capability)
+    public fun mint(
+        global: &mut MTokenGlobal,
+        _cap: &PortalCap,
+        recipient: address,
+        amount: u256,
+        index: u128,
+        ctx: &mut TxContext
+    ) {
+        // Update index first
+        continuous_indexing::update_index(
+            &mut global.indexing, index, tx_context::epoch_timestamp_ms(ctx) / 1000
+        );
 
-    // Mint without index update
-    // public fun mint_no_index(global: &mut MTokenGlobal, cap: &PortalCap, recipient: address, amount: u256, ctx: &mut TxContext)
+        // Then mint tokens
+        mint_no_index(global , _cap, recipient, amount, ctx);
+    }
 
-    // Burn from sender
-    // public fun burn(global: &mut MTokenGlobal, cap: &PortalCap, coin: Coin<M_TOKEN>, ctx: &mut TxContext)
+    /// Mint tokens without index update (requires Portal capability)
+    public fun mint_no_index(
+        global: &mut MTokenGlobal,
+        _cap: &PortalCap,
+        recipient: address,
+        amount: u256,
+        ctx: &mut TxContext
+    ) {
+        assert!(amount > 0, EInsufficientAmount);
+        assert!(recipient != @0x0, EInvalidRecipient);
 
-    // Update index
-    // public fun update_index(global: &mut MTokenGlobal, cap: &PortalCap, index: u128, ctx: &mut TxContext)
+        // Check overflow protection (converted from Solidity logic)
+        let max_u240 =
+            1766847064778384329583297500742918515827483896875618958121606201292619775u256; // 2^240 - 1
+        let max_u112 = 5192296858534827628530496329220095u128; // 2^112 - 1
 
-    // ============ Registrar Functions (to be implemented) ============
+        assert!(
+            global.total_non_earning_supply + amount <= max_u240
+                && (global.principal_of_total_earning_supply as u256)
+                    + (
+                        get_principal_amount_rounded_up_with_index(
+                            global.total_non_earning_supply + amount,
+                            current_index(global)
+                        ) as u256
+                    ) < (max_u112 as u256),
+            EOverflowsPrincipalOfTotalSupply
+        );
 
-    // Approve an account as earner
-    // public fun approve_earner(global: &mut MTokenGlobal, cap: &RegistrarCap, account: address)
+        // Get or create balance entry
+        if (!table::contains(&global.balances, recipient)) {
+            table::add(
+                &mut global.balances,
+                recipient,
+                AccountBalance { is_earning: false, raw_balance: 0 }
+            );
+        };
 
-    // Revoke earner approval
-    // public fun revoke_earner(global: &mut MTokenGlobal, cap: &RegistrarCap, account: address)
+        let current_idx = current_index(global);
+        let balance = table::borrow_mut(&mut global.balances, recipient);
 
-    // ============ User Functions (to be implemented) ============
+        if (balance.is_earning) {
+            // Add earning amount (principal rounded down)
+            let principal_amount =
+                get_principal_amount_rounded_down_with_index(amount, current_idx);
+            balance.raw_balance = balance.raw_balance + (principal_amount as u256);
+            global.principal_of_total_earning_supply =
+                global.principal_of_total_earning_supply + principal_amount;
+        } else {
+            // Add non-earning amount
+            balance.raw_balance = balance.raw_balance + amount;
+            global.total_non_earning_supply = global.total_non_earning_supply + amount;
+        };
 
-    // Start earning (caller must be approved)
-    // public fun start_earning(global: &mut MTokenGlobal, ctx: &mut TxContext)
+        // Mint actual coins and transfer to recipient
+        let coin = coin::mint(&mut global.treasury_cap, (amount as u64), ctx);
+        transfer::public_transfer(coin, recipient);
 
-    // Stop earning (caller stops their own earning)
-    // public fun stop_earning(global: &mut MTokenGlobal, ctx: &mut TxContext)
+        // Emit event
+        event::emit(Mint { recipient, amount });
+    }
 
-    // Force stop earning for an account (only if not approved)
-    // public fun stop_earning_for(global: &mut MTokenGlobal, account: address, ctx: &mut TxContext)
+    /// Burn tokens from caller (requires Portal capability)
+    public fun burn(
+        global: &mut MTokenGlobal,
+        _cap: &PortalCap,
+        coin_to_burn: Coin<M_TOKEN>,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let amount = (coin::value(&coin_to_burn) as u256);
 
-    // ============ View Functions (to be implemented) ============
+        assert!(amount > 0, EInsufficientAmount);
+        assert!(table::contains(&global.balances, sender), EAccountNotFound);
 
-    // Get total earning supply
-    // public fun total_earning_supply(global: &MTokenGlobal): u256
+        let current_idx = current_index(global);
+        let balance = table::borrow_mut(&mut global.balances, sender);
 
-    // Get total supply (earning + non-earning)
-    // public fun total_supply(global: &MTokenGlobal): u256
+        if (balance.is_earning) {
+            // Subtract earning amount (principal rounded up in favor of protocol)
+            let principal_amount =
+                get_principal_amount_rounded_up_with_index(amount, current_idx);
+            assert!(
+                balance.raw_balance >= (principal_amount as u256), EInsufficientBalance
+            );
 
-    // Get principal balance of an account
-    // public fun principal_balance_of(global: &MTokenGlobal, account: address): u256
+            balance.raw_balance = balance.raw_balance - (principal_amount as u256);
+            global.principal_of_total_earning_supply =
+                global.principal_of_total_earning_supply - principal_amount;
+        } else {
+            // Subtract non-earning amount
+            assert!(balance.raw_balance >= amount, EInsufficientBalance);
 
-    // Get balance of an account
-    // public fun balance_of(global: &MTokenGlobal, account: address): u256
+            balance.raw_balance = balance.raw_balance - amount;
+            global.total_non_earning_supply = global.total_non_earning_supply - amount;
+        };
 
-    // Check if account is earning
-    // public fun is_earning(global: &MTokenGlobal, account: address): bool
+        // Burn the actual coin
+        coin::burn(&mut global.treasury_cap, coin_to_burn);
 
-    // Get current index
-    // public fun current_index(global: &MTokenGlobal): u128
+        // Emit event
+        event::emit(Burn { account: sender, amount });
+    }
 
-    // Check if account is approved earner
-    // public fun is_approved_earner(global: &MTokenGlobal, account: address): bool
+    /// Update index (requires Portal capability)
+    public fun update_index(
+        global: &mut MTokenGlobal,
+        _cap: &PortalCap,
+        index: u128,
+        ctx: &mut TxContext
+    ) {
+        continuous_indexing::update_index(
+            &mut global.indexing, index, tx_context::epoch_timestamp_ms(ctx) / 1000
+        );
+    }
+
+    // ============ Registrar Functions ============
+
+    /// Approve an account as earner (requires Registrar capability)
+    public fun approve_earner(
+        global: &mut MTokenGlobal, _cap: &RegistrarCap, account: address
+    ) {
+        if (table::contains(&global.approved_earners, account)) {
+            *table::borrow_mut(&mut global.approved_earners, account) = true;
+        } else {
+            table::add(&mut global.approved_earners, account, true);
+        }
+    }
+
+    /// Revoke earner approval (requires Registrar capability)
+    public fun revoke_earner(
+        global: &mut MTokenGlobal, _cap: &RegistrarCap, account: address
+    ) {
+        if (table::contains(&global.approved_earners, account)) {
+            *table::borrow_mut(&mut global.approved_earners, account) = false;
+        }
+    }
+
+    // ============ User Functions ============
+
+    /// Start earning (caller must be approved)
+    public fun start_earning(
+        global: &mut MTokenGlobal, ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+
+        // Check if approved earner
+        assert!(is_approved_earner(global , sender), ENotApprovedEarner);
+
+        // Check if index is initialized
+        assert!(current_index(global) != EXP_SCALED_ONE, EIndexNotInitialized);
+
+        // Get or create balance entry
+        if (!table::contains(&global.balances, sender)) {
+            table::add(
+                &mut global.balances,
+                sender,
+                AccountBalance { is_earning: false, raw_balance: 0 }
+            );
+        };
+
+        let current_idx = current_index(global);
+        let balance = table::borrow_mut(&mut global.balances, sender);
+
+        // If already earning, do nothing
+        if (balance.is_earning) return;
+
+        // Start earning
+        event::emit(StartedEarning { account: sender });
+        balance.is_earning = true;
+
+        let amount = balance.raw_balance;
+        if (amount == 0) return;
+
+        // Convert non-earning balance to principal (rounded down)
+        let principal_amount =
+            get_principal_amount_rounded_down_with_index(amount, current_idx);
+        balance.raw_balance = (principal_amount as u256);
+
+        // Update global accounting
+        global.principal_of_total_earning_supply =
+            global.principal_of_total_earning_supply + principal_amount;
+        global.total_non_earning_supply = global.total_non_earning_supply - amount;
+    }
+
+    /// Stop earning (caller stops their own earning)
+    public fun stop_earning(
+        global: &mut MTokenGlobal, ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        stop_earning_internal(global , sender);
+    }
+
+    /// Force stop earning for an account (only if not approved)
+    public fun stop_earning_for(
+        global: &mut MTokenGlobal, account: address, _ctx: &mut TxContext
+    ) {
+        // Check that account is not an approved earner
+        assert!(!is_approved_earner(global , account), EIsApprovedEarner);
+
+        stop_earning_internal(global , account);
+    }
+
+    /// Internal function to stop earning for an account
+    fun stop_earning_internal(
+        global: &mut MTokenGlobal, account: address
+    ) {
+        if (!table::contains(&global.balances, account))
+            return;
+
+        let current_idx = current_index(global);
+        let balance = table::borrow_mut(&mut global.balances, account);
+
+        // If not earning, do nothing
+        if (!balance.is_earning) return;
+
+        // Stop earning
+        event::emit(StoppedEarning { account });
+        balance.is_earning = false;
+
+        let principal_amount = (balance.raw_balance as u128);
+        if (principal_amount == 0) return;
+
+        // Convert principal to present amount (rounded down)
+        let amount = get_present_amount_with_index(principal_amount, current_idx);
+        balance.raw_balance = amount;
+
+        // Update global accounting
+        global.total_non_earning_supply = global.total_non_earning_supply + amount;
+        global.principal_of_total_earning_supply =
+            global.principal_of_total_earning_supply - principal_amount;
+    }
+
+    // ============ Helper Functions ============
+
+    /// Get principal amount rounded down from present amount using current index
+    fun get_principal_amount_rounded_down_with_index(
+        present_amount: u256, index: u128
+    ): u128 {
+        divide_down(present_amount, index)
+    }
+
+    /// Get principal amount rounded up from present amount using current index
+    fun get_principal_amount_rounded_up_with_index(
+        present_amount: u256, index: u128
+    ): u128 {
+        divide_up(present_amount, index)
+    }
+
+    /// Get present amount from principal using current index (rounded down)
+    fun get_present_amount_with_index(
+        principal_amount: u128, index: u128
+    ): u256 {
+        multiply_down(principal_amount, index)
+    }
+
+    // ============ View Functions ============
+
+    /// Get total earning supply
+    public fun total_earning_supply(global: &MTokenGlobal): u256 {
+        get_present_amount_with_index(
+            global.principal_of_total_earning_supply, current_index(global)
+        )
+    }
+
+    /// Get total supply (earning + non-earning)
+    public fun total_supply(global: &MTokenGlobal): u256 {
+        global.total_non_earning_supply + total_earning_supply(global)
+    }
+
+    /// Get principal balance of an account (only for earning accounts)
+    public fun principal_balance_of(
+        global: &MTokenGlobal, account: address
+    ): u256 {
+        if (!table::contains(&global.balances, account))
+            return 0;
+
+        let balance = table::borrow(&global.balances, account);
+        if (balance.is_earning) {
+            balance.raw_balance
+        } else { 0 }
+    }
+
+    /// Get effective balance of an account (present value)
+    public fun balance_of(global: &MTokenGlobal, account: address): u256 {
+        if (!table::contains(&global.balances, account))
+            return 0;
+
+        let balance = table::borrow(&global.balances, account);
+        if (balance.is_earning) {
+            // Convert principal to present amount
+            get_present_amount_with_index(
+                (balance.raw_balance as u128), current_index(global)
+            )
+        } else {
+            balance.raw_balance
+        }
+    }
+
+    /// Check if account is earning
+    public fun is_earning(global: &MTokenGlobal, account: address): bool {
+        if (!table::contains(&global.balances, account))
+            return false;
+
+        let balance = table::borrow(&global.balances, account);
+        balance.is_earning
+    }
+
+    /// Get current index
+    public fun current_index(global: &MTokenGlobal): u128 {
+        continuous_indexing::current_index(&global.indexing)
+    }
+
+    /// Check if account is approved earner
+    public fun is_approved_earner(
+        global: &MTokenGlobal, account: address
+    ): bool {
+        if (!table::contains(&global.approved_earners, account))
+            return false;
+
+        *table::borrow(&global.approved_earners, account)
+    }
+
+    /// Get portal address
+    public fun portal(global: &MTokenGlobal): address {
+        global.portal
+    }
+
+    /// Get registrar address
+    public fun registrar(global: &MTokenGlobal): address {
+        global.registrar
+    }
+
+    /// Get total non-earning supply
+    public fun total_non_earning_supply(global: &MTokenGlobal): u256 {
+        global.total_non_earning_supply
+    }
+
+    /// Get principal of total earning supply
+    public fun principal_of_total_earning_supply(global: &MTokenGlobal): u128 {
+        global.principal_of_total_earning_supply
+    }
 }
