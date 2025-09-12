@@ -57,7 +57,10 @@ module sui_m::m_token {
         is_earning: bool,
         /// Balance (for non-earning) or balance principal (for earning)
         /// uint240 in Solidity → u256 in Sui for safety
-        raw_balance: u256
+        raw_balance: u256,
+        /// Last claim index (only relevant for earning accounts)
+        /// Tracks the index when yield was last claimed
+        last_claim_index: u128
     }
 
     /// Global MToken state - shared object
@@ -116,6 +119,14 @@ module sui_m::m_token {
     public struct Burn has copy, drop {
         account: address,
         amount: u256
+    }
+
+    /// Emitted when yield is claimed
+    public struct ClaimedYield has copy, drop {
+        account: address,
+        yield_amount: u256,
+        new_principal: u128,
+        claim_index: u128
     }
 
     // ============ Init Function ============
@@ -224,7 +235,7 @@ module sui_m::m_token {
             table::add(
                 &mut global.balances,
                 recipient,
-                AccountBalance { is_earning: false, raw_balance: 0 }
+                AccountBalance { is_earning: false, raw_balance: 0, last_claim_index: EXP_SCALED_ONE }
             );
         };
 
@@ -361,7 +372,7 @@ module sui_m::m_token {
             table::add(
                 &mut global.balances,
                 sender,
-                AccountBalance { is_earning: false, raw_balance: 0 }
+                AccountBalance { is_earning: false, raw_balance: 0, last_claim_index: EXP_SCALED_ONE }
             );
         };
 
@@ -374,6 +385,7 @@ module sui_m::m_token {
         // Start earning
         event::emit(StartedEarning { account: sender });
         balance.is_earning = true;
+        balance.last_claim_index = current_idx; // Set initial claim index
 
         let amount = balance.raw_balance;
         if (amount == 0) return;
@@ -413,6 +425,60 @@ module sui_m::m_token {
         stop_earning_internal(global , account);
     }
 
+    /// Claim accrued yield for earning account
+    /// Calculates yield based on index growth since last claim and mints it to caller
+    public fun claim_yield(
+        global: &mut MTokenGlobal, 
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        
+        // Must have a balance entry
+        assert!(table::contains(&global.balances, sender), EAccountNotFound);
+        
+        let current_idx = current_index(global);
+        let balance = table::borrow_mut(&mut global.balances, sender);
+        
+        // Must be earning to claim
+        assert!(balance.is_earning, ENotApprovedEarner); // Using existing error for simplicity
+        
+        let current_principal = (balance.raw_balance as u128);
+        if (current_principal == 0) return; // No principal, no yield
+        
+        let last_claim_idx = balance.last_claim_index;
+        if (current_idx <= last_claim_idx) return; // No yield to claim
+        
+        // Calculate current balance value with current index
+        let current_balance = get_present_amount_with_index(current_principal, current_idx);
+        
+        // Calculate balance value at last claim index
+        let balance_at_last_claim = get_present_amount_with_index(current_principal, last_claim_idx);
+        
+        // Yield is the difference
+        let yield_amount = current_balance - balance_at_last_claim;
+        if (yield_amount == 0) return; // No yield due to rounding
+        
+        // Simply update the claim index - keep the principal unchanged
+        balance.last_claim_index = current_idx;
+        
+        // The actual yield to mint is just the calculated yield
+        let actual_yield = yield_amount;
+        
+        // Mint the actual yield amount to the user
+        if (actual_yield > 0) {
+            let yield_coin = coin::mint(&mut global.treasury_cap, (actual_yield as u64), ctx);
+            transfer::public_transfer(yield_coin, sender);
+            
+            // Emit event
+            event::emit(ClaimedYield {
+                account: sender,
+                yield_amount: actual_yield,
+                new_principal: current_principal, // Principal stays the same
+                claim_index: current_idx
+            });
+        };
+    }
+
     /// Internal function to stop earning for an account
     fun stop_earning_internal(
         global: &mut MTokenGlobal, account: address
@@ -429,6 +495,7 @@ module sui_m::m_token {
         // Stop earning
         event::emit(StoppedEarning { account });
         balance.is_earning = false;
+        balance.last_claim_index = EXP_SCALED_ONE; // Reset claim index
 
         let principal_amount = (balance.raw_balance as u128);
         if (principal_amount == 0) return;

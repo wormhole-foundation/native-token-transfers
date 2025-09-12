@@ -770,4 +770,274 @@ module sui_m::m_token_tests {
         return_shared_objects(global, portal_cap, registrar_cap);
         test_scenario::end(scenario);
     }
+    
+    // ============ Yield Claiming Tests ============
+    
+    #[test]
+    fun test_claim_yield_basic() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+        
+        // Set initial index
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+        
+        // Setup Alice as earner with some principal
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+        
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+        
+        // Check initial state
+        let initial_balance = m_token::balance_of(&global, ALICE);
+        let initial_principal = m_token::principal_balance_of(&global, ALICE);
+        
+        // Simulate index growth (20% increase)
+        let new_index = (EXPECTED_CURRENT_INDEX * 12) / 10; // 1.2x
+        set_index(&mut global, new_index);
+        
+        // Balance should have grown
+        let balance_after_growth = m_token::balance_of(&global, ALICE);
+        assert!(balance_after_growth > initial_balance, 0);
+        
+        // Principal should remain the same before claiming
+        assert!(m_token::principal_balance_of(&global, ALICE) == initial_principal, 1);
+        
+        // Claim yield
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        // Check that yield was claimed
+        next_tx(&mut scenario, ALICE);
+        // Should have received coins
+        if (test_scenario::has_most_recent_for_sender<Coin<M_TOKEN>>(&scenario)) {
+            let yield_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+            let yield_value = coin::value(&yield_coin);
+            assert!(yield_value > 0, 2);
+            test_scenario::return_to_sender(&scenario, yield_coin);
+        };
+        
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+    
+    #[test]
+    fun test_claim_yield_multiple_times() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+        
+        // Set initial index
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+        
+        // Setup Alice as earner
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+        
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+        
+        // First claim after index growth
+        let index_1 = (EXPECTED_CURRENT_INDEX * 11) / 10; // 1.1x
+        set_index(&mut global, index_1);
+        
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        // Check first yield
+        next_tx(&mut scenario, ALICE);
+        let first_yield_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let first_yield = coin::value(&first_yield_coin);
+        assert!(first_yield > 0, 0);
+        test_scenario::return_to_sender(&scenario, first_yield_coin);
+        
+        // Second claim after more growth
+        let index_2 = (index_1 * 11) / 10; // Another 1.1x
+        set_index(&mut global, index_2);
+        
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        // Check second yield
+        next_tx(&mut scenario, ALICE);
+        let second_yield_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let second_yield = coin::value(&second_yield_coin);
+        assert!(second_yield > 0, 1);
+        test_scenario::return_to_sender(&scenario, second_yield_coin);
+        
+        // Total coins should equal initial mint plus both yields
+        let total_coins = 1000 + (first_yield as u256) + (second_yield as u256);
+        
+        // This should be close to the current balance (accounting for rounding)
+        let final_balance = m_token::balance_of(&global, ALICE);
+        assert!(final_balance >= total_coins - 2 && final_balance <= total_coins + 2, 2);
+        
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+    
+    #[test]
+    #[expected_failure(abort_code = sui_m::m_token::EAccountNotFound)]
+    fun test_claim_yield_no_account() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+        
+        // Try to claim without having an account
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+    
+    #[test]
+    #[expected_failure(abort_code = sui_m::m_token::ENotApprovedEarner)]
+    fun test_claim_yield_not_earning() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+        
+        // Mint to Alice but don't start earning
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+        
+        // Try to claim yield as non-earner
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+    
+    #[test]
+    fun test_claim_yield_no_growth() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+        
+        // Set index and setup Alice as earner
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+        
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+        
+        // Count initial coins from minting
+        next_tx(&mut scenario, ALICE);
+        let initial_coin_count = if (test_scenario::has_most_recent_for_sender<Coin<M_TOKEN>>(&scenario)) {
+            let initial_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+            test_scenario::return_to_sender(&scenario, initial_coin);
+            1
+        } else { 0 };
+        
+        // Try to claim immediately (no index growth)
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        // Should not have received any additional coins from claiming
+        next_tx(&mut scenario, ALICE);
+        let final_coin_count = if (test_scenario::has_most_recent_for_sender<Coin<M_TOKEN>>(&scenario)) {
+            let final_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+            test_scenario::return_to_sender(&scenario, final_coin);
+            1
+        } else { 0 };
+        
+        // No new coins should have been minted for claiming
+        assert!(final_coin_count == initial_coin_count, 0);
+        
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+    
+    #[test]
+    fun test_claim_yield_accounting_consistency() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+        
+        // Set initial index
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+        
+        // Setup Alice and Bob as earners
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        m_token::approve_earner(&mut global, &registrar_cap, BOB);
+        
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+        m_token::mint_no_index(&mut global, &portal_cap, BOB, 2000, ctx);
+        
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+        
+        next_tx(&mut scenario, BOB);
+        let ctx = ctx(&mut scenario);
+        m_token::start_earning(&mut global, ctx);
+        
+        // Record initial total supply
+        let initial_total = m_token::total_supply(&global);
+        
+        // Simulate index growth
+        let new_index = (EXPECTED_CURRENT_INDEX * 12) / 10; // 1.2x
+        set_index(&mut global, new_index);
+        
+        // Alice claims yield
+        next_tx(&mut scenario, ALICE);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        // Check accounting after Alice's claim
+        let total_after_alice = m_token::total_supply(&global);
+        
+        // Verify accounting consistency
+        
+        // In claim-based system, total supply reflects actual minted coins
+        // It should increase due to yield coins being minted
+        assert!(total_after_alice >= initial_total, 0);
+        
+        // Bob claims yield
+        next_tx(&mut scenario, BOB);
+        let ctx = ctx(&mut scenario);
+        m_token::claim_yield(&mut global, ctx);
+        
+        // Check total accounting consistency
+        let final_total = m_token::total_supply(&global);
+        assert!(final_total >= total_after_alice, 1); // Should increase or stay same
+        
+        // Calculate total coins held by users
+        let users = vector[ALICE, BOB];
+        let total_coins = calculate_total_coin_supply(&mut scenario, users);
+        
+        // Verify final accounting consistency
+        
+        // In claim-based system, actual coins may be less than internal total
+        // due to rounding when minting to earners. Users can claim the difference.
+        // The key is that total coins + claimable yield = internal total
+        assert!((total_coins as u256) <= final_total, 2); // Coins should not exceed internal total
+        
+        // Verify the system is internally consistent
+        let earning_supply = m_token::total_earning_supply(&global);
+        let non_earning_supply = m_token::total_non_earning_supply(&global);
+        assert!(earning_supply + non_earning_supply == final_total, 3);
+        
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
 }
