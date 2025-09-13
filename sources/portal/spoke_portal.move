@@ -407,8 +407,8 @@ module sui_m::spoke_portal {
 
     // ================ Message Reception Functions ================
 
-    /// Handle incoming message from Hub Portal (entry point for all messages)
-    /// This uses NTT's standard redeem function for token transfers and custom handling for other messages
+    /// Handle incoming message from Hub Portal with payload inspection
+    /// This inspects messages before routing to appropriate handlers
     public fun handle_message<Transceiver>(
         portal: &mut SpokePortal,
         m_token_global: &mut MTokenGlobal,
@@ -419,9 +419,61 @@ module sui_m::spoke_portal {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // For now, use NTT's standard redeem function to handle the message
-        // This will handle version checking and basic token transfers
-        // TODO: Extend this to handle custom M Token payloads (index/key/list updates)
+        // First, we need to peek at the message to determine if it contains custom payloads
+        // This is the key innovation: inspect before processing
+        let has_custom_payload = inspect_message_for_custom_payload(&validated_message);
+
+        if (has_custom_payload) {
+            // Handle custom messages (M0IT/M0KT/M0LU) - these are zero-amount transfers
+            handle_custom_message(
+                portal,
+                m_token_global,
+                registrar_global,
+                version_gated,
+                validated_message,
+                coin_meta,
+                clock,
+                ctx
+            );
+        } else {
+            // Handle regular token transfers through NTT's standard flow
+            ntt::redeem<M_TOKEN, Transceiver>(
+                &mut portal.ntt_state,
+                version_gated,
+                coin_meta,
+                validated_message,
+                clock
+            );
+        }
+    }
+
+    /// Inspect message to determine if it contains custom M Token payloads
+    /// This examines the additional_payload field without consuming the message
+    fun inspect_message_for_custom_payload<Transceiver>(
+        _validated_message: &ValidatedTransceiverMessage<Transceiver, vector<u8>>
+    ): bool {
+        // TODO: This is a placeholder inspection
+        // In reality, we need to peek at the NTT message's additional_payload field
+        // to check for M0IT/M0KT/M0LU prefixes without consuming the message
+
+        // For now, return false to route everything through standard NTT redeem
+        // This maintains current functionality while we implement proper inspection
+        false
+    }
+
+    /// Handle custom messages (M0IT/M0KT/M0LU) separately from regular transfers
+    fun handle_custom_message<Transceiver>(
+        portal: &mut SpokePortal,
+        m_token_global: &mut MTokenGlobal,
+        registrar_global: &mut RegistrarGlobal,
+        version_gated: VersionGated,
+        validated_message: ValidatedTransceiverMessage<Transceiver, vector<u8>>,
+        coin_meta: &CoinMetadata<M_TOKEN>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // For custom messages, we still need to go through NTT redeem for validation
+        // but we extract and process the custom payloads afterward
         ntt::redeem<M_TOKEN, Transceiver>(
             &mut portal.ntt_state,
             version_gated,
@@ -430,30 +482,78 @@ module sui_m::spoke_portal {
             clock
         );
 
-        // TODO: After NTT redeem, check if there are custom payloads to process
-        // This would require extracting additional payload data before calling redeem
-        // For now, all token transfers will be handled by NTT's standard flow
+        // TODO: After redeem, extract the additional_payload and process custom logic
+        // This would involve:
+        // 1. Getting the additional_payload from the redeemed message
+        // 2. Determining payload type (M0IT/M0KT/M0LU)
+        // 3. Calling appropriate handler functions
 
-        // Placeholder for custom payload handling
-        // let payload_type = payload_encoder::get_payload_type(&payload);
-        // if (!payload_encoder::is_token_payload(&payload_type)) {
-        //     receive_custom_payload(portal, m_token_global, registrar_global, ...);
-        // }
+        // For now, this is a placeholder that maintains current behavior
+        // The infrastructure is in place for when we implement full custom payload extraction
     }
 
-    /// Helper function to extract payload from message for custom processing
-    /// TODO: This will be implemented when we need to handle custom M Token payloads
-    /// For now, we rely on NTT's standard redeem function
-    #[allow(unused_function)]
-    fun extract_custom_payload_from_message(
-        _validated_message: &ValidatedTransceiverMessage<TransceiverAuth, vector<u8>>
-    ): vector<u8> {
-        // TODO: Implement custom payload extraction when needed
-        // This would require accessing the message before calling NTT redeem
-        vector::empty<u8>()
+    /// Process incoming token transfer with M Token index (called after NTT redeem)
+    /// This handles the M Token-specific logic for regular transfers that include index updates
+    public fun process_m_token_transfer(
+        portal: &mut SpokePortal,
+        m_token_global: &mut MTokenGlobal,
+        recipient: address,
+        amount: u64,
+        additional_payload: vector<u8>,
+        ctx: &mut TxContext
+    ) {
+        // Decode the M Token additional payload to extract index and destination token
+        let (index, _destination_token) = payload_encoder::decode_m_additional_payload(&additional_payload);
+
+        // Mint M Tokens to recipient with potential index update
+        mint_or_unlock(
+            portal,
+            m_token_global,
+            recipient,
+            amount,
+            index,
+            ctx
+        );
+
+        // Emit event for tracking
+        event::emit(MTokenReceived {
+            source_chain_id: 1, // Ethereum chain ID - TODO: get from message
+            destination_token: @0x0, // TODO: extract from payload
+            sender: external_address::from_address(@0x0), // TODO: extract from message
+            recipient,
+            amount,
+            index,
+            message_id: vector::empty<u8>(), // TODO: extract message ID
+        });
     }
 
-    // Removed helper abort functions - no longer needed since we use NTT's redeem function
+    /// Process pure custom payload messages (after zero-amount NTT redemption)
+    /// This handles M0IT/M0KT/M0LU messages that don't involve token transfers
+    public fun process_custom_message(
+        portal: &mut SpokePortal,
+        m_token_global: &mut MTokenGlobal,
+        registrar_global: &mut RegistrarGlobal,
+        additional_payload: vector<u8>,
+        ctx: &mut TxContext
+    ) {
+        // Determine payload type and route accordingly
+        let payload_type = payload_encoder::get_payload_type(&additional_payload);
+
+        if (payload_encoder::is_index_payload(&payload_type)) {
+            let (index, destination_chain_id) = payload_encoder::decode_index_payload(additional_payload);
+            let message_id = vector::empty<u8>(); // TODO: extract real message ID
+            update_m_token_index(portal, m_token_global, message_id, index, destination_chain_id, ctx);
+        } else if (payload_encoder::is_key_payload(&payload_type)) {
+            let (key, value, destination_chain_id) = payload_encoder::decode_key_payload(additional_payload);
+            let message_id = vector::empty<u8>(); // TODO: extract real message ID
+            set_registrar_key(portal, registrar_global, message_id, key, value, destination_chain_id, ctx);
+        } else if (payload_encoder::is_list_payload(&payload_type)) {
+            let (list_name, account, add, destination_chain_id) = payload_encoder::decode_list_update_payload(additional_payload);
+            let message_id = vector::empty<u8>(); // TODO: extract real message ID
+            update_registrar_list(portal, registrar_global, message_id, list_name, account, add, destination_chain_id, ctx);
+        }
+        // If none of the above, it's likely a regular token transfer handled elsewhere
+    }
 
     /// Receive M Token transfer with proper NTT message parsing
     /// This handles incoming token transfers from the Hub Portal
@@ -499,8 +599,10 @@ module sui_m::spoke_portal {
         // mint_or_unlock(portal, m_token_global, recipient, amount, index, ctx);
     }
 
-    /// Process custom payload messages (Index/Key/List updates)
-    public fun receive_custom_payload(
+    /// Process custom payload messages (Index/Key/List updates) - Legacy function
+    /// This is kept for compatibility but new code should use process_custom_message
+    #[allow(unused_function)]
+    fun receive_custom_payload(
         portal: &mut SpokePortal,
         m_token_global: &mut MTokenGlobal,
         registrar_global: &mut RegistrarGlobal,
@@ -510,26 +612,29 @@ module sui_m::spoke_portal {
         ctx: &mut TxContext
     ) {
         if (payload_encoder::is_index_payload(&payload_type)) {
-            update_m_token_index(portal, m_token_global, message_id, payload, ctx);
+            let (index, destination_chain_id) = payload_encoder::decode_index_payload(payload);
+            update_m_token_index(portal, m_token_global, message_id, index, destination_chain_id, ctx);
         } else if (payload_encoder::is_key_payload(&payload_type)) {
-            set_registrar_key(portal, registrar_global, message_id, payload, ctx);
+            let (key, value, destination_chain_id) = payload_encoder::decode_key_payload(payload);
+            set_registrar_key(portal, registrar_global, message_id, key, value, destination_chain_id, ctx);
         } else if (payload_encoder::is_list_payload(&payload_type)) {
-            update_registrar_list(portal, registrar_global, message_id, payload, ctx);
+            let (list_name, account, add, destination_chain_id) = payload_encoder::decode_list_update_payload(payload);
+            update_registrar_list(portal, registrar_global, message_id, list_name, account, add, destination_chain_id, ctx);
         }
         // Token payloads are handled by standard NTT flow
     }
 
     // ================ Custom Message Handlers ================
 
-    /// Update M Token index from Hub Portal
+    /// Update M Token index from Hub Portal (enhanced version)
     fun update_m_token_index(
         portal: &mut SpokePortal,
         m_token_global: &mut MTokenGlobal,
         message_id: vector<u8>,
-        payload: vector<u8>,
+        index: u128,
+        destination_chain_id: u16,
         ctx: &mut TxContext
     ) {
-        let (index, destination_chain_id) = payload_encoder::decode_index_payload(payload);
         verify_destination_chain(destination_chain_id, &portal.ntt_state);
 
         event::emit(MTokenIndexReceived {
@@ -544,15 +649,16 @@ module sui_m::spoke_portal {
         }
     }
 
-    /// Set Registrar key from Hub Portal
+    /// Set Registrar key from Hub Portal (enhanced version)
     fun set_registrar_key(
         portal: &SpokePortal,
         registrar_global: &mut RegistrarGlobal,
         message_id: vector<u8>,
-        payload: vector<u8>,
+        key: vector<u8>,
+        value: vector<u8>,
+        destination_chain_id: u16,
         _ctx: &mut TxContext
     ) {
-        let (key, value, destination_chain_id) = payload_encoder::decode_key_payload(payload);
         verify_destination_chain(destination_chain_id, &portal.ntt_state);
 
         event::emit(RegistrarKeyReceived {
@@ -565,15 +671,17 @@ module sui_m::spoke_portal {
         registrar::set_key(registrar_global, &portal.registrar_cap, key, value);
     }
 
-    /// Update Registrar list from Hub Portal
+    /// Update Registrar list from Hub Portal (enhanced version)
     fun update_registrar_list(
         portal: &SpokePortal,
         registrar_global: &mut RegistrarGlobal,
         message_id: vector<u8>,
-        payload: vector<u8>,
+        list_name: vector<u8>,
+        account: address,
+        add: bool,
+        destination_chain_id: u16,
         _ctx: &mut TxContext
     ) {
-        let (list_name, account, add, destination_chain_id) = payload_encoder::decode_list_update_payload(payload);
         verify_destination_chain(destination_chain_id, &portal.ntt_state);
 
         event::emit(RegistrarListStatusReceived {
