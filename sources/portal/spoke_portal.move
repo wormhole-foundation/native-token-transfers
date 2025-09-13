@@ -320,19 +320,61 @@ module sui_m::spoke_portal {
         )
     }
 
-    /// Send custom M Token index update (PTB-compatible)
-    /// Returns a value that PTB can use for tracking
-    public fun send_index_update_ptb(
+    /// Send custom M Token index update using zero-amount transfer pattern (PTB-compatible)
+    /// This creates a transfer ticket with custom M Token index payload
+    public fun prepare_index_update_ptb(
         portal: &SpokePortal,
         m_token_global: &MTokenGlobal,
+        zero_coin: Coin<M_TOKEN>, // Must be zero-value coin for custom messages
+        coin_meta: &CoinMetadata<M_TOKEN>,
         destination_chain_id: u16,
-    ): u128 {
-        // Get current index for sending
+        recipient: vector<u8>, // Usually the destination portal address
+    ): (TransferTicket<M_TOKEN>, Balance<M_TOKEN>) {
+        // Verify this is a zero-amount transfer (custom message pattern)
+        assert!(coin::value(&zero_coin) == 0, 999); // Custom message must have zero value
+
+        // Get current index for the custom payload
         let current_index = m_token::current_index(m_token_global);
 
-        // For now, just return the index - actual message sending will be in Step 4
-        // TODO: Implement actual custom message sending through transceivers
-        current_index
+        // Create M Token index update payload (M0IT type)
+        let custom_payload = payload_encoder::encode_index_payload(
+            current_index,
+            destination_chain_id
+        );
+
+        // Use NTT's prepare_transfer with custom payload
+        // This follows the same pattern as regular transfers but with zero amount
+        ntt::prepare_transfer(
+            &portal.ntt_state,
+            zero_coin,
+            coin_meta,
+            destination_chain_id,
+            recipient,
+            option::some(custom_payload), // This is where the M0IT payload goes
+            false, // Don't queue custom messages
+        )
+    }
+
+    /// Execute the index update transfer (PTB-compatible)
+    /// This sends the zero-amount transfer with custom payload through transceivers
+    public fun send_index_update_ptb(
+        portal: &mut SpokePortal,
+        version_gated: VersionGated,
+        coin_meta: &CoinMetadata<M_TOKEN>,
+        ticket: TransferTicket<M_TOKEN>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): OutboxKey {
+        // Execute the custom message transfer through NTT
+        // This will route through the same transceiver flow as regular transfers
+        ntt::transfer_tx_sender(
+            &mut portal.ntt_state,
+            version_gated,
+            coin_meta,
+            ticket,
+            clock,
+            ctx
+        )
     }
 
     /// Convert balance to coin for PTB dust handling
@@ -355,6 +397,12 @@ module sui_m::spoke_portal {
     /// This is required for most NTT operations
     public fun new_version_gated(): VersionGated {
         upgrades::new_version_gated()
+    }
+
+    /// Create zero-value coin for custom messages (PTB helper)
+    /// This is needed for zero-amount transfers that carry custom payloads
+    public fun zero_coin(ctx: &mut TxContext): Coin<M_TOKEN> {
+        coin::zero<M_TOKEN>(ctx)
     }
 
     // ================ Message Reception Functions ================
