@@ -5,17 +5,13 @@ edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
 # authors = ["..."]      # e.g., ["Joe Smith (joesmith@noemail.com)", "John Snow (johnsnow@noemail.com)"]
 
 [dependencies]
+# NTT dependencies for Portal implementation
+Ntt = { git = "https://github.com/wormhole-foundation/native-token-transfers.git", subdir = "sui/packages/ntt", rev = "main" }
+NttCommon = { git = "https://github.com/wormhole-foundation/native-token-transfers.git", subdir = "sui/packages/ntt_common", rev = "main" }
+WormholeTransceiver = { git = "https://github.com/wormhole-foundation/native-token-transfers.git", subdir = "sui/packages/wormhole_transceiver", rev = "main" }
 
-# For remote import, use the `{ git = "...", subdir = "...", rev = "..." }`.
-# Revision can be a branch, a tag, and a commit hash.
-# MyRemotePackage = { git = "https://some.remote/host.git", subdir = "remote/path", rev = "main" }
-
-# For local dependencies use `local = path`. Path is relative to the package root
-# Local = { local = "../path/to" }
-
-# To resolve a version conflict and force a specific version for dependency
-# override use `override = true`
-# Override = { local = "../conflicting/version", override = true }
+# Wormhole core dependency
+Wormhole = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "sui/wormhole", rev = "sui/testnet" }
 
 [addresses]
 sui_m = "0x0"

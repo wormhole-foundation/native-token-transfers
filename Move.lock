@@ -2,13 +2,17 @@
 
 [move]
 version = 3
-manifest_digest = "7A3AE13D341B09CD0CFCF6C8A1797FAE28BDAD373F7F405D87E36D7BC1071E43"
-deps_digest = "F9B494B64F0615AED0E98FC12A85B85ECD2BC5185C22D30E7F67786BB52E507C"
+manifest_digest = "A12FBB548ECFFF375250276767191D93A7E9EC8250E52E958DF82E5A847EE6BC"
+deps_digest = "04732BFEF428F74DE262001DC455D76B909EBC394B034A9A15CC095E4BDD9CEF"
 dependencies = [
   { id = "Bridge", name = "Bridge" },
   { id = "MoveStdlib", name = "MoveStdlib" },
+  { id = "Ntt", name = "Ntt" },
+  { id = "NttCommon", name = "NttCommon" },
   { id = "Sui", name = "Sui" },
   { id = "SuiSystem", name = "SuiSystem" },
+  { id = "Wormhole", name = "Wormhole" },
+  { id = "WormholeTransceiver", name = "WormholeTransceiver" },
 ]
 
 [[move.package]]
@@ -26,6 +30,31 @@ id = "MoveStdlib"
 source = { git = "https://github.com/MystenLabs/sui.git", rev = "2cde80b5766b0bc2073908e10f6e3c81c93fd691", subdir = "crates/sui-framework/packages/move-stdlib" }
 
 [[move.package]]
+id = "Ntt"
+source = { git = "https://github.com/wormhole-foundation/native-token-transfers.git", rev = "main", subdir = "sui/packages/ntt" }
+
+dependencies = [
+  { id = "Bridge", name = "Bridge" },
+  { id = "MoveStdlib", name = "MoveStdlib" },
+  { id = "NttCommon", name = "NttCommon" },
+  { id = "Sui", name = "Sui" },
+  { id = "SuiSystem", name = "SuiSystem" },
+  { id = "Wormhole", name = "Wormhole" },
+]
+
+[[move.package]]
+id = "NttCommon"
+source = { git = "https://github.com/wormhole-foundation/native-token-transfers.git", rev = "main", subdir = "sui/packages/ntt_common" }
+
+dependencies = [
+  { id = "Bridge", name = "Bridge" },
+  { id = "MoveStdlib", name = "MoveStdlib" },
+  { id = "Sui", name = "Sui" },
+  { id = "SuiSystem", name = "SuiSystem" },
+  { id = "Wormhole", name = "Wormhole" },
+]
+
+[[move.package]]
 id = "Sui"
 source = { git = "https://github.com/MystenLabs/sui.git", rev = "2cde80b5766b0bc2073908e10f6e3c81c93fd691", subdir = "crates/sui-framework/packages/sui-framework" }
 
@@ -40,6 +69,28 @@ source = { git = "https://github.com/MystenLabs/sui.git", rev = "2cde80b5766b0bc
 dependencies = [
   { id = "MoveStdlib", name = "MoveStdlib" },
   { id = "Sui", name = "Sui" },
+]
+
+[[move.package]]
+id = "Wormhole"
+source = { git = "https://github.com/wormhole-foundation/wormhole.git", rev = "sui/testnet", subdir = "sui/wormhole" }
+
+dependencies = [
+  { id = "Sui", name = "Sui" },
+]
+
+[[move.package]]
+id = "WormholeTransceiver"
+source = { git = "https://github.com/wormhole-foundation/native-token-transfers.git", rev = "main", subdir = "sui/packages/wormhole_transceiver" }
+
+dependencies = [
+  { id = "Bridge", name = "Bridge" },
+  { id = "MoveStdlib", name = "MoveStdlib" },
+  { id = "Ntt", name = "Ntt" },
+  { id = "NttCommon", name = "NttCommon" },
+  { id = "Sui", name = "Sui" },
+  { id = "SuiSystem", name = "SuiSystem" },
+  { id = "Wormhole", name = "Wormhole" },
 ]
 
 [move.toolchain-version]
