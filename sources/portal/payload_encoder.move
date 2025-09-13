@@ -6,15 +6,12 @@
 /// - List updates (M0LU)
 /// - Token transfers (handled by NTT)
 module sui_m::portal_payload_encoder {
-    use std::vector;
     use sui::address;
-    use wormhole::bytes32::{Self, Bytes32};
-    use wormhole::external_address::{Self, ExternalAddress};
     
     // Error constants
     const E_INVALID_PAYLOAD_LENGTH: u64 = 1;
     const E_INVALID_PAYLOAD_PREFIX: u64 = 2;
-    const E_UNKNOWN_PAYLOAD_TYPE: u64 = 3;
+    // const E_UNKNOWN_PAYLOAD_TYPE: u64 = 3; // Currently unused
     
     // Payload prefixes (matching Solidity implementation)
     const INDEX_TRANSFER_PREFIX: vector<u8> = b"M0IT"; // M0 Index Transfer
