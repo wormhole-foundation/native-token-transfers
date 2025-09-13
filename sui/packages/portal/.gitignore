@@ -1,0 +1,4 @@
+build/*
+.trace
+.coverage*
+.DS_Store
