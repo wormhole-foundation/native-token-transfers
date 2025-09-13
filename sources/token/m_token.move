@@ -355,10 +355,13 @@ module sui_m::m_token {
 
     // ============ User Functions ============
 
-    /// Start earning (caller must be approved)
+    /// Start earning (caller must be approved and provide their coins to sync balance)
+    /// This ensures internal accounting matches actual coin holdings
     public fun start_earning(
-        global: &mut MTokenGlobal, ctx: &mut TxContext
-    ) {
+        global: &mut MTokenGlobal, 
+        user_coins: Coin<M_TOKEN>,
+        ctx: &mut TxContext
+    ): Coin<M_TOKEN> {
         let sender = tx_context::sender(ctx);
 
         // Check if approved earner
@@ -366,6 +369,9 @@ module sui_m::m_token {
 
         // Check if index is initialized
         assert!(current_index(global) != EXP_SCALED_ONE, EIndexNotInitialized);
+
+        // Get actual coin amount - this is the source of truth
+        let actual_amount = (coin::value(&user_coins) as u256);
 
         // Get or create balance entry
         if (!table::contains(&global.balances, sender)) {
@@ -379,20 +385,58 @@ module sui_m::m_token {
         let current_idx = current_index(global);
         let balance = table::borrow_mut(&mut global.balances, sender);
 
-        // If already earning, do nothing
-        if (balance.is_earning) return;
+        // If already earning, sync the balance with actual coins before returning
+        if (balance.is_earning) {
+            let actual_amount = (coin::value(&user_coins) as u256);
+            
+            // Get current principal from internal accounting
+            let current_principal = (balance.raw_balance as u128);
+            
+            // Calculate what the present amount should be based on current principal
+            let expected_present_amount = get_present_amount_with_index(current_principal, current_idx);
+            
+            // If actual coins differ from expected, sync the accounting
+            if (actual_amount != expected_present_amount) {
+                // Remove old earning amount from global accounting
+                global.total_earning_supply = global.total_earning_supply - expected_present_amount;
+                
+                // Convert actual amount to new principal (rounded down in protocol's favor)
+                let new_principal = get_principal_amount_rounded_down_with_index(actual_amount, current_idx);
+                balance.raw_balance = (new_principal as u256);
+                
+                // Add new earning amount to global accounting
+                let new_present_amount = get_present_amount_with_index(new_principal, current_idx);
+                global.total_earning_supply = global.total_earning_supply + new_present_amount;
+                
+                // Update principal tracking
+                global.principal_of_total_earning_supply = global.principal_of_total_earning_supply - current_principal + new_principal;
+            };
+            
+            return user_coins
+        };
+
+        // Sync internal balance with actual coins before conversion
+        // Remove old internal balance from non-earning supply
+        if (balance.raw_balance > 0) {
+            global.total_non_earning_supply = global.total_non_earning_supply - balance.raw_balance;
+        };
+
+        // Update internal balance to match actual coins
+        balance.raw_balance = actual_amount;
+        global.total_non_earning_supply = global.total_non_earning_supply + actual_amount;
 
         // Start earning
         event::emit(StartedEarning { account: sender });
         balance.is_earning = true;
         balance.last_claim_index = current_idx; // Set initial claim index
 
-        let amount = balance.raw_balance;
-        if (amount == 0) return;
+        if (actual_amount == 0) {
+            return user_coins
+        };
 
         // Convert non-earning balance to principal (rounded down)
         let principal_amount =
-            get_principal_amount_rounded_down_with_index(amount, current_idx);
+            get_principal_amount_rounded_down_with_index(actual_amount, current_idx);
         balance.raw_balance = (principal_amount as u256);
 
         // Calculate the actual earning amount (may be less than original due to rounding)
@@ -403,8 +447,11 @@ module sui_m::m_token {
         // Update global accounting
         global.principal_of_total_earning_supply =
             global.principal_of_total_earning_supply + principal_amount;
-        global.total_non_earning_supply = global.total_non_earning_supply - amount;
+        global.total_non_earning_supply = global.total_non_earning_supply - actual_amount;
         global.total_earning_supply = global.total_earning_supply + earning_amount;
+
+        // Return the coins unchanged - user keeps their coins, but now in earning mode
+        user_coins
     }
 
     /// Stop earning (caller stops their own earning)

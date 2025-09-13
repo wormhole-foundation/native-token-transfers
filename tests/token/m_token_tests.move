@@ -152,7 +152,9 @@ module sui_m::m_token_tests {
         
         next_tx(&mut scenario, ALICE);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let zero_coin = coin::zero<M_TOKEN>(ctx);
+        let returned_coin = m_token::start_earning(&mut global, zero_coin, ctx);
+        coin::destroy_zero(returned_coin);
         
         // Now mint to earner
         next_tx(&mut scenario, PORTAL);
@@ -281,7 +283,9 @@ module sui_m::m_token_tests {
         next_tx(&mut scenario, ALICE);
         let ctx = ctx(&mut scenario);
         
-        m_token::start_earning(&mut global, ctx);
+        let zero_coin = coin::zero<M_TOKEN>(ctx);
+        let returned_coin = m_token::start_earning(&mut global, zero_coin, ctx);
+        coin::destroy_zero(returned_coin);
         
         return_shared_objects(global, portal_cap, registrar_cap);
         test_scenario::end(scenario);
@@ -299,7 +303,9 @@ module sui_m::m_token_tests {
         next_tx(&mut scenario, ALICE);
         let ctx = ctx(&mut scenario);
         
-        m_token::start_earning(&mut global, ctx);
+        let zero_coin = coin::zero<M_TOKEN>(ctx);
+        let returned_coin = m_token::start_earning(&mut global, zero_coin, ctx);
+        coin::destroy_zero(returned_coin);
         
         return_shared_objects(global, portal_cap, registrar_cap);
         test_scenario::end(scenario);
@@ -320,10 +326,12 @@ module sui_m::m_token_tests {
         // Approve Alice as earner
         m_token::approve_earner(&mut global, &registrar_cap, ALICE);
         
-        // Alice starts earning
+        // Alice starts earning - take her coins and pass them to start_earning
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Check conversion to principal (rounded down)
         let expected_principal = 909u128; // 1000 * 1e12 / 1_100_000_068_703 rounded down
@@ -355,8 +363,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         let _principal_before = m_token::principal_balance_of(&global, ALICE);
         
@@ -395,8 +405,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Revoke Alice's approval
         m_token::revoke_earner(&mut global, &registrar_cap, ALICE);
@@ -428,8 +440,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Try to force stop - should fail for approved earners
         next_tx(&mut scenario, BOB);
@@ -461,8 +475,10 @@ module sui_m::m_token_tests {
         m_token::approve_earner(&mut global, &registrar_cap, ALICE);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Now she should have principal balance and calculated present balance
         let principal = m_token::principal_balance_of(&global, ALICE);
@@ -492,8 +508,10 @@ module sui_m::m_token_tests {
         m_token::approve_earner(&mut global, &registrar_cap, ALICE);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Check supply calculations
         let total_non_earning = m_token::total_non_earning_supply(&global);
@@ -547,11 +565,15 @@ module sui_m::m_token_tests {
         
         next_tx(&mut scenario, ALICE);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let zero_coin = coin::zero<M_TOKEN>(ctx);
+        let returned_coin = m_token::start_earning(&mut global, zero_coin, ctx);
+        coin::destroy_zero(returned_coin);
         
         next_tx(&mut scenario, carol);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let zero_coin = coin::zero<M_TOKEN>(ctx);
+        let returned_coin = m_token::start_earning(&mut global, zero_coin, ctx);
+        coin::destroy_zero(returned_coin);
         
         // Mint different amounts to each user
         next_tx(&mut scenario, PORTAL);
@@ -611,11 +633,13 @@ module sui_m::m_token_tests {
         assert!(initial_coin_value == 1000, 3);
         test_scenario::return_to_sender(&scenario, coin);
         
-        // Convert Alice to earner
+        // Convert Alice to earner - she takes her actual coins
         m_token::approve_earner(&mut global, &registrar_cap, ALICE);
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Check state after conversion
         let earning_balance = m_token::balance_of(&global, ALICE);
@@ -682,8 +706,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, PORTAL, 1500, ctx); // For burning
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         let initial_total = m_token::total_supply(&global);
         
@@ -735,8 +761,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         let balance_at_15 = m_token::balance_of(&global, ALICE);
         let principal = m_token::principal_balance_of(&global, ALICE);
@@ -789,8 +817,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Check initial state
         let initial_balance = m_token::balance_of(&global, ALICE);
@@ -842,8 +872,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // First claim after index growth
         let index_1 = (EXPECTED_CURRENT_INDEX * 11) / 10; // 1.1x
@@ -935,8 +967,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Count initial coins from minting
         next_tx(&mut scenario, ALICE);
@@ -984,12 +1018,16 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, BOB, 2000, ctx);
         
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         next_tx(&mut scenario, BOB);
+        let bob_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, bob_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
         
         // Record initial total supply
         let initial_total = m_token::total_supply(&global);
@@ -1056,8 +1094,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
 
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
 
         // Make BOB an earner too BEFORE index growth so he can have yield to claim
         m_token::approve_earner(&mut global, &registrar_cap, BOB);
@@ -1066,8 +1106,10 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, BOB, 500, ctx);
 
         next_tx(&mut scenario, BOB);
+        let bob_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, bob_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
 
         // Let some time pass with index growth - both Alice and BOB will have yield
         set_index(&mut global, EXPECTED_CURRENT_INDEX * 110 / 100); // 10% growth
@@ -1111,11 +1153,11 @@ module sui_m::m_token_tests {
         m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
 
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let mut alice_coin = m_token::start_earning(&mut global, alice_coin, ctx);
 
-        // Alice gets her initial coin
-        let mut alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        // Alice now has her coin back from start_earning
         let initial_coin_value = coin::value(&alice_coin);
 
         // Let some time pass with index growth
@@ -1161,12 +1203,16 @@ module sui_m::m_token_tests {
 
         // Both start earning at the same time
         next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
 
         next_tx(&mut scenario, BOB);
+        let bob_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
         let ctx = ctx(&mut scenario);
-        m_token::start_earning(&mut global, ctx);
+        let returned_coin = m_token::start_earning(&mut global, bob_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
 
         // Same index growth for both
         set_index(&mut global, EXPECTED_CURRENT_INDEX * 110 / 100); // 10% growth
@@ -1199,6 +1245,76 @@ module sui_m::m_token_tests {
         sui::test_utils::destroy(alice_coin);
         sui::test_utils::destroy(bob_coin);
 
+        return_shared_objects(global, portal_cap, registrar_cap);
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_start_earning_syncs_balance_for_existing_earners() {
+        let mut scenario = setup_test();
+        let (mut global, portal_cap, registrar_cap) = take_shared_objects(&mut scenario);
+        
+        set_index(&mut global, EXPECTED_CURRENT_INDEX);
+        
+        // Setup Alice as earner with initial balance
+        m_token::approve_earner(&mut global, &registrar_cap, ALICE);
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 1000, ctx);
+        
+        next_tx(&mut scenario, ALICE);
+        let alice_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let ctx = ctx(&mut scenario);
+        let returned_coin = m_token::start_earning(&mut global, alice_coin, ctx);
+        test_scenario::return_to_sender(&scenario, returned_coin);
+        
+        // Check initial state
+        let initial_principal = m_token::principal_balance_of(&global, ALICE);
+        let initial_earning_supply = m_token::total_earning_supply(&global);
+        assert!(initial_principal > 0, 0);
+        assert!(initial_earning_supply > 0, 1);
+        
+        // Simulate Alice receiving additional coins via direct transfer
+        // (In real scenarios, this could happen through P2P transfers, DEX trades, etc.)
+        next_tx(&mut scenario, PORTAL);
+        let ctx = ctx(&mut scenario);
+        m_token::mint_no_index(&mut global, &portal_cap, ALICE, 500, ctx); // Alice gets 500 more
+        
+        // Now Alice has 1000 (earning) + 500 (new) = 1500 total coins
+        // But her internal balance still only reflects the original 1000
+        next_tx(&mut scenario, ALICE);
+        let mut alice_original_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        let alice_new_coin = test_scenario::take_from_sender<Coin<M_TOKEN>>(&scenario);
+        
+        // Join the coins to simulate what would happen in practice
+        coin::join(&mut alice_original_coin, alice_new_coin);
+        let total_coin_value = coin::value(&alice_original_coin);
+        
+        // Alice should have more coins now than her original amount
+        assert!(total_coin_value > 1000, 2);
+        
+        // Call start_earning again - this should sync her balance to match her actual coins
+        let ctx = ctx(&mut scenario);
+        let synced_coin = m_token::start_earning(&mut global, alice_original_coin, ctx);
+        test_scenario::return_to_sender(&scenario, synced_coin);
+        
+        // Check that her internal accounting was updated
+        let new_principal = m_token::principal_balance_of(&global, ALICE);
+        let new_earning_supply = m_token::total_earning_supply(&global);
+        
+        // Her principal should have increased to reflect the additional 500 coins
+        assert!(new_principal > initial_principal, 3);
+        
+        // Total earning supply should also have increased
+        assert!(new_earning_supply > initial_earning_supply, 4);
+        
+        // Her balance should now match her actual coin holdings (accounting for rounding)
+        let actual_balance = m_token::balance_of(&global, ALICE);
+        
+        // Allow for small rounding differences due to principal conversion
+        // The balance should be close to the total coin value we calculated
+        assert!(actual_balance >= (total_coin_value as u256) - 2 && actual_balance <= (total_coin_value as u256), 5);
+        
         return_shared_objects(global, portal_cap, registrar_cap);
         test_scenario::end(scenario);
     }
