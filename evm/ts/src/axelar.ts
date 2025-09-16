@@ -59,55 +59,46 @@ export async function getAxelarGasFee(
   const axelarSourceChain = getAxelarChain(sourceChain);
   const axelarDestinationChain = getAxelarChain(destinationChain);
 
-  const maxRetries = 3;
-  let lastResult: bigint | null = null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // TODO: the Axelar API sometimes returns 0 gas fee. Retry a few times if we get 0.
-  // The issue is intermittent and the Axelar team is looking into fixing it.
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // Set a minimum fee of 1 to avoid 0-fee issue with relays not proceeding
+  // past the gas paid step
+  let fee = 1n;
 
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sourceChain: axelarSourceChain,
-          destinationChain: axelarDestinationChain,
-          gasMultiplier: "auto",
-          gasLimit: gasLimit.toString(),
-        }),
-        signal: controller.signal,
-      });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sourceChain: axelarSourceChain,
+        destinationChain: axelarDestinationChain,
+        gasMultiplier: "auto",
+        gasLimit: gasLimit.toString(),
+      }),
+      signal: controller.signal,
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Failed to estimate gas fee: ${response.status} ${errorText}`
-        );
-      }
-
-      const result = await response.json();
-      lastResult = BigInt(result);
-
-      if (lastResult !== 0n) {
-        return lastResult;
-      }
-
-      // If we got 0 and have more retries, wait 1 second before trying again
-      if (attempt < maxRetries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-    } finally {
-      clearTimeout(timeoutId);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to estimate gas fee: ${response.status} ${errorText}`
+      );
     }
+
+    const result = await response.json();
+
+    const parsedFee = BigInt(result);
+    if (parsedFee > 0n) {
+      fee = parsedFee;
+    }
+  } finally {
+    clearTimeout(timeoutId);
   }
 
-  // If all retries returned 0, just return 1 wei
-  return lastResult ?? 1n;
+  return fee;
 }
 
 export async function getAxelarTransactionStatus(
