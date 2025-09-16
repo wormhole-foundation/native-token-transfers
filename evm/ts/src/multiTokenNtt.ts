@@ -534,7 +534,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   async *completeInboundQueuedTransfer(
-    fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
   ) {
     const { trimmedAmount, token, sender, to } =
@@ -576,6 +575,11 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       chain,
       address,
     };
+  }
+
+  async isWrappedToken(localToken: TokenId): Promise<boolean> {
+    const originalToken = await this.getOriginalToken(localToken);
+    return originalToken.chain !== this.chain;
   }
 
   // This will return null if the token doesn't exist

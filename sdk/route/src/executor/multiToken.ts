@@ -760,7 +760,6 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
     const completeTransfer = destinationNtt.completeInboundQueuedTransfer(
-      receipt.from,
       vaa.payload.nttManagerPayload
     );
     const finalizeTxs = await signSendWait(toChain, completeTransfer, signer);

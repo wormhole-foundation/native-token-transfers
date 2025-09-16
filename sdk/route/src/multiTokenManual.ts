@@ -102,6 +102,20 @@ export class MultiTokenNttManualRoute<N extends Network>
     return {};
   }
 
+  async isWrappedToken(token: TokenId): Promise<boolean> {
+    const contracts = MultiTokenNttRoute.resolveContracts(
+      this.staticConfig.contracts,
+      token.chain
+    );
+
+    const chain = this.wh.getChain(token.chain);
+    const ntt = await chain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: contracts,
+    });
+
+    return await ntt.isWrappedToken(token);
+  }
+
   async validate(
     request: routes.RouteTransferRequest<N>,
     params: Tp
@@ -411,7 +425,6 @@ export class MultiTokenNttManualRoute<N extends Network>
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
     const completeTransfer = ntt.completeInboundQueuedTransfer(
-      receipt.from,
       vaa.payload.nttManagerPayload
     );
     const finalizeTxids = await signSendWait(toChain, completeTransfer, signer);

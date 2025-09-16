@@ -150,11 +150,12 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   ): Promise<MultiTokenNtt.InboundQueuedTransfer | null>;
 
   completeInboundQueuedTransfer(
-    fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   getOriginalToken(localToken: TokenId): Promise<MultiTokenNtt.OriginalTokenId>;
+
+  isWrappedToken(localToken: TokenId): Promise<boolean>;
 
   getLocalToken(
     originalToken: MultiTokenNtt.OriginalTokenId
