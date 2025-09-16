@@ -2,33 +2,22 @@ import {
   Chain,
   ChainAddress,
   ChainContext,
-  CompletedTransferReceipt,
-  DestinationQueuedTransferReceipt,
   Network,
-  RedeemedTransferReceipt,
   Signer,
   TokenId,
   TransactionId,
   TransferState,
   TransferReceipt as _TransferReceipt,
   Wormhole,
-  WormholeMessageId,
   amount,
   canonicalAddress,
   finality,
-  isAttested,
-  isDestinationQueued,
   isNative,
-  isRedeemed,
-  isSameToken,
-  isSourceFinalized,
-  isSourceInitiated,
   nativeTokenId,
   routes,
   signSendWait,
   relayInstructionsLayout,
   deserializeLayout,
-  isFailed,
   guardians,
   UniversalAddress,
   chainToPlatform,
@@ -36,8 +25,6 @@ import {
   serializeLayout,
   signedQuoteLayout,
   toChainId,
-  toUniversal,
-  AttestedTransferReceipt,
 } from "@wormhole-foundation/sdk-connect";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "../types.js";
@@ -56,7 +43,6 @@ import {
 } from "./utils.js";
 import { getDefaultReferrerAddress } from "./consts.js";
 import { NttExecutorRoute } from "./executor.js";
-import { trackAxelar, trackExecutor } from "../tracking.js";
 
 export namespace MultiTokenNttExecutorRoute {
   export type Config = {
@@ -65,42 +51,18 @@ export namespace MultiTokenNttExecutorRoute {
   };
 
   export type ReferrerFeeConfig = NttExecutorRoute.ReferrerFeeConfig;
-
-  export type Options = {
-    // 0.0 - 1.0 percentage of the maximum gas drop-off amount
-    nativeGas?: number;
-  };
-
-  export type NormalizedParams = MultiTokenNttRoute.NormalizedParams & {
-    referrerFeeDbps: bigint;
-  };
-
-  export interface ValidatedParams
-    extends routes.ValidatedTransferParams<Options> {
-    normalizedParams: NormalizedParams;
-  }
-
-  export type TransferReceipt<
-    SC extends Chain = Chain,
-    DC extends Chain = Chain
-  > = _TransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt, SC, DC> & {
-    params: ValidatedParams;
-    trackingInfo: {
-      transceiverAttested: { [type: string]: boolean };
-    };
-  };
 }
 
-type Op = MultiTokenNttExecutorRoute.Options;
+type Op = MultiTokenNttRoute.Options;
 type Tp = routes.TransferParams<Op>;
 type Vr = routes.ValidationResult<Op>;
 
-type Vp = MultiTokenNttExecutorRoute.ValidatedParams;
+type Vp = MultiTokenNttRoute.ValidatedParams;
 
 type Q = routes.Quote<Op, Vp, MultiTokenNttWithExecutor.Quote>;
 type QR = routes.QuoteResult<Op, Vp>;
 
-type R = MultiTokenNttExecutorRoute.TransferReceipt;
+type R = MultiTokenNttRoute.TransferReceipt;
 
 export function multiTokenNttExecutorRoute(
   config: MultiTokenNttExecutorRoute.Config
@@ -165,41 +127,20 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     };
   }
 
-  // TODO: these two methods are identical to the ManualRoute version
   async isWrappedToken(token: TokenId): Promise<boolean> {
-    const contracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.contracts,
-      token.chain
+    return await MultiTokenNttRoute.isWrappedToken(
+      this.wh.getChain(token.chain),
+      token,
+      this.staticConfig.contracts
     );
-
-    const chain = this.wh.getChain(token.chain);
-    const ntt = await chain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: contracts,
-    });
-
-    return await ntt.isWrappedToken(token);
   }
 
   async getOriginalToken(token: TokenId): Promise<TokenId> {
-    const contracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.contracts,
-      token.chain
+    return await MultiTokenNttRoute.getOriginalToken(
+      this.wh.getChain(token.chain),
+      token,
+      this.staticConfig.contracts
     );
-
-    const chain = this.wh.getChain(token.chain);
-    const ntt = await chain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: contracts,
-    });
-
-    const originalToken = await ntt.getOriginalToken(token);
-    if (originalToken === null) {
-      throw new Error("Original token not found");
-    }
-
-    return {
-      chain: originalToken.chain,
-      address: originalToken.address.toNative(originalToken.chain),
-    };
   }
 
   async validate(
@@ -449,7 +390,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     const { referrerFee, remainingAmount, referrerFeeDbps } =
       calculateReferrerFee(
         params.normalizedParams.amount,
-        params.normalizedParams.referrerFeeDbps,
+        params.normalizedParams.referrerFeeDbps ?? 0n,
         request.destination.decimals
       );
     if (remainingAmount <= 0n) {
@@ -637,300 +578,36 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     };
   }
 
-  // TODO: this is identical to the MultiTokenManualRoute version
   async complete(signer: Signer, receipt: R): Promise<R> {
-    if (!isAttested(receipt) && !isFailed(receipt)) {
-      if (isRedeemed(receipt)) return receipt;
-      throw new Error(
-        "The source must be finalized in order to complete the transfer"
-      );
-    }
-
-    if (!receipt.attestation) {
-      throw new Error("No attestation found on the transfer receipt");
-    }
-
-    const toChain = this.wh.getChain(receipt.to);
-    const ntt = await toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
-    });
-
-    const { sendTransceivers } = receipt.params.normalizedParams;
-    const wormhole = sendTransceivers.find(
-      (t) => t.type.toLowerCase() === "wormhole"
+    return await MultiTokenNttRoute.complete<N, R>(
+      signer,
+      this.wh.getChain(receipt.to),
+      receipt
     );
-    if (!wormhole) {
-      throw new Error(
-        "No Wormhole transceiver found, cannot complete manual transfer"
-      );
-    }
-
-    const wormholeAttested = await ntt.transceiverAttestedToMessage(
-      receipt.from,
-      receipt.attestation.attestation.payload.nttManagerPayload,
-      wormhole.index
-    );
-    if (wormholeAttested) {
-      // already attested by the wormhole transceiver
-      return receipt;
-    }
-
-    const completeXfer = ntt.redeem(receipt.attestation.attestation);
-
-    await signSendWait(toChain, completeXfer, signer);
-
-    return receipt;
   }
 
   async resume(tx: TransactionId): Promise<R> {
-    const fromChain = this.wh.getChain(tx.chain);
-    const [msg] = await fromChain.parseTransaction(tx.txid);
-    if (!msg) throw new Error("No Wormhole messages found");
-
-    const vaa = await this.wh.getVaa(msg, "MultiTokenNtt:WormholeTransfer");
-    if (!vaa) throw new Error("No VAA found for transaction: " + tx.txid);
-
-    const { payload } = vaa.payload.nttManagerPayload;
-
-    const sourceContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.contracts,
-      fromChain.chain
+    return await MultiTokenNttRoute.resume<N, R>(
+      tx,
+      this.wh,
+      this.staticConfig.contracts
     );
-    if (
-      !payload.sender.equals(
-        toUniversal(fromChain.chain, sourceContracts.manager)
-      )
-    ) {
-      throw new Error("Invalid source manager");
-    }
-
-    const destinationContracts = MultiTokenNttRoute.resolveContracts(
-      this.staticConfig.contracts,
-      payload.toChain
-    );
-
-    const { trimmedAmount } = payload.data;
-    const amt = amount.fromBaseUnits(
-      trimmedAmount.amount,
-      trimmedAmount.decimals
-    );
-
-    const originalTokenId: MultiTokenNtt.OriginalTokenId = {
-      chain: payload.data.token.token.chainId,
-      address: payload.data.token.token.tokenAddress,
-    };
-
-    const sourceNtt = await fromChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: sourceContracts,
-    });
-    let sourceTokenId = await sourceNtt.getLocalToken(originalTokenId);
-    if (sourceTokenId === null) throw new Error("Source token not found");
-
-    const sourceWrappedNativeToken = await sourceNtt.getWrappedNativeToken();
-    if (isSameToken(sourceWrappedNativeToken, sourceTokenId)) {
-      sourceTokenId = nativeTokenId(fromChain.chain);
-    }
-
-    const destinationTokenId = await MultiTokenNttRoute.getDestinationTokenId(
-      sourceTokenId,
-      fromChain,
-      this.wh.getChain(payload.toChain),
-      this.staticConfig.contracts,
-      originalTokenId
-    );
-
-    const sendTransceivers = await sourceNtt.getSendTransceivers(
-      payload.toChain
-    );
-
-    const msgId: WormholeMessageId = {
-      chain: vaa.emitterChain,
-      emitter: vaa.emitterAddress,
-      sequence: vaa.sequence,
-    };
-
-    return {
-      from: vaa.emitterChain,
-      to: payload.toChain,
-      state: TransferState.Attested,
-      originTxs: [tx],
-      attestation: {
-        id: msgId,
-        attestation: vaa,
-      },
-      trackingInfo: { transceiverAttested: {} },
-      params: {
-        amount: amount.display(amt),
-        normalizedParams: {
-          amount: amt,
-          sourceContracts,
-          destinationContracts,
-          sourceTokenId,
-          destinationTokenId,
-          originalTokenId,
-          sendTransceivers,
-          referrerFeeDbps: 0n,
-          gasLimit: 0n,
-        },
-        options: {
-          nativeGas: undefined,
-        },
-      },
-    };
   }
 
-  // Even though this is an automatic route, the transfer may need to be
-  // manually finalized if it was queued
   async finalize(signer: Signer, receipt: R): Promise<R> {
-    if (!isDestinationQueued(receipt)) {
-      throw new Error(
-        "The transfer must be destination queued in order to finalize"
-      );
-    }
-
-    const {
-      attestation: { attestation: vaa },
-    } = receipt;
-
-    const toChain = this.wh.getChain(receipt.to);
-    const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
-    });
-    const completeTransfer = destinationNtt.completeInboundQueuedTransfer(
-      vaa.payload.nttManagerPayload
+    return await MultiTokenNttRoute.finalize<N, R>(
+      signer,
+      this.wh.getChain(receipt.to),
+      receipt
     );
-    const finalizeTxs = await signSendWait(toChain, completeTransfer, signer);
-    return {
-      ...receipt,
-      state: TransferState.DestinationFinalized,
-      destinationTxs: [...(receipt.destinationTxs ?? []), ...finalizeTxs],
-    };
   }
 
-  public override async *track(receipt: R, timeout?: number) {
-    if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      const txid = receipt.originTxs.at(-1)!;
-
-      // TODO: can pass txid when this is published: https://github.com/wormhole-foundation/wormhole-sdk-ts/pull/909
-      const fromChain = this.wh.getChain(receipt.from);
-      const [msg] = await fromChain.parseTransaction(txid.txid);
-      if (!msg) throw new Error("No Wormhole messages found");
-
-      const vaa = await this.wh.getVaa(
-        msg,
-        "MultiTokenNtt:WormholeTransfer",
-        timeout
-      );
-      if (!vaa) throw new Error("No VAA found for transaction: " + txid.txid);
-
-      const msgId: WormholeMessageId = {
-        chain: vaa.emitterChain,
-        emitter: vaa.emitterAddress,
-        sequence: vaa.sequence,
-      };
-
-      receipt = {
-        ...receipt,
-        state: TransferState.Attested,
-        attestation: {
-          id: msgId,
-          attestation: vaa,
-        },
-      };
-      yield receipt;
-    }
-
-    const toChain = this.wh.getChain(receipt.to);
-    const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
-    });
-
-    // Check if the transfer was redeemed
-    if (isAttested(receipt) || isFailed(receipt)) {
-      if (!receipt.attestation) {
-        throw new Error("No attestation found");
-      }
-
-      const vaa = receipt.attestation.attestation;
-
-      if (await destinationNtt.getIsApproved(vaa)) {
-        // All transceivers have approved the transfer
-        receipt = {
-          ...receipt,
-          state: TransferState.DestinationInitiated,
-          attestation: receipt.attestation,
-        } satisfies RedeemedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
-        yield receipt;
-      } else {
-        const { sendTransceivers } = receipt.params.normalizedParams;
-        for (const transceiver of sendTransceivers) {
-          const transceiverType = transceiver.type.toLowerCase();
-          if (receipt.trackingInfo.transceiverAttested[transceiverType]) {
-            continue;
-          }
-
-          const attested = await destinationNtt.transceiverAttestedToMessage(
-            receipt.from,
-            receipt.attestation!.attestation.payload.nttManagerPayload,
-            transceiver.index
-          );
-          if (attested) {
-            receipt.trackingInfo.transceiverAttested[transceiverType] = true;
-            if (isFailed(receipt)) {
-              // Reset the receipt status if the transceiver attested
-              receipt = {
-                ...receipt,
-                attestation: receipt.attestation!,
-                state: TransferState.Attested,
-              } satisfies AttestedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
-              yield receipt;
-            }
-            continue;
-          }
-
-          if (transceiverType === "wormhole") {
-            receipt = await trackExecutor(this.wh.network, receipt);
-          } else if (transceiverType === "axelar") {
-            receipt = await trackAxelar(this.wh.network, receipt);
-          } else {
-            throw new Error(
-              `Unsupported transceiver type: ${transceiver.type}`
-            );
-          }
-          yield receipt;
-          // We are breaking here so we only track one transceiver at a time
-          // until all transceivers have attested. Otherwise the receipt state
-          // may jump around too much resulting in a glitchy UI.
-          break;
-        }
-      }
-    }
-
-    if (isRedeemed(receipt) || isDestinationQueued(receipt)) {
-      const vaa = receipt.attestation.attestation;
-
-      const queuedTransfer = await destinationNtt.getInboundQueuedTransfer(
-        vaa.emitterChain,
-        vaa.payload.nttManagerPayload
-      );
-      if (queuedTransfer !== null) {
-        receipt = {
-          ...receipt,
-          state: TransferState.DestinationQueued,
-          queueReleaseTime: new Date(
-            queuedTransfer.rateLimitExpiryTimestamp * 1000
-          ),
-        } satisfies DestinationQueuedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
-        yield receipt;
-      } else if (await destinationNtt.getIsExecuted(vaa)) {
-        receipt = {
-          ...receipt,
-          state: TransferState.DestinationFinalized,
-        } satisfies CompletedTransferReceipt<MultiTokenNttRoute.ManualAttestationReceipt>;
-        yield receipt;
-      }
-    }
-
-    yield receipt;
+  async *track(receipt: R, timeout?: number) {
+    return yield* MultiTokenNttRoute.track<N, R>(
+      this.wh,
+      receipt,
+      false,
+      timeout
+    );
   }
 }

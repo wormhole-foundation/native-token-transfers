@@ -110,7 +110,6 @@ export class EvmMultiTokenNttWithExecutor<
     const recipient = destination.address.toUniversalAddress().toUint8Array();
     const refundAddress = sender.toUniversalAddress().toUint8Array();
 
-    // Executor args from quote
     const executorArgs = {
       value: quote.estimatedCost,
       refundAddress: senderAddress,
@@ -118,7 +117,6 @@ export class EvmMultiTokenNttWithExecutor<
       instructions: quote.relayInstructions,
     };
 
-    // Fee args from quote
     const feeArgs = {
       dbps: quote.referrerFeeDbps,
       payee: quote.referrer.address.toString(),
