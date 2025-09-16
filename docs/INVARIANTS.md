@@ -190,12 +190,12 @@
 - **Error Codes**: `DeliveryPaymentTooLow` (EVM)
 - **Code Reference**: `_quoteDeliveryPrice()` and payment validation
 
-### INV-021: Revert On Dust
+### INV-021: Do Not Lock Up Dust
 
-- **Invariant**: All cross-chain transfers should revert if the user included more than the exact amount ("dust")
-- **Description**: Ensures funds do not become locked in the contracts
-- **Enforcement**: Amount calculations in processing
-- **Error Codes**: `TransferAmountHasDust` (EVM)
+- **Invariant**: All cross-chain transfers must prevent the user from overspending and locking "dust" in the contract
+- **Description**: Ensures funds do not become locked in the contracts if users over pay
+- **Enforcement**: Amount calculations in processing, structs representing TrimmedAmount
+- **Error Codes**: `TransferAmountHasDust` (EVM); Sui returns a separate Coin for dust; Solana uses `trimmed_amount` to remove dust before a transfer
 
 ## Peer Management
 
