@@ -116,6 +116,28 @@ export class MultiTokenNttManualRoute<N extends Network>
     return await ntt.isWrappedToken(token);
   }
 
+  async getOriginalToken(token: TokenId): Promise<TokenId> {
+    const contracts = MultiTokenNttRoute.resolveContracts(
+      this.staticConfig.contracts,
+      token.chain
+    );
+
+    const chain = this.wh.getChain(token.chain);
+    const ntt = await chain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: contracts,
+    });
+
+    const originalToken = await ntt.getOriginalToken(token);
+    if (originalToken === null) {
+      throw new Error("Original token not found");
+    }
+
+    return {
+      chain: originalToken.chain,
+      address: originalToken.address.toNative(originalToken.chain),
+    };
+  }
+
   async validate(
     request: routes.RouteTransferRequest<N>,
     params: Tp

@@ -165,6 +165,43 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     };
   }
 
+  // TODO: these two methods are identical to the ManualRoute version
+  async isWrappedToken(token: TokenId): Promise<boolean> {
+    const contracts = MultiTokenNttRoute.resolveContracts(
+      this.staticConfig.contracts,
+      token.chain
+    );
+
+    const chain = this.wh.getChain(token.chain);
+    const ntt = await chain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: contracts,
+    });
+
+    return await ntt.isWrappedToken(token);
+  }
+
+  async getOriginalToken(token: TokenId): Promise<TokenId> {
+    const contracts = MultiTokenNttRoute.resolveContracts(
+      this.staticConfig.contracts,
+      token.chain
+    );
+
+    const chain = this.wh.getChain(token.chain);
+    const ntt = await chain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: contracts,
+    });
+
+    const originalToken = await ntt.getOriginalToken(token);
+    if (originalToken === null) {
+      throw new Error("Original token not found");
+    }
+
+    return {
+      chain: originalToken.chain,
+      address: originalToken.address.toNative(originalToken.chain),
+    };
+  }
+
   async validate(
     request: routes.RouteTransferRequest<N>,
     params: Tp
@@ -861,6 +898,9 @@ export class MultiTokenNttExecutorRoute<N extends Network>
             );
           }
           yield receipt;
+          // We are breaking here so we only track one transceiver at a time
+          // until all transceivers have attested. Otherwise the receipt state
+          // may jump around too much resulting in a glitchy UI.
           break;
         }
       }
