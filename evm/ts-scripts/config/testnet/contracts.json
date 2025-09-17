@@ -145,6 +145,10 @@
   ],
   "GeneralPurposeGovernances": [
     {
+      "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
+      "chainId": 57
+    },
+    {
       "address": "0x9517F0164c1d089ad72E669E57b9088790966dBd",
       "chainId": 10002
     },

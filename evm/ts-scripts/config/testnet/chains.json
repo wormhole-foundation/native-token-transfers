@@ -24,6 +24,12 @@
       "evmNetworkId": 84532,
       "chainId": 10004,
       "rpc": "https://sepolia.base.org"
+    },
+    {
+      "description": "XRPL EVM Testnet",
+      "evmNetworkId": 1449000,
+      "chainId": 57,
+      "rpc": "https://rpc.testnet.xrplevm.org"
     }
   ]
 }
