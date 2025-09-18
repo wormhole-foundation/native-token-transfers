@@ -131,6 +131,15 @@ export async function fetchStatus(
   }
 }
 
+export function isRelayStatusFailed(status: string): boolean {
+  return (
+    status === RelayStatus.Failed || // this could happen if simulation fails
+    status === RelayStatus.Underpaid || // only happens if you don't pay at least the costEstimate
+    status === RelayStatus.Unsupported || // capabilities check didn't pass
+    status === RelayStatus.Aborted
+  );
+}
+
 const MAX_U16 = 65_535n;
 export function calculateReferrerFee(
   _amount: sdkAmount.Amount,

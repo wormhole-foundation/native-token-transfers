@@ -3,6 +3,10 @@
 /* eslint-disable */
 export type { NttManager } from "./NttManager.js";
 export type { WormholeTransceiver } from "./WormholeTransceiver.js";
+export type { GmpManager } from "./GmpManager.js";
+export type { MultiTokenNtt } from "./MultiTokenNtt.js";
 export * as factories from "./factories/index.js";
 export { NttManager__factory } from "./factories/NttManager__factory.js";
 export { WormholeTransceiver__factory } from "./factories/WormholeTransceiver__factory.js";
+export { GmpManager__factory } from "./factories/GmpManager__factory.js";
+export { MultiTokenNtt__factory } from "./factories/MultiTokenNtt__factory.js";
