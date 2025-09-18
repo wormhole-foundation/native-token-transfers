@@ -48,7 +48,7 @@ describe("Ntt Layout Tests", function () {
         "0xbeefface00000000000000000000000000000000000000000000000000000000"
       );
       expect(deserialized.nttManagerPayload.payload.recipientChain).toEqual(
-        "Neon"
+        "Ethereum"
       );
       expect(
         deserialized.nttManagerPayload.payload.additionalPayload

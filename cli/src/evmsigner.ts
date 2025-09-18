@@ -20,9 +20,9 @@ import {
   isNativeSigner,
 } from '@wormhole-foundation/sdk-connect';
 import {
-    EvmPlatform,
-    type EvmChains,
-    _platform
+  EvmPlatform,
+  type EvmChains,
+  _platform,
 } from '@wormhole-foundation/sdk-evm';
 import type {
   Signer as EthersSigner,
@@ -38,7 +38,7 @@ export async function getEvmSigner(
     maxGasLimit?: bigint;
     chain?: EvmChains;
     debug?: boolean;
-  },
+  }
 ): Promise<Signer> {
   const signer: EthersSigner =
     typeof key === 'string' ? new Wallet(key, rpc) : key;
@@ -58,21 +58,21 @@ export async function getEvmSigner(
     chain,
     await signer.getAddress(),
     managedSigner,
-    opts,
+    opts
   );
 }
 
 // Get a SignOnlySigner for the EVM platform
 export async function getEvmSignerForKey(
   rpc: Provider,
-  privateKey: string,
+  privateKey: string
 ): Promise<Signer> {
   return getEvmSigner(rpc, privateKey);
 }
 
 // Get a SignOnlySigner for the EVM platform
 export async function getEvmSignerForSigner(
-  signer: EthersSigner,
+  signer: EthersSigner
 ): Promise<Signer> {
   if (!signer.provider) throw new Error('Signer must have a provider');
   return getEvmSigner(signer.provider!, signer, {});
@@ -86,7 +86,7 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
     _chain: C,
     _address: string,
     _signer: EthersSigner,
-    readonly opts?: { maxGasLimit?: bigint; debug?: boolean },
+    readonly opts?: { maxGasLimit?: bigint; debug?: boolean }
   ) {
     super(_chain, _address, _signer);
   }
@@ -119,7 +119,6 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
         gasLimit = this.opts?.maxGasLimit ?? 500_000n;
         break;
     }
-
 
     // TODO: DIFF STARTS HERE
 
@@ -154,8 +153,14 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
         ...transaction,
         ...gasOpts,
         from: this.address(),
-        nonce: await this._signer.getNonce(),
+        nonce: await this._signer.getNonce('pending'),
       };
+
+      // TODO: Refactor signing code and remove manually incrementing nonce as a breaking change occured when bumping sdks
+      // NonceManager should really take care of this?
+      if ('increment' in this._signer) {
+        (this._signer as Signer & NonceManager).increment();
+      }
 
       // try {
       //   const estimate = await this._signer.provider!.estimateGas(t);
@@ -177,7 +182,7 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
 }
 
 export function isEvmNativeSigner<N extends Network>(
-  signer: Signer<N>,
+  signer: Signer<N>
 ): signer is EvmNativeSigner<N> {
   return (
     isNativeSigner(signer) &&

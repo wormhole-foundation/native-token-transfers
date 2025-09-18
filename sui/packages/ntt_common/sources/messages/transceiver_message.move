@@ -253,7 +253,7 @@ module ntt_common::transceiver_message_tests {
                             0xFE, 0xEB, 0xCA, 0xFE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                         ])),
-                        17,
+                        2,
                         option::none()
                     )
                 )

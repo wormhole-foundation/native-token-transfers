@@ -40,14 +40,14 @@
     "test": "jest --config ./jest.config.ts"
   },
   "dependencies": {
-    "@mysten/sui": "1.37.2",
-    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0"
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
+    "@mysten/sui": "1.37.2"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^2.5.0",
-    "@wormhole-foundation/sdk-definitions": "^2.5.0",
-    "@wormhole-foundation/sdk-sui": "^2.5.0",
-    "@wormhole-foundation/sdk-sui-core": "^2.5.0"
+    "@wormhole-foundation/sdk-base": "^3.5.0",
+    "@wormhole-foundation/sdk-definitions": "^3.5.0",
+    "@wormhole-foundation/sdk-sui": "^3.5.0",
+    "@wormhole-foundation/sdk-sui-core": "^3.5.0"
   },
   "type": "module",
   "exports": {
