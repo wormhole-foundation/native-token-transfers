@@ -50,6 +50,12 @@ spec:
             - --account
             - 6MxkvoEwgB9EqQRLNhvYaPGhfcLtBtpBqdQugr3AZUgD
             - /opt/solana/deps/guardian_set.json
+            - --bpf-program
+            - EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX
+            - /opt/solana/deps/wormhole_post_message_shim.so
+            - --bpf-program
+            - EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at
+            - /opt/solana/deps/wormhole_verify_vaa_shim.so
             - --upgradeable-program
             - NTTManager111111111111111111111111111111111
             - /opt/solana/deps/example_native_token_transfers.so
@@ -57,6 +63,14 @@ spec:
             - --upgradeable-program
             - NTTManager222222222222222222222222222222222
             - /opt/solana/deps/example_native_token_transfers_2.so
+            - 6sbzC1eH4FTujJXWj51eQe25cYvr4xfXbJ1vAj7j2k5J
+            - --upgradeable-program
+            - NTTTransceiver11111111111111111111111111111
+            - /opt/solana/deps/ntt_transceiver.so
+            - 7HrnXGAzG6mV93Lumk7yfyrNk2bpstq8YyesqojLj8mG
+            - --upgradeable-program
+            - NTTTransceiver22222222222222222222222222222
+            - /opt/solana/deps/ntt_transceiver_2.so
             - 6sbzC1eH4FTujJXWj51eQe25cYvr4xfXbJ1vAj7j2k5J
             - -q
           ports:

@@ -1,31 +1,7 @@
 use anchor_lang::prelude::*;
-use wormhole_anchor_sdk::wormhole;
+use example_native_token_transfers::wormhole_accounts::{pay_wormhole_fee, WormholeAccounts};
 use wormhole_io::TypePrefixedPayload;
-
-// TODO: should we add emitter in here too?
-#[derive(Accounts)]
-pub struct WormholeAccounts<'info> {
-    // wormhole stuff
-    #[account(mut)]
-    /// CHECK: address will be checked by the wormhole core bridge
-    pub bridge: Account<'info, wormhole::BridgeData>,
-
-    #[account(mut)]
-    /// CHECK: account will be checked by the wormhole core bridge
-    pub fee_collector: UncheckedAccount<'info>,
-
-    #[account(mut)]
-    /// CHECK: account will be checked and maybe initialized by the wormhole core bridge
-    pub sequence: UncheckedAccount<'info>,
-
-    pub program: Program<'info, wormhole::program::Wormhole>,
-
-    pub system_program: Program<'info, System>,
-
-    // legacy
-    pub clock: Sysvar<'info, Clock>,
-    pub rent: Sysvar<'info, Rent>,
-}
+use wormhole_post_message_shim_interface::Finality;
 
 /// SECURITY: Owner checks are disabled. Each of [`WormholeAccounts::bridge`], [`WormholeAccounts::fee_collector`],
 /// and [`WormholeAccounts::sequence`] must be checked by the Wormhole core bridge.
@@ -35,59 +11,51 @@ pub fn post_message<'info, A: TypePrefixedPayload>(
     wormhole: &WormholeAccounts<'info>,
     payer: AccountInfo<'info>,
     message: AccountInfo<'info>,
-    emitter: AccountInfo<'info>,
     emitter_bump: u8,
     payload: &A,
-    additional_seeds: &[&[&[u8]]],
 ) -> Result<()> {
     let batch_id = 0;
 
     pay_wormhole_fee(wormhole, &payer)?;
 
-    let ix = wormhole::PostMessage {
-        config: wormhole.bridge.to_account_info(),
-        message,
-        emitter,
-        sequence: wormhole.sequence.to_account_info(),
-        payer: payer.to_account_info(),
-        fee_collector: wormhole.fee_collector.to_account_info(),
-        clock: wormhole.clock.to_account_info(),
-        rent: wormhole.rent.to_account_info(),
-        system_program: wormhole.system_program.to_account_info(),
-    };
-
-    let seeds: &[&[&[&[u8]]]] = &[
-        &[&[b"emitter".as_slice(), &[emitter_bump]]],
-        additional_seeds,
-    ];
-
-    wormhole::post_message(
-        CpiContext::new_with_signer(wormhole.program.to_account_info(), ix, &seeds.concat()),
+    wormhole_post_message_shim_interface::cpi::post_message(
+        CpiContext::new_with_signer(
+            wormhole.post_message_shim.to_account_info(),
+            wormhole_post_message_shim_interface::cpi::accounts::PostMessage {
+                payer,
+                bridge: wormhole.bridge.to_account_info(),
+                message,
+                emitter: wormhole.emitter.to_account_info(),
+                sequence: wormhole.sequence.to_account_info(),
+                fee_collector: wormhole.fee_collector.to_account_info(),
+                clock: wormhole.clock.to_account_info(),
+                system_program: wormhole.system_program.to_account_info(),
+                wormhole_program: wormhole.program.to_account_info(),
+                program: wormhole.post_message_shim.to_account_info(),
+                event_authority: wormhole.wormhole_post_message_shim_ea.to_account_info(),
+            },
+            &[&[b"emitter", &[emitter_bump]]],
+        ),
         batch_id,
+        Finality::Finalized,
         TypePrefixedPayload::to_vec_payload(payload),
-        wormhole::Finality::Finalized,
     )?;
 
-    Ok(())
-}
+    // Instruction data passed onto the Post Message Shim program is used to recreate the VAA.
+    // Cargo tests, however, do not expose a way to fetch inner instructions. As a workaround during
+    // testing, we build with this feature enabled and set the instruction data as the return data.
+    // The test first simulates this instruction to fetch the return data before submitting it.
+    #[cfg(feature = "testing")]
+    {
+        use anchor_lang::InstructionData;
 
-/// SECURITY: Owner and signer checks are not performed here as this private function is used only by
-/// [`post_message`].
-fn pay_wormhole_fee<'info>(
-    wormhole: &WormholeAccounts<'info>,
-    payer: &AccountInfo<'info>,
-) -> Result<()> {
-    if wormhole.bridge.fee() > 0 {
-        anchor_lang::system_program::transfer(
-            CpiContext::new(
-                wormhole.system_program.to_account_info(),
-                anchor_lang::system_program::Transfer {
-                    from: payer.to_account_info(),
-                    to: wormhole.fee_collector.to_account_info(),
-                },
-            ),
-            wormhole.bridge.fee(),
-        )?;
+        let ix_data = wormhole_post_message_shim_interface::instruction::PostMessage {
+            nonce: batch_id,
+            consistency_level: Finality::Finalized,
+            payload: TypePrefixedPayload::to_vec_payload(payload),
+        }
+        .data();
+        solana_program::program::set_return_data(&ix_data);
     }
 
     Ok(())
