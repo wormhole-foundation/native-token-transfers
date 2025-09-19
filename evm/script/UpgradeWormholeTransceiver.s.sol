@@ -34,12 +34,7 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
     ) internal {
         // Deploy the Wormhole Transceiver.
         WormholeTransceiver implementation = new WormholeTransceiver(
-            nttManager,
-            params.wormholeCoreBridge,
-            params.wormholeRelayerAddr,
-            params.specialRelayerAddr,
-            params.consistencyLevel,
-            params.gasLimit
+            nttManager, params.wormholeCoreBridge, params.consistencyLevel, params.gasLimit
         );
 
         console2.log("WormholeTransceiver Implementation deployed at: ", address(implementation));
