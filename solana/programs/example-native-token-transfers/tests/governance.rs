@@ -1,19 +1,16 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
-use std::sync::atomic::AtomicU64;
-
 use anchor_lang::{prelude::*, InstructionData};
-use common::setup::TestData;
 use example_native_token_transfers::config::Config;
 use ntt_messages::mode::Mode;
-use sdk::accounts::{Governance, Wormhole};
 use solana_program::{
     instruction::{Instruction, InstructionError},
     system_instruction::SystemError,
 };
 use solana_program_test::*;
 use solana_sdk::{pubkey::Pubkey, signer::Signer, transaction::TransactionError};
+use std::sync::atomic::AtomicU64;
 use wormhole_governance::{
     error::GovernanceError,
     instructions::{GovernanceMessage, ReplayProtection, OWNER},
@@ -22,9 +19,13 @@ use wormhole_sdk::{Address, Vaa, GOVERNANCE_EMITTER};
 use wormhole_solana_utils::cpi::bpf_loader_upgradeable;
 
 use crate::{
-    common::{query::GetAccountDataAnchor, setup::setup, submit::Submittable},
+    common::{
+        query::GetAccountDataAnchor,
+        setup::{setup, TestData},
+        submit::Submittable,
+    },
     sdk::{
-        accounts::{good_ntt, NTTAccounts},
+        accounts::{good_ntt, Governance, NTTAccounts, Wormhole},
         instructions::{
             admin::{set_paused, SetPaused},
             post_vaa::post_vaa,

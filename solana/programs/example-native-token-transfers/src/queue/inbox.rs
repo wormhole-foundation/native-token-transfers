@@ -1,6 +1,5 @@
-use std::ops::{Deref, DerefMut};
-
 use anchor_lang::prelude::*;
+use std::ops::{Deref, DerefMut};
 
 use crate::{bitmap::Bitmap, clock::current_timestamp, error::NTTError};
 

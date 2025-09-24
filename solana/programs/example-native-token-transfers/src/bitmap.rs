@@ -1,7 +1,9 @@
-use crate::error::NTTError;
 use anchor_lang::prelude::*;
 use bitmaps::Bitmap as BM;
 use std::result::Result as StdResult;
+
+use crate::error::NTTError;
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug, AnchorDeserialize, AnchorSerialize, InitSpace)]
 pub struct Bitmap {
     map: u128,
