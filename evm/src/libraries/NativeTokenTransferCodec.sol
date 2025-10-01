@@ -32,9 +32,8 @@ library NativeTokenTransferCodec {
     }
 
     /// @dev Prefix for all NativeTokenTransfer payloads
-    ///      This is 0x99'N''T''T'
-    ///      TODO: change this? currently clashes with NTT
-    bytes4 constant NTT_PREFIX = 0x994E5454;
+    ///      This is 0x99'M''T''T'
+    bytes4 constant MTT_PREFIX = 0x994D5454;
 
     function encodeNativeTokenTransfer(
         NativeTokenTransfer memory m
@@ -48,7 +47,7 @@ library NativeTokenTransferCodec {
         uint16 additionalPayloadLength = uint16(m.additionalPayload.length);
 
         return abi.encodePacked(
-            NTT_PREFIX,
+            MTT_PREFIX,
             transferAmount.getDecimals(),
             transferAmount.getAmount(),
             m.token.encode(),
@@ -65,7 +64,7 @@ library NativeTokenTransferCodec {
         uint256 offset = 0;
         bytes4 prefix;
         (prefix, offset) = encoded.asBytes4Unchecked(offset);
-        if (prefix != NTT_PREFIX) {
+        if (prefix != MTT_PREFIX) {
             revert IncorrectPrefix(prefix);
         }
 
