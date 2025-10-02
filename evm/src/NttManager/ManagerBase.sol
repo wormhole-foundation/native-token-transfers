@@ -150,7 +150,7 @@ abstract contract ManagerBase is
         ) {
             revert TransceiverAlreadyAttestedToMessage(nttManagerMessageHash);
         }
-        _setTransceiverAttestedToMessage(nttManagerMessageHash, msg.sender);
+        _setTransceiverAttestedToMessage(sourceChainId, nttManagerMessageHash, msg.sender);
 
         return nttManagerMessageHash;
     }
@@ -419,12 +419,17 @@ abstract contract ManagerBase is
         _getMessageAttestationsStorage()[digest].attestedTransceivers |= uint64(1 << index);
     }
 
-    function _setTransceiverAttestedToMessage(bytes32 digest, address transceiver) internal {
+    function _setTransceiverAttestedToMessage(
+        uint16 sourceChainId,
+        bytes32 digest,
+        address transceiver
+    ) internal {
         _setTransceiverAttestedToMessage(digest, _getTransceiverInfosStorage()[transceiver].index);
 
         emit MessageAttestedTo(
             digest, transceiver, _getTransceiverInfosStorage()[transceiver].index
         );
+        emit MessageAttestedTo(sourceChainId);
     }
 
     /// @dev Returns the bitmap of attestations from enabled transceivers for a given message.
