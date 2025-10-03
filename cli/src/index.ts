@@ -315,6 +315,10 @@ const options = {
         type: "boolean",
         default: false,
     },
+    gasEstimateMultiplier: {
+        describe: "Gas estimate multiplier for EVM deployments (e.g., 200 for 2x)",
+        type: "number",
+    },
     payer: {
         describe: "Path to the payer json file (Solana)",
         type: "string",
@@ -508,6 +512,7 @@ yargs(hideBin(process.argv))
             })
             .option("signer-type", options.signerType)
             .option("skip-verify", options.skipVerify)
+            .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
             .option("ver", options.version)
             .option("latest", options.latest)
             .option("local", options.local)
@@ -580,7 +585,7 @@ yargs(hideBin(process.argv))
             const ch = wh.getChain(chain);
 
             // TODO: make manager configurable
-            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["executor"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"], argv["sui-gas-budget"], argv["sui-package-path"], argv["sui-wormhole-state"], argv["sui-treasury-cap"]);
+            const deployedManager = await deploy(version, mode, ch, token, signerType, !argv["skip-verify"], argv["yes"], argv["executor"], argv["payer"], argv["program-key"], argv["binary"], argv["solana-priority-fee"], argv["sui-gas-budget"], argv["sui-package-path"], argv["sui-wormhole-state"], argv["sui-treasury-cap"], argv["gas-estimate-multiplier"]);
 
             const [config, _ctx, _ntt, decimals] =
                 await pullChainConfig(network, deployedManager, overrides);
@@ -620,6 +625,7 @@ yargs(hideBin(process.argv))
                 describe: "Path to program binary (.so file -- Solana)",
                 type: "string",
             })
+            .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
             .example("$0 upgrade Ethereum --latest", "Upgrade the Ethereum contract to the latest version")
             .example("$0 upgrade Solana --ver 1.1.0", "Upgrade the Solana contract to version 1.1.0")
             .example("$0 upgrade Polygon --local --skip-verify", "Upgrade the Polygon contract using the local version, skipping explorer bytecode verification"),
@@ -674,7 +680,8 @@ yargs(hideBin(process.argv))
                 !argv["skip-verify"],
                 argv["payer"],
                 argv["program-key"],
-                argv["binary"]
+                argv["binary"],
+                argv["gas-estimate-multiplier"]
             );
 
             // reinit the ntt object to get the new version
@@ -2161,7 +2168,8 @@ async function upgrade<N extends Network, C extends Chain>(
     evmVerify: boolean,
     solanaPayer?: string,
     solanaProgramKeyPath?: string,
-    solanaBinaryPath?: string
+    solanaBinaryPath?: string,
+    gasEstimateMultiplier?: number
 ): Promise<void> {
     // TODO: check that fromVersion is safe to upgrade to toVersion from
     const platform = chainToPlatform(ctx.chain);
@@ -2170,7 +2178,7 @@ async function upgrade<N extends Network, C extends Chain>(
         case "Evm":
             const evmNtt = ntt as EvmNtt<N, EvmChains>;
             const evmCtx = ctx as ChainContext<N, EvmChains>;
-            return upgradeEvm(worktree, evmNtt, evmCtx, signerType, evmVerify);
+            return upgradeEvm(worktree, evmNtt, evmCtx, signerType, evmVerify, gasEstimateMultiplier);
         case "Solana":
             if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
                 console.error("Payer not found. Specify with --payer");
@@ -2193,7 +2201,8 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
     ntt: EvmNtt<N, C>,
     ctx: ChainContext<N, C>,
     signerType: SignerType,
-    evmVerify: boolean
+    evmVerify: boolean,
+    gasEstimateMultiplier?: number
 ): Promise<void> {
     ensureNttRoot(pwd);
 
@@ -2216,6 +2225,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
 
     console.log("Upgrading manager...");
     const slowFlag = getSlowFlag(ctx.chain);
+    const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
     await withCustomEvmDeployerScript(pwd, async () => {
         execSync(
             `forge script --via-ir script/DeployWormholeNtt.s.sol \
@@ -2223,7 +2233,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
---broadcast ${slowFlag} \
+--broadcast ${slowFlag} ${gasMultiplier} \
 ${verifyArgs} | tee last-run.stdout`, {
                 cwd: `${pwd}/evm`,
                 stdio: "inherit"
@@ -2447,7 +2457,8 @@ async function deploy<N extends Network, C extends Chain>(
     suiGasBudget?: number,
     suiPackagePath?: string,
     suiWormholeState?: string,
-    suiTreasuryCap?: string
+    suiTreasuryCap?: string,
+    gasEstimateMultiplier?: number
 ): Promise<ChainAddress<C> | SuiDeploymentResult<C>> {
     if (version === null) {
         await warnLocalDeployment(yes);
@@ -2456,7 +2467,7 @@ async function deploy<N extends Network, C extends Chain>(
     const worktree = version ? createWorkTree(platform, version) : ".";
     switch (platform) {
         case "Evm":
-            return await deployEvm(worktree, mode, ch, token, signerType, evmVerify, executor);
+            return await deployEvm(worktree, mode, ch, token, signerType, evmVerify, executor, gasEstimateMultiplier);
         case "Solana":
             if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
                 console.error("Payer not found. Specify with --payer");
@@ -2480,6 +2491,7 @@ async function deployEvm<N extends Network, C extends Chain>(
     signerType: SignerType,
     verify: boolean,
     executor: boolean,
+    gasEstimateMultiplier?: number
 ): Promise<ChainAddress<C>> {
     ensureNttRoot(pwd);
 
@@ -2531,6 +2543,7 @@ async function deployEvm<N extends Network, C extends Chain>(
     const deploy = async (simulate: boolean): Promise<string> => {
         const simulateArg = simulate ? "" : "--skip-simulation";
         const slowFlag = getSlowFlag(ch.chain);
+        const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
         const effectiveRelayer = relayer || "0x0000000000000000000000000000000000000000";
         await withCustomEvmDeployerScript(pwd, async () => {
             try {
@@ -2539,7 +2552,7 @@ forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${rpc} \
 ${simulateArg} \
 --sig "${sig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
---broadcast ${slowFlag} ${verifyArgs.join(' ')} ${signerArgs} 2>&1 | tee last-run.stdout`, {
+--broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(' ')} ${signerArgs} 2>&1 | tee last-run.stdout`, {
                         cwd: `${pwd}/evm`,
                         encoding: 'utf8',
                         stdio: 'inherit'
@@ -3982,7 +3995,15 @@ function searchBufferInBinary(binaryPath: string, searchBuffer: Buffer): boolean
 }
 
 function getSlowFlag(chain: Chain): string {
-    return chain === "Mezo" || chain === "HyperEVM" || chain == "XRPLEVM" ? "--slow" : "";
+    return chain === "Mezo" || chain === "HyperEVM" || chain == "XRPLEVM" || chain === "CreditCoin" ? "--slow" : "";
+}
+
+function getGasMultiplier(userMultiplier?: number): string {
+    if (userMultiplier !== undefined) {
+        return `--gas-estimate-multiplier ${userMultiplier}`;
+    }
+
+    return "";
 }
 
 export function ensureNttRoot(pwd: string = ".") {
