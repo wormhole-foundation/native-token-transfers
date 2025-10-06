@@ -679,6 +679,6 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       return 1_000_000n;
     }
 
-    return 500_000n;
+    return 300_000n;
   }
 }
