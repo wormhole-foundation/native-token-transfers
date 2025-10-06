@@ -9,15 +9,16 @@ pub struct PostUnverifiedMessageAccount<'info> {
     pub payer: Signer<'info>,
 
     #[account(
-        init_if_needed,
-        payer = payer,
-        space = 8 + 4 + args.message_size as usize,
-        seeds = [
-            VaaBody::SEED_PREFIX,
-            &payer.key.to_bytes()
-        ],
-        bump,
-    )]
+    init_if_needed,
+    payer = payer,
+    space = 8 + 4 + args.message_size as usize,
+    seeds = [
+        VaaBody::SEED_PREFIX,
+        &payer.key.to_bytes(),
+        args.seed.to_be_bytes().as_ref(),
+    ],
+    bump,
+)]
     pub message: Account<'info, VaaBody>,
 
     pub system_program: Program<'info, System>,
@@ -25,6 +26,7 @@ pub struct PostUnverifiedMessageAccount<'info> {
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct PostUnverifiedMessageAccountArgs {
+    pub seed: u64, // arbitrary seed to identify the message
     pub offset: u32,
     pub chunk: Vec<u8>,
     pub message_size: u32,
@@ -55,6 +57,7 @@ pub fn post_unverified_message_account(
 }
 
 #[derive(Accounts)]
+#[instruction(seed: u64)]
 pub struct CloseUnverifiedMessageAccount<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -63,7 +66,8 @@ pub struct CloseUnverifiedMessageAccount<'info> {
         mut,
         seeds = [
             VaaBody::SEED_PREFIX,
-            &payer.key.to_bytes()
+            &payer.key.to_bytes(),
+            seed.to_be_bytes().as_ref(),
         ],
         bump,
         close = payer
@@ -75,6 +79,7 @@ pub struct CloseUnverifiedMessageAccount<'info> {
 
 pub fn close_unverified_message_account(
     _ctx: Context<CloseUnverifiedMessageAccount>,
+    _seed: u64,
 ) -> Result<()> {
     Ok(())
 }
