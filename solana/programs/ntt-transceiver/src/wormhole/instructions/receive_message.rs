@@ -105,6 +105,7 @@ pub fn receive_message_instruction_data(
 }
 
 #[derive(Accounts)]
+#[instruction(_guardian_set_bump: u8, seed: u64)]
 pub struct ReceiveMessageAccount<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -128,7 +129,8 @@ pub struct ReceiveMessageAccount<'info> {
         mut,
         seeds = [
             VaaBody::SEED_PREFIX,
-            &payer.key.to_bytes()
+            &payer.key.to_bytes(),
+            seed.to_be_bytes().as_ref(),
         ],
         bump,
         close = payer,
@@ -169,6 +171,7 @@ pub struct ReceiveMessageAccount<'info> {
 pub fn receive_message_account(
     ctx: Context<ReceiveMessageAccount>,
     guardian_set_bump: u8,
+    _seed: u64,
 ) -> Result<()> {
     let vaa_body = ctx.accounts.message.as_vaa_body_bytes();
     // verify the hash against the signatures

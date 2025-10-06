@@ -75,15 +75,17 @@ pub mod ntt_transceiver {
 
     pub fn close_unverified_wormhole_message_account(
         ctx: Context<CloseUnverifiedMessageAccount>,
+        seed: u64,
     ) -> Result<()> {
-        wormhole::instructions::close_unverified_message_account(ctx)
+        wormhole::instructions::close_unverified_message_account(ctx, seed)
     }
 
     pub fn receive_wormhole_message_account(
         ctx: Context<ReceiveMessageAccount>,
         guardian_set_bump: u8,
+        seed: u64,
     ) -> Result<()> {
-        wormhole::instructions::receive_message_account(ctx, guardian_set_bump)
+        wormhole::instructions::receive_message_account(ctx, guardian_set_bump, seed)
     }
 
     pub fn release_wormhole_outbound(
