@@ -161,7 +161,12 @@
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "seed",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "receiveWormholeMessageAccount",
@@ -227,6 +232,10 @@
         {
           "name": "guardianSetBump",
           "type": "u8"
+        },
+        {
+          "name": "seed",
+          "type": "u64"
         }
       ]
     },
@@ -876,6 +885,10 @@
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "seed",
+            "type": "u64"
+          },
           {
             "name": "offset",
             "type": "u32"
