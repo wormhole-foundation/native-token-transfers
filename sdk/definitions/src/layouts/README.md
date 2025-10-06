@@ -3,7 +3,6 @@
 Ntt:WormholeTransfer
 
 ```ts
-
 const data = {
     sourceNttManager: UniversalAddress { address:  [/*...*/] },
     recipientNttManager: UniversalAddress { address: [/*...*/] },
@@ -19,6 +18,4 @@ const data = {
     },
     transceiverPayload: null
 }
-
-
 ```
