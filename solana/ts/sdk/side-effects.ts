@@ -11,7 +11,7 @@
 (() => {
   const originalConsoleInfo: typeof console.info = console.info;
   console.info = function (x?: any, ...params: any[]) {
-    if (x !== 'secp256k1 unavailable, reverting to browser version') {
+    if (x !== "secp256k1 unavailable, reverting to browser version") {
       originalConsoleInfo.call(console, x, ...params);
     }
   };
@@ -20,7 +20,7 @@
   console.warn = function (x?: any, ...params: any[]) {
     if (
       x !==
-      'bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)'
+      "bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)"
     ) {
       originalConsoleWarn.call(console, x, ...params);
     }
