@@ -16,6 +16,7 @@ import {
   amount,
   canonicalAddress,
   isAttested,
+  isCompleted,
   isDestinationQueued,
   isFailed,
   isNative,
@@ -710,143 +711,152 @@ export namespace MultiTokenNttRoute {
     isManual?: boolean,
     timeout?: number
   ) {
-    if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      const txid = receipt.originTxs.at(-1)!;
+    let leftover = timeout ? timeout : 60 * 60 * 1000;
+    while (leftover > 0 && !isCompleted(receipt)) {
+      const start = Date.now();
 
-      // TODO: can pass txid when this is published: https://github.com/wormhole-foundation/wormhole-sdk-ts/pull/909
-      const fromChain = wh.getChain(receipt.from);
-      const [msg] = await fromChain.parseTransaction(txid.txid);
-      if (!msg) throw new Error("No Wormhole messages found");
+      if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
+        const txid = receipt.originTxs.at(-1)!;
 
-      const vaa = await wh.getVaa(
-        msg,
-        "MultiTokenNtt:WormholeTransfer",
-        timeout
-      );
-      if (!vaa) throw new Error("No VAA found for transaction: " + txid.txid);
+        // TODO: can pass txid when this is published: https://github.com/wormhole-foundation/wormhole-sdk-ts/pull/909
+        const fromChain: ChainContext<N> = wh.getChain(receipt.from);
+        const [msg] = await fromChain.parseTransaction(txid.txid);
+        if (!msg) throw new Error("No Wormhole messages found");
 
-      const msgId: WormholeMessageId = {
-        chain: vaa.emitterChain,
-        emitter: vaa.emitterAddress,
-        sequence: vaa.sequence,
-      };
+        const vaa = await wh.getVaa(
+          msg,
+          "MultiTokenNtt:WormholeTransfer",
+          timeout
+        );
+        if (!vaa) throw new Error("No VAA found for transaction: " + txid.txid);
 
-      receipt = {
-        ...receipt,
-        state: TransferState.Attested,
-        attestation: {
-          id: msgId,
-          attestation: vaa,
-        },
-      };
-      yield receipt;
-    }
+        const msgId: WormholeMessageId = {
+          chain: vaa.emitterChain,
+          emitter: vaa.emitterAddress,
+          sequence: vaa.sequence,
+        };
 
-    const toChain = wh.getChain(receipt.to);
-    const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
-    });
-
-    // Check if the transfer was redeemed
-    if (isAttested(receipt) || isFailed(receipt)) {
-      if (!receipt.attestation) {
-        throw new Error("No attestation found");
-      }
-
-      const vaa = receipt.attestation.attestation;
-
-      if (await destinationNtt.getIsApproved(vaa)) {
-        // All transceivers have approved the transfer
         receipt = {
           ...receipt,
-          state: TransferState.DestinationInitiated,
-          attestation: receipt.attestation,
+          state: TransferState.Attested,
+          attestation: {
+            id: msgId,
+            attestation: vaa,
+          },
         };
         yield receipt;
-      } else {
-        const { sendTransceivers } = receipt.params.normalizedParams;
+      }
 
-        // The Wormhole transceiver may wait to attest until all other transceivers have attested
-        // so we want to check it last
-        const sortedTransceivers = [...sendTransceivers].sort((a, b) => {
-          const aType = a.type.toLowerCase();
-          const bType = b.type.toLowerCase();
-          if (aType === "wormhole" && bType !== "wormhole") return 1;
-          if (aType !== "wormhole" && bType === "wormhole") return -1;
-          return 0;
-        });
+      const toChain = wh.getChain(receipt.to);
+      const destinationNtt = await toChain.getProtocol("MultiTokenNtt", {
+        multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
+      });
 
-        for (const transceiver of sortedTransceivers) {
-          const transceiverType = transceiver.type.toLowerCase();
-          if (receipt.trackingInfo.transceiverAttested[transceiverType]) {
-            continue;
-          }
+      // Check if the transfer was redeemed
+      if (isAttested(receipt) || isFailed(receipt)) {
+        if (!receipt.attestation) {
+          throw new Error("No attestation found");
+        }
 
-          const attested = await destinationNtt.transceiverAttestedToMessage(
-            receipt.from,
-            vaa.payload.nttManagerPayload,
-            transceiver.index
-          );
-          if (attested) {
-            receipt.trackingInfo.transceiverAttested[transceiverType] = true;
-            if (isFailed(receipt)) {
-              // Reset the receipt status if the transceiver attested
-              receipt = {
-                ...receipt,
-                attestation: receipt.attestation!,
-                state: TransferState.Attested,
-              };
-              yield receipt;
-            }
-            continue;
-          }
+        const vaa = receipt.attestation.attestation;
 
-          if (transceiverType === "wormhole") {
-            // Manual transfers don't use executor
-            if (!isManual) {
-              receipt = await trackExecutor(wh.network, receipt);
-            }
-          } else if (transceiverType === "axelar") {
-            receipt = await trackAxelar(wh.network, receipt);
-          } else {
-            throw new Error(
-              `Unsupported transceiver type: ${transceiver.type}`
-            );
-          }
+        if (await destinationNtt.getIsApproved(vaa)) {
+          // All transceivers have approved the transfer
+          receipt = {
+            ...receipt,
+            state: TransferState.DestinationInitiated,
+            attestation: receipt.attestation,
+          };
           yield receipt;
-          // We are breaking here so we only track one transceiver at a time
-          // until all transceivers have attested. Otherwise the receipt state
-          // may jump around too much resulting in a glitchy UI.
-          break;
+        } else {
+          const { sendTransceivers } = receipt.params.normalizedParams;
+
+          // The Wormhole transceiver may wait to attest until all other transceivers have attested
+          // so we want to check it last
+          const sortedTransceivers = [...sendTransceivers].sort((a, b) => {
+            const aType = a.type.toLowerCase();
+            const bType = b.type.toLowerCase();
+            if (aType === "wormhole" && bType !== "wormhole") return 1;
+            if (aType !== "wormhole" && bType === "wormhole") return -1;
+            return 0;
+          });
+
+          for (const transceiver of sortedTransceivers) {
+            const transceiverType = transceiver.type.toLowerCase();
+            if (receipt.trackingInfo.transceiverAttested[transceiverType]) {
+              continue;
+            }
+
+            const attested = await destinationNtt.transceiverAttestedToMessage(
+              receipt.from,
+              vaa.payload.nttManagerPayload,
+              transceiver.index
+            );
+            if (attested) {
+              receipt.trackingInfo.transceiverAttested[transceiverType] = true;
+              if (isFailed(receipt)) {
+                // Reset the receipt status if the transceiver attested
+                receipt = {
+                  ...receipt,
+                  attestation: receipt.attestation!,
+                  state: TransferState.Attested,
+                };
+                yield receipt;
+              }
+              continue;
+            }
+
+            if (transceiverType === "wormhole") {
+              // Manual transfers don't use executor
+              if (!isManual) {
+                receipt = await trackExecutor(wh.network, receipt);
+              }
+            } else if (transceiverType === "axelar") {
+              receipt = await trackAxelar(wh.network, receipt);
+            } else {
+              throw new Error(
+                `Unsupported transceiver type: ${transceiver.type}`
+              );
+            }
+            yield receipt;
+            // We are breaking here so we only track one transceiver at a time
+            // until all transceivers have attested. Otherwise the receipt state
+            // may jump around too much resulting in a glitchy UI.
+            break;
+          }
         }
       }
-    }
 
-    if (isRedeemed(receipt) || isDestinationQueued(receipt)) {
-      const vaa = receipt.attestation.attestation;
+      if (isRedeemed(receipt) || isDestinationQueued(receipt)) {
+        const vaa = receipt.attestation.attestation;
 
-      const queuedTransfer = await destinationNtt.getInboundQueuedTransfer(
-        vaa.emitterChain,
-        vaa.payload.nttManagerPayload
-      );
-      if (queuedTransfer !== null) {
-        receipt = {
-          ...receipt,
-          state: TransferState.DestinationQueued,
-          queueReleaseTime: new Date(
-            queuedTransfer.rateLimitExpiryTimestamp * 1000
-          ),
-        };
-        yield receipt;
-      } else if (await destinationNtt.getIsExecuted(vaa)) {
-        receipt = {
-          ...receipt,
-          state: TransferState.DestinationFinalized,
-        };
-        yield receipt;
+        const queuedTransfer = await destinationNtt.getInboundQueuedTransfer(
+          vaa.emitterChain,
+          vaa.payload.nttManagerPayload
+        );
+        if (queuedTransfer !== null) {
+          receipt = {
+            ...receipt,
+            state: TransferState.DestinationQueued,
+            queueReleaseTime: new Date(
+              queuedTransfer.rateLimitExpiryTimestamp * 1000
+            ),
+          };
+        } else if (await destinationNtt.getIsExecuted(vaa)) {
+          receipt = {
+            ...receipt,
+            state: TransferState.DestinationFinalized,
+          };
+        }
       }
+
+      yield receipt;
+
+      // sleep for a few seconds so we don't spam the endpoints
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      leftover -= Date.now() - start;
     }
 
-    yield receipt;
+    return receipt;
   }
 }
