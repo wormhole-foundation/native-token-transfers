@@ -164,13 +164,15 @@ export class SolanaNttWormholeTransceiver<
           })
           .instruction();
       } else {
+        // NOTE: use the same seed as in `postUnverifiedMessageAccount`
+        const seed = new BN(attestation.hash.subarray(-8));
         return this.program.methods
-          .receiveWormholeMessageAccount(guardianSetBump)
+          .receiveWormholeMessageAccount(guardianSetBump, seed)
           .accounts({
             payer,
             config: { config: this.manager.pdas.configAccount() },
             peer: this.pdas.transceiverPeerAccount(chain),
-            message: this.pdas.unverifiedMessageAccount(payer),
+            message: this.pdas.unverifiedMessageAccount(payer, seed),
             transceiverMessage: this.pdas.transceiverMessageAccount(
               chain,
               nttMessage.id
@@ -216,6 +218,10 @@ export class SolanaNttWormholeTransceiver<
       throw new Error("Chunks and batches should be positive integers");
     }
 
+    // NOTE: this is an arbitrary u64 seed used to identify this message
+    // For simplicity, we use the last 8 bytes of the hash
+    const seed = new BN(attestation.hash.subarray(-8));
+
     const message = vaaBody(serialize(attestation));
     const messageSize = message.length;
     const instructions: Promise<web3.TransactionInstruction>[] = [];
@@ -225,13 +231,14 @@ export class SolanaNttWormholeTransceiver<
       instructions.push(
         this.program.methods
           .postUnverifiedWormholeMessageAccount({
+            seed,
             offset,
             chunk,
             messageSize,
           })
           .accounts({
             payer,
-            message: this.pdas.unverifiedMessageAccount(payer),
+            message: this.pdas.unverifiedMessageAccount(payer, seed),
           })
           .instruction()
       );
@@ -261,12 +268,17 @@ export class SolanaNttWormholeTransceiver<
     }
   }
 
-  async *closeUnverifiedMessageAccount(payer: PublicKey) {
+  async *closeUnverifiedMessageAccount(
+    payer: PublicKey,
+    attestation: WormholeNttTransceiver.VAA<"WormholeTransfer">
+  ) {
+    // NOTE: use the same seed as in `postUnverifiedMessageAccount`
+    const seed = new BN(attestation.hash.subarray(-8));
     const ix = await this.program.methods
-      .closeUnverifiedWormholeMessageAccount()
+      .closeUnverifiedWormholeMessageAccount(seed)
       .accounts({
         payer,
-        message: this.pdas.unverifiedMessageAccount(payer),
+        message: this.pdas.unverifiedMessageAccount(payer, seed),
       })
       .instruction();
 
