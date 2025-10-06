@@ -50,9 +50,11 @@ pub fn receive_message_account(
     ntt: &NTT,
     ntt_transceiver: &NTTTransceiver,
     receive_message: ReceiveMessage,
+    seed: u64,
 ) -> Instruction {
     let data = ntt_transceiver::instruction::ReceiveWormholeMessageAccount {
         guardian_set_bump: receive_message.guardian_set.1,
+        seed,
     };
 
     let accounts = ntt_transceiver::accounts::ReceiveMessageAccount {
@@ -67,7 +69,7 @@ pub fn receive_message_account(
         guardian_signatures: receive_message.guardian_signatures,
         verify_vaa_shim: ntt_transceiver.verify_vaa_shim_shim(),
         system_program: System::id(),
-        message: ntt_transceiver.unverified_message_account(&receive_message.payer),
+        message: ntt_transceiver.unverified_message_account(&receive_message.payer, seed),
     };
 
     Instruction {

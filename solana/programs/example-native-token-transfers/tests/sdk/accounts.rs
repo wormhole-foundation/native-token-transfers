@@ -267,9 +267,11 @@ pub trait NTTTransceiverAccounts {
         transceiver_message
     }
 
-    fn unverified_message_account(&self, payer: &Pubkey) -> Pubkey {
-        let (unverified_message_account, _) =
-            Pubkey::find_program_address(&[b"vaa_body".as_ref(), payer.as_ref()], &self.program());
+    fn unverified_message_account(&self, payer: &Pubkey, seed: u64) -> Pubkey {
+        let (unverified_message_account, _) = Pubkey::find_program_address(
+            &[b"vaa_body".as_ref(), payer.as_ref(), &seed.to_be_bytes()],
+            &self.program(),
+        );
         unverified_message_account
     }
 }

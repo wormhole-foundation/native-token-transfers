@@ -16,7 +16,7 @@ use solana_sdk::{
     pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::TransactionError,
 };
 use spl_associated_token_account::get_associated_token_address_with_program_id;
-use wormhole_sdk::Address;
+use wormhole_sdk::{vaa::digest, Address};
 
 use crate::{
     common::{
@@ -260,11 +260,15 @@ async fn test_receive_message_account() {
     )
     .await;
 
+    // arbitrary seed to identify this message
+    let seed = u64::from_be_bytes(digest(&vaa_body).unwrap().hash[24..].try_into().unwrap());
+
     post_unverified_message_account(
         &good_ntt_transceiver,
         UnverifiedMessageAccount {
             payer: ctx.payer.pubkey(),
         },
+        seed,
         vaa_body,
     )
     .submit(&mut ctx)
@@ -281,6 +285,7 @@ async fn test_receive_message_account() {
             guardian_set_index,
             guardian_signatures,
         ),
+        seed,
     )
     .submit(&mut ctx)
     .await
