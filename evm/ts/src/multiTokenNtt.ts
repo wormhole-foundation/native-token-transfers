@@ -295,7 +295,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       })
     );
 
-    // The contract expects the instructions to be sorted by transceiver index.
+    // The contract requires the instructions to be sorted by transceiver index in ascending order.
     instructions.sort((a, b) => a.index - b.index);
 
     return instructions;
@@ -537,10 +537,13 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
   }
 
   async *completeInboundQueuedTransfer(
+    fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
   ) {
     const { trimmedAmount, token, sender, to } =
       transceiverMessage.payload.data;
+
+    const digest = MultiTokenNtt.messageDigest(fromChain, transceiverMessage);
 
     const transfer: NativeTokenTransferCodec.NativeTokenTransferStruct = {
       amount: trimmedAmount.amount,
@@ -558,6 +561,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
     const tx =
       await this.multiTokenNtt.completeInboundQueuedTransfer.populateTransaction(
+        digest,
         transfer
       );
 

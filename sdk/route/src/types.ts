@@ -597,6 +597,7 @@ export namespace MultiTokenNttRoute {
       multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
     });
     const completeTransfer = ntt.completeInboundQueuedTransfer(
+      receipt.from,
       vaa.payload.nttManagerPayload
     );
     const finalizeTxids = await signSendWait(chain, completeTransfer, signer);
@@ -852,8 +853,8 @@ export namespace MultiTokenNttRoute {
 
       yield receipt;
 
-      // sleep for a few seconds so we don't spam the endpoints
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // Sleep for a bit so we don't spam requests
+      await new Promise((resolve) => setTimeout(resolve, 5000));
       leftover -= Date.now() - start;
     }
 

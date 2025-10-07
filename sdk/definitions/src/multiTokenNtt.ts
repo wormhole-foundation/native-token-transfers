@@ -150,6 +150,7 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
   ): Promise<MultiTokenNtt.InboundQueuedTransfer | null>;
 
   completeInboundQueuedTransfer(
+    fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
