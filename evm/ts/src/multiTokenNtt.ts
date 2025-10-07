@@ -3,7 +3,6 @@ import {
   Network,
   encoding,
   nativeChainIds,
-  serializeLayout,
   toChain,
   toChainId,
 } from "@wormhole-foundation/sdk-base";
@@ -33,7 +32,6 @@ import "@wormhole-foundation/sdk-evm-core";
 import {
   decodeTrimmedAmount,
   EncodedTrimmedAmount,
-  multiTokenNativeTokenTransferLayout,
   MultiTokenNtt,
   Ntt,
   TrimmedAmount,
@@ -517,11 +515,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     fromChain: Chain,
     transceiverMessage: MultiTokenNtt.Message
   ): Promise<MultiTokenNtt.InboundQueuedTransfer | null> {
-    const serialized = serializeLayout(
-      multiTokenNativeTokenTransferLayout,
-      transceiverMessage.payload.data
-    );
-    const digest = ethers.keccak256(serialized);
+    const digest = MultiTokenNtt.messageDigest(fromChain, transceiverMessage);
     const queuedTransfer = await this.multiTokenNtt.getInboundQueuedTransfer(
       digest
     );
