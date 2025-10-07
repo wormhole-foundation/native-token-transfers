@@ -261,7 +261,7 @@ contract GmpManager is IGmpManager, ManagerBase {
         }
 
         address callee = fromWormholeFormat(gmp.callee);
-        GmpIntegration(callee).receiveMessage(sourceChainId, gmp.sender, gmp.data);
+        GmpIntegration(callee).receiveMessage(digest, sourceChainId, gmp.sender, gmp.data);
 
         emit MessageExecuted(
             digest, sourceChainId, fromWormholeFormat(message.sender), callee, gmp.data

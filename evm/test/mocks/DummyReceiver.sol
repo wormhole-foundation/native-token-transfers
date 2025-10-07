@@ -12,6 +12,7 @@ contract DummyReceiver is GmpIntegration {
     ) GmpIntegration(_gmpManager) {}
 
     function _receiveMessage(
+        bytes32, /* digest */
         uint16, /* sourceChainId */
         bytes32, /* sender */
         bytes calldata data

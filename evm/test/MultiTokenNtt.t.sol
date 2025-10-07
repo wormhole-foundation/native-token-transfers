@@ -16,6 +16,7 @@ import {Token} from "../src/MultiTokenNtt/Token.sol";
 import "../src/libraries/TokenId.sol";
 import "../src/interfaces/IGmpManager.sol";
 import "./mocks/MockNttTokenReceiver.sol";
+import "../src/libraries/GmpStructs.sol";
 
 import {GenericDummyTransceiver} from "./mocks/DummyTransceiver.sol";
 import "../src/NttManager/TransceiverRegistry.sol";
@@ -759,7 +760,8 @@ contract MultiTokenNttTest is Test {
         vm.expectRevert(abi.encodeWithSelector(RequireContractIsNotPaused.selector));
 
         NativeTokenTransferCodec.NativeTokenTransfer memory dummyTransfer;
-        ntt.completeInboundQueuedTransfer(dummyTransfer);
+        bytes32 digest;
+        ntt.completeInboundQueuedTransfer(digest, dummyTransfer);
     }
 
     function test_pauseEvents() public {
@@ -1024,6 +1026,226 @@ contract MultiTokenNttTest is Test {
         // Second override: Map THE SAME localToken to USDT from chain3
         vm.expectRevert("Local token already represents a different foreign asset");
         ntt2.overrideLocalAsset(usdtTokenId, address(localToken));
+    }
+
+    function testInboundQueue() public {
+        address fixedSender = address(0x1111111111111111111111111111111111111111);
+        address fixedRecipient = address(0x2222222222222222222222222222222222222222);
+
+        // Deploy chain1 token
+        MockERC20 hubToken = _deployAndMintToken("Hub Token", "HUB", fixedSender, 1000 * 10 ** 18);
+
+        // Bridge token from chain1 to chain2 to create wrapped version
+        // Bridge enough tokens for both test transfers (75 * 2 = 150 tokens)
+        {
+            vm.startPrank(fixedSender);
+            hubToken.approve(address(chain1.ntt()), 1000 * 10 ** 18);
+            (, bytes memory payloadToChain2,) =
+                _executeTransfer(chain1, chain2, fixedSender, address(hubToken), 200 * 10 ** 18, 0);
+            vm.stopPrank();
+            _processMessage(chain2, payloadToChain2);
+        }
+
+        // Set low inbound limit on chain1 from chain2 to trigger rate limiting
+        {
+            TokenId memory tokenId = TokenId({
+                chainId: chain1.chainId(),
+                tokenAddress: toWormholeFormat(address(hubToken))
+            });
+            vm.prank(chain1.ntt().owner());
+            chain1.ntt().setInboundLimit(tokenId, 5 * 10 ** 18, OTHER_CHAIN_ID); // chain2 limit: 5 tokens
+        }
+
+        uint256 transferAmount = 75 * 10 ** 18; // Exceeds limit
+        Token wrappedOnChain2 = _getWrappedToken(chain2, address(hubToken), chain1.chainId());
+
+        bytes32 digest1;
+        bytes32 digest2;
+        NativeTokenTransferCodec.NativeTokenTransfer memory transfer1;
+        NativeTokenTransferCodec.NativeTokenTransfer memory transfer2;
+
+        // Execute first transfer from chain2 (should be queued)
+        {
+            vm.warp(1000);
+            vm.startPrank(fixedSender);
+            wrappedOnChain2.approve(address(chain2.ntt()), transferAmount);
+            (, bytes memory msgFromChain2,) = _executeTransfer(
+                chain2, chain1, fixedRecipient, address(wrappedOnChain2), transferAmount, 0
+            );
+            vm.stopPrank();
+            _processMessage(chain1, msgFromChain2);
+
+            // Calculate digest and extract transfer struct
+            (, TransceiverStructs.TransceiverMessage memory parsed) =
+                _extractTransferMessage(chain2);
+            digest1 = _calculateDigestFromParsedMessage(chain2.chainId(), parsed);
+            // Parse through the layers: NttManagerMessage -> GenericMessage -> NativeTokenTransfer
+            TransceiverStructs.NttManagerMessage memory nttMsg =
+                TransceiverStructs.parseNttManagerMessage(parsed.nttManagerPayload);
+            GmpStructs.GenericMessage memory gmpMsg = GmpStructs.parseGenericMessage(nttMsg.payload);
+            transfer1 = NativeTokenTransferCodec.parseNativeTokenTransfer(gmpMsg.data);
+        }
+
+        // Check that first transfer was queued
+        {
+            IMultiTokenRateLimiter.InboundQueuedTransfer memory queued1 =
+                chain1.ntt().getInboundQueuedTransfer(digest1);
+            assertEq(
+                queued1.sourceChainId,
+                OTHER_CHAIN_ID,
+                "First transfer: Should be queued from chain2"
+            );
+            assertEq(queued1.txTimestamp, 1000, "First transfer: Should have timestamp 1000");
+        }
+
+        // Execute second identical transfer from chain2 at different timestamp
+        {
+            vm.warp(2000);
+            vm.startPrank(fixedSender);
+            wrappedOnChain2.approve(address(chain2.ntt()), transferAmount);
+            (, bytes memory msgFromChain2,) = _executeTransfer(
+                chain2, chain1, fixedRecipient, address(wrappedOnChain2), transferAmount, 0
+            );
+            vm.stopPrank();
+            _processMessage(chain1, msgFromChain2);
+
+            // Calculate digest and extract transfer struct
+            (, TransceiverStructs.TransceiverMessage memory parsed) =
+                _extractTransferMessage(chain2);
+            digest2 = _calculateDigestFromParsedMessage(chain2.chainId(), parsed);
+            // Parse through the layers: NttManagerMessage -> GenericMessage -> NativeTokenTransfer
+            TransceiverStructs.NttManagerMessage memory nttMsg =
+                TransceiverStructs.parseNttManagerMessage(parsed.nttManagerPayload);
+            GmpStructs.GenericMessage memory gmpMsg = GmpStructs.parseGenericMessage(nttMsg.payload);
+            transfer2 = NativeTokenTransferCodec.parseNativeTokenTransfer(gmpMsg.data);
+        }
+
+        // Verify both transfers are queued separately with their own digests
+        {
+            // First transfer should still be in queue with original data
+            IMultiTokenRateLimiter.InboundQueuedTransfer memory queued1 =
+                chain1.ntt().getInboundQueuedTransfer(digest1);
+            assertEq(
+                queued1.sourceChainId,
+                OTHER_CHAIN_ID,
+                "First transfer: Should still be queued from chain2"
+            );
+            assertEq(queued1.txTimestamp, 1000, "First transfer: Should still have timestamp 1000");
+
+            // Second transfer should be in queue with its own data
+            IMultiTokenRateLimiter.InboundQueuedTransfer memory queued2 =
+                chain1.ntt().getInboundQueuedTransfer(digest2);
+            assertEq(
+                queued2.sourceChainId,
+                OTHER_CHAIN_ID,
+                "Second transfer: Should be queued from chain2"
+            );
+            assertEq(queued2.txTimestamp, 2000, "Second transfer: Should have timestamp 2000");
+
+            // Digests should be different even though transfer content is identical
+            assertTrue(digest1 != digest2, "Digests should be different for different messages");
+        }
+
+        // Advance time past rate limit duration (1 day)
+        vm.warp(2000 + 1 days + 1);
+
+        MultiTokenNtt ntt1 = chain1.ntt();
+
+        // Try to complete first transfer with modified details (wrong recipient) - should fail
+        {
+            bytes memory encoded = NativeTokenTransferCodec.encodeNativeTokenTransfer(transfer1);
+            NativeTokenTransferCodec.NativeTokenTransfer memory modifiedTransfer =
+                NativeTokenTransferCodec.parseNativeTokenTransfer(encoded);
+            modifiedTransfer.to =
+                bytes32(uint256(uint160(address(0x9999999999999999999999999999999999999999))));
+
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    InboundQueuedTransferDigestMismatch.selector,
+                    bytes20(
+                        keccak256(
+                            NativeTokenTransferCodec.encodeNativeTokenTransfer(modifiedTransfer)
+                        )
+                    ),
+                    bytes20(
+                        keccak256(NativeTokenTransferCodec.encodeNativeTokenTransfer(transfer1))
+                    )
+                )
+            );
+            ntt1.completeInboundQueuedTransfer(digest1, modifiedTransfer);
+        }
+
+        // Try to complete first transfer with modified amount - should also fail
+        {
+            bytes memory encoded = NativeTokenTransferCodec.encodeNativeTokenTransfer(transfer1);
+            NativeTokenTransferCodec.NativeTokenTransfer memory modifiedTransfer =
+                NativeTokenTransferCodec.parseNativeTokenTransfer(encoded);
+            modifiedTransfer.amount = TrimmedAmount.wrap(uint64(50)); // Different amount
+
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    InboundQueuedTransferDigestMismatch.selector,
+                    bytes20(
+                        keccak256(
+                            NativeTokenTransferCodec.encodeNativeTokenTransfer(modifiedTransfer)
+                        )
+                    ),
+                    bytes20(
+                        keccak256(NativeTokenTransferCodec.encodeNativeTokenTransfer(transfer1))
+                    )
+                )
+            );
+            ntt1.completeInboundQueuedTransfer(digest1, modifiedTransfer);
+        }
+
+        // Get recipient balance before completion
+        uint256 recipientBalanceBefore = hubToken.balanceOf(fixedRecipient);
+
+        // Complete first transfer with correct details - should succeed
+        ntt1.completeInboundQueuedTransfer(digest1, transfer1);
+
+        // Verify first transfer was completed
+        {
+            IMultiTokenRateLimiter.InboundQueuedTransfer memory queued =
+                ntt1.getInboundQueuedTransfer(digest1);
+            assertEq(queued.txTimestamp, 0, "First transfer should be removed from queue");
+
+            uint256 recipientBalanceAfter = hubToken.balanceOf(fixedRecipient);
+            assertEq(
+                recipientBalanceAfter - recipientBalanceBefore,
+                transferAmount,
+                "Recipient should receive first transfer amount"
+            );
+        }
+
+        // Complete second transfer with correct details - should succeed
+        ntt1.completeInboundQueuedTransfer(digest2, transfer2);
+
+        // Verify second transfer was completed
+        {
+            IMultiTokenRateLimiter.InboundQueuedTransfer memory queued =
+                ntt1.getInboundQueuedTransfer(digest2);
+            assertEq(queued.txTimestamp, 0, "Second transfer should be removed from queue");
+
+            uint256 recipientBalanceFinal = hubToken.balanceOf(fixedRecipient);
+            assertEq(
+                recipientBalanceFinal,
+                recipientBalanceBefore + (transferAmount * 2),
+                "Recipient should receive both transfer amounts"
+            );
+        }
+
+        vm.expectRevert(abi.encodeWithSelector(InboundQueuedTransferNotFound.selector, digest2));
+        ntt1.completeInboundQueuedTransfer(digest2, transfer2);
+    }
+
+    function _calculateDigestFromParsedMessage(
+        uint16 chainId,
+        TransceiverStructs.TransceiverMessage memory parsed
+    ) internal pure returns (bytes32) {
+        TransceiverStructs.NttManagerMessage memory nttMsg =
+            TransceiverStructs.parseNttManagerMessage(parsed.nttManagerPayload);
+        return TransceiverStructs.nttManagerMessageDigest(chainId, nttMsg);
     }
 
     // ============ Regular Transfer Queuing Tests ============

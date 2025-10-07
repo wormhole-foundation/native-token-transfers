@@ -249,6 +249,7 @@ contract MultiTokenNtt is
     }
 
     function _receiveMessage(
+        bytes32 digest,
         uint16 sourceChainId,
         bytes32 sender,
         bytes calldata data
@@ -257,7 +258,7 @@ contract MultiTokenNtt is
         // parse the data into a NativeTokenTransfer
         NativeTokenTransferCodec.NativeTokenTransfer memory message =
             NativeTokenTransferCodec.parseNativeTokenTransfer(data);
-        _executeMsg(sourceChainId, message);
+        _executeMsg(digest, sourceChainId, message);
     }
 
     /// @dev Get the creation code for the ERC1967Proxy contract
@@ -270,11 +271,13 @@ contract MultiTokenNtt is
     }
 
     function _executeMsg(
+        bytes32 digest,
         uint16 sourceChainId,
         NativeTokenTransferCodec.NativeTokenTransfer memory nativeTokenTransfer
     ) internal whenNotPaused nonReentrant {
-        bytes32 digest =
-            keccak256(NativeTokenTransferCodec.encodeNativeTokenTransfer(nativeTokenTransfer));
+        bytes20 transferDigest = bytes20(
+            keccak256(NativeTokenTransferCodec.encodeNativeTokenTransfer(nativeTokenTransfer))
+        );
 
         TokenInfo memory info = nativeTokenTransfer.token;
 
@@ -292,7 +295,7 @@ contract MultiTokenNtt is
                 _isInboundAmountRateLimited(info.token, nativeTransferAmount, sourceChainId);
             if (isRateLimited) {
                 // queue up the transfer
-                _enqueueInboundTransfer(digest, sourceChainId);
+                _enqueueInboundTransfer(digest, sourceChainId, transferDigest);
 
                 // end execution early
                 return;
@@ -323,16 +326,24 @@ contract MultiTokenNtt is
     }
 
     function completeInboundQueuedTransfer(
+        bytes32 digest,
         NativeTokenTransferCodec.NativeTokenTransfer memory nativeTokenTransfer
     ) external nonReentrant whenNotPaused {
         // compute the digest from the provided transfer
-        bytes32 digest =
-            keccak256(NativeTokenTransferCodec.encodeNativeTokenTransfer(nativeTokenTransfer));
+        bytes20 transferDigest = bytes20(
+            keccak256(NativeTokenTransferCodec.encodeNativeTokenTransfer(nativeTokenTransfer))
+        );
 
         // find the message in the queue
         InboundQueuedTransfer memory queuedTransfer = getInboundQueuedTransfer(digest);
         if (queuedTransfer.txTimestamp == 0) {
             revert InboundQueuedTransferNotFound(digest);
+        }
+
+        if (queuedTransfer.transferDigest != transferDigest) {
+            revert InboundQueuedTransferDigestMismatch(
+                transferDigest, queuedTransfer.transferDigest
+            );
         }
 
         // check that > RATE_LIMIT_DURATION has elapsed

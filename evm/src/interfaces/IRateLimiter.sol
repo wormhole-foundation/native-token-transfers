@@ -20,6 +20,8 @@ error OutboundQueuedTransferStillQueued(uint64 queueSequence, uint256 transferTi
 /// @param digest The digest of the transfer.
 error InboundQueuedTransferNotFound(bytes32 digest);
 
+error InboundQueuedTransferDigestMismatch(bytes20 digest, bytes20 expectedDigest);
+
 /// @notice The transfer is still queued.
 /// @dev Selector 0xe5b9ce80.
 /// @param digest The digest of the transfer.

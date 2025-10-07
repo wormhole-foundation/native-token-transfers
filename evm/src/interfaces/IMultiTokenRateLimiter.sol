@@ -35,10 +35,12 @@ interface IMultiTokenRateLimiter {
     /// @dev
     ///   - txTimestamp: the timestamp of the transfer.
     ///   - sourceChainId: the chain ID where the transfer originated.
+    ///   - transferDigest: first 20 byte of the keccak256 hash of the transfer details.
     /// @dev Other transfer details (amount, token, recipient) are passed when completing the transfer.
     struct InboundQueuedTransfer {
         uint64 txTimestamp; // 8 bytes
         uint16 sourceChainId; // 2 bytes
+        bytes20 transferDigest; // 20 bytes
     }
 
     function getCurrentOutboundCapacity(
