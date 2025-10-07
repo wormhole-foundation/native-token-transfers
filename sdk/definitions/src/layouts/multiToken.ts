@@ -39,7 +39,8 @@ export const tokenInfoLayoutItem = {
 } as const;
 
 export const multiTokenNativeTokenTransferLayout = [
-  prefixItem([0x99, 0x4e, 0x54, 0x54]),
+  // bytes4 constant MTT_PREFIX = 0x994D5454;
+  prefixItem([0x99, 0x4d, 0x54, 0x54]),
   { name: "trimmedAmount", ...trimmedAmountItem },
   { name: "token", ...tokenInfoLayoutItem },
   { name: "sender", ...layoutItems.universalAddressItem },

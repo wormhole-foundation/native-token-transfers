@@ -91,12 +91,14 @@ export declare namespace IMultiTokenRateLimiter {
   export type InboundQueuedTransferStruct = {
     txTimestamp: BigNumberish;
     sourceChainId: BigNumberish;
+    transferDigest: BytesLike;
   };
 
   export type InboundQueuedTransferStructOutput = [
     txTimestamp: bigint,
-    sourceChainId: bigint
-  ] & { txTimestamp: bigint; sourceChainId: bigint };
+    sourceChainId: bigint,
+    transferDigest: string
+  ] & { txTimestamp: bigint; sourceChainId: bigint; transferDigest: string };
 
   export type OutboundQueuedTransferStruct = {
     recipient: BytesLike;
@@ -272,7 +274,7 @@ export interface MultiTokenNttInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "completeInboundQueuedTransfer",
-    values: [NativeTokenTransferCodec.NativeTokenTransferStruct]
+    values: [BytesLike, NativeTokenTransferCodec.NativeTokenTransferStruct]
   ): string;
   encodeFunctionData(
     functionFragment: "completeOutboundQueuedTransfer",
@@ -341,7 +343,7 @@ export interface MultiTokenNttInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "receiveMessage",
-    values: [BigNumberish, BytesLike, BytesLike]
+    values: [BytesLike, BigNumberish, BytesLike, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "setInboundLimit",
@@ -816,7 +818,10 @@ export interface MultiTokenNtt extends BaseContract {
   >;
 
   completeInboundQueuedTransfer: TypedContractMethod<
-    [nativeTokenTransfer: NativeTokenTransferCodec.NativeTokenTransferStruct],
+    [
+      digest: BytesLike,
+      nativeTokenTransfer: NativeTokenTransferCodec.NativeTokenTransferStruct
+    ],
     [void],
     "nonpayable"
   >;
@@ -902,7 +907,12 @@ export interface MultiTokenNtt extends BaseContract {
   rateLimitDuration: TypedContractMethod<[], [bigint], "view">;
 
   receiveMessage: TypedContractMethod<
-    [sourceChainId: BigNumberish, sender: BytesLike, data: BytesLike],
+    [
+      digest: BytesLike,
+      sourceChainId: BigNumberish,
+      sender: BytesLike,
+      data: BytesLike
+    ],
     [void],
     "nonpayable"
   >;
@@ -977,7 +987,10 @@ export interface MultiTokenNtt extends BaseContract {
   getFunction(
     nameOrSignature: "completeInboundQueuedTransfer"
   ): TypedContractMethod<
-    [nativeTokenTransfer: NativeTokenTransferCodec.NativeTokenTransferStruct],
+    [
+      digest: BytesLike,
+      nativeTokenTransfer: NativeTokenTransferCodec.NativeTokenTransferStruct
+    ],
     [void],
     "nonpayable"
   >;
@@ -1076,7 +1089,12 @@ export interface MultiTokenNtt extends BaseContract {
   getFunction(
     nameOrSignature: "receiveMessage"
   ): TypedContractMethod<
-    [sourceChainId: BigNumberish, sender: BytesLike, data: BytesLike],
+    [
+      digest: BytesLike,
+      sourceChainId: BigNumberish,
+      sender: BytesLike,
+      data: BytesLike
+    ],
     [void],
     "nonpayable"
   >;
