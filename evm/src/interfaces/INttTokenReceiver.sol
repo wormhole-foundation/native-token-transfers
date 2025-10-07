@@ -14,6 +14,10 @@ interface INttTokenReceiver {
     ///      ```solidity
     ///      require(msg.sender == TRUSTED_MULTITOKENNTT_CONTRACT, "Unauthorized caller");
     ///      ```
+    /// @dev If this function reverts, the entire token transfer is reverted. Thus, it is
+    ///      better for the handler to gracefully handle errors and not revert.
+    ///      If the function reverts due to a temporary issue (such as waiting
+    ///      for some other event to happen first), the sender can retry the transfer.
     ///
     /// @param token The address of the token that was received
     /// @param from The original sender of the tokens (on the source chain)
