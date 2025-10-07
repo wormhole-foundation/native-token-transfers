@@ -22,11 +22,10 @@ pub struct Redeem<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    // NOTE: this works when the contract is paused
     #[account(
         constraint = config.threshold > 0 @ NTTError::ZeroThreshold
     )]
-    pub config: Account<'info, Config>,
+    pub config: NotPausedConfig<'info>,
 
     #[account(
         seeds = [NttManagerPeer::SEED_PREFIX, ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref()],

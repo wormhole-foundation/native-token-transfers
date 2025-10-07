@@ -426,8 +426,13 @@ export type ExampleNativeTokenTransfers = {
         },
         {
           "name": "config",
-          "isMut": false,
-          "isSigner": false
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
         },
         {
           "name": "peer",
@@ -2916,8 +2921,13 @@ export const IDL: ExampleNativeTokenTransfers = {
         },
         {
           "name": "config",
-          "isMut": false,
-          "isSigner": false
+          "accounts": [
+            {
+              "name": "config",
+              "isMut": false,
+              "isSigner": false
+            }
+          ]
         },
         {
           "name": "peer",
