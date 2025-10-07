@@ -989,6 +989,43 @@ contract MultiTokenNttTest is Test {
         ntt.overrideLocalAsset(tokenId, address(nativeToken));
     }
 
+    function testOverrideLocalAsset_OneLocalMultipleForeignTokens() public {
+        address sender = chain1.addr(user1);
+        // Deploy USDC on chain1
+        Token usdcChain1 = new Token();
+        usdcChain1.initialize("USDC Chain1", "USDC", 6);
+        usdcChain1.setMinter(address(this));
+        usdcChain1.mint(sender, 1000 * 10 ** 6); // 1000 USDC
+        // Deploy USDT on chain3
+        uint16 chain3Id = 3;
+        Token usdtChain3 = new Token();
+        usdtChain3.initialize("USDT Chain3", "USDT", 6);
+        // Deploy a local token on chain2
+        Token localToken = new Token();
+        localToken.initialize("Local Token", "LT", 18);
+        localToken.setMinter(address(chain2.ntt()));
+        // Create TokenIds for both foreign tokens
+        TokenId memory usdcTokenId = TokenId({
+            chainId: chain1.chainId(),
+            tokenAddress: toWormholeFormat(address(usdcChain1))
+        });
+        TokenId memory usdtTokenId =
+            TokenId({chainId: chain3Id, tokenAddress: toWormholeFormat(address(usdtChain3))});
+        // First override: Map localToken to USDC from chain1
+        chain2.ntt().overrideLocalAsset(usdcTokenId, address(localToken));
+        // Verify the mapping
+        address localForUsdc = chain2.ntt().getToken(usdcTokenId);
+        assertEq(localForUsdc, address(localToken), "USDC mapped to localToken");
+        // Check reverse mapping
+        (TokenId memory reverseCheck1,) = chain2.ntt().getTokenId(address(localToken));
+        assertEq(reverseCheck1.chainId, chain1.chainId());
+        assertEq(reverseCheck1.tokenAddress, toWormholeFormat(address(usdcChain1)));
+        MultiTokenNtt ntt2 = chain2.ntt();
+        // Second override: Map THE SAME localToken to USDT from chain3
+        vm.expectRevert("Local token already represents a different foreign asset");
+        ntt2.overrideLocalAsset(usdtTokenId, address(localToken));
+    }
+
     // ============ Regular Transfer Queuing Tests ============
 
     function testRegularTransferQueuing() public {
