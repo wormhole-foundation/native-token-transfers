@@ -150,6 +150,7 @@ contract MultiTokenNtt is
     /// WARNING: if the representation token already exists, this will overwrite it.
     function overrideLocalAsset(TokenId calldata token, address localToken) external onlyOwner {
         require(token.chainId != 0 && token.tokenAddress != bytes32(0));
+        require(token.chainId != chainId, "Cannot override native token representation");
         // TODO: should we check if the token exists, and if so, that the metadata didn't change?
         TokenMeta memory meta = _queryTokenMetaFromTokenContract(localToken);
         _getLocalTokenStorage()[token.chainId][token.tokenAddress] =

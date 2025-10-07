@@ -974,6 +974,21 @@ contract MultiTokenNttTest is Test {
         assertEq(chain2.ntt().getToken(tokenId), address(secondReplacement));
     }
 
+    function testOverrideLocalAsset_CannotOverrideNativeToken() public {
+        Token nativeToken = new Token();
+        nativeToken.initialize("Native Token", "NATIVE", 18);
+
+        // Try to override a token where chainId matches the current chain
+        TokenId memory tokenId = TokenId({
+            chainId: chain2.chainId(), // Same as current chain
+            tokenAddress: toWormholeFormat(address(nativeToken))
+        });
+
+        MultiTokenNtt ntt = chain2.ntt();
+        vm.expectRevert("Cannot override native token representation");
+        ntt.overrideLocalAsset(tokenId, address(nativeToken));
+    }
+
     // ============ Regular Transfer Queuing Tests ============
 
     function testRegularTransferQueuing() public {
