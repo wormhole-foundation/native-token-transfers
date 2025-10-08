@@ -119,11 +119,18 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
   const hub = chainInfos[0]!;
   const hubChain = hub.context.chain;
 
+  // handle Solana emitter account case separately
+  const whTransceiver =
+    chainToPlatform(hubChain) === "Solana"
+      ? NTT.transceiverPdas(hub.contracts!.transceiver["wormhole"]!)
+          .emitterAccount()
+          .toString()
+      : hub.contracts!.transceiver["wormhole"]!;
   const msgId: WormholeMessageId = {
     chain: hubChain,
     emitter: Wormhole.chainAddress(
       hubChain,
-      hub.contracts!.transceiver["wormhole"]!
+      whTransceiver
     ).address.toUniversalAddress(),
     sequence: 0n,
   };
@@ -495,7 +502,8 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
   console.log(`Using public key: ${address}`);
 
   const signature = await connection.requestAirdrop(address, 1000000000000);
-  await connection.confirmTransaction(signature);
+  const latestBlockhash = await connection.getLatestBlockhash();
+  await connection.confirmTransaction({ ...latestBlockhash, signature });
   console.log(`Airdropped 1000 SOL`);
 
   const mint = await spl.createMint(connection, keypair, address, null, 9);
@@ -519,14 +527,16 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     ctx.mode === "locking"
       ? "NTTManager222222222222222222222222222222222"
       : "NTTManager111111111111111111111111111111111";
+  const transceiverProgramId =
+    ctx.mode === "locking"
+      ? "NTTTransceiver22222222222222222222222222222"
+      : "NTTTransceiver11111111111111111111111111111";
 
   ctx.contracts = {
     token: mint.toBase58(),
     manager: managerProgramId,
     transceiver: {
-      wormhole: NTT.transceiverPdas(managerProgramId)
-        .emitterAccount()
-        .toString(),
+      wormhole: transceiverProgramId,
     },
   };
 
@@ -577,13 +587,16 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     console.log("Registered transceiver with self");
   }
 
+  const whTransceiver = await manager.getWormholeTransceiver();
+  if (!whTransceiver) {
+    throw new Error("Wormhole transceiver not found");
+  }
+
   return {
     ...ctx,
     contracts: {
       transceiver: {
-        wormhole: NTT.transceiverPdas(manager.program.programId)
-          .emitterAccount()
-          .toString(),
+        wormhole: whTransceiver.programId.toString(),
       },
       manager: manager.program.programId.toString(),
       token: mint.toString(),
@@ -600,7 +613,11 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
   } = peerCtx.contracts!;
 
   const peerManager = Wormhole.chainAddress(peer.chain, manager);
-  const peerTransceiver = Wormhole.chainAddress(peer.chain, transceiver!);
+  const whTransceiver =
+    chainToPlatform(peer.chain) === "Solana"
+      ? NTT.transceiverPdas(transceiver!).emitterAccount().toString()
+      : transceiver!;
+  const peerTransceiver = Wormhole.chainAddress(peer.chain, whTransceiver);
 
   const tokenDecimals = target.config.nativeTokenDecimals;
   const inboundLimit = amount.units(amount.parse("1000", tokenDecimals));
