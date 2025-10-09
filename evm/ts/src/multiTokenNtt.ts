@@ -31,6 +31,7 @@ import "@wormhole-foundation/sdk-evm-core";
 
 import {
   decodeTrimmedAmount,
+  encodeTrimmedAmount,
   EncodedTrimmedAmount,
   MultiTokenNtt,
   Ntt,
@@ -540,9 +541,13 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     const digest = MultiTokenNtt.messageDigest(fromChain, transceiverMessage);
 
     const transfer: NativeTokenTransferCodec.NativeTokenTransferStruct = {
-      amount: trimmedAmount.amount,
+      amount: encodeTrimmedAmount(trimmedAmount),
       token: {
-        meta: token.meta,
+        meta: {
+          name: encoding.bytes.encode(token.meta.name),
+          symbol: encoding.bytes.encode(token.meta.symbol),
+          decimals: token.meta.decimals,
+        },
         token: {
           chainId: toChainId(token.token.chainId),
           tokenAddress: token.token.tokenAddress.toString(),
@@ -550,7 +555,7 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       },
       sender: sender.toString(),
       to: to.toString(),
-      additionalPayload: transceiverMessage.payload.data.additionalPayload,
+      additionalPayload: "0x",
     };
 
     const tx =
