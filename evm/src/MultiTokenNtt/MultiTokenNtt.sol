@@ -828,12 +828,7 @@ contract MultiTokenNtt is
         // If there's additional payload, call the callback
         if (additionalPayload.length > 0) {
             try INttTokenReceiver(recipient).onNttTokenReceived(
-                token,
-                fromWormholeFormat(sourceAddress),
-                untrimmedAmount,
-                additionalPayload,
-                sourceChainId,
-                sourceAddress
+                token, untrimmedAmount, additionalPayload, sourceChainId, sourceAddress
             ) {
                 // Callback succeeded
             } catch {

@@ -581,7 +581,6 @@ contract MultiTokenNttTest is Test {
 
         // Verify the receiver stored the correct payload data
         assertEq(receiver.lastReceivedPayload(), swapPayload);
-        assertEq(receiver.lastReceivedFrom(), user1);
         assertEq(receiver.lastReceivedSourceChain(), CHAIN_ID);
         assertEq(receiver.lastReceivedSourceAddress(), toWormholeFormat(user1));
 
@@ -607,14 +606,14 @@ contract MultiTokenNttTest is Test {
         // Test 1: Authorized caller should succeed
         vm.prank(address(chain2.ntt()));
         receiver.onNttTokenReceived(
-            address(token), user1, amount, payload, CHAIN_ID, toWormholeFormat(user1)
+            address(token), amount, payload, CHAIN_ID, toWormholeFormat(user1)
         );
 
         // Test 2: Unauthorized caller should fail
         vm.expectRevert("MockNttTokenReceiver: unauthorized caller");
         vm.prank(user1); // Random user, not the trusted MultiTokenNtt
         receiver.onNttTokenReceived(
-            address(token), user1, amount, payload, CHAIN_ID, toWormholeFormat(user1)
+            address(token), amount, payload, CHAIN_ID, toWormholeFormat(user1)
         );
     }
 

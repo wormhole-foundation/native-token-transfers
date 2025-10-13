@@ -20,14 +20,12 @@ interface INttTokenReceiver {
     ///      for some other event to happen first), the sender can retry the transfer.
     ///
     /// @param token The address of the token that was received
-    /// @param from The original sender of the tokens (on the source chain)
     /// @param amount The amount of tokens received (after decimal normalization)
     /// @param payload The additional payload data sent with the transfer
     /// @param sourceChain The Wormhole chain ID of the source chain
     /// @param sourceAddress The address of the sender on the source chain (32-byte format)
     function onNttTokenReceived(
         address token,
-        address from,
         uint256 amount,
         bytes calldata payload,
         uint16 sourceChain,

@@ -9,11 +9,10 @@ contract MockNttTokenReceiver is INttTokenReceiver {
     // Events for testing
     event TokenReceived(
         address indexed token,
-        address indexed from,
         uint256 amount,
         bytes payload,
-        uint16 sourceChain,
-        bytes32 sourceAddress
+        uint16 indexed sourceChain,
+        bytes32 indexed sourceAddress
     );
 
     // Configuration for testing different behaviors
@@ -24,7 +23,6 @@ contract MockNttTokenReceiver is INttTokenReceiver {
     // Store last received payload for testing
     bytes public lastReceivedPayload;
     address public lastReceivedToken;
-    address public lastReceivedFrom;
     uint256 public lastReceivedAmount;
     uint16 public lastReceivedSourceChain;
     bytes32 public lastReceivedSourceAddress;
@@ -60,7 +58,6 @@ contract MockNttTokenReceiver is INttTokenReceiver {
     /// @inheritdoc INttTokenReceiver
     function onNttTokenReceived(
         address token,
-        address from,
         uint256 amount,
         bytes calldata payload,
         uint16 sourceChain,
@@ -78,12 +75,11 @@ contract MockNttTokenReceiver is INttTokenReceiver {
         // Store the received data for testing verification
         lastReceivedPayload = payload;
         lastReceivedToken = token;
-        lastReceivedFrom = from;
         lastReceivedAmount = amount;
         lastReceivedSourceChain = sourceChain;
         lastReceivedSourceAddress = sourceAddress;
 
-        emit TokenReceived(token, from, amount, payload, sourceChain, sourceAddress);
+        emit TokenReceived(token, amount, payload, sourceChain, sourceAddress);
     }
 }
 
@@ -112,14 +108,7 @@ contract MockRevertingReceiver is INttTokenReceiver {
     }
 
     /// @inheritdoc INttTokenReceiver
-    function onNttTokenReceived(
-        address,
-        address,
-        uint256,
-        bytes calldata,
-        uint16,
-        bytes32
-    ) external view {
+    function onNttTokenReceived(address, uint256, bytes calldata, uint16, bytes32) external view {
         // SECURITY CRITICAL: Verify caller is trusted MultiTokenNtt contract
         require(msg.sender == trustedMultiTokenNtt, "MockRevertingReceiver: unauthorized caller");
 
