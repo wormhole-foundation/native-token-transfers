@@ -43,7 +43,7 @@ interface IGmpManager is IManagerBase {
     event MessageExecuted(
         bytes32 indexed messageHash,
         uint16 indexed sourceChain,
-        address indexed sender,
+        bytes32 indexed sender,
         address callee,
         bytes data
     );
