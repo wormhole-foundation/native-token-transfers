@@ -35,21 +35,6 @@ import { hasExecutorDeployed } from "@wormhole-foundation/sdk-evm-ntt";
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 
-
-// Helper functions for nested object access
-function getNestedValue(obj: any, path: string[]): any {
-    return path.reduce((current, key) => current?.[key], obj);
-}
-
-function setNestedValue(obj: any, path: string[], value: any): void {
-    const lastKey = path.pop()!;
-    const target = path.reduce((current, key) => {
-        if (!current[key]) current[key] = {};
-        return current[key];
-    }, obj);
-    target[lastKey] = value;
-}
-
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { EvmNtt, EvmNttWormholeTranceiver } from "@wormhole-foundation/sdk-evm-ntt";
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
@@ -822,20 +807,11 @@ yargs(hideBin(process.argv))
             let changed = false;
             for (const [chain, deployment] of Object.entries(deps)) {
                 assertChain(chain);
-                const diff = diffObjects(deployments.chains[chain]!, deployment.config.remote!, EXCLUDED_DIFF_PATHS);
+                const diff = diffObjects(deployments.chains[chain]!, deployment.config.remote!);
                 if (Object.keys(diff).length !== 0) {
                     console.error(chalk.reset(colorizeDiff({ [chain]: diff })));
                     changed = true;
-                    // Preserve excluded fields from local config when pulling
-                    const preservedConfig = { ...deployment.config.remote! };
-                    for (const excludedPath of EXCLUDED_DIFF_PATHS) {
-                        const pathParts = excludedPath.split('.');
-                        const localValue = getNestedValue(deployments.chains[chain]!, pathParts);
-                        if (localValue !== undefined) {
-                            setNestedValue(preservedConfig, pathParts, localValue);
-                        }
-                    }
-                    deployments.chains[chain] = preservedConfig;
+                    deployments.chains[chain] = deployment.config.remote!;
                 }
             }
             if (!changed) {
@@ -1032,7 +1008,7 @@ yargs(hideBin(process.argv))
                 const local = deployment.config.local;
                 const remote = deployment.config.remote;
 
-                const diff = diffObjects(local!, remote!, EXCLUDED_DIFF_PATHS);
+                const diff = diffObjects(local!, remote!);
                 if (Object.keys(diff).length !== 0) {
                     console.error(chalk.reset(colorizeDiff({ [chain]: diff })));
                     fixable++;
@@ -3451,7 +3427,7 @@ async function missingConfigs(
 async function pushDeployment<C extends Chain>(deployment: Deployment<C>,
     signSendWaitFunc: ReturnType<typeof newSignSendWaiter>,
     signerType: SignerType, evmVerify: boolean, yes: boolean, filePath?: string, gasEstimateMultiplier?: number): Promise<void> {
-    const diff = diffObjects(deployment.config.local!, deployment.config.remote!, EXCLUDED_DIFF_PATHS);
+    const diff = diffObjects(deployment.config.local!, deployment.config.remote!);
     if (Object.keys(diff).length === 0) {
         return;
     }

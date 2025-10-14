@@ -61,7 +61,6 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
         uint256 scale =
             decimals > TRIMMED_DECIMALS ? uint256(10 ** (decimals - TRIMMED_DECIMALS)) : 1;
 
-        // Relaying is done via the executor. Zero addresses are used for relayers fields
         DeploymentParams memory params = DeploymentParams({
             token: token,
             mode: mode,
@@ -69,8 +68,6 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             rateLimitDuration: 86400,
             shouldSkipRatelimiter: false,
             wormholeCoreBridge: wormhole,
-            wormholeRelayerAddr: address(0),
-            specialRelayerAddr: address(0),
             consistencyLevel: 202,
             gasLimit: 500000,
             // the trimming will trim this number to uint64.max
