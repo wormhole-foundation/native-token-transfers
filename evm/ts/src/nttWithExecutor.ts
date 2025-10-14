@@ -214,3 +214,13 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     return { msgValue: 0n, gasLimit };
   }
 }
+
+/**
+ * Check if an executor (NttWithExecutor) is deployed for a given network and chain combination
+ * @param network - The network (e.g., 'Mainnet', 'Testnet')
+ * @param chain - The EVM chain (e.g., 'Arbitrum', 'ArbitrumSepolia')
+ * @returns true if an executor address exists for this network/chain combination
+ */
+export function hasExecutorDeployed(network: Network, chain: EvmChains): boolean {
+  return nttManagerWithExecutorAddresses[network]?.[chain] !== undefined;
+}

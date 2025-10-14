@@ -30,6 +30,7 @@ import type { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-n
 
 import { type SolanaChains, SolanaAddress } from "@wormhole-foundation/sdk-solana";
 import { type SuiChains } from "@wormhole-foundation/sdk-sui";
+import { hasExecutorDeployed } from "@wormhole-foundation/sdk-evm-ntt";
 
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
@@ -1073,6 +1074,15 @@ yargs(hideBin(process.argv))
                 }
                 if (missingConfig.solanaUpdateLUT) {
                     console.error("  Missing or outdated LUT");
+                }
+            }
+
+            // Check executor availability for EVM chains
+            for (const [chain, deployment] of Object.entries(deps)) {
+                assertChain(chain);
+                const platform = chainToPlatform(chain);
+                if (platform === "Evm" && !hasExecutorDeployed(network, chain as EvmChains)) {
+                    console.log(chalk.yellow(`On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`));
                 }
             }
 
