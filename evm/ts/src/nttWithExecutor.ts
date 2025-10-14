@@ -71,6 +71,7 @@ const gasLimitOverrides: Partial<
 > = {
   Mainnet: {
     Arbitrum: 800_000n,
+    CreditCoin: 1_500_000n,
   },
   Testnet: {
     ArbitrumSepolia: 800_000n,
