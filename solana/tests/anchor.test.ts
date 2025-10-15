@@ -20,14 +20,18 @@ import {
   SolanaPlatform,
   getSolanaSignAndSendSigner,
 } from "@wormhole-foundation/sdk-solana";
-import { SolanaWormholeCore } from "@wormhole-foundation/sdk-solana-core";
+import {
+  SolanaWormholeCore,
+  utils,
+} from "@wormhole-foundation/sdk-solana-core";
 
-import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
+import { IdlVersion, NTT } from "../ts/index.js";
 import { SolanaNtt } from "../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
   TestHelper,
   TestMint,
+  TestWormholePostMessageShim,
   assert,
   signSendWait,
 } from "./utils/helpers.js";
@@ -36,7 +40,7 @@ import {
  * Test Config Constants
  */
 const SOLANA_ROOT_DIR = `${__dirname}/../`;
-const VERSION: IdlVersion = "3.0.0";
+const VERSION: IdlVersion = "4.0.0";
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
@@ -54,6 +58,9 @@ const testDummyTransferHook = new TestDummyTransferHook(
   anchor.workspace.DummyTransferHook,
   TOKEN_PROGRAM,
   spl.ASSOCIATED_TOKEN_PROGRAM_ID
+);
+const testWormholePostMessageShim = new TestWormholePostMessageShim(
+  $.connection
 );
 let testMint: TestMint;
 
@@ -90,11 +97,7 @@ const remoteXcvr: ChainAddress = $.chainAddress.generateFromValue(
   "transceiver"
 );
 const nttTransceivers = {
-  wormhole: getTransceiverProgram(
-    $.connection,
-    WH_TRANSCEIVER_ADDRESS.toBase58(),
-    VERSION
-  ),
+  wormhole: WH_TRANSCEIVER_ADDRESS,
 };
 
 describe("example-native-token-transfers", () => {
@@ -148,7 +151,7 @@ describe("example-native-token-transfers", () => {
           token: testMint.address.toBase58(),
           manager: NTT_ADDRESS.toBase58(),
           transceiver: {
-            wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+            wormhole: nttTransceivers["wormhole"].toBase58(),
           },
         },
       },
@@ -194,9 +197,8 @@ describe("example-native-token-transfers", () => {
       // set manager peer
       const setPeerTxs = ntt.setPeer(remoteMgr, 18, 1_000_000n, sender);
       await signSendWait(ctx, setPeerTxs, signer);
-    });
 
-    it("Create ExtraAccountMetaList Account", async () => {
+      // create ExtraAccountMetaList account
       await testDummyTransferHook.extraAccountMetaList.initialize(
         $.connection,
         payer,
@@ -208,17 +210,30 @@ describe("example-native-token-transfers", () => {
       const amount = 100_000n;
       const receiver = testing.utils.makeUniversalChainAddress("Ethereum");
 
+      const wormholeXcvr = await ntt.getWormholeTransceiver();
+      expect(wormholeXcvr).toBeTruthy();
+      const sequenceTracker = await utils.getSequenceTracker(
+        $.connection,
+        wormholeXcvr!.pdas.emitterAccount(),
+        coreBridge.address
+      );
+      const expectedSequence = sequenceTracker.sequence;
+
       // TODO: keep or remove the `outboxItem` param?
       // added as a way to keep tests the same but it technically breaks the Ntt interface
       const outboxItem = $.keypair.generate();
+      const wrapNative = false;
       const xferTxs = ntt.transfer(
         sender,
         amount,
         receiver,
-        { queue: false, automatic: false },
+        { queue: false, automatic: false, wrapNative },
         outboxItem
       );
-      await signSendWait(ctx, xferTxs, signer);
+      const txIds = await signSendWait(ctx, xferTxs, signer);
+      expect(txIds).toBeTruthy();
+      expect(txIds!.length).toEqual(1 + Number(wrapNative));
+      const txId = txIds![Number(wrapNative)]!;
 
       // assert that released bitmap has transceiver bits set
       const outboxItemInfo = await ntt.program.account.outboxItem.fetch(
@@ -228,18 +243,23 @@ describe("example-native-token-transfers", () => {
         Object.keys(nttTransceivers).length
       );
 
-      const wormholeXcvr = await ntt.getWormholeTransceiver();
-      expect(wormholeXcvr).toBeTruthy();
-      const wormholeMessage = wormholeXcvr!.pdas.wormholeMessageAccount(
-        outboxItem.publicKey
-      );
-      const unsignedVaa = await coreBridge.parsePostMessageAccount(
-        wormholeMessage
+      // parse event and instruction data to re-build message
+      const [data] = await testWormholePostMessageShim.getMessageData(txId);
+
+      // assert that the event is correctly emitted
+      expect(data!.emitter).toMatchObject(wormholeXcvr!.pdas.emitterAccount());
+      assert.bn(data!.sequence).equal(expectedSequence);
+      expect(data!.submissionTime).toEqual(await $.currentTime());
+
+      // assert instruction data is correct
+      expect(data!.nonce).toBe(0); // hardcoded in `post_message`
+      expect(JSON.stringify(data!.consistencyLevel)).toEqual(
+        JSON.stringify({ finalized: {} }) // hardcoded in `post_message`
       );
 
       const transceiverMessage = deserializePayload(
         "Ntt:WormholeTransfer",
-        unsignedVaa.payload
+        data!.payload
       );
 
       // assert that amount is what we expect
@@ -530,7 +550,7 @@ describe("example-native-token-transfers", () => {
         token: mint.publicKey.toBase58(),
         manager: NTT_ADDRESS.toBase58(),
         transceiver: {
-          wormhole: nttTransceivers["wormhole"].programId.toBase58(),
+          wormhole: nttTransceivers["wormhole"].toBase58(),
         },
       },
     };
@@ -549,12 +569,70 @@ describe("example-native-token-transfers", () => {
         expect(ntt).toBeTruthy();
       });
 
-      test("It initializes from constructor", async () => {
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrides["Solana"] },
+      describe("It initializes from constructor", () => {
+        const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
+          JSON.stringify(overrides["Solana"])
+        );
+
+        test("It initializes transceiver using transceiver address for versions >= 4.x.x", () => {
+          const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
+            ...ctx.config.contracts,
+            ...{ ntt: overrides["Solana"] },
+          });
+          expect(ntt).toBeTruthy();
         });
-        expect(ntt).toBeTruthy();
+
+        it("Fails to initialize baked-in transceiver for versions >= 4.x.x", async () => {
+          overrideEmitter.transceiver.wormhole = NTT_ADDRESS.toBase58();
+          await assert
+            .promise(
+              Promise.resolve().then(
+                () =>
+                  new SolanaNtt("Devnet", "Solana", $.connection, {
+                    ...ctx.config.contracts,
+                    ...{ ntt: overrideEmitter },
+                  })
+              )
+            )
+            .failsWith(
+              "Baked-in transceiver is not supported for versions >= 4.x.x"
+            );
+        });
+
+        test("It initializes baked-in transceiver using `emitterAccount` for version 3.0.0", () => {
+          overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(
+            NTT_ADDRESS
+          )
+            .emitterAccount()
+            .toBase58();
+
+          const ntt = new SolanaNtt(
+            "Devnet",
+            "Solana",
+            $.connection,
+            {
+              ...ctx.config.contracts,
+              ...{ ntt: overrideEmitter },
+            },
+            "3.0.0"
+          );
+          expect(ntt).toBeTruthy();
+        });
+
+        test("It initializes baked-in transceiver using manager address for version 3.0.0", () => {
+          overrideEmitter.transceiver.wormhole = NTT_ADDRESS.toBase58();
+          const ntt = new SolanaNtt(
+            "Devnet",
+            "Solana",
+            $.connection,
+            {
+              ...ctx.config.contracts,
+              ...{ ntt: overrideEmitter },
+            },
+            "3.0.0"
+          );
+          expect(ntt).toBeTruthy();
+        });
       });
 
       test("It gets the correct version", async () => {
@@ -563,22 +641,7 @@ describe("example-native-token-transfers", () => {
           { ntt: overrides["Solana"] },
           payerAddress
         );
-        expect(version).toBe("3.0.0");
-      });
-
-      test("It initializes using `emitterAccount` as transceiver address", async () => {
-        const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
-          JSON.stringify(overrides["Solana"])
-        );
-        overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(NTT_ADDRESS)
-          .emitterAccount()
-          .toBase58();
-
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrideEmitter },
-        });
-        expect(ntt).toBeTruthy();
+        expect(version).toBe("4.0.0");
       });
 
       test("It gets the correct transceiver type", async () => {
@@ -592,6 +655,23 @@ describe("example-native-token-transfers", () => {
           payerAddress
         );
         expect(transceiverType).toBe("wormhole");
+      });
+
+      test("It uses Wormhole Post Message and Verify VAA shims", async () => {
+        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
+          ...ctx.config.contracts,
+          ...{ ntt: overrides["Solana"] },
+        });
+        const whTransceiver = await ntt.getWormholeTransceiver();
+        expect(whTransceiver).toBeTruthy();
+        expect(whTransceiver!.postMessageShim).toBeTruthy();
+        expect(whTransceiver!.postMessageShim!.programId.toBase58()).toEqual(
+          "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"
+        );
+        expect(whTransceiver!.verifyVaaShim).toBeTruthy();
+        expect(whTransceiver!.verifyVaaShim!.programId.toBase58()).toEqual(
+          "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"
+        );
       });
     });
   });

@@ -148,7 +148,7 @@ export namespace NTT {
   /** pdas returns an object containing all functions to compute program addresses */
   export const transceiverPdas = (programId: PublicKeyInitData) => {
     const emitterAccount = (): PublicKey => derivePda("emitter", programId);
-    const outboxItemSigner = () => derivePda(["outbox_item_signer"], programId);
+    const outboxItemSigner = () => derivePda("outbox_item_signer", programId);
     const transceiverPeerAccount = (chain: Chain): PublicKey =>
       derivePda(["transceiver_peer", chainToBytes(chain)], programId);
     const transceiverMessageAccount = (
@@ -156,8 +156,16 @@ export namespace NTT {
       id: Uint8Array
     ): PublicKey =>
       derivePda(["transceiver_message", chainToBytes(chain), id], programId);
+    const unverifiedMessageAccount = (payer: PublicKey, seed: BN): PublicKey =>
+      derivePda(
+        ["vaa_body", payer.toBytes(), new Uint8Array(seed.toArray("be"))],
+        programId
+      );
     const wormholeMessageAccount = (outboxItem: PublicKey): PublicKey =>
       derivePda(["message", outboxItem.toBytes()], programId);
+    const wormholeMessageWithShimAccount = (
+      postMessageShim: PublicKey
+    ): PublicKey => derivePda(emitterAccount().toBytes(), postMessageShim);
 
     // TODO: memoize?
     return {
@@ -165,7 +173,9 @@ export namespace NTT {
       outboxItemSigner,
       transceiverPeerAccount,
       transceiverMessageAccount,
+      unverifiedMessageAccount,
       wormholeMessageAccount,
+      wormholeMessageWithShimAccount,
     };
   };
 
@@ -295,6 +305,8 @@ export namespace NTT {
       payer: PublicKey;
       owner: PublicKey;
       wormholeId: PublicKey;
+      postMessageShim?: PublicKey;
+      wormholePostMessageShimEa?: PublicKey;
     },
     pdas?: Pdas
   ) {
@@ -318,7 +330,15 @@ export namespace NTT {
       args.wormholeId.toString()
     );
 
-    // TODO: add `whAccs.emitter`, `whTransceiver`, and transceiverEmitter PDA account to LUT
+    if (
+      major >= 4 &&
+      (!args.postMessageShim || !args.wormholePostMessageShimEa)
+    ) {
+      throw new Error(
+        "postMessageShim and wormholePostMessageShimEa must be passed in for versions >= 4.x.x"
+      );
+    }
+
     const entries = {
       config: pdas.configAccount(),
       custody: config.custody,
@@ -334,6 +354,14 @@ export namespace NTT {
         systemProgram: SystemProgram.programId,
         clock: web3.SYSVAR_CLOCK_PUBKEY,
         rent: web3.SYSVAR_RENT_PUBKEY,
+        // NOTE: transceiver, emitter, and post message shim accounts are part
+        // of wormhole accounts for versions >= 4.x.x
+        ...(major >= 4 && {
+          transceiver: whTransceiver,
+          emitter: whAccs.wormholeEmitter,
+          postMessageShim: args.postMessageShim,
+          wormholePostMessageShimEa: args.wormholePostMessageShimEa,
+        }),
       },
     };
 

@@ -1,4 +1,4 @@
-use anchor_lang::prelude::Pubkey;
+use anchor_lang::{prelude::Pubkey, Id};
 use example_native_token_transfers::{
     config::Config,
     instructions::TransferArgs,
@@ -15,6 +15,10 @@ use sha3::{Digest, Keccak256};
 use wormhole_anchor_sdk::wormhole;
 use wormhole_io::TypePrefixedPayload;
 use wormhole_solana_utils::cpi::bpf_loader_upgradeable;
+use wormhole_svm_definitions::{
+    solana::{POST_MESSAGE_SHIM_PROGRAM_ID, VERIFY_VAA_SHIM_PROGRAM_ID},
+    EVENT_AUTHORITY_SEED,
+};
 
 pub struct Wormhole {
     pub program: Pubkey,
@@ -41,12 +45,16 @@ impl Wormhole {
         sequence
     }
 
-    pub fn guardian_set(&self, guardian_set_index: u32) -> Pubkey {
-        let (guardian_set, _) = Pubkey::find_program_address(
+    pub fn guardian_set_with_bump(&self, guardian_set_index: u32) -> (Pubkey, u8) {
+        let (guardian_set, guardian_set_bump) = Pubkey::find_program_address(
             &[b"GuardianSet", &guardian_set_index.to_be_bytes()],
             &self.program,
         );
-        guardian_set
+        (guardian_set, guardian_set_bump)
+    }
+
+    pub fn guardian_set(&self, guardian_set_index: u32) -> Pubkey {
+        self.guardian_set_with_bump(guardian_set_index).0
     }
 
     pub fn posted_vaa(&self, vaa_hash: &[u8]) -> Pubkey {
@@ -76,7 +84,7 @@ pub trait NTTAccounts {
 
     fn wormhole(&self) -> Wormhole {
         Wormhole {
-            program: wormhole_anchor_sdk::wormhole::program::ID,
+            program: wormhole_anchor_sdk::wormhole::program::Wormhole::id(),
         }
     }
 
@@ -150,45 +158,12 @@ pub trait NTTAccounts {
         registered_transceiver
     }
 
-    fn emitter(&self) -> Pubkey {
-        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program());
-        emitter
-    }
-
-    fn wormhole_message(&self, outbox_item: &Pubkey) -> Pubkey {
-        let (wormhole_message, _) = Pubkey::find_program_address(
-            &[b"message".as_ref(), outbox_item.as_ref()],
-            &self.program(),
-        );
-        wormhole_message
-    }
-
-    fn wormhole_sequence(&self) -> Pubkey {
-        self.wormhole().sequence(&self.emitter())
-    }
-
     fn peer(&self, chain: u16) -> Pubkey {
         let (peer, _) = Pubkey::find_program_address(
             &[b"peer".as_ref(), &chain.to_be_bytes()],
             &self.program(),
         );
         peer
-    }
-
-    fn transceiver_peer(&self, chain: u16) -> Pubkey {
-        let (peer, _) = Pubkey::find_program_address(
-            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
-            &self.program(),
-        );
-        peer
-    }
-
-    fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
-        let (transceiver_message, _) = Pubkey::find_program_address(
-            &[b"transceiver_message".as_ref(), &chain.to_be_bytes(), &id],
-            &self.program(),
-        );
-        transceiver_message
     }
 
     fn custody(&self, mint: &Pubkey) -> Pubkey {
@@ -201,6 +176,10 @@ pub trait NTTAccounts {
             mint,
             token_program_id,
         )
+    }
+
+    fn wormhole_sequence(&self, ntt_transceiver: &NTTTransceiver) -> Pubkey {
+        self.wormhole().sequence(&ntt_transceiver.emitter())
     }
 
     fn program_data(&self) -> Pubkey {
@@ -222,4 +201,86 @@ pub struct GoodNTT {}
 #[allow(non_upper_case_globals)]
 pub const good_ntt: GoodNTT = GoodNTT {};
 
+pub struct PostMessageShim {
+    pub program: Pubkey,
+}
+
+impl PostMessageShim {
+    pub fn event_authority(&self) -> Pubkey {
+        let (event_authority, _) =
+            Pubkey::find_program_address(&[EVENT_AUTHORITY_SEED], &self.program);
+        event_authority
+    }
+}
+
 impl NTTAccounts for GoodNTT {}
+
+pub type NTTTransceiver = dyn NTTTransceiverAccounts;
+
+pub trait NTTTransceiverAccounts {
+    fn program(&self) -> Pubkey {
+        ntt_transceiver::ID
+    }
+
+    fn post_message_shim(&self) -> PostMessageShim {
+        PostMessageShim {
+            program: POST_MESSAGE_SHIM_PROGRAM_ID,
+        }
+    }
+
+    fn verify_vaa_shim_shim(&self) -> Pubkey {
+        VERIFY_VAA_SHIM_PROGRAM_ID
+    }
+
+    fn emitter(&self) -> Pubkey {
+        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program());
+        emitter
+    }
+
+    fn outbox_item_signer(&self) -> Pubkey {
+        let (outbox_item_signer, _) =
+            Pubkey::find_program_address(&[b"outbox_item_signer".as_ref()], &self.program());
+        outbox_item_signer
+    }
+
+    fn wormhole_message(&self) -> Pubkey {
+        let (wormhole_message, _) = Pubkey::find_program_address(
+            &[self.emitter().as_ref()],
+            &self.post_message_shim().program,
+        );
+        wormhole_message
+    }
+
+    fn transceiver_peer(&self, chain: u16) -> Pubkey {
+        let (peer, _) = Pubkey::find_program_address(
+            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
+            &self.program(),
+        );
+        peer
+    }
+
+    fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
+        let (transceiver_message, _) = Pubkey::find_program_address(
+            &[b"transceiver_message".as_ref(), &chain.to_be_bytes(), &id],
+            &self.program(),
+        );
+        transceiver_message
+    }
+
+    fn unverified_message_account(&self, payer: &Pubkey, seed: u64) -> Pubkey {
+        let (unverified_message_account, _) = Pubkey::find_program_address(
+            &[b"vaa_body".as_ref(), payer.as_ref(), &seed.to_be_bytes()],
+            &self.program(),
+        );
+        unverified_message_account
+    }
+}
+
+/// This implements the account derivations correctly. For negative tests, other
+/// implementations will implement them incorrectly.
+pub struct GoodNTTTransceiver {}
+
+#[allow(non_upper_case_globals)]
+pub const good_ntt_transceiver: GoodNTTTransceiver = GoodNTTTransceiver {};
+
+impl NTTTransceiverAccounts for GoodNTTTransceiver {}

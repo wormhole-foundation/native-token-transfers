@@ -219,7 +219,13 @@ export type ExampleNativeTokenTransfers = {
     },
     {
       "name": "version",
-      "accounts": [],
+      "accounts": [
+        {
+          "name": "dummy",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
       "args": [],
       "returns": "string"
     },
@@ -2709,7 +2715,13 @@ export const IDL: ExampleNativeTokenTransfers = {
     },
     {
       "name": "version",
-      "accounts": [],
+      "accounts": [
+        {
+          "name": "dummy",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
       "args": [],
       "returns": "string"
     },

@@ -1,9 +1,8 @@
-use std::{io::Error, str::FromStr};
-
 use anchor_lang::{prelude::Pubkey, AnchorDeserialize};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use solana_program_test::ProgramTest;
+use std::{io::Error, str::FromStr};
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]

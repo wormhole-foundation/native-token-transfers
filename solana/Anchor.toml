@@ -32,6 +32,14 @@ upgradeable = true
 address = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
 program = "programs/example-native-token-transfers/tests/fixtures/mainnet_core_bridge.so"
 
+[[test.genesis]]
+address = "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"
+program = "programs/example-native-token-transfers/tests/fixtures/mainnet_wormhole_post_message_shim.so"
+
+[[test.genesis]]
+address = "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"
+program = "programs/example-native-token-transfers/tests/fixtures/mainnet_wormhole_verify_vaa_shim.so"
+
 [test.validator]
 bind_address = "0.0.0.0"
 url = "https://api.mainnet-beta.solana.com"

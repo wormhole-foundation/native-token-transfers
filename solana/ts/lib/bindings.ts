@@ -1,6 +1,6 @@
 import { IdlAccounts, Program } from "@coral-xyz/anchor";
 import { Connection } from "@solana/web3.js";
-import { _1_0_0, _2_0_0, _3_0_0 } from "./anchor-idl/index.js";
+import { _1_0_0, _2_0_0, _3_0_0, _4_0_0 } from "./anchor-idl/index.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 export interface IdlBinding<V extends IdlVersion> {
@@ -15,6 +15,7 @@ export interface IdlBinding<V extends IdlVersion> {
 // We check for the first match in descending order, allowing for higher minor and patch versions
 // being used by the live contract (these are supposed to still be compatible with older ABIs).
 export const IdlVersions = [
+  ["4.0.0", _4_0_0],
   ["3.0.0", _3_0_0],
   ["2.0.0", _2_0_0],
   ["1.0.0", _1_0_0],
@@ -27,19 +28,25 @@ export namespace NttBindings {
     ? _1_0_0.RawExampleNativeTokenTransfers
     : V extends "2.0.0"
     ? _2_0_0.RawExampleNativeTokenTransfers
-    : _3_0_0.RawExampleNativeTokenTransfers;
+    : V extends "3.0.0"
+    ? _3_0_0.RawExampleNativeTokenTransfers
+    : _4_0_0.RawExampleNativeTokenTransfers;
 
   export type Quoter<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawNttQuoter
     : V extends "2.0.0"
     ? _2_0_0.RawNttQuoter
-    : _3_0_0.RawNttQuoter;
+    : V extends "3.0.0"
+    ? _3_0_0.RawNttQuoter
+    : _4_0_0.RawNttQuoter;
 
   export type Transceiver<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawExampleNativeTokenTransfers
     : V extends "2.0.0"
     ? _2_0_0.RawExampleNativeTokenTransfers
-    : _3_0_0.RawNttTransceiver;
+    : V extends "3.0.0"
+    ? _3_0_0.RawNttTransceiver
+    : _4_0_0.RawNttTransceiver;
 
   type ProgramAccounts<V extends IdlVersion> = IdlAccounts<
     NttBindings.NativeTokenTransfer<V>

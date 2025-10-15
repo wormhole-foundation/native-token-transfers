@@ -15,18 +15,18 @@ pub struct Redeem {
     pub inbox_rate_limit: Pubkey,
 }
 
-pub fn redeem(ntt: &NTT, accs: Redeem, args: RedeemArgs) -> Instruction {
+pub fn redeem(ntt: &NTT, accounts: Redeem, args: RedeemArgs) -> Instruction {
     let data = example_native_token_transfers::instruction::Redeem { args };
 
     let accounts = example_native_token_transfers::accounts::Redeem {
-        payer: accs.payer,
+        payer: accounts.payer,
         config: ntt.config(),
-        peer: accs.peer,
-        transceiver_message: accs.transceiver_message,
-        transceiver: ntt.registered_transceiver(&accs.transceiver),
-        mint: accs.mint,
-        inbox_item: accs.inbox_item,
-        inbox_rate_limit: accs.inbox_rate_limit,
+        peer: accounts.peer,
+        transceiver_message: accounts.transceiver_message,
+        transceiver: ntt.registered_transceiver(&accounts.transceiver),
+        mint: accounts.mint,
+        inbox_item: accounts.inbox_item,
+        inbox_rate_limit: accounts.inbox_rate_limit,
         outbox_rate_limit: ntt.outbox_rate_limit(),
         system_program: System::id(),
     };

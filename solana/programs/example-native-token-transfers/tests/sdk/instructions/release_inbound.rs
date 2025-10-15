@@ -14,22 +14,22 @@ pub struct ReleaseInbound {
 
 pub fn release_inbound_unlock(
     ntt: &NTT,
-    release_inbound: ReleaseInbound,
+    accounts: ReleaseInbound,
     args: ReleaseInboundArgs,
 ) -> Instruction {
     let data = example_native_token_transfers::instruction::ReleaseInboundUnlock { args };
     let accounts = example_native_token_transfers::accounts::ReleaseInboundUnlock {
         common: example_native_token_transfers::accounts::ReleaseInbound {
-            payer: release_inbound.payer,
+            payer: accounts.payer,
             config: NotPausedConfig {
                 config: ntt.config(),
             },
-            inbox_item: release_inbound.inbox_item,
-            recipient: release_inbound.recipient,
+            inbox_item: accounts.inbox_item,
+            recipient: accounts.recipient,
             token_authority: ntt.token_authority(),
-            mint: release_inbound.mint,
+            mint: accounts.mint,
             token_program: Token::id(),
-            custody: ntt.custody(&release_inbound.mint),
+            custody: ntt.custody(&accounts.mint),
         },
     };
     Instruction {

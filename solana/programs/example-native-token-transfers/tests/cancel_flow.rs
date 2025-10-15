@@ -2,7 +2,6 @@
 #![feature(type_changing_struct_update)]
 
 use anchor_lang::prelude::*;
-use common::setup::{TestData, OTHER_CHAIN};
 use example_native_token_transfers::{
     instructions::{RedeemArgs, TransferArgs},
     queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit},
@@ -11,10 +10,7 @@ use example_native_token_transfers::{
 use ntt_messages::{
     chain_id::ChainId, mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
 };
-use sdk::{
-    accounts::{good_ntt, NTTAccounts},
-    transceivers::wormhole::instructions::receive_message::ReceiveMessage,
-};
+use ntt_transceiver::vaa_body::VaaBodyData;
 use solana_program_test::*;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use wormhole_sdk::Address;
@@ -22,20 +18,21 @@ use wormhole_sdk::Address;
 use crate::{
     common::{
         query::GetAccountDataAnchor,
-        setup::{setup, OTHER_TRANSCEIVER},
-        utils::make_transfer_message,
+        setup::{setup, TestData, OTHER_CHAIN, OTHER_TRANSCEIVER},
+        submit::Submittable,
+        utils::{make_transfer_message, post_vaa_helper},
     },
     sdk::{
+        accounts::{good_ntt, good_ntt_transceiver, NTTAccounts, NTTTransceiverAccounts},
         instructions::{
+            post_vaa::close_signatures,
             redeem::{redeem, Redeem},
-            transfer::Transfer,
+            transfer::{approve_token_authority, transfer, Transfer},
         },
-        transceivers::wormhole::instructions::receive_message::receive_message,
+        transceivers::wormhole::instructions::receive_message::{
+            receive_message_instruction_data, ReceiveMessage,
+        },
     },
-};
-use crate::{
-    common::{submit::Submittable, utils::post_vaa_helper},
-    sdk::instructions::transfer::{approve_token_authority, transfer},
 };
 
 pub mod common;
@@ -76,8 +73,9 @@ fn init_redeem_accs(
     Redeem {
         payer: ctx.payer.pubkey(),
         peer: good_ntt.peer(chain_id),
-        transceiver: good_ntt.program(),
-        transceiver_message: good_ntt.transceiver_message(chain_id, ntt_manager_message.id),
+        transceiver: good_ntt_transceiver.program(),
+        transceiver_message: good_ntt_transceiver
+            .transceiver_message(chain_id, ntt_manager_message.id),
         inbox_item: good_ntt.inbox_item(chain_id, ntt_manager_message),
         inbox_rate_limit: good_ntt.inbox_rate_limit(chain_id),
         mint: test_data.mint,
@@ -86,16 +84,20 @@ fn init_redeem_accs(
 
 fn init_receive_message_accs(
     ctx: &mut ProgramTestContext,
-    vaa: Pubkey,
     chain_id: u16,
     id: [u8; 32],
+    guardian_set_index: u32,
+    guardian_signatures: Pubkey,
 ) -> ReceiveMessage {
     ReceiveMessage {
         payer: ctx.payer.pubkey(),
-        peer: good_ntt.transceiver_peer(chain_id),
-        vaa,
+        peer: good_ntt_transceiver.transceiver_peer(chain_id),
         chain_id,
         id,
+        guardian_set: good_ntt
+            .wormhole()
+            .guardian_set_with_bump(guardian_set_index),
+        guardian_signatures,
     }
 }
 
@@ -124,16 +126,16 @@ async fn test_cancel() {
 
     let msg0 = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
     let msg1 = make_transfer_message(&good_ntt, [1u8; 32], 2000, &recipient.pubkey());
-    let vaa0 = post_vaa_helper(
-        &good_ntt,
+    let (guardian_signatures0, guardian_set_index0, span0) = post_vaa_helper(
+        &good_ntt_transceiver,
         OTHER_CHAIN.into(),
         Address(OTHER_TRANSCEIVER),
         msg0.clone(),
         &mut ctx,
     )
     .await;
-    let vaa1 = post_vaa_helper(
-        &good_ntt,
+    let (guardian_signatures1, guardian_set_index1, span1) = post_vaa_helper(
+        &good_ntt_transceiver,
         OTHER_CHAIN.into(),
         Address(OTHER_TRANSCEIVER),
         msg1.clone(),
@@ -144,13 +146,23 @@ async fn test_cancel() {
     let inbound_limit_before = inbound_capacity(&mut ctx).await;
     let outbound_limit_before = outbound_capacity(&mut ctx).await;
 
-    receive_message(
+    receive_message_instruction_data(
         &good_ntt,
-        init_receive_message_accs(&mut ctx, vaa0, OTHER_CHAIN, [0u8; 32]),
+        &good_ntt_transceiver,
+        init_receive_message_accs(
+            &mut ctx,
+            OTHER_CHAIN,
+            [0u8; 32],
+            guardian_set_index0,
+            guardian_signatures0,
+        ),
+        VaaBodyData { span: span0 },
     )
     .submit(&mut ctx)
     .await
     .unwrap();
+
+    close_signatures(&good_ntt_transceiver, &mut ctx, &guardian_signatures0).await;
 
     redeem(
         &good_ntt,
@@ -200,13 +212,23 @@ async fn test_cancel() {
     // fully replenished
     assert_eq!(inbound_limit_before, inbound_capacity(&mut ctx).await);
 
-    receive_message(
+    receive_message_instruction_data(
         &good_ntt,
-        init_receive_message_accs(&mut ctx, vaa1, OTHER_CHAIN, [1u8; 32]),
+        &good_ntt_transceiver,
+        init_receive_message_accs(
+            &mut ctx,
+            OTHER_CHAIN,
+            [1u8; 32],
+            guardian_set_index1,
+            guardian_signatures1,
+        ),
+        VaaBodyData { span: span1 },
     )
     .submit(&mut ctx)
     .await
     .unwrap();
+
+    close_signatures(&good_ntt_transceiver, &mut ctx, &guardian_signatures1).await;
 
     redeem(
         &good_ntt,

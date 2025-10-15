@@ -351,25 +351,19 @@
           },
           {
             "name": "owner",
-            "docs": [
-              "Owner of the program."
-            ],
+            "docs": ["Owner of the program."],
             "type": "publicKey"
           },
           {
             "name": "pendingOwner",
-            "docs": [
-              "Pending next owner (before claiming ownership)."
-            ],
+            "docs": ["Pending next owner (before claiming ownership)."],
             "type": {
               "option": "publicKey"
             }
           },
           {
             "name": "mint",
-            "docs": [
-              "Mint address of the token managed by this program."
-            ],
+            "docs": ["Mint address of the token managed by this program."],
             "type": "publicKey"
           },
           {
@@ -436,9 +430,7 @@
           },
           {
             "name": "custody",
-            "docs": [
-              "The custody account that holds tokens in locking mode."
-            ],
+            "docs": ["The custody account that holds tokens in locking mode."],
             "type": "publicKey"
           }
         ]
@@ -468,19 +460,13 @@
           {
             "name": "recipientNttManager",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
             "name": "recipientAddress",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
@@ -531,10 +517,7 @@
           {
             "name": "address",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           }
         ]
@@ -554,9 +537,7 @@
           },
           {
             "name": "lastLamports",
-            "docs": [
-              "Lamports in the collection account"
-            ],
+            "docs": ["Lamports in the collection account"],
             "type": "u64"
           },
           {
@@ -641,10 +622,7 @@
           {
             "name": "address",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           }
         ]
