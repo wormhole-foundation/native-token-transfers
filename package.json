@@ -40,5 +40,10 @@
     "sdk/route",
     "sdk/examples",
     "cli"
-  ]
+  ],
+  "overrides": {
+    "ts-jest": {
+      "@types/jest": "^29.5.12"
+    }
+  }
 }
