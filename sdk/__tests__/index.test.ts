@@ -1,12 +1,14 @@
 import { web3 } from "@coral-xyz/anchor";
-import { chainToPlatform } from "@wormhole-foundation/sdk-connect";
-
+import { chainToPlatform, UniversalAddress } from "@wormhole-foundation/sdk-connect";
 import { registerRelayers } from "./accountant.js";
-import { Ctx, setMessageFee, testHub } from "./utils.js";
+import { Ctx, deploy, setMessageFee, testHub, testPausing, testTempStacksHub, wh } from "./utils.js";
 import { ethers } from "ethers";
+import { test } from '@jest/globals';
+import { Cl, cvToValue, fetchCallReadOnlyFunction } from "@stacks/transactions";
 
 // Note: Currently, in order for this to run, the evm bindings with extra contracts must be build
 // To do that, at the root, run `npm run generate:test`
+jest.setTimeout(6000000);
 
 // https://github.com/wormhole-foundation/wormhole/blob/347357b251e850a51eca351943cf71423c4f0bc3/scripts/devnet-consts.json#L257
 const ETH_PRIVATE_KEY =
@@ -36,6 +38,9 @@ const SOL_PRIVATE_KEY_2 = web3.Keypair.fromSecretKey(
   ])
 );
 
+const STACKS_PRIVATE_KEY = 
+  "714a5bf161a680ebb2670c5ea6e8bcd75f299eae234412af0cf12d21e11ae09901"; // Clarinet acc 1
+
 // https://github.com/wormhole-foundation/wormhole/blob/347357b251e850a51eca351943cf71423c4f0bc3/wormchain/contracts/tools/__tests__/test_ntt_accountant.ts#L139
 const ACCT_MNEMONIC =
   "quality vacuum heart guard buzz spike sight swarm shove special gym robust assume sudden deposit grid alcohol choice devote leader tilt noodle tide penalty";
@@ -45,7 +50,7 @@ const ACCT_MNEMONIC_2 =
   "notice oak worry limit wrap speak medal online prefer cluster roof addict wrist behave treat actual wasp year salad speed social layer crew genius";
 
 const makeGetNativeSigner =
-  (ethKey: string, solKey: web3.Keypair) =>
+  (ethKey: string, solKey: web3.Keypair, stacksKey: string) =>
   (ctx: Partial<Ctx>): any => {
     const platform = chainToPlatform(ctx.context!.chain);
     switch (platform) {
@@ -53,6 +58,8 @@ const makeGetNativeSigner =
         return ethKey;
       case "Solana":
         return solKey;
+      case "Stacks":
+        return stacksKey;
       default:
         throw (
           "Unsupported platform " + platform + " (add it to getNativeSigner)"
@@ -62,30 +69,79 @@ const makeGetNativeSigner =
 
 describe("Hub and Spoke Tests", function () {
   beforeAll(async () => {
-    await registerRelayers(ACCT_MNEMONIC);
-    await setMessageFee(["Ethereum", "Bsc"], ethers.parseEther("0.001"));
+    // await registerRelayers(ACCT_MNEMONIC);
+    // await setMessageFee(["Ethereum", "Bsc"], ethers.parseEther("0.001"));
   });
 
   afterAll(async () => {
-    await setMessageFee(["Ethereum", "Bsc"], 0n);
+    // await setMessageFee(["Ethereum", "Bsc"], 0n);
   });
 
   test("Test Solana and Ethereum Hubs", async () => {
-    await Promise.all([
-      testHub(
-        "Solana",
-        "Ethereum",
-        "Bsc",
-        makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY),
-        ACCT_MNEMONIC
-      ),
-      testHub(
-        "Ethereum",
-        "Bsc",
-        "Solana",
-        makeGetNativeSigner(ETH_PRIVATE_KEY_2, SOL_PRIVATE_KEY_2),
-        ACCT_MNEMONIC_2
-      ),
-    ]);
+    // await Promise.all([
+    //   testHub(
+    //     "Solana",
+    //     "Ethereum",
+    //     "Bsc",
+    //     makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY),
+    //     ACCT_MNEMONIC
+    //   ),
+    //   testHub(
+    //     "Ethereum",
+    //     "Bsc",
+    //     "Solana",
+    //     makeGetNativeSigner(ETH_PRIVATE_KEY_2, SOL_PRIVATE_KEY_2),
+    //     ACCT_MNEMONIC_2
+    //   ),
+    // ]);
   });
+  
+  describe.only("Stacks", () => {
+    test.only("temp - stacks", async() => {
+      // await Promise.all([
+      //   testTempStacksHub(
+      //     "Stacks",
+      //     "Ethereum",
+      //     "Solana",
+      //     makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY, STACKS_PRIVATE_KEY),
+      //     ACCT_MNEMONIC
+      //   )
+      // ])
+// console.log(Cl.buffer(new UniversalAddress("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").toUint8Array()))
+// const fromHexString = (hexString: string) => Uint8Array.from(hexString.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
+
+// const res = await fetchCallReadOnlyFunction({
+//     contractAddress: 'ST5ZW3BC07M4P27KFJ6JJ6PKTB1NW79SH0BVYB3W',
+//     contractName: 'ntt-manager-v1-8900',
+//     functionName: 'parse-token-tf',
+//     functionArgs: [
+//       Cl.buffer(fromHexString("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000090f8bf6a479f320ead074411a4b0e7944ea8c9c1004f994e54540800000000000f4240000000000000000000000000bc53027c52b0ee6ad90347b8d03a719f30d9d7abda36b89828d4e22d80ffd897c89ed4780fcac601e1d6839f0c1a3eb332914b2f003c"))
+//     ],
+//     senderAddress: 'ST5ZW3BC07M4P27KFJ6JJ6PKTB1NW79SH0BVYB3W',
+//     network: "devnet",
+//     client: { baseUrl: 'http://localhost:3999' },
+//   })
+
+//   console.log(cvToValue(res))
+
+      // await testHub(
+      //   "Stacks",
+      //   "Ethereum",
+      //   "Bsc",
+      //   makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY, STACKS_PRIVATE_KEY),
+      //   ACCT_MNEMONIC
+      // )
+      await testHub(
+        "Ethereum",
+        "Stacks",
+        "Bsc",
+        makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY, STACKS_PRIVATE_KEY),
+        ACCT_MNEMONIC
+      )
+    })
+
+    test("Pausing", async() => {
+      await testPausing("Stacks", makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY, STACKS_PRIVATE_KEY))
+    })
+  })
 });

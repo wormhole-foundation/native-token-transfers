@@ -14,6 +14,7 @@ spec:
             - /bin/sh
             - -c
             - 'npm run test:ci && echo "done!" && touch /success'
+            # - echo "done!" && touch /success'
           readinessProbe:
             exec:
               command:

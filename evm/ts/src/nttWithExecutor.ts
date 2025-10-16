@@ -106,7 +106,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     provider: Provider,
     config: ChainsConfig<N, EvmPlatformType>,
   ): Promise<EvmNttWithExecutor<N, EvmChains>> {
-    const [network, chain] = await EvmPlatform.chainFromRpc(provider);
+    const [network, chain] = await EvmPlatform.chainFromRpc(provider as any);
     const conf = config[chain]!;
     if (conf.network !== network)
       throw new Error(`Network mismatch: ${conf.network} != ${network}`);
@@ -142,8 +142,8 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     }
 
     const tokenContract = EvmPlatform.getTokenImplementation(
-      this.provider,
-      ntt.tokenAddress,
+      this.provider as any,
+      ntt.tokenAddress
     );
 
     const allowance = await tokenContract.allowance(

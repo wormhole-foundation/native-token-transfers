@@ -1,5 +1,5 @@
 {
-  "name": "@wormhole-foundation/sdk-evm-ntt",
+  "name": "@wormhole-foundation/sdk-stacks-ntt",
   "version": "1.0.0",
   "repository": {
     "type": "git",
@@ -15,7 +15,7 @@
   "main": "./dist/cjs/index.js",
   "types": "./dist/cjs/index.d.ts",
   "module": "./dist/esm/index.js",
-  "description": "NTT SDK for EVM chains",
+  "description": "NTT SDK for Stacks chain",
   "files": [
     "dist/esm",
     "dist/cjs"
@@ -25,7 +25,7 @@
     "sdk",
     "typescript",
     "ntt",
-    "evm"
+    "stacks"
   ],
   "engines": {
     "node": ">=16"
@@ -37,26 +37,20 @@
     "build": "npm run build:esm && npm run build:cjs",
     "rebuild": "npm run clean && npm run build",
     "clean": "rm -rf ./dist",
-    "generate:test": "typechain --node16-modules --target ethers-v6 --out-dir ethers-ci-contracts '../out/!(build-info)/*.json'",
-    "generate:slim": "ABI_VERSION=`tsx scripts/readVersion.ts` && typechain --node16-modules --target ethers-v6 --out-dir src/ethers-contracts/$ABI_VERSION '../out/?(WormholeTransceiver.sol|NttManager.sol)/*.json'",
-    "generate": "npm run generate:slim",
-    "build:contracts": "cd ../.. && make build-evm-prod",
+    "build:contracts": "cd ../.. && make build",
     "test": "jest --config ./jest.config.ts"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
-    "ethers": "^6.5.1"
-  },
-  "peerDependencies": {
+    "@stacks/network": "^7.2.0",
+    "@stacks/transactions": "^7.2.0",
     "@wormhole-foundation/sdk-base": "file:../../../wormhole-sdk-ts/core/base",
     "@wormhole-foundation/sdk-definitions": "file:../../../wormhole-sdk-ts/core/definitions",
-    "@wormhole-foundation/sdk-evm": "file:../../../wormhole-sdk-ts/platforms/evm",
-    "@wormhole-foundation/sdk-evm-core": "file:../../../wormhole-sdk-ts/platforms/evm/protocols/core"
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
+    "@wormhole-foundation/sdk-stacks": "file:../../../wormhole-sdk-ts/platforms/stacks",
+    "@wormhole-foundation/sdk-stacks-core": "file:../../../wormhole-sdk-ts/platforms/stacks/protocols/core"
   },
   "devDependencies": {
-    "@typechain/ethers-v6": "^0.5.1",
-    "tsx": "^4.7.2",
-    "typechain": "^8.3.2"
+    "tsx": "^4.7.2"
   },
   "type": "module",
   "exports": {

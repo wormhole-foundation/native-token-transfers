@@ -33,7 +33,7 @@ async function getClientAndSigner(privateKey: string) {
 }
 
 const url = process.env["CI"]
-  ? "http://wormchain:26657"
+  ? "http://localhost:26657" // FG TODO FG revert to "wormchain:26657"
   : "http://localhost:26659";
 
 export async function submitAccountantVAAs(

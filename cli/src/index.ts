@@ -3,6 +3,7 @@ import "./side-effects"; // doesn't quite work for silencing the bigint error me
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
+import stacks from "@wormhole-foundation/sdk/platforms/stacks";
 import { encoding, type RpcConnection, type UnsignedTransaction, type WormholeConfigOverrides } from '@wormhole-foundation/sdk-connect';
 import { execSync } from "child_process";
 import * as myEvmSigner from "./evmsigner.js";
@@ -62,6 +63,7 @@ import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
 import { AbiCoder, ethers, Interface } from "ethers";
 import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
+import type { StacksChains } from "@wormhole-foundation/sdk-stacks";
 
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
@@ -581,7 +583,7 @@ yargs(hideBin(process.argv))
             // let's deploy
 
             // TODO: factor out to function to get chain context
-            const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform], overrides);
+            const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform, stacks.Platform], overrides);
             const ch = wh.getChain(chain);
 
             // TODO: make manager configurable
@@ -1674,7 +1676,7 @@ yargs(hideBin(process.argv))
 
                         const wh = new Wormhole(
                             network,
-                            [solana.Platform, evm.Platform],
+                            [solana.Platform, evm.Platform, stacks.Platform],
                             overrides
                         );
                         const ch = wh.getChain(chain);
@@ -2480,6 +2482,8 @@ async function deploy<N extends Network, C extends Chain>(
         case "Sui":
             const suiCtx = ch as ChainContext<N, Chain>; // TODO: Use proper SuiChains type
             return await deploySui(worktree, version, mode, suiCtx, token, signerType, true, evmVerify, suiGasBudget, suiPackagePath, suiWormholeState, suiTreasuryCap) as any;
+        case "Stacks":
+            return await deployStacks(worktree, mode, ch, token, signerType) as ChainAddress<C>;
         default:
             throw new Error("Unsupported platform");
     }
@@ -3418,6 +3422,16 @@ async function deploySui<N extends Network, C extends Chain>(
             throw deploymentError;
         }
     });
+
+  }
+async function deployStacks<N extends Network, C extends Chain>(
+  pwd: string,
+  mode: Ntt.Mode,
+  ch: ChainContext<N, C>,
+  token: string,
+  signerType: SignerType
+): Promise<ChainAddress<StacksChains>> {
+    return undefined as any
 }
 
 async function missingConfigs(

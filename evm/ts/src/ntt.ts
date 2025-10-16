@@ -367,7 +367,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     return await EvmPlatform.getDecimals(
       this.network,
       this.chain,
-      this.provider,
+      this.provider as any,
       this.tokenAddress
     );
   }
@@ -391,7 +391,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     provider: Provider,
     config: ChainsConfig<N, EvmPlatformType>
   ): Promise<EvmNtt<N, EvmChains>> {
-    const [network, chain] = await EvmPlatform.chainFromRpc(provider);
+    const [network, chain] = await EvmPlatform.chainFromRpc(provider as any);
     const conf = config[chain]!;
     if (conf.network !== network)
       throw new Error(`Network mismatch: ${conf.network} != ${network}`);
@@ -423,6 +423,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       provider
     );
     try {
+      console.log(`Getting`)
       const abiVersion = await contract
         .getFunction("NTT_MANAGER_VERSION")
         .staticCall();
@@ -431,6 +432,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       }
       return abiVersion;
     } catch (e) {
+      console.log(provider)
       console.error(
         `Failed to get NTT_MANAGER_VERSION from contract ${contracts.ntt?.manager} on ${(await provider.getNetwork()).name}`
       );
@@ -458,6 +460,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     tokenDecimals: number,
     inboundLimit: bigint
   ) {
+    console.log(`Ntt.ts set peer to exactly: ${universalAddress(peer)}`)
     const tx = await this.manager.setPeer.populateTransaction(
       toChainId(peer.chain),
       universalAddress(peer),
@@ -536,7 +539,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     const senderAddress = new EvmAddress(sender).toString();
 
     const tokenContract = EvmPlatform.getTokenImplementation(
-      this.provider,
+      this.provider as any,
       this.tokenAddress
     );
 
