@@ -156,8 +156,16 @@ export namespace NTT {
       id: Uint8Array
     ): PublicKey =>
       derivePda(["transceiver_message", chainToBytes(chain), id], programId);
+    const unverifiedMessageAccount = (payer: PublicKey, seed: BN): PublicKey =>
+      derivePda(
+        ["vaa_body", payer.toBytes(), new Uint8Array(seed.toArray("be"))],
+        programId
+      );
     const wormholeMessageAccount = (outboxItem: PublicKey): PublicKey =>
       derivePda(["message", outboxItem.toBytes()], programId);
+    const wormholeMessageWithShimAccount = (
+      postMessageShim: PublicKey
+    ): PublicKey => derivePda(emitterAccount().toBytes(), postMessageShim);
 
     // TODO: memoize?
     return {
@@ -165,7 +173,9 @@ export namespace NTT {
       outboxItemSigner,
       transceiverPeerAccount,
       transceiverMessageAccount,
+      unverifiedMessageAccount,
       wormholeMessageAccount,
+      wormholeMessageWithShimAccount,
     };
   };
 
