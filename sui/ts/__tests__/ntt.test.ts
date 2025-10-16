@@ -22,6 +22,26 @@ jest.mock("@wormhole-foundation/sdk-definitions", () => ({
   serialize: jest.fn(() => new Uint8Array([1, 2, 3, 4, 5])), // Mock VAA bytes
 }));
 
+// Mock SuiGraphQLClient with a default implementation that can be overridden
+const mockQuery = jest.fn().mockResolvedValue({
+  data: {
+    objects: {
+      nodes: [
+        {
+          address:
+            "0x9876543210987654321098765432109876543210987654321098765432109876",
+        },
+      ],
+    },
+  },
+});
+
+jest.mock("@mysten/sui/graphql", () => ({
+  SuiGraphQLClient: jest.fn().mockImplementation(() => ({
+    query: mockQuery,
+  })),
+}));
+
 describe("SuiNtt", () => {
   let suiNtt: SuiNtt<"Testnet", "Sui">;
   let mockClient: jest.Mocked<any>;
@@ -117,7 +137,9 @@ describe("SuiNtt", () => {
 
     describe("getThreshold", () => {
       it("should return threshold value from state", async () => {
-        mockClient.getObject.mockResolvedValue(mockNttState({ threshold: "3" }));
+        mockClient.getObject.mockResolvedValue(
+          mockNttState({ threshold: "3" })
+        );
 
         const threshold = await suiNtt.getThreshold();
         expect(threshold).toBe(3);
@@ -377,8 +399,18 @@ describe("SuiNtt", () => {
       beforeEach(() => {
         // Mock required state and objects
         mockClient.getObject
-          .mockResolvedValueOnce(mockNttState({ adminCapId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" })) // getAdminCapId
-          .mockResolvedValueOnce(mockSuiObject("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State", {})) // getPackageId
+          .mockResolvedValueOnce(
+            mockNttState({
+              adminCapId:
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            })
+          ) // getAdminCapId
+          .mockResolvedValueOnce(
+            mockSuiObject(
+              "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State",
+              {}
+            )
+          ) // getPackageId
           .mockResolvedValueOnce(mockSuiObject("0xwormhole::state::State", {})); // wormhole package ID
       });
 
@@ -500,7 +532,8 @@ describe("SuiNtt", () => {
                 type: "TransceiverState",
                 hasPublicTransfer: false,
                 fields: {
-                  admin_cap_id: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+                  admin_cap_id:
+                    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
                 },
               },
             },
@@ -732,33 +765,41 @@ describe("SuiNtt", () => {
       beforeEach(() => {
         // Mock coin metadata query
         mockClient.getCoinMetadata.mockResolvedValue(mockCoinMetadata());
-        
+
         // Mock getCoins for non-native token transfers
         mockClient.getCoins.mockResolvedValue({
-          data: [{
-            coinType: "0xabc::custom::TOKEN",
-            coinObjectId: "0xmockcoin123",
-            balance: "1000000000000",
-            lockedUntilEpoch: null,
-            previousTransaction: "0xmocktx"
-          }],
+          data: [
+            {
+              coinType: "0xabc::custom::TOKEN",
+              coinObjectId: "0xmockcoin123",
+              balance: "1000000000000",
+              lockedUntilEpoch: null,
+              previousTransaction: "0xmocktx",
+            },
+          ],
           nextCursor: null,
-          hasNextPage: false
+          hasNextPage: false,
         });
-        
+
         // Mock getDynamicFields for getWormholePackageId
         mockClient.getDynamicFields.mockResolvedValue({
-          data: [{
-            name: { type: "CurrentPackage" },
-            objectId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-          }],
+          data: [
+            {
+              name: { type: "CurrentPackage" },
+              objectId:
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            },
+          ],
           nextCursor: null,
-          hasNextPage: false
+          hasNextPage: false,
         });
-        
+
         // Mock getObject for multiple different object IDs
         mockClient.getObject.mockImplementation((params: any) => {
-          if (params.id === "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef") {
+          if (
+            params.id ===
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+          ) {
             // Mock for CurrentPackage object in getWormholePackageId
             return Promise.resolve({
               data: {
@@ -767,25 +808,30 @@ describe("SuiNtt", () => {
                   fields: {
                     value: {
                       fields: {
-                        package: "0xwormholepackage123"
-                      }
-                    }
-                  }
-                }
-              }
+                        package:
+                          "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+                      },
+                    },
+                  },
+                },
+              },
             });
           } else if (params.id === TEST_CONTRACTS.ntt.transceiver.wormhole) {
             // Mock for transceiver state object (getPackageIdFromObject)
-            return Promise.resolve(mockSuiObject(
-              "0xtransceiver123::wormhole_transceiver::State",
-              {}
-            ));
+            return Promise.resolve(
+              mockSuiObject(
+                "0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321::wormhole_transceiver::State",
+                {}
+              )
+            );
           }
           // Default mock for NTT manager state
-          return Promise.resolve(mockSuiObject(
-            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State",
-            {}
-          ));
+          return Promise.resolve(
+            mockSuiObject(
+              "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State",
+              {}
+            )
+          );
         });
       });
 
@@ -802,14 +848,17 @@ describe("SuiNtt", () => {
         expect(unsignedTx.description).toBe("NTT Transfer");
         expect(unsignedTx.network).toBe("Testnet");
         expect(unsignedTx.chain).toBe("Sui");
-
-        expect(mockClient.getCoinMetadata).toHaveBeenCalledWith({
-          coinType: TEST_CONTRACTS.ntt.token,
-        });
       });
 
       it("should throw error when coin metadata not found", async () => {
-        mockClient.getCoinMetadata.mockResolvedValue(null);
+        // Mock GraphQL to return no results
+        mockQuery.mockResolvedValueOnce({
+          data: {
+            objects: {
+              nodes: [],
+            },
+          },
+        });
 
         const txGenerator = suiNtt.transfer(
           sender as any,
@@ -818,11 +867,25 @@ describe("SuiNtt", () => {
           options
         );
         await expect(txGenerator.next()).rejects.toThrow(
-          "Failed to get CoinMetadata for 0x2::sui::SUI: CoinMetadata not found for 0x2::sui::SUI"
+          "CoinMetadata object not found for type 0x2::sui::SUI"
         );
       });
 
       it("should create transfer transaction for custom tokens", async () => {
+        // Mock GraphQL to return a valid CoinMetadata ID for custom token
+        mockQuery.mockResolvedValueOnce({
+          data: {
+            objects: {
+              nodes: [
+                {
+                  address:
+                    "0x9876543210987654321098765432109876543210987654321098765432109876",
+                },
+              ],
+            },
+          },
+        });
+
         const customSuiNtt = new SuiNtt("Testnet", "Sui", mockClient, {
           ntt: {
             ...TEST_CONTRACTS.ntt,
@@ -850,58 +913,75 @@ describe("SuiNtt", () => {
         const payer = TEST_ADDRESSES.USER;
 
         // Mock the necessary API calls in the order they'll be called
-        const packageId = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+        const packageId =
+          "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
         const wormholePackageId = "0xwormhole123";
-        
+
         // Reset all mocks to ensure clean state
         jest.clearAllMocks();
-        
+
         // Mock getObject based on what object ID is being requested
         mockClient.getObject.mockImplementation((params: any) => {
           if (params.id === TEST_CONTRACTS.ntt.manager) {
             // Mock for NTT state object with inbox field for addReleaseCall
-            return Promise.resolve(mockSuiObject(`${packageId}::ntt::State<0x2::sui::SUI>`, {
-              inbox: {
-                type: `0xnttcommon123::ntt_manager_message::NttManagerMessage<0xnttcommon123::native_token_transfer::NativeTokenTransfer>`
-              }
-            }));
+            return Promise.resolve(
+              mockSuiObject(`${packageId}::ntt::State<0x2::sui::SUI>`, {
+                inbox: {
+                  type: `0xnttcommon123::ntt_manager_message::NttManagerMessage<0xnttcommon123::native_token_transfer::NativeTokenTransfer>`,
+                },
+              })
+            );
           } else if (params.id === TEST_CONTRACTS.ntt.transceiver.wormhole) {
             // Mock for transceiver state object
-            return Promise.resolve(mockSuiObject(`${packageId}::wormhole_transceiver::State`, {}));
-          } else if (params.id === "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890") {
+            return Promise.resolve(
+              mockSuiObject(`${packageId}::wormhole_transceiver::State`, {})
+            );
+          } else if (
+            params.id ===
+            "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+          ) {
             // Mock for CurrentPackage object (from getDynamicFields)
-            return Promise.resolve(mockSuiObject("CurrentPackage", {
-              value: {
-                fields: {
-                  package: wormholePackageId
-                }
-              }
-            }));
+            return Promise.resolve(
+              mockSuiObject("CurrentPackage", {
+                value: {
+                  fields: {
+                    package: wormholePackageId,
+                  },
+                },
+              })
+            );
           } else {
             // Fallback mock
-            return Promise.resolve(mockSuiObject(`${packageId}::ntt::State<0x2::sui::SUI>`, {}));
+            return Promise.resolve(
+              mockSuiObject(`${packageId}::ntt::State<0x2::sui::SUI>`, {})
+            );
           }
         });
-        
+
         mockClient.getCoinMetadata.mockResolvedValue({
           id: "0xcoin123",
           decimals: 9,
         });
-        
+
         // Mock Wormhole core bridge dynamic fields for getWormholePackageId
         mockClient.getDynamicFields.mockResolvedValue({
-          data: [{
-            name: { type: "CurrentPackage" },
-            objectId: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-          }],
+          data: [
+            {
+              name: { type: "CurrentPackage" },
+              objectId:
+                "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            },
+          ],
           hasNextPage: false,
-          nextCursor: null
+          nextCursor: null,
         });
 
         const txGenerator = suiNtt.redeem([attestation], payer as any);
-        
+
         // Expect the operation to fail due to invalid payload format in test mock
-        await expect(txGenerator.next()).rejects.toThrow("Failed to serialize native token transfer payload");
+        await expect(txGenerator.next()).rejects.toThrow(
+          "Failed to serialize native token transfer payload"
+        );
       });
     });
 

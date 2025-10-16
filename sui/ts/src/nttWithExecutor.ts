@@ -30,6 +30,7 @@ import {
   getWormholePackageId,
   getPackageId,
   getTransceivers,
+  getCoinMetadataId,
 } from "./utils.js";
 
 export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
@@ -174,14 +175,10 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       );
     }
 
-    // Get coin metadata
-    const coinMetadata = await ntt.provider.getCoinMetadata({
-      coinType,
-    });
-    if (!coinMetadata?.id) {
-      throw new Error(`CoinMetadata not found for ${coinType}`);
-    }
-    const coinMetadataId = coinMetadata.id;
+    const coinMetadataId = await getCoinMetadataId(
+      this.network,
+      this.contracts.ntt!["token"]
+    );
 
     // For non-native tokens, we need to prepare coins once and split multiple times
     let primaryCoinInput: TransactionObjectArgument | undefined;

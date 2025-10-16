@@ -874,6 +874,7 @@ yargs(hideBin(process.argv))
             .option("payer", options.payer)
             .option("skip-chain", options.skipChain)
             .option("only-chain", options.onlyChain)
+            .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
             .example("$0 push", "Push local configuration changes to the blockchain")
             .example("$0 push --signer-type ledger", "Push changes using a Ledger hardware wallet for signing")
             .example("$0 push --skip-verify", "Push changes without verifying contracts on EVM chains")
@@ -885,6 +886,7 @@ yargs(hideBin(process.argv))
             const deps: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
             const signerType = argv["signer-type"] as SignerType;
             const payerPath = argv["payer"];
+            const gasEstimateMultiplier = argv["gas-estimate-multiplier"];
             const skipChains = argv["skip-chain"] as string[] || [];
             const onlyChains = argv["only-chain"] as string[] || [];
             const shouldSkipChain = (chain: string) => {
@@ -1021,7 +1023,7 @@ yargs(hideBin(process.argv))
                 const signSendWaitFunc = newSignSendWaiter(nttOwnerForChain[chain])
                 await pushDeployment(deployment as any,
                     signSendWaitFunc,
-                    signerType, !argv["skip-verify"], argv["yes"], payerPath);
+                    signerType, !argv["skip-verify"], argv["yes"], payerPath, gasEstimateMultiplier);
             }
         })
     .command("status",
@@ -3536,7 +3538,7 @@ async function missingConfigs(
 
 async function pushDeployment<C extends Chain>(deployment: Deployment<C>,
     signSendWaitFunc: ReturnType<typeof newSignSendWaiter>,
-    signerType: SignerType, evmVerify: boolean, yes: boolean, filePath?: string): Promise<void> {
+    signerType: SignerType, evmVerify: boolean, yes: boolean, filePath?: string, gasEstimateMultiplier?: number): Promise<void> {
     const diff = diffObjects(deployment.config.local!, deployment.config.remote!, EXCLUDED_DIFF_PATHS);
     if (Object.keys(diff).length === 0) {
         return;
@@ -3628,7 +3630,7 @@ async function pushDeployment<C extends Chain>(deployment: Deployment<C>,
         }
     }
     if (managerUpgrade) {
-        await upgrade(managerUpgrade.from, managerUpgrade.to, deployment.ntt, ctx, signerType, evmVerify);
+        await upgrade(managerUpgrade.from, managerUpgrade.to, deployment.ntt, ctx, signerType, evmVerify, undefined, undefined, undefined, gasEstimateMultiplier);
     }
     for (const tx of txs) {
         await signSendWaitFunc(ctx, tx, signer.signer)
