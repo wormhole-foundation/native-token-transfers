@@ -39,7 +39,8 @@
     "rebuild": "npm run clean && npm run build",
     "clean": "rm -rf ./dist",
     "test:ci": "jest --config ./jest.config.ts",
-    "build:contracts": "make build"
+    "build:contracts": "make build",
+    "prettier": "prettier --write ./tests ./ts"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.5",
