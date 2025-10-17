@@ -1,0 +1,53 @@
+[package]
+name = "cargo-tests"
+version = "3.0.0"
+edition = "2021"
+
+[features]
+default = ["mainnet"]
+# cargo-test-sbf will pass this along
+test-sbf = []
+# networks
+mainnet = [ "wormhole-anchor-sdk/mainnet" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env" ]
+solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
+tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
+tilt-devnet2 = [ "tilt-devnet" ]
+
+[lints]
+workspace = true
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl.workspace = true
+bitmaps = "3.2.1"
+cfg-if.workspace = true
+solana-program.workspace = true
+solana-address-lookup-table-program.workspace = true
+wormhole-io.workspace = true
+wormhole-solana-utils.workspace = true
+serde_json = "1.0.113"
+serde = "1.0.196"
+base64 = "0.21.7"
+solana-sdk = "*"
+sha3 = "0.10.4"
+libsecp256k1 = "=0.6.0"
+serde_wormhole.workspace = true
+spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
+spl-token = "4"
+spl-associated-token-account = { version = "3.0.0", features = ["no-entrypoint"] }
+wormhole-sdk.workspace = true
+solana-program-runtime.workspace = true
+wormhole-anchor-sdk.workspace = true
+ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
+wormhole-governance = { path = "../../programs/wormhole-governance", features = ["no-entrypoint"] }
+example-native-token-transfers = { path = "../../programs/example-native-token-transfers", features = ["no-entrypoint"] }
+ntt-transceiver = { path = "../../programs/ntt-transceiver", features = ["no-entrypoint"] }
+wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
+wormhole-svm-shim = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface" }
+bincode = "1.3.3"
+hex.workspace = true
+
+[dev-dependencies]
+solana-program-test.workspace = true
+solana-banks-interface.workspace = true
