@@ -1,8 +1,9 @@
+use anchor_lang::prelude::*;
+
 use crate::{
     config::*, error::NTTError, queue::outbox::OutboxItem,
     registered_transceiver::RegisteredTransceiver,
 };
-use anchor_lang::prelude::*;
 
 pub const OUTBOX_ITEM_SIGNER_SEED: &[u8] = b"outbox_item_signer";
 
