@@ -720,7 +720,10 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     yield this.createUnsignedTx({ transaction: tx }, "Ntt.SetThreshold");
   }
 
-  private async createSetThresholdInstruction(owner: PublicKey, threshold: number) {
+  private async createSetThresholdInstruction(
+    owner: PublicKey,
+    threshold: number
+  ) {
     return await this.program.methods
       .setThreshold(threshold)
       .accountsStrict({
