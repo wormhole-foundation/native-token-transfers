@@ -178,14 +178,14 @@ interface IManagerBase {
     /// @dev This method can only be executed by the `owner`.
     function setThreshold(uint16 sourceChain, uint8 threshold) external;
 
-    /// @notice Sets the transceiver for the given chain.
+    /// @notice Sets the transceiver.
     /// @param transceiver The address of the transceiver.
     /// @dev This method can only be executed by the `owner`.
     function setTransceiver(
         address transceiver
     ) external;
 
-    /// @notice Removes the transceiver for the given chain.
+    /// @notice Removes the transceiver.
     /// @param transceiver The address of the transceiver.
     /// @dev This method can only be executed by the `owner`.
     function removeTransceiver(
