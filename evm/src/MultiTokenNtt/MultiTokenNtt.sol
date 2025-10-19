@@ -160,6 +160,13 @@ contract MultiTokenNtt is
         }
         // TODO: should we check if the token exists, and if so, that the metadata didn't change?
         TokenMeta memory meta = _queryTokenMetaFromTokenContract(localToken);
+
+        // clean up existing entry if there is one
+        address oldToken = _getLocalTokenStorage()[token.chainId][token.tokenAddress].token;
+        if (oldToken != address(0)) {
+            delete _getForeignTokenStorage()[oldToken];
+        }
+
         _getLocalTokenStorage()[token.chainId][token.tokenAddress] =
             LocalTokenInfo({token: localToken, meta: meta});
         _getForeignTokenStorage()[localToken] = token;
