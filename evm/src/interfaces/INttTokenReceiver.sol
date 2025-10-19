@@ -19,6 +19,11 @@ interface INttTokenReceiver {
     ///      If the function reverts due to a temporary issue (such as waiting
     ///      for some other event to happen first), the sender can retry the transfer.
     ///
+    /// @dev NATIVE TOKEN SUPPORT: If this contract wants to receive native tokens or WETH,
+    ///      it MUST also implement a `receive()` function. When native tokens or WETH are
+    ///      transferred, the NTT contract will use `call()` to send the native token amount
+    ///      to the receiver, which requires a `receive()` or fallback function.
+    ///
     /// @param token The address of the token that was received
     /// @param amount The amount of tokens received (after decimal normalization)
     /// @param payload The additional payload data sent with the transfer
