@@ -529,8 +529,7 @@ abstract contract ManagerBase is
     }
 
     function _useMessageSequence() internal returns (uint64 currentSequence) {
-        currentSequence = _getMessageSequenceStorage().num;
-        _getMessageSequenceStorage().num++;
+        currentSequence = _getMessageSequenceStorage().num++;
     }
 
     /// ============== Invariants =============================================
