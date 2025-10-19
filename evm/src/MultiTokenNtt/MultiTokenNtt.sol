@@ -756,7 +756,11 @@ contract MultiTokenNtt is
             message,
             transceiverInstructions
         );
-        uint256 paid = balanceBefore - address(this).balance;
+        // refund the excess payment. in theory, a transceiver might send back
+        // more than we paid it, so our final balance could be higher than before.
+        // we use saturing subtraction to handle that case.
+        uint256 paid =
+            balanceBefore >= address(this).balance ? balanceBefore - address(this).balance : 0;
         if (paid < msgValue) {
             _refundToSender(msgValue - paid);
         }
