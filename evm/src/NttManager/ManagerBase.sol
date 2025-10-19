@@ -459,6 +459,8 @@ abstract contract ManagerBase is
     /// @param peerChainId The chain ID to register
     /// @param peerAddress The peer address on that chain (used for verification)
     function registerKnownChain(uint16 peerChainId, bytes32 peerAddress) external {
+        require(peerAddress != bytes32(0));
+
         // Verify this is a valid peer relationship
         _verifyPeer(peerChainId, peerAddress);
 
