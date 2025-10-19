@@ -358,7 +358,14 @@ abstract contract ManagerBase is
         _checkRegisteredTransceiversInvariants();
 
         for (uint256 i = 0; i < _registeredTransceivers.length; i++) {
-            ITransceiver(_registeredTransceivers[i]).transferTransceiverOwnership(newOwner);
+            address transceiver = _registeredTransceivers[i];
+            try ITransceiver(transceiver).transferTransceiverOwnership(newOwner) {
+                // Success - ownership transferred
+            } catch (bytes memory reason) {
+                // Failed to transfer ownership - emit event and continue with other transceivers
+                // This prevents disabled or malfunctioning transceivers from blocking the entire ownership transfer
+                emit TransceiverOwnershipTransferFailed(transceiver, reason);
+            }
         }
     }
 

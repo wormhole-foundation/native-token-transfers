@@ -69,6 +69,11 @@ interface IManagerBase {
     /// @param threshold The new threshold.
     event ThresholdUpdatedForChain(uint16 sourceChain, uint8 threshold);
 
+    /// @notice Emitted when a transceiver ownership transfer fails.
+    /// @param transceiver The transceiver address.
+    /// @param reason The reason for the failure.
+    event TransceiverOwnershipTransferFailed(address transceiver, bytes reason);
+
     /// @notice payment for a transfer is too low.
     /// @param requiredPayment The required payment.
     /// @param providedPayment The provided payment.
