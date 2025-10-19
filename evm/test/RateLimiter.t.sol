@@ -74,6 +74,45 @@ contract RateLimiterTest is Test {
         IWETH(wethToken).deposit{value: 1500 ether}();
         vm.prank(user2);
         IWETH(wethToken).deposit{value: 1500 ether}();
+
+        // Register token on chain2 by performing a small transfer from chain1
+        _registerTokenOnChain2();
+    }
+
+    // Helper function to register tokenId on chain2 by performing a transfer
+    function _registerTokenOnChain2() internal {
+        uint256 transferAmount = 1 ether;
+
+        // Approve and transfer from chain1 to chain2
+        vm.startPrank(user1);
+        IWETH(wethToken).approve(address(chain1.ntt()), transferAmount);
+
+        chain1.ntt().transfer(
+            MultiTokenNtt.TransferArgs({
+                token: wethToken,
+                amount: transferAmount,
+                recipientChain: OTHER_CHAIN_ID,
+                recipient: bytes32(uint256(uint160(user2))),
+                refundAddress: bytes32(uint256(uint160(user1))),
+                shouldQueue: false,
+                transceiverInstructions: "",
+                additionalPayload: ""
+            })
+        );
+        vm.stopPrank();
+
+        // Relay the message to chain2
+        DummyTransceiver chain1Transceiver =
+            DummyTransceiver(chain1.gmpManager().getTransceivers()[0]);
+        DummyTransceiver chain2Transceiver =
+            DummyTransceiver(chain2.gmpManager().getTransceivers()[0]);
+
+        // Get messages from chain1 transceiver and relay to chain2
+        uint256 numMessages = chain1Transceiver.getMessagesLength();
+        if (numMessages > 0) {
+            bytes memory message = chain1Transceiver.messages(numMessages - 1);
+            chain2Transceiver.receiveMessage(message);
+        }
     }
 
     // =========================== Rate Limit Administration Tests ===========================
@@ -204,6 +243,10 @@ contract RateLimiterTest is Test {
             chainId: 1, // Different chain ID
             tokenAddress: bytes32(uint256(uint160(wethToken)))
         });
+
+        // Register tokenId2 on chain1 using overrideLocalAsset
+        vm.prank(chain1.ntt().owner());
+        chain1.ntt().overrideLocalAsset(tokenId2, wethToken);
 
         uint256 limit1 = 100e8; // Use smaller values to avoid SafeCast issues
         uint256 limit2 = 200e8;

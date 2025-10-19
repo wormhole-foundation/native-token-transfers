@@ -70,6 +70,7 @@ contract MultiTokenNtt is
     error InvalidTokenId();
     error CannotOverrideNativeToken();
     error LocalTokenAlreadyRepresentsDifferentAsset();
+    error TokenNotRegistered(uint16 chainId, bytes32 tokenAddress);
 
     event TransferSent(
         uint64 sequence,
@@ -887,7 +888,12 @@ contract MultiTokenNtt is
             return _queryTokenMetaFromTokenContract(fromWormholeFormat(tokenId.tokenAddress));
         } else {
             // TODO: is there a point in caching this at all? we could just query it every time
-            return _getLocalTokenStorage()[tokenId.chainId][tokenId.tokenAddress].meta;
+            LocalTokenInfo storage localTokenInfo =
+                _getLocalTokenStorage()[tokenId.chainId][tokenId.tokenAddress];
+            if (localTokenInfo.token == address(0)) {
+                revert TokenNotRegistered(tokenId.chainId, tokenId.tokenAddress);
+            }
+            return localTokenInfo.meta;
         }
     }
 
@@ -899,9 +905,12 @@ contract MultiTokenNtt is
             bytes memory queriedDecimals = _staticQuery(token, "decimals()");
             return abi.decode(queriedDecimals, (uint8));
         } else {
-            // TODO: check 0
-            // TODO: double check that 'meta' is not copied into memory
-            return _getLocalTokenStorage()[tokenId.chainId][tokenId.tokenAddress].meta.decimals;
+            LocalTokenInfo storage localTokenInfo =
+                _getLocalTokenStorage()[tokenId.chainId][tokenId.tokenAddress];
+            if (localTokenInfo.token == address(0)) {
+                revert TokenNotRegistered(tokenId.chainId, tokenId.tokenAddress);
+            }
+            return localTokenInfo.meta.decimals;
         }
     }
 
