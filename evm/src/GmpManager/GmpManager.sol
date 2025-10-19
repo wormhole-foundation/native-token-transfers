@@ -58,7 +58,7 @@ contract GmpManager is IGmpManager, ManagerBase {
     function _getReservedSequencesStorage()
         internal
         pure
-        returns (mapping(address => mapping(uint64 => bool)) storage $)
+        returns (mapping(uint64 => address) storage $)
     {
         uint256 slot = uint256(RESERVED_SEQUENCES_SLOT);
         assembly ("memory-safe") {
@@ -107,16 +107,16 @@ contract GmpManager is IGmpManager, ManagerBase {
      */
     function reserveMessageSequence() external override returns (uint64 sequence) {
         sequence = _useMessageSequence();
-        _getReservedSequencesStorage()[msg.sender][sequence] = true;
+        _getReservedSequencesStorage()[sequence] = msg.sender;
     }
 
     function _verifyAndConsumeReservedMessageSequence(
         uint64 sequence
     ) internal {
-        if (!_getReservedSequencesStorage()[msg.sender][sequence]) {
+        if (_getReservedSequencesStorage()[sequence] != msg.sender) {
             revert SequenceNotReservedBySender(sequence, msg.sender);
         }
-        _getReservedSequencesStorage()[msg.sender][sequence] = false;
+        _getReservedSequencesStorage()[sequence] = address(0);
     }
 
     // this exists just to minimise the number of local variable assignments :(
