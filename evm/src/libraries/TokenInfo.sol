@@ -27,7 +27,7 @@ library TokenInfoLib {
 
     function encode(
         TokenInfo memory m
-    ) public pure returns (bytes memory encoded) {
+    ) internal pure returns (bytes memory encoded) {
         return abi.encodePacked(m.meta.encode(), m.token.encode());
     }
 
