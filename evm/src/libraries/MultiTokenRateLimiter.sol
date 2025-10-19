@@ -6,6 +6,7 @@ import "./TokenId.sol";
 
 import "../interfaces/IRateLimiterEvents.sol";
 import "./RateLimitLib.sol";
+import "./RateLimitAdmin.sol";
 import "./TransceiverHelpers.sol";
 import "./TransceiverStructs.sol";
 import "./TrimmedAmount.sol";
@@ -87,7 +88,7 @@ abstract contract MultiTokenRateLimiter is IMultiTokenRateLimiter, IRateLimiterE
     }
 
     function _setOutboundLimit(TokenId memory tokenId, TrimmedAmount limit) internal {
-        _getOutboundLimitParamsStorage(tokenId).setLimit(limit, rateLimitDuration);
+        RateLimitAdmin.setLimit(_getOutboundLimitParamsStorage(tokenId), limit, rateLimitDuration);
     }
 
     function getOutboundLimitParams(
@@ -116,7 +117,9 @@ abstract contract MultiTokenRateLimiter is IMultiTokenRateLimiter, IRateLimiterE
         TrimmedAmount limit,
         uint16 chainId_
     ) internal {
-        _getInboundLimitParamsStorage(tokenId)[chainId_].setLimit(limit, rateLimitDuration);
+        RateLimitAdmin.setLimit(
+            _getInboundLimitParamsStorage(tokenId)[chainId_], limit, rateLimitDuration
+        );
     }
 
     function getInboundLimitParams(
