@@ -14,7 +14,7 @@ library TokenMetaLib {
 
     function encode(
         TokenMeta memory m
-    ) public pure returns (bytes memory encoded) {
+    ) internal pure returns (bytes memory encoded) {
         return abi.encodePacked(m.name, m.symbol, m.decimals);
     }
 
