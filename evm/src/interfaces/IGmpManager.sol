@@ -14,7 +14,6 @@ interface IGmpManager is IManagerBase {
     error InvalidTargetChain(uint16 targetChain, uint16 chainId);
     error CallFailed(bytes returnData);
     error InvalidCallee();
-    error InvalidEvmAddress();
     error SequenceNotReserved(uint64 sequence);
     error SequenceNotReservedBySender(uint64 sequence, address sender);
 

@@ -40,11 +40,6 @@ interface IWormholeTransceiver is IWormholeTransceiverState {
         uint16 recipientChain, TransceiverStructs.TransceiverMessage message
     );
 
-    /// @notice Error when the relaying configuration is invalid. (e.g. chainId is not registered)
-    /// @dev Selector: 0x9449a36c.
-    /// @param chainId The chain ID that is invalid.
-    error InvalidRelayingConfig(uint16 chainId);
-
     /// @notice Error when the peer transceiver is invalid.
     /// @dev Selector: 0x79b1ce56.
     /// @param chainId The chain ID of the peer.

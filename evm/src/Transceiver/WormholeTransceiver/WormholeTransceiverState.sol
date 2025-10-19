@@ -5,7 +5,6 @@ import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
 import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 
 import "../../libraries/TransceiverHelpers.sol";
-import "../../libraries/BooleanFlag.sol";
 import "../../libraries/TransceiverStructs.sol";
 
 import "../../interfaces/IWormholeTransceiver.sol";
@@ -16,8 +15,6 @@ import "../GenericTransceiver.sol";
 
 abstract contract WormholeTransceiverState is IWormholeTransceiverState, GenericTransceiver {
     using BytesParsing for bytes;
-    using BooleanFlagLib for bool;
-    using BooleanFlagLib for BooleanFlag;
 
     // ==================== Immutables ===============================================
     uint8 public immutable consistencyLevel;
@@ -65,9 +62,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Generic
     }
 
     // =============== Storage ===============================================
-
-    bytes32 private constant WORMHOLE_CONSUMED_VAAS_SLOT =
-        bytes32(uint256(keccak256("whTransceiver.consumedVAAs")) - 1);
 
     bytes32 private constant WORMHOLE_PEERS_SLOT =
         bytes32(uint256(keccak256("whTransceiver.peers")) - 1);
