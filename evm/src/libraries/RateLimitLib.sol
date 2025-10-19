@@ -68,10 +68,11 @@ library RateLimitLib {
             // when rateLimitDuration is close to the limit, there is significant rounding error.
             // We are safe to multiply first, since these numbers are u64 TrimmedAmount types
             // and we're performing arithmetic on u256 words.
+            uint256 rateLimitAmount = rateLimitParams.limit.getAmount();
             uint256 calculatedCapacity = rateLimitParams.currentCapacity.getAmount()
-                + (rateLimitParams.limit.getAmount() * timePassed) / rateLimitDuration;
+                + (rateLimitAmount * timePassed) / rateLimitDuration;
 
-            uint256 result = min(calculatedCapacity, rateLimitParams.limit.getAmount());
+            uint256 result = min(calculatedCapacity, rateLimitAmount);
             return packTrimmedAmount(
                 SafeCast.toUint64(result), rateLimitParams.currentCapacity.getDecimals()
             );
