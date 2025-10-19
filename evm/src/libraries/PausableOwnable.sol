@@ -26,6 +26,7 @@ abstract contract PausableOwnable is PausableUpgradeable, OwnableUpgradeable {
     }
 
     function __PausedOwnable_init(address initialPauser, address owner) internal onlyInitializing {
+        __Context_init();
         __Paused_init(initialPauser);
         __Ownable_init(owner);
     }

@@ -18,7 +18,9 @@ contract Token is ERC20BurnableUpgradeable, ERC20PermitUpgradeable, INttToken {
         string memory symbol,
         uint8 __decimals
     ) public initializer {
+        __Context_init();
         __ERC20_init(name, symbol);
+        __ERC20Burnable_init();
         __ERC20Permit_init(name);
         _decimals = __decimals;
         minter = msg.sender;

@@ -56,6 +56,7 @@ abstract contract OwnableUpgradeable is Initializable, ContextUpgradeable, IOwna
     function __Ownable_init(
         address initialOwner
     ) internal onlyInitializing {
+        __Context_init();
         __Ownable_init_unchained(initialOwner);
     }
 
