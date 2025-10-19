@@ -109,7 +109,7 @@ library TrimmedAmountLib {
     function getDecimals(
         TrimmedAmount a
     ) internal pure returns (uint8) {
-        return uint8(TrimmedAmount.unwrap(a) & 0xFF);
+        return uint8(TrimmedAmount.unwrap(a));
     }
 
     /// @dev Set the decimals of the TrimmedAmount.
