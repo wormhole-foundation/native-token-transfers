@@ -29,7 +29,12 @@ abstract contract Peers {
 
     /// @dev Verify that the peer address saved for `sourceChainId` matches the `peerAddress`.
     function _verifyPeer(uint16 sourceChainId, bytes32 peerAddress) internal view {
-        require(sourceChainId != 0 && peerAddress != bytes32(0));
+        if (sourceChainId == 0) {
+            revert InvalidPeerChainIdZero();
+        }
+        if (peerAddress == bytes32(0)) {
+            revert InvalidPeerZeroAddress();
+        }
         if (_getPeersStorage()[sourceChainId].peerAddress != peerAddress) {
             revert InvalidPeer(sourceChainId, peerAddress);
         }

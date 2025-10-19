@@ -986,7 +986,7 @@ contract MultiTokenNttTest is Test {
         });
 
         MultiTokenNtt ntt = chain2.ntt();
-        vm.expectRevert("Cannot override native token representation");
+        vm.expectRevert(abi.encodeWithSelector(MultiTokenNtt.CannotOverrideNativeToken.selector));
         ntt.overrideLocalAsset(tokenId, address(nativeToken));
     }
 
@@ -1023,7 +1023,9 @@ contract MultiTokenNttTest is Test {
         assertEq(reverseCheck1.tokenAddress, toWormholeFormat(address(usdcChain1)));
         MultiTokenNtt ntt2 = chain2.ntt();
         // Second override: Map THE SAME localToken to USDT from chain3
-        vm.expectRevert("Local token already represents a different foreign asset");
+        vm.expectRevert(
+            abi.encodeWithSelector(MultiTokenNtt.LocalTokenAlreadyRepresentsDifferentAsset.selector)
+        );
         ntt2.overrideLocalAsset(usdtTokenId, address(localToken));
     }
 

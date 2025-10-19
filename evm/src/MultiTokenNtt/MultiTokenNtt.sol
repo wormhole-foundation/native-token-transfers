@@ -67,6 +67,9 @@ contract MultiTokenNtt is
     error PayloadTooLong(uint256 length);
     error TransferFailed();
     error QueuedTransferWithPayload();
+    error InvalidTokenId();
+    error CannotOverrideNativeToken();
+    error LocalTokenAlreadyRepresentsDifferentAsset();
 
     event TransferSent(
         uint64 sequence,
@@ -149,14 +152,17 @@ contract MultiTokenNtt is
     /// @notice Override a representation token for a foreign token.
     /// WARNING: if the representation token already exists, this will overwrite it.
     function overrideLocalAsset(TokenId calldata token, address localToken) external onlyOwner {
-        require(token.chainId != 0 && token.tokenAddress != bytes32(0));
-        require(token.chainId != chainId, "Cannot override native token representation");
+        if (token.chainId == 0 || token.tokenAddress == bytes32(0)) {
+            revert InvalidTokenId();
+        }
+        if (token.chainId == chainId) {
+            revert CannotOverrideNativeToken();
+        }
         TokenId memory existing = _getForeignTokenStorage()[localToken];
         if (existing.tokenAddress != bytes32(0)) {
-            require(
-                existing.chainId == token.chainId && existing.tokenAddress == token.tokenAddress,
-                "Local token already represents a different foreign asset"
-            );
+            if (existing.chainId != token.chainId || existing.tokenAddress != token.tokenAddress) {
+                revert LocalTokenAlreadyRepresentsDifferentAsset();
+            }
         }
         // TODO: should we check if the token exists, and if so, that the metadata didn't change?
         TokenMeta memory meta = _queryTokenMetaFromTokenContract(localToken);

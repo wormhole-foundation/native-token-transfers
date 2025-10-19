@@ -75,7 +75,12 @@ contract GmpManager is IGmpManager, ManagerBase {
     }
 
     function _verifyPeer(uint16 sourceChainId, bytes32 peerAddress) internal view override {
-        require(sourceChainId != 0 && peerAddress != bytes32(0));
+        if (sourceChainId == 0) {
+            revert InvalidPeerChainIdZero();
+        }
+        if (peerAddress == bytes32(0)) {
+            revert InvalidPeerZeroAddress();
+        }
         if (_getPeersStorage()[sourceChainId].peerAddress != peerAddress) {
             revert InvalidPeer(sourceChainId, peerAddress);
         }
