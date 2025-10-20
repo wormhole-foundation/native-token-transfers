@@ -20,6 +20,9 @@ export async function trackExecutor<
   }
 
   // Check if the relay was successful or failed
+  if (receipt.originTxs.length === 0) {
+    throw new Error("No origin transactions found in receipt");
+  }
   const txid = receipt.originTxs.at(-1)!.txid;
   const [txStatus] = await fetchStatus(network, txid, receipt.from);
   if (!txStatus) throw new Error("No transaction status found");
@@ -57,6 +60,9 @@ export async function trackAxelar<R extends MultiTokenNttRoute.TransferReceipt>(
   }
 
   // Check relayer status
+  if (receipt.originTxs.length === 0) {
+    throw new Error("No origin transactions found in receipt");
+  }
   const txid = receipt.originTxs.at(-1)!.txid;
   const axelarStatus = await getAxelarTransactionStatus(
     network,

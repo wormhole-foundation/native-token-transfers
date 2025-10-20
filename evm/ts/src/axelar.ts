@@ -153,13 +153,20 @@ export async function getAxelarTransactionStatus(
 export function parseGMPStatus(response: any): GMPStatus | string {
   const { error, status } = response;
 
-  if (status === "error" && error) return GMPStatus.DEST_EXECUTE_ERROR;
-  else if (status === "executed") return GMPStatus.DEST_EXECUTED;
-  else if (status === "approved") return GMPStatus.DEST_GATEWAY_APPROVED;
-  else if (status === "called") return GMPStatus.SRC_GATEWAY_CALLED;
-  else if (status === "executing") return GMPStatus.DEST_EXECUTING;
-  else {
-    return status;
+  switch (status) {
+    case "error":
+      if (error) return GMPStatus.DEST_EXECUTE_ERROR;
+      return status;
+    case "executed":
+      return GMPStatus.DEST_EXECUTED;
+    case "approved":
+      return GMPStatus.DEST_GATEWAY_APPROVED;
+    case "called":
+      return GMPStatus.SRC_GATEWAY_CALLED;
+    case "executing":
+      return GMPStatus.DEST_EXECUTING;
+    default:
+      return status;
   }
 }
 
