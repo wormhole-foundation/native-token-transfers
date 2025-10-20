@@ -615,9 +615,8 @@ describe("example-native-token-transfers", () => {
         });
         const whTransceiver = await ntt.getWormholeTransceiver();
         expect(whTransceiver).toBeTruthy();
-        const transceiverType = await whTransceiver!.getTransceiverType(
-          payerAddress
-        );
+        const transceiverType =
+          await whTransceiver!.getTransceiverType(payerAddress);
         expect(transceiverType).toBe("wormhole");
       });
     });

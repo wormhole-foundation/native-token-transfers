@@ -62,7 +62,7 @@ export const signSendWaitEvmSpecialOwner = async <N extends Network>(
 
 export const signSendWaitWithOverride = async <
   N extends Network,
-  C extends Chain
+  C extends Chain,
 >(
   chain: ChainContext<N, C>,
   xfer: AsyncGenerator<UnsignedTransaction<N, C>>,

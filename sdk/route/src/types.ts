@@ -80,14 +80,14 @@ export namespace NttRoute {
 
   export type ManualTransferReceipt<
     SC extends Chain = Chain,
-    DC extends Chain = Chain
+    DC extends Chain = Chain,
   > = _TransferReceipt<ManualAttestationReceipt, SC, DC> & {
     params: ValidatedParams;
   };
 
   export type AutomaticTransferReceipt<
     SC extends Chain = Chain,
-    DC extends Chain = Chain
+    DC extends Chain = Chain,
   > = _TransferReceipt<AutomaticAttestationReceipt, SC, DC> & {
     params: ValidatedParams;
   };

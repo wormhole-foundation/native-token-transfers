@@ -2842,7 +2842,7 @@ async function upgradeSui<N extends Network, C extends SuiChains>(
 // Helper function to perform complete package upgrade in a single PTB
 async function performPackageUpgradeInPTB<
   N extends Network,
-  C extends SuiChains
+  C extends SuiChains,
 >(
   ctx: ChainContext<N, C>,
   packagePath: string,
@@ -4216,9 +4216,8 @@ async function missingConfigs(
             missing.standardRelaying.push([toChain, desiredStandardRelaying]);
           }
         } else if (toIsSolana) {
-          const specialRelaying = await whTransceiver.isSpecialRelayingEnabled(
-            toChain
-          );
+          const specialRelaying =
+            await whTransceiver.isSpecialRelayingEnabled(toChain);
           const desiredSpecialRelaying = !(
             from.config.local?.transceivers.wormhole.executor ?? false
           );
