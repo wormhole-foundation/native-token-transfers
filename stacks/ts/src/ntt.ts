@@ -27,7 +27,7 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
     throw new Error("Method not implemented.");
   }
 
-  getAddress(): ChainAddress<C> {
+  async getAddress(): Promise<ChainAddress<C>> {
     return {
       chain: this.manager.chain,
       address: toNative(this.manager.chain, this.address),
@@ -257,6 +257,10 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     throw new Error("Method not implemented.");
   }
 
+  async *setThreshold(threshold: number, payer?: AccountAddress<C>): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
+    throw new Error("Method not implemented.");
+  }
+
   async *setPeer(peer: ChainAddress, tokenDecimals: number, inboundLimit: bigint, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
     const activeNttManager = await this.getActiveNttManager()
     const tx = {
@@ -306,7 +310,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     if(!transceiver) {
       throw new Error("Transceiver for protocol 1 (Wormhole) not found")
     }
-    const transceiverAddress = transceiver.getAddress().address.toString()
+    const transceiverAddress = (await transceiver.getAddress()).address.toString()
     const activeNttManager = await this.getActiveNttManager()
     const tx = {
       contractName: activeNttManager.contractName,

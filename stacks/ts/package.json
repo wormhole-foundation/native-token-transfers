@@ -43,11 +43,11 @@
   "dependencies": {
     "@stacks/network": "^7.2.0",
     "@stacks/transactions": "^7.2.0",
-    "@wormhole-foundation/sdk-base": "file:../../../wormhole-sdk-ts/core/base",
-    "@wormhole-foundation/sdk-definitions": "file:../../../wormhole-sdk-ts/core/definitions",
+    "@wormhole-foundation/sdk-base": "^3.8.6",
+    "@wormhole-foundation/sdk-definitions": "^3.8.6",
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
-    "@wormhole-foundation/sdk-stacks": "file:../../../wormhole-sdk-ts/platforms/stacks",
-    "@wormhole-foundation/sdk-stacks-core": "file:../../../wormhole-sdk-ts/platforms/stacks/protocols/core"
+    "@wormhole-foundation/sdk-stacks": "^3.8.6",
+    "@wormhole-foundation/sdk-stacks-core": "^3.8.6"
   },
   "devDependencies": {
     "tsx": "^4.7.2"

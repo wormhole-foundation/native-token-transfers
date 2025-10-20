@@ -3431,6 +3431,11 @@ async function deployStacks<N extends Network, C extends Chain>(
   token: string,
   signerType: SignerType
 ): Promise<ChainAddress<StacksChains>> {
+  console.log(pwd)
+  console.log(mode)
+  console.log(ch)
+  console.log(token)
+  console.log(signerType)
     return undefined as any
 }
 
@@ -3708,6 +3713,7 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     manager: ChainAddress<C>,
     overrides?: WormholeConfigOverrides<N>,
 ): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
+  console.log(`Pulling chain config`, network, manager)
     const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform], overrides);
     const ch = wh.getChain(manager.chain);
 

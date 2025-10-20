@@ -698,10 +698,10 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
     requirementsDirectory + "/sbtc-registry",
     requirementsDirectory + "/sbtc-token",
     requirementsDirectory + "/sbtc-deposit",
-    contractsDirectory + "/transceiver-trait-v1",
-    contractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
-    contractsDirectory + "/ntt-manager-xfer-trait-v1",
-    contractsDirectory + "/ntt-manager-trait-v1",
+    // contractsDirectory + "/transceiver-trait-v1",
+    // contractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
+    // contractsDirectory + "/ntt-manager-xfer-trait-v1",
+    // contractsDirectory + "/ntt-manager-trait-v1",
   ]
 
   const contractNames = [

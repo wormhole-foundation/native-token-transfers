@@ -26,7 +26,7 @@
     "@stacks/transactions": "^7.2.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.2",
-    "@wormhole-foundation/sdk": "file:../wormhole-sdk-ts/sdk",
+    "@wormhole-foundation/sdk": "^3.8.6",
     "@wormhole-foundation/wormchain-sdk": "^0.0.1",
     "ethers": "^6.5.1",
     "ts-jest": "^29.1.2",
