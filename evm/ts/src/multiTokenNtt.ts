@@ -98,11 +98,8 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
         attestation.payload.nttManagerPayload
       )
     );
-    if (!isExecuted) return false;
 
-    // Also check that the transfer is not queued for it to be considered complete
-    const isInboundQueued = await this.getIsTransferInboundQueued(attestation);
-    return !isInboundQueued;
+    return isExecuted && !(await this.getIsTransferInboundQueued(attestation));
   }
 
   async getIsTransferInboundQueued(
@@ -681,6 +678,9 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       return 1_000_000n;
     }
 
+    // Upper estimate for redeeming an existing token. Based on observed gas usage
+    // (~178k gas: https://sepolia.etherscan.io/tx/0xd008af053861cdfea0b6c1f4d973ee59f0c4fcc2e2de57b9945a193cb185bb29)
+    // but padded to be well above the limit.
     return 300_000n;
   }
 }
