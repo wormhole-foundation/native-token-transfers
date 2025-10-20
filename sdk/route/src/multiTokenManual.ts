@@ -31,7 +31,7 @@ type R = MultiTokenNttRoute.TransferReceipt;
 
 export function multiTokenNttManualRoute(config: MultiTokenNttRoute.Config) {
   class MultiTokenNttRouteImpl<
-    N extends Network
+    N extends Network,
   > extends MultiTokenNttManualRoute<N> {
     static override config = config;
   }

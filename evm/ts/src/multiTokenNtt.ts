@@ -517,9 +517,8 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     transceiverMessage: MultiTokenNtt.Message
   ): Promise<MultiTokenNtt.InboundQueuedTransfer | null> {
     const digest = MultiTokenNtt.messageDigest(fromChain, transceiverMessage);
-    const queuedTransfer = await this.multiTokenNtt.getInboundQueuedTransfer(
-      digest
-    );
+    const queuedTransfer =
+      await this.multiTokenNtt.getInboundQueuedTransfer(digest);
     if (queuedTransfer.txTimestamp > 0n) {
       const { sourceChainId, txTimestamp } = queuedTransfer;
       const duration = await this.getRateLimitDuration();
