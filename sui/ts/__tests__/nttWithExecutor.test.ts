@@ -8,6 +8,26 @@ import {
   TEST_CONTRACTS,
 } from "./mocks.js";
 
+// Mock SuiGraphQLClient with a default implementation that can be overridden
+const mockQuery = jest.fn().mockResolvedValue({
+  data: {
+    objects: {
+      nodes: [
+        {
+          address:
+            "0x9876543210987654321098765432109876543210987654321098765432109876",
+        },
+      ],
+    },
+  },
+});
+
+jest.mock("@mysten/sui/graphql", () => ({
+  SuiGraphQLClient: jest.fn().mockImplementation(() => ({
+    query: mockQuery,
+  })),
+}));
+
 describe("SuiNttWithExecutor", () => {
   let suiNttWithExecutor: SuiNttWithExecutor<"Testnet", "Sui">;
   let suiNtt: SuiNtt<"Testnet", "Sui">;
@@ -317,9 +337,8 @@ describe("SuiNttWithExecutor", () => {
 
   describe("estimateMsgValueAndGasLimit", () => {
     it("should estimate costs for transfer", async () => {
-      const estimate = await suiNttWithExecutor.estimateMsgValueAndGasLimit(
-        undefined
-      );
+      const estimate =
+        await suiNttWithExecutor.estimateMsgValueAndGasLimit(undefined);
 
       expect(typeof estimate.gasLimit).toBe("bigint");
       expect(typeof estimate.msgValue).toBe("bigint");
