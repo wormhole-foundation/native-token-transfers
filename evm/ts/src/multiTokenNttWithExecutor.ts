@@ -36,7 +36,7 @@ const multiTokenNttWithExecutorAddresses: Partial<
 
 export class EvmMultiTokenNttWithExecutor<
   N extends Network,
-  C extends EvmChains = EvmChains
+  C extends EvmChains = EvmChains,
 > implements MultiTokenNttWithExecutor<N, C>
 {
   readonly chainId: bigint;

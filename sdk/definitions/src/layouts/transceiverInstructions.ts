@@ -5,7 +5,7 @@ import {
 } from "@wormhole-foundation/sdk-base";
 
 export const transceiverInstructionLayout = <
-  const P extends CustomizableBytes = undefined
+  const P extends CustomizableBytes = undefined,
 >(
   customPayload?: P
 ) =>

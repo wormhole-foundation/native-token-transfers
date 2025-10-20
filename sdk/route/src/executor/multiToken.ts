@@ -67,7 +67,7 @@ export function multiTokenNttExecutorRoute(
   config: MultiTokenNttExecutorRoute.Config
 ) {
   class MultiTokenNttExecutorRouteImpl<
-    N extends Network
+    N extends Network,
   > extends MultiTokenNttExecutorRoute<N> {
     static override config = config;
   }

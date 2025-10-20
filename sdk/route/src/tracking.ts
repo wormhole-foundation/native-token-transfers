@@ -13,7 +13,7 @@ import {
 import { fetchStatus, isRelayStatusFailed } from "./executor/utils.js";
 
 export async function trackExecutor<
-  R extends MultiTokenNttRoute.TransferReceipt
+  R extends MultiTokenNttRoute.TransferReceipt,
 >(network: Network, receipt: R): Promise<R> {
   if (!isAttested(receipt) && !isFailed(receipt)) {
     return receipt;
@@ -48,9 +48,10 @@ export async function trackExecutor<
   return receipt;
 }
 
-export async function trackAxelar<
-  R extends MultiTokenNttRoute.TransferReceipt
->(network: Network, receipt: R): Promise<R> {
+export async function trackAxelar<R extends MultiTokenNttRoute.TransferReceipt>(
+  network: Network,
+  receipt: R
+): Promise<R> {
   if (!isAttested(receipt) && !isFailed(receipt)) {
     return receipt;
   }
