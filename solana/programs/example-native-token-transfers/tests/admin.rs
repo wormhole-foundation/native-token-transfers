@@ -181,7 +181,7 @@ async fn test_deregister_final_enabled_transceiver() {
     );
 
     // register arbitrary executable program as dummy transceiver
-    let dummy_transceiver = wormhole_anchor_sdk::wormhole::program::ID;
+    let dummy_transceiver = wormhole_anchor_sdk::wormhole::program::Wormhole::id();
     register_transceiver(
         &good_ntt,
         RegisterTransceiver {
