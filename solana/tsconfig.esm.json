@@ -12,6 +12,7 @@
   "compilerOptions": {
     "outDir": "dist/esm",
     "rootDir": ".",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "skipLibCheck": true
   }
 }
