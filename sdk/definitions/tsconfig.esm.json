@@ -3,7 +3,6 @@
   "include": ["src"],
   "compilerOptions": {
     "outDir": "dist/esm",
-    "rootDir": "src",
-    "skipLibCheck": true
+    "rootDir": "src"
   }
 }

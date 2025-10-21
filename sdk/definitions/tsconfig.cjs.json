@@ -3,7 +3,6 @@
   "include": ["src"],
   "compilerOptions": {
     "outDir": "dist/cjs",
-    "rootDir": "src",
-    "skipLibCheck": true
+    "rootDir": "src"
   }
 }
