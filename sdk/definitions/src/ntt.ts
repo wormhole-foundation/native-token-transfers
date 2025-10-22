@@ -4,6 +4,7 @@ import {
   toChainId,
   type Chain,
   type Network,
+  type PlatformToChains,
 } from "@wormhole-foundation/sdk-base";
 
 import {
@@ -17,8 +18,7 @@ import {
   keccak256,
 } from "@wormhole-foundation/sdk-definitions";
 
-import { SolanaChains } from "@wormhole-foundation/sdk-solana";
-
+import { PublicKey } from "@solana/web3.js";
 import {
   NttManagerMessage,
   nativeTokenTransferLayout,
@@ -27,7 +27,6 @@ import {
   transceiverInstructionLayout,
   transceiverRegistration,
 } from "./layouts/index.js";
-import { PublicKey } from "@solana/web3.js";
 
 /**
  * @namespace Ntt
@@ -51,7 +50,7 @@ export namespace Ntt {
   };
 
   export const DEFAULT_SVM_SHIM_ADDRESSES: {
-    [chain in SolanaChains]: {
+    [chain in PlatformToChains<"Solana">]: {
       postMessageShim: string;
       verifyVaaShim: string;
     };
