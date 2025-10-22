@@ -17,6 +17,8 @@ import {
   keccak256,
 } from "@wormhole-foundation/sdk-definitions";
 
+import { SolanaChains } from "@wormhole-foundation/sdk-solana";
+
 import {
   NttManagerMessage,
   nativeTokenTransferLayout,
@@ -42,6 +44,31 @@ export namespace Ntt {
       [type: string]: string;
     };
     quoter?: string;
+    svmShims?: {
+      postMessageShimOverride?: string;
+      verifyVaaShimOverride?: string;
+    };
+  };
+
+  export const DEFAULT_SVM_SHIM_ADDRESSES: {
+    [chain in SolanaChains]: {
+      postMessageShim: string;
+      verifyVaaShim: string;
+    };
+  } = {
+    Solana: {
+      postMessageShim: "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX",
+      verifyVaaShim: "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at",
+    },
+    // TODO: update once shim is configured
+    Pythnet: {
+      postMessageShim: "",
+      verifyVaaShim: "",
+    },
+    Fogo: {
+      postMessageShim: "",
+      verifyVaaShim: "",
+    },
   };
 
   export type Message = NttManagerMessage<typeof nativeTokenTransferLayout>;
@@ -365,7 +392,7 @@ export interface Ntt<N extends Network, C extends Chain> {
 export interface NttTransceiver<
   N extends Network,
   C extends Chain,
-  A extends Ntt.Attestation
+  A extends Ntt.Attestation,
 > {
   getTransceiverType(payer?: AccountAddress<C>): Promise<string>;
 
@@ -427,7 +454,7 @@ export interface WormholeNttTransceiver<N extends Network, C extends Chain>
 export interface SolanaNttTransceiver<
   N extends Network,
   C extends Chain,
-  A extends Ntt.Attestation
+  A extends Ntt.Attestation,
 > extends NttTransceiver<N, C, A> {
   programId: PublicKey;
 }
@@ -435,7 +462,7 @@ export interface SolanaNttTransceiver<
 export interface EvmNttTransceiver<
   N extends Network,
   C extends Chain,
-  A extends Ntt.Attestation
+  A extends Ntt.Attestation,
 > extends NttTransceiver<N, C, A> {}
 
 declare module "@wormhole-foundation/sdk-definitions" {
