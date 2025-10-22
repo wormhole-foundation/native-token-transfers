@@ -18,7 +18,7 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Get rust toolchain version
         id: toolchain
@@ -88,7 +88,7 @@ jobs:
     name: Check version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - run: ./scripts/sync-versions --check
         shell: bash
@@ -97,11 +97,11 @@ jobs:
     name: Anchor Test
     runs-on: ubuntu-latest
     env:
-      node-version: "20.11.0"
+      node-version: "24"
       solana-cli-version: "1.18.26"
       anchor-version: "0.29.0"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: ./.github/actions/setup-anchor
         with:

@@ -8,6 +8,7 @@
   "bugs": {
     "url": "https://github.com/wormhole-foundation/native-token-transfers"
   },
+  "homepage": "https://github.com/wormhole-foundation/native-token-transfers#readme",
   "directories": {
     "test": "__tests__"
   },

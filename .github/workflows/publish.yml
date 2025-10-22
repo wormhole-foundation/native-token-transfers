@@ -11,14 +11,18 @@ on:
 jobs:
   publish-ts-sdk:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for OIDC authentication with npm
+      contents: read
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: "npm"
           registry-url: "https://registry.npmjs.org"
+          # Node 24 ships with npm 11.x which includes OIDC support (requires 11.5.1+)
       - run: npm ci
       - run: npm run version ${{ inputs.version }}
       - run: npm run build --if-present
@@ -38,7 +42,8 @@ jobs:
             --workspace solana \
             --workspace sui \
             --workspace sdk/route
+        # OIDC authentication is used automatically by npm CLI 11.5.1+
+        # No NPM_TOKEN secret needed - authentication happens via OpenID Connect
+        # See: https://docs.npmjs.com/trusted-publishers/
         env:
           VERSION: ${{ inputs.version }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#publishing-packages-to-the-npm-registry
