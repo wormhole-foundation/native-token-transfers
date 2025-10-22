@@ -72,7 +72,7 @@ export class SolanaNttWormholeTransceiver<
     readonly manager: SolanaNtt<N, C>,
     readonly program: Program<NttBindings.Transceiver<IdlVersion>>,
     readonly version: string = "3.0.0",
-    readonly svmShims: Ntt.Contracts["svmShims"] = {}
+    readonly svmShims: Ntt.Contracts["svmShims"] = undefined
   ) {
     this.programId = program.programId;
     this.pdas = NTT.transceiverPdas(program.programId);
