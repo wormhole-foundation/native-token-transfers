@@ -70,6 +70,7 @@ import { type SuiChains } from "@wormhole-foundation/sdk-sui";
 
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
+import { handleRpcError } from "./error";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
@@ -3032,6 +3033,7 @@ async function deployEvm<N extends Network, C extends Chain>(
   }
 
   const rpc = ch.config.rpc;
+
   // TODO: how to make specialRelayer configurable??
   let specialRelayer: string;
   if (ch.chain === "Avalanche") {
@@ -3042,10 +3044,17 @@ async function deployEvm<N extends Network, C extends Chain>(
     specialRelayer = "0x63BE47835c7D66c4aA5B2C688Dc6ed9771c94C74";
   }
 
-  const provider = new ethers.JsonRpcProvider(rpc);
-  const abi = ["function decimals() external view returns (uint8)"];
-  const tokenContract = new ethers.Contract(token, abi, provider);
-  const decimals: number = await tokenContract.decimals();
+  let provider: ethers.JsonRpcProvider;
+  let decimals: number;
+
+  try {
+    provider = new ethers.JsonRpcProvider(rpc);
+    const abi = ["function decimals() external view returns (uint8)"];
+    const tokenContract = new ethers.Contract(token, abi, provider);
+    decimals = await tokenContract.decimals();
+  } catch (error) {
+    handleRpcError(error, ch.chain, ch.network, rpc);
+  }
 
   // TODO: should actually make these ENV variables.
   const sig = "run(address,address,address,address,uint8,uint8)";
