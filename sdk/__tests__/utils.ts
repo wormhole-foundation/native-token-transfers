@@ -48,8 +48,8 @@ export const NETWORK: "Devnet" = "Devnet";
 type NativeSdkSigner<P extends Platform> = P extends "Evm"
   ? ethers.Wallet
   : P extends "Solana"
-  ? web3.Keypair
-  : never;
+    ? web3.Keypair
+    : never;
 
 interface Signers<P extends Platform = Platform> {
   address: ChainAddress;
@@ -212,7 +212,7 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
     );
     vaas.push(serialize(vaa));
   }
-  
+
   // Submit all registrations at once
   await submitAccountantVAAs(vaas, accountantPrivateKey);
 }
@@ -267,8 +267,6 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
   const [managerBalanceAfterRecv, userBalanceAfterRecv] =
     await getManagerAndUserBalance(destinationCtx);
 
-
-
   checkBalances(
     sourceCtx.mode,
     [managerBalanceBeforeSend, managerBalanceAfterSend],
@@ -300,9 +298,8 @@ async function waitForRelay(
   let success = false;
   while (!success) {
     try {
-      const successBlock = await wormholeRelayer.deliverySuccessBlock(
-        deliveryHash
-      );
+      const successBlock =
+        await wormholeRelayer.deliverySuccessBlock(deliveryHash);
       if (successBlock > 0) success = true;
       console.log("Relayer delivery: ", success);
     } catch (e) {
@@ -468,10 +465,12 @@ async function deployEvm(ctx: Ctx): Promise<Ctx> {
   console.log("Initialize the manager");
   await tryAndWaitThrice(() => manager.initialize());
   console.log("Initialize the transceiver");
-  const coreFee = await (await ctx.context.getWormholeCore()).getMessageFee()
-  await tryAndWaitThrice(() => transceiver.initialize({
-    value: coreFee
-  }));
+  const coreFee = await (await ctx.context.getWormholeCore()).getMessageFee();
+  await tryAndWaitThrice(() =>
+    transceiver.initialize({
+      value: coreFee,
+    })
+  );
 
   // Setup the initial calls, like transceivers for the manager
   console.log("Set transceiver for manager");
@@ -538,6 +537,7 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
     transceiver: {
       wormhole: transceiverProgramId,
     },
+    svmShims: {},
   };
 
   const manager = (await getNtt(ctx)) as SolanaNtt<typeof NETWORK, "Solana">;
@@ -600,6 +600,7 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
       },
       manager: manager.program.programId.toString(),
       token: mint.toString(),
+      svmShims: {},
     },
   };
 }
@@ -751,22 +752,22 @@ async function tryAndWaitThrice(
 }
 
 export async function setMessageFee(chains: Chain[], fee: bigint) {
-  console.log(`Setting message fee for ${chains} to ${fee}`)
+  console.log(`Setting message fee for ${chains} to ${fee}`);
   for (const chain of chains) {
-    const chainCtx = wh.getChain(chain)
-    const core = await chainCtx.getWormholeCore()
-    const coreAddress = chainCtx.config.contracts.coreBridge
-    const existingFee = await core.getMessageFee()
-    console.log(`Existing core bridge fee for ${chain}: ${existingFee}`)
-    const rpc = await chainCtx.getRpc()
+    const chainCtx = wh.getChain(chain);
+    const core = await chainCtx.getWormholeCore();
+    const coreAddress = chainCtx.config.contracts.coreBridge;
+    const existingFee = await core.getMessageFee();
+    console.log(`Existing core bridge fee for ${chain}: ${existingFee}`);
+    const rpc = await chainCtx.getRpc();
     await rpc.send("anvil_setStorageAt", [
       coreAddress,
       7, // messageFee storage slot
-      ethers.zeroPadValue(ethers.toBeHex(fee), 32)
+      ethers.zeroPadValue(ethers.toBeHex(fee), 32),
     ]);
-  
-    const newFee = await core.getMessageFee()
-    console.log(`New core bridge fee for ${chain}: ${newFee}`)
+
+    const newFee = await core.getMessageFee();
+    console.log(`New core bridge fee for ${chain}: ${newFee}`);
   }
 }
 

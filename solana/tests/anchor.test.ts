@@ -14,6 +14,7 @@ import {
   serialize,
   serializePayload,
 } from "@wormhole-foundation/sdk";
+import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 import * as testing from "@wormhole-foundation/sdk-definitions/testing";
 import {
   SolanaAddress,
@@ -24,9 +25,8 @@ import {
   SolanaWormholeCore,
   utils,
 } from "@wormhole-foundation/sdk-solana-core";
-
 import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
-import { SolanaNtt, WormholeShimOverrides } from "../ts/sdk/index.js";
+import { SolanaNtt } from "../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
   TestHelper,
@@ -49,7 +49,7 @@ const NTT_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.ExampleNativeTokenTransfers.programId;
 const WH_TRANSCEIVER_ADDRESS: anchor.web3.PublicKey =
   anchor.workspace.NttTransceiver.programId;
-const USE_WORMHOLE_SHIMS: WormholeShimOverrides = {};
+const SOLANA_WORMHOLE_SHIMS: Ntt.Contracts["svmShims"] = {};
 
 /**
  * Test Helpers
@@ -158,10 +158,10 @@ describe("example-native-token-transfers", () => {
           transceiver: {
             wormhole: nttTransceivers["wormhole"].programId.toBase58(),
           },
+          svmShims: SOLANA_WORMHOLE_SHIMS,
         },
       },
-      VERSION,
-      USE_WORMHOLE_SHIMS
+      VERSION
     );
   });
 
@@ -559,6 +559,7 @@ describe("example-native-token-transfers", () => {
         transceiver: {
           wormhole: nttTransceivers["wormhole"].programId.toBase58(),
         },
+        svmShims: SOLANA_WORMHOLE_SHIMS,
       },
     };
 
@@ -615,9 +616,8 @@ describe("example-native-token-transfers", () => {
         });
         const whTransceiver = await ntt.getWormholeTransceiver();
         expect(whTransceiver).toBeTruthy();
-        const transceiverType = await whTransceiver!.getTransceiverType(
-          payerAddress
-        );
+        const transceiverType =
+          await whTransceiver!.getTransceiverType(payerAddress);
         expect(transceiverType).toBe("wormhole");
       });
     });

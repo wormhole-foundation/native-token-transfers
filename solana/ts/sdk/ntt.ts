@@ -55,15 +55,11 @@ import { IDL as WormholePostMessageShimIdl } from "../idl/wormhole_shim/ts/wormh
 import { type WormholeVerifyVaaShim } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 import { IDL as WormholeVerifyVaaShimIdl } from "../idl/wormhole_shim/ts/wormhole_verify_vaa_shim.js";
 
-export type WormholeShimOverrides = {
-  postMessageShimOverride?: PublicKey;
-  verifyVaaShimOverride?: PublicKey;
-};
-
 export class SolanaNttWormholeTransceiver<
-  N extends Network,
-  C extends SolanaChains
-> implements
+    N extends Network,
+    C extends SolanaChains,
+  >
+  implements
     WormholeNttTransceiver<N, C>,
     SolanaNttTransceiver<N, C, WormholeNttTransceiver.VAA>
 {
@@ -76,21 +72,37 @@ export class SolanaNttWormholeTransceiver<
     readonly manager: SolanaNtt<N, C>,
     readonly program: Program<NttBindings.Transceiver<IdlVersion>>,
     readonly version: string = "3.0.0",
-    readonly shimOverrides: WormholeShimOverrides | null = {}
+    readonly svmShims: Ntt.Contracts["svmShims"] = undefined
   ) {
     this.programId = program.programId;
     this.pdas = NTT.transceiverPdas(program.programId);
-    if (shimOverrides) {
+
+    if (svmShims) {
+      const postMessageShimAddress =
+        svmShims.postMessageShimOverride ??
+        Ntt.DEFAULT_SVM_SHIM_ADDRESSES[this.manager.chain]["postMessageShim"];
+      if (!postMessageShimAddress) {
+        throw new Error(
+          "No default or override Wormhole Post Message Shim address provided"
+        );
+      }
       this.postMessageShim = new Program<WormholePostMessageShim>(
         WormholePostMessageShimIdl,
-        shimOverrides.postMessageShimOverride ??
-          new PublicKey("EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX"),
+        postMessageShimAddress,
         { connection: this.program.provider.connection }
       );
+
+      const verifyVaaShimAddress =
+        svmShims.verifyVaaShimOverride ??
+        Ntt.DEFAULT_SVM_SHIM_ADDRESSES[this.manager.chain]["verifyVaaShim"];
+      if (!verifyVaaShimAddress) {
+        throw new Error(
+          "No default or override Wormhole Verify VAA Shim address provided"
+        );
+      }
       this.verifyVaaShim = new Program<WormholeVerifyVaaShim>(
         WormholeVerifyVaaShimIdl,
-        shimOverrides.verifyVaaShimOverride ??
-          new PublicKey("EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at"),
+        verifyVaaShimAddress,
         { connection: this.program.provider.connection }
       );
     }
@@ -562,8 +574,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     readonly chain: C,
     readonly connection: Connection,
     readonly contracts: Contracts & { ntt?: Ntt.Contracts },
-    readonly version: string = "3.0.0",
-    readonly shimOverrides: WormholeShimOverrides | null = {}
+    readonly version: string = "3.0.0"
   ) {
     if (!contracts.ntt) throw new Error("Ntt contracts not found");
 
@@ -609,7 +620,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
               version as IdlVersion
             ),
             version,
-            shimOverrides
+            contracts.ntt!.svmShims
           );
           this.transceivers.push(whTransceiver.program);
         } else {
@@ -658,7 +669,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         this,
         transceiverProgram,
         this.version,
-        this.shimOverrides
+        this.contracts.ntt!.svmShims
       );
     return null;
   }
