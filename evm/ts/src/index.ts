@@ -20,4 +20,3 @@ export * from "./ntt.js";
 export * from "./nttWithExecutor.js";
 export * from "./multiTokenNtt.js";
 export * from "./multiTokenNttWithExecutor.js";
-export * from "./axelar.js";
