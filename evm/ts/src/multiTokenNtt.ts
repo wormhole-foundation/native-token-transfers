@@ -44,7 +44,7 @@ import {
   loadAbiVersion,
   MultiTokenNttBindings,
 } from "./multiTokenNttBindings.js";
-import { getAxelarGasFee } from "./axelar.js";
+import { getAxelarGasFee } from "@wormhole-foundation/sdk-definitions-ntt";
 import { NativeTokenTransferCodec } from "./ethers-contracts/1_1_0/MultiTokenNtt.js";
 
 export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>

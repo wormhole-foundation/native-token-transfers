@@ -9,7 +9,7 @@ import { MultiTokenNttRoute } from "./types.js";
 import {
   getAxelarTransactionStatus,
   getAxelarExplorerUrl,
-} from "@wormhole-foundation/sdk-evm-ntt";
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import { fetchStatus, isRelayStatusFailed } from "./executor/utils.js";
 
 export async function trackExecutor<
