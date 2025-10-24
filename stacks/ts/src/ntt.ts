@@ -16,6 +16,7 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
 
   constructor(
     readonly manager: StacksNtt<N, C>,
+    readonly tokenAddress: string,
     readonly address: string,
   ) {
     const addressSplit = address.split(".")
@@ -59,12 +60,28 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
     throw new Error("Method not implemented.");
   }
 
-  setPauser(newPauser: AccountAddress<C>, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
-    throw new Error("Method not implemented.");
+  async *setPauser(newPauser: AccountAddress<C>, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
+    const tx = {
+      contractName: this.contractName,
+      contractAddress: this.deployer,
+      functionName: 'transfer-pause-capability',
+      functionArgs: [
+        Cl.address(newPauser.toString()),
+      ],
+      postConditionMode: PostConditionMode.Allow
+    }
+    yield {
+      transaction: tx,
+      network: this.manager.network,
+      chain: this.manager.chain,
+      description: "Ntt.setTransceiverPauser",
+      parallelizable: false
+    }
   }
 
-  getPauser(): Promise<AccountAddress<C> | null> {
-    throw new Error("Method not implemented.");
+  async getPauser(): Promise<AccountAddress<C> | null> {
+    const res = await this.transceiverReadOnly('get-pauser', [])
+    return cvToValue(res)
   }
 
   async *receive(attestation: Ntt.Attestation, sender?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
@@ -75,6 +92,7 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
       functionName: 'receive-token-transfer',
       functionArgs: [
         Cl.address(await this.manager.getFullAddress()),
+        Cl.address(this.tokenAddress),
         Cl.buffer(serialize(attestation)),
       ],
       postConditionMode: PostConditionMode.Allow
@@ -88,6 +106,24 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
       parallelizable: false
     }
   }
+
+
+  private async transceiverReadOnly(functionName: string, functionArgs: any[]): Promise<any> {
+    return this.readonly(functionName, functionArgs, this.contractName, this.deployer)
+  }
+
+  private readonly(functionName: string, functionArgs: any[], contractName: string, contractAddress: string): Promise<any> {
+    return fetchCallReadOnlyFunction({
+      contractName: contractName,
+      contractAddress: contractAddress,
+      functionName,
+      functionArgs,
+      client: {
+        baseUrl: this.manager.connection.client.baseUrl
+      },
+      senderAddress: StacksZeroAddress
+    })
+  }
 }
 
 export type StacksNttContracts = Ntt.Contracts & {
@@ -98,56 +134,49 @@ export type StacksNttContracts = Ntt.Contracts & {
   }
 }
 
-// FG TODO FG extends StacksChains
 export class StacksNtt<N extends Network, C extends StacksChains> 
   implements Ntt<N, C> {
 
-    static readonly WORMHOLE_PROTOCOL_ID = 1
+  static readonly NTT_MANAGER_STATE_CONTRACT_NAME = `ntt-manager-state`
+  static readonly WORMHOLE_PROTOCOL_ID = 1
 
-    private readonly nttManagerDeployer: string;
-    private readonly nttManagerStateContractName: string;
-    private readonly tokenOwnerContractName: string
-    private readonly tokenAddress: string;
+  private readonly nttManagerDeployer: string;
+  private readonly nttManagerStateContractName: string;
+  private readonly tokenOwnerContractName: string
+  private readonly tokenAddress: string;
 
-    constructor(
-      readonly network: N,
-      readonly chain: C,
-      readonly connection: StacksNetwork,
-      readonly contracts: Contracts & { ntt?: StacksNttContracts },
-      readonly version: string = "1.0.0"
-    ) {
-      if(!contracts.ntt) {
-        throw new Error("NTT Contracts not found")
-      }
-
-      const nttManagerStateFullAddress = contracts.ntt?.state
-      if(!nttManagerStateFullAddress) {
-        throw new Error("NTT Manager State address not found")
-      }
-      if(!nttManagerStateFullAddress.includes(".")) {
-        throw new Error("NTT Manager State address invalid")
-      }
-      const managerAddressSplit = nttManagerStateFullAddress.split(".")
-      this.nttManagerDeployer = managerAddressSplit[0]!
-      this.nttManagerStateContractName = managerAddressSplit[1]!
-      const tokenAddress = contracts.ntt?.token
-      if(!tokenAddress) {
-        throw new Error("NTT Token address not found")
-      }
-      this.tokenAddress = tokenAddress
-      const tokenOwnerFullAddress = contracts.ntt?.tokenOwner
-      if(!tokenOwnerFullAddress) {
-        throw new Error("NTT Token Owner address not found")
-      }
-      if(!tokenOwnerFullAddress.includes(".")) {
-        throw new Error("NTT Token Owner address invalid")
-      }
-      const tokenOwnerAddressSplit = tokenOwnerFullAddress.split(".")
-      this.tokenOwnerContractName = tokenOwnerAddressSplit[1]!
+  constructor(
+    readonly network: N,
+    readonly chain: C,
+    readonly connection: StacksNetwork,
+    readonly contracts: Contracts & { ntt?: StacksNttContracts },
+    readonly version: string = "1.0.0"
+  ) {
+    console.log(`NTT CONSTRUCTOR`)
+    console.log(contracts)
+    if(!contracts.ntt) {
+      throw new Error("NTT Contracts not found")
     }
+
+    const nttManagerStateFullAddress = contracts.ntt.state
+    const managerAddressSplit = !nttManagerStateFullAddress? [] : nttManagerStateFullAddress.split(".")
+    this.nttManagerDeployer = managerAddressSplit[0] || ""
+    this.nttManagerStateContractName = managerAddressSplit[1] || ""
     
-  getMode(): Promise<Ntt.Mode> {
-    throw new Error("Method not implemented.");
+    this.tokenAddress = contracts.ntt.token
+    
+    const tokenOwnerFullAddress = contracts.ntt.tokenOwner
+    if (tokenOwnerFullAddress) {
+      const tokenOwnerAddressSplit = tokenOwnerFullAddress.split(".")
+      this.tokenOwnerContractName = tokenOwnerAddressSplit[1] || tokenOwnerFullAddress
+    } else {
+      this.tokenOwnerContractName = ""
+    }
+  }
+    
+  async getMode(): Promise<Ntt.Mode> {
+    const res = await this.managerReadOnly('get-mode', [])
+    return cvToValue(res)
   }
 
   async getFullAddress(): Promise<string> {
@@ -195,7 +224,18 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     }
   }
 
-  getOwner(): Promise<AccountAddress<C>> {
+  /**
+   * We do noy have a `get-admin` or `get-owner` function.
+   * We'll optimistically assume that the deployer is the owner
+   * or throw an error if it's not.
+   */
+  async getOwner(): Promise<AccountAddress<C>> {
+    const deployerAddress = this.contracts.ntt!.manager.split(".")[0]!
+    const deployerNative = toNative(this.chain, deployerAddress)
+    const isDeployerOwner = await this.isOwner(deployerNative)
+    if (isDeployerOwner) {
+      return deployerNative
+    }
     throw new Error("Method not implemented. Use isOwner instead");
   }
 
@@ -254,7 +294,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   }
   
   getThreshold(): Promise<number> {
-    throw new Error("Method not implemented.");
+    return Promise.resolve(1)
   }
 
   async *setThreshold(threshold: number, payer?: AccountAddress<C>): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
@@ -285,7 +325,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   }
 
   async *setTransceiverPeer(ix: number, peer: ChainAddress, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
-    const transceiver = await this.getTransceiver(StacksNtt.WORMHOLE_PROTOCOL_ID)
+    const transceiver = await this.getTransceiver(0)
     if(!transceiver) {
       throw new Error("Transceiver for protocol 1 (Wormhole) not found")
     }
@@ -306,7 +346,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     destination: ChainAddress,
     options: Ntt.TransferOptions
   ): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
-    const transceiver = await this.getTransceiver(StacksNtt.WORMHOLE_PROTOCOL_ID)
+    const transceiver = await this.getTransceiver(0)
     if(!transceiver) {
       throw new Error("Transceiver for protocol 1 (Wormhole) not found")
     }
@@ -317,7 +357,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       contractAddress: activeNttManager.address,
       functionName: 'send-token-transfer',
       functionArgs: [
-        // Cl.address(activeNttManager.full),
+        Cl.address(this.tokenAddress),
         Cl.address(transceiverAddress),
         Cl.uint(amount),
         StacksNtt.chainToClBuffer(destination.chain),
@@ -335,7 +375,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   }
 
   async *redeem(attestations: Ntt.Attestation[], payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
-    const transceiver = await this.getTransceiver(StacksNtt.WORMHOLE_PROTOCOL_ID)
+    const transceiver = await this.getTransceiver(0)
     if(!transceiver) {
       throw new Error("Transceiver for protocol Wormhole not found")
     }
@@ -348,6 +388,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   }
 
   async getTokenDecimals(): Promise<number> {
+    console.log(`get token decimals: ${this.tokenAddress}`)
     const decimals = await StacksPlatform.getDecimals(
       this.network,
       this.chain,
@@ -377,19 +418,24 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     }
   }
 
-  async getTransceiver(protocol: number): Promise<NttTransceiver<N, C, Ntt.Attestation> | null> {
+  /**
+   * The current Stacks implementation has a single transceiver.
+   * Queried by protocol ID. Wormhole protocol ID is u1. Index is ignored.
+   */
+  async getTransceiver(index: number): Promise<NttTransceiver<N, C, Ntt.Attestation> | null> {
     const activeNttManager = await this.getActiveNttManager()
-    console.log(`Getting transceiver for protocol ${protocol} , managerStateContractName: ${activeNttManager.contractName}, managerDeployer: ${activeNttManager.address}`)
+    const whProtocol = StacksNtt.WORMHOLE_PROTOCOL_ID
+    console.log(`Getting transceiver for protocol ${whProtocol} , managerStateContractName: ${activeNttManager.contractName}, managerDeployer: ${activeNttManager.address}`)
     const res = await this.readonly(
       'protocols-get',
       [
-        Cl.uint(protocol),
+        Cl.uint(whProtocol),
       ],
       this.nttManagerStateContractName,
       activeNttManager.address
     )
     const resValue = cvToValue(res)
-    return new StacksNttWormholeTransceiver(this, resValue.value)
+    return new StacksNttWormholeTransceiver(this, this.tokenAddress, resValue.value)
   }
 
   async getActiveNttManager(): Promise<{ full: string, address: string, contractName: string }> {
@@ -413,7 +459,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     throw new Error("Method not implemented.");
   }
   getOutboundLimit(): Promise<bigint> {
-    throw new Error("Method not implemented.");
+    return Promise.resolve(0n)
   }
   setOutboundLimit(limit: bigint, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
     throw new Error("Method not implemented.");
@@ -425,7 +471,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     throw new Error("Method not implemented.");
   }
   getInboundLimit(fromChain: Chain): Promise<bigint> {
-    throw new Error("Method not implemented.");
+    return Promise.resolve(0n)
   }
   setInboundLimit(fromChain: Chain, limit: bigint, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
     throw new Error("Method not implemented.");
@@ -445,8 +491,54 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   completeInboundQueuedTransfer(fromChain: Chain, transceiverMessage: Ntt.Message, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
     throw new Error("Method not implemented.");
   }
-  verifyAddresses(): Promise<Partial<Ntt.Contracts> | null> {
-    throw new Error("Method not implemented.");
+  async verifyAddresses(): Promise<Partial<Ntt.Contracts> | null> {
+    try {
+      const local: Partial<Ntt.Contracts> = {
+        manager: this.contracts.ntt!.manager,
+        token: this.contracts.ntt!.token,
+        transceiver: this.contracts.ntt!.transceiver || {},
+      };
+
+      const deployerAddress = this.contracts.ntt!.manager.split(".")[0]!
+
+      // In stacks we don't really need to query on-chain state
+      // because the deployment must be done by a single address
+      // and names are fixed
+      const remoteStateAddress = `${deployerAddress}.${StacksNtt.NTT_MANAGER_STATE_CONTRACT_NAME}`
+      const remote: Partial<StacksNttContracts> = {
+        manager: this.contracts.ntt!.manager,
+        token: cvToValue(await this.managerReadOnly('get-token-contract', [], this.contracts.ntt!.manager)).value,
+        transceiver: {
+          wormhole: cvToValue(await this.readonly(
+            "protocols-get",
+            [
+              Cl.uint(StacksNtt.WORMHOLE_PROTOCOL_ID),
+            ],
+            StacksNtt.NTT_MANAGER_STATE_CONTRACT_NAME,
+            deployerAddress
+          )).value
+        },
+        state: remoteStateAddress
+      };
+
+      const deleteMatching = (a: any, b: any) => {
+        for (const k in a) {
+          if (typeof a[k] === "object" && a[k] !== null && typeof b[k] === "object" && b[k] !== null) {
+            deleteMatching(a[k], b[k]);
+            if (Object.keys(a[k]).length === 0) delete a[k];
+          } else if (a[k] === b[k]) {
+            delete a[k];
+          }
+        }
+      };
+
+      deleteMatching(remote, local);
+
+      return Object.keys(remote).length > 0 ? remote : null;
+    } catch (e) {
+      console.warn(`Failed to verify addresses: ${e}`);
+      return null;
+    }
   }
 
   static async getVersion(
@@ -481,8 +573,8 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     return Cl.buffer(chainIdArr)
   }
 
-  private async managerReadOnly(functionName: string, functionArgs: any[]): Promise<any> {
-    const activeNttManager = await this.getActiveNttManager()
+  private async managerReadOnly(functionName: string, functionArgs: any[], manager? :string): Promise<any> {
+    const activeNttManager = !!manager? {contractName: manager.split(".")[1]!, address: manager.split(".")[0]!} : await this.getActiveNttManager()
     return this.readonly(functionName, functionArgs, activeNttManager.contractName, activeNttManager.address)
   }
 

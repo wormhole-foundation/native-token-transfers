@@ -16,6 +16,7 @@
 
 (use-trait ntt-manager-trait .ntt-manager-trait-v1.ntt-manager-trait)
 (use-trait previous-transfer-trait .wormhole-transceiver-xfer-trait-v1.transfer-trait)
+(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 
 ;;;; Constants
 
@@ -28,9 +29,11 @@
 ;; Contract is paused, all actions disabled
 (define-constant ERR_PAUSED (err u6004))
 ;; Contract has not been initialized
-(define-constant ERR_NOT_INITIALIZED (err u6005))
+(define-constant ERR_UNINITIALIZED (err u6005))
 ;; Contract has already been initialized
 (define-constant ERR_ALREADY_INITIALIZED (err u6006))
+;; Value of SIP-10 trait does not match stored contract
+(define-constant ERR_TOKEN_MISMATCH (err u6007))
 
 ;; Update process errors
 (define-constant ERR_UPG_UNAUTHORIZED (err u6101))
@@ -82,11 +85,11 @@
 (define-constant DEPLOYER tx-sender)
 
 ;;;; Data Vars
-(define-data-var initialized bool false)
 (define-data-var ntt-manager principal .ntt-manager-v1)
 (define-data-var ntt-manager-state principal .ntt-manager-state)
-;; Not a valid token contract, but will be set on init
-(define-data-var token-contract principal 'SP000000000000000000002Q6VF78)
+;; SIP-10 token contract
+;; Also indicates whether contract has been initialized
+(define-data-var token-contract (optional principal) none)
 
 ;;;; Data Maps
 
@@ -191,34 +194,17 @@
     (refund-address (buff 32)))
   (let ((enabled (try! (check-enabled)))
         (checked-caller (try! (check-caller)))
-        (ntt-state-addr32 (try! (get-addr32-ntt-manager-state-contract)))
+        (ntt-state-addr32 (try! (get-ntt-manager-state-contract-addr32)))
         (payload (try! (build-token-transfer-payload recipient-chain ntt-state-addr32 recipient-ntt-manager refund-address ntt-payload none)))
         (message (try! (contract-call? .wormhole-core-v4 post-message payload u0 none))))
   	(ok (get sequence message))))
 
-;; @desc: Parse and validate Wormhole VAA to unlock tokens
-(define-read-only (parse-and-verify-token-transfer (vaa-bytes (buff 4096)))
-  (let ((message (try! (contract-call? .wormhole-core-v4 parse-and-verify-vaa vaa-bytes)))
-        (vaa (get vaa message))
-        (source-chain (try! (uint-to-buff-2-be (get emitter-chain vaa))))
-        (token-transfer-payload (unwrap! (as-max-len? (get payload vaa) u2048) ERR_RTT_CHECK_XCVR_PAYLOAD_LEN))
-        (token-transfer (try! (parse-token-transfer-payload token-transfer-payload)))
-        (peer (unwrap! (contract-call? .wormhole-transceiver-state peers-get source-chain) ERR_RTT_CHECK_PEER_XCVR)))
-
-    ;; Check peer transceiver is approved
-    (asserts! (is-eq (get emitter-address vaa) peer) ERR_RTT_CHECK_PEER_XCVR)
-
-    (ok (merge token-transfer {
-      source-chain: source-chain,
-      uid: (get vaa-body-hash message)
-    }))))
-
 ;; @desc Lock tokens and send cross-chain message via specified transceiver
 ;;       Returns a tuple with `recipient: none` if funds still pending because addr32 lookup failed
-(define-public (receive-token-transfer (manager <ntt-manager-trait>) (vaa-bytes (buff 4096)))
+(define-public (receive-token-transfer (manager <ntt-manager-trait>) (token <sip-010-trait>) (vaa-bytes (buff 4096)))
   (let ((enabled (try! (check-enabled)))
         (xcvr-message (try! (parse-and-verify-token-transfer vaa-bytes)))
-        (ntt-state-addr32 (try! (get-addr32-ntt-manager-state-contract))))
+        (ntt-state-addr32 (try! (get-ntt-manager-state-contract-addr32))))
 
     ;; Check NTT manager passed is our current NTT manager
     (asserts! (is-eq (contract-of manager) (var-get ntt-manager)) ERR_RTT_CHECK_NTT_MANAGER)
@@ -229,6 +215,7 @@
 
     ;; Checks passed! Send to NTT manager
     (contract-call? manager receive-token-transfer
+      token
       (get source-chain xcvr-message)
       (get source-ntt-manager xcvr-message)
       (get ntt-manager-payload xcvr-message))))
@@ -238,28 +225,32 @@
 ;; @desc: Call only on first deployment, when not updating from previous contract
 (define-public (initialize
     (manager <ntt-manager-trait>)
+    (token <sip-010-trait>)
     (import (optional {
       contract: <previous-transfer-trait>,
       pauser: bool
     })))
-  (let ((init (asserts! (not (is-initialized)) ERR_ALREADY_INITIALIZED)))
+  (begin
+    (asserts! (not (is-initialized)) ERR_ALREADY_INITIALIZED)
     (match import
       ;; Updating from previous contract, no need to check caller
-      i (try! (finalize-state-transfer i))
+      i (try! (finalize-state-transfer token i))
       ;; First deployment, must be called by deployer
-      (asserts! (is-eq contract-caller DEPLOYER) ERR_UNAUTHORIZED)
+      (begin
+        (asserts! (is-eq contract-caller DEPLOYER) ERR_UNAUTHORIZED)
+        (var-set token-contract (some (contract-of token))))
     )
     ;; Update stored contracts
     (try! (inner-set-ntt-manager manager))
+
     ;; Send TransceiverInit message
-    (let ((ntt-state-addr32 (try! (get-addr32-ntt-manager-state-contract)))
+    (let ((ntt-state-addr32 (try! (get-ntt-manager-state-contract-addr32)))
           (ntt-mode (try! (contract-call? manager get-mode)))
-          (token-addr32 (try! (get-addr32-token-contract)))
-          (token-decimals (try! (contract-call? manager get-token-decimals)))
+          (token-addr32 (try! (get-token-contract-addr32)))
+          (token-decimals (try! (contract-call? token get-decimals)))
           (token-decimals-as-buff-1 (try! (uint-to-buff-1-be token-decimals)))
           (payload (try! (build-transceiver-init-payload ntt-state-addr32 ntt-mode token-addr32 token-decimals-as-buff-1))))
       (try! (contract-call? .wormhole-core-v4 post-message payload u0 none))
-      (var-set initialized true)
       (ok true))))
 
 ;; @desc Call in active contract to start update process
@@ -275,18 +266,13 @@
 ;;       Must call AFTER ownership of state contract has been transferred
 ;;       Can be called multiple times, in case more funds somehow get locked in old contract
 (define-public (transfer-state)
-  (let ((active-contract (contract-call? .wormhole-transceiver-state get-owner))
-        (contract-principal (get-contract-principal))
-        (stx-balance (stx-get-balance contract-principal)))
+  (let ((active-contract (contract-call? .wormhole-transceiver-state get-owner)))
     ;; Only the contract set by the ContractUpgrade VAA is allowed to call this function
     (asserts! (is-eq contract-caller active-contract) ERR_UNAUTHORIZED)
-    ;; If we have an STX balance (we shouldn't), transfer to new contract
-    (if (> stx-balance u0)
-      (try! (as-contract (stx-transfer? stx-balance tx-sender active-contract)))
-      true)
     ;; Return all moveable state
     (ok {
-      pauser: (get-pauser),
+      token-contract: (try! (get-token-contract)),
+      pauser: (get-pauser)
     })))
 
 ;; @desc If update process fails, we can cancel
@@ -298,11 +284,12 @@
 ;;;; Public Functions: Misc.
 
 ;; @desc Get 32-byte address of ntt-manager state contract
-(define-public (get-addr32-ntt-manager-state-contract)
+(define-public (get-ntt-manager-state-contract-addr32)
   (get-addr32-from-cache (var-get ntt-manager-state)))
 
-(define-public (get-addr32-token-contract)
-  (get-addr32-from-cache (var-get token-contract)))
+(define-public (get-token-contract-addr32)
+  (let ((token (try! (get-token-contract))))
+    (get-addr32-from-cache token)))
 
 ;; @desc Get addr32 for `principal`
 ;;       Public function, don't cache result
@@ -312,7 +299,7 @@
 ;;;; Read-only Functions
 
 (define-read-only (is-initialized)
-  (var-get initialized))
+  (is-some (var-get token-contract)))
 
 (define-read-only (is-admin (account principal))
   (default-to false (map-get? admins account)))
@@ -324,7 +311,7 @@
   (ok .wormhole-transceiver-state))
 
 (define-read-only (get-token-contract)
-  (ok (var-get token-contract)))
+  (ok (unwrap! (var-get token-contract) ERR_UNINITIALIZED)))
 
 (define-read-only (get-ntt-manager)
   (ok (var-get ntt-manager)))
@@ -350,7 +337,7 @@
 
 ;; @desc Check if contract has been initialized
 (define-private (check-initialized)
-  (ok (asserts! (is-initialized) ERR_NOT_INITIALIZED)))
+  (ok (asserts! (is-initialized) ERR_UNINITIALIZED)))
 
 ;; @desc Check if we can use contract (initialized, not paused)
 (define-private (check-enabled)
@@ -370,22 +357,28 @@
       (map-set addr32-cache p val)
       (ok val))))
 
+;; @desc Get addr32 by calling Wormhole State contract, or Core contract (if necessary)
+;;       NOTE: This calls a specific version of the Wormhole Core contract, which may need to be updated if this contract is re-deployed!
 (define-private (get-addr32-from-wormhole (p principal))
-  (let ((result (try! (contract-call? .wormhole-core-v4 get-wormhole-address p))))
-    (ok (get wormhole-address result))))
+  (match (contract-call? .wormhole-core-state stacks-to-wormhole-get p)
+    ;; Found in state contract
+    val (ok val)
+    ;; Not found in state contract, try core contract
+    ;; NOTE: If the hardcoded version of `wormhole-core` has been deprecated, you must register the address manually!
+    (let ((result (try! (contract-call? .wormhole-core-v4 get-wormhole-address p))))
+      (ok (get wormhole-address result)))))
 
 ;; @desc Set new NTT manager
 ;;       Private version with no checks
 (define-private (inner-set-ntt-manager (manager <ntt-manager-trait>))
-  (let ((manager-token-contract (try! (contract-call? manager get-token-contract)))
-        (manager-state-contract (try! (contract-call? manager get-state-contract))))
+  (let ((manager-state-contract (try! (contract-call? manager get-state-contract))))
     (var-set ntt-manager (contract-of manager))
     (var-set ntt-manager-state manager-state-contract)
-    (var-set token-contract manager-token-contract)
     (ok true)))
 
 ;; @desc Call in successor contract, after active contract has called `begin-state-transfer`, to finalize update
 (define-private (finalize-state-transfer
+    (token <sip-010-trait>)
     (import {
       contract: <previous-transfer-trait>,
       pauser: bool
@@ -394,7 +387,10 @@
         (active-contract (contract-call? .wormhole-transceiver-state get-owner)))
     (asserts! (is-eq (contract-of previous-contract) active-contract) ERR_UPG_UNAUTHORIZED)
     (try! (contract-call? .wormhole-transceiver-state finalize-ownership-transfer))
-    (let ((previous-state (try! (contract-call? previous-contract transfer-state))))
+    (let ((previous-state (try! (contract-call? previous-contract transfer-state)))
+          (previous-token-contract (get token-contract previous-state)))
+      (asserts! (is-eq (contract-of token) previous-token-contract) ERR_TOKEN_MISMATCH)
+      (var-set token-contract (some previous-token-contract))
       (if (get pauser import)
         (var-set pauser (get pauser previous-state))
         true)
@@ -470,6 +466,23 @@
 
     (asserts! (<= (len payload) u2048) ERR_STT_XCVR_PAYLOAD_LEN)
     (ok payload)))
+
+;; @desc: Parse and validate Wormhole VAA to unlock tokens
+(define-private (parse-and-verify-token-transfer (vaa-bytes (buff 4096)))
+  (let ((message (try! (contract-call? .wormhole-core-v4 parse-and-verify-vaa vaa-bytes)))
+        (vaa (get vaa message))
+        (source-chain (try! (uint-to-buff-2-be (get emitter-chain vaa))))
+        (token-transfer-payload (unwrap! (as-max-len? (get payload vaa) u2048) ERR_RTT_CHECK_XCVR_PAYLOAD_LEN))
+        (token-transfer (try! (parse-token-transfer-payload token-transfer-payload)))
+        (peer (unwrap! (contract-call? .wormhole-transceiver-state peers-get source-chain) ERR_RTT_CHECK_PEER_XCVR)))
+
+    ;; Check peer transceiver is approved
+    (asserts! (is-eq (get emitter-address vaa) peer) ERR_RTT_CHECK_PEER_XCVR)
+
+    (ok (merge token-transfer {
+      source-chain: source-chain,
+      uid: (get vaa-body-hash message)
+    }))))
 
 ;; @desc Parse NTT transceiver payload of a token transfer message
 (define-private (parse-token-transfer-payload (payload (buff 2048)))

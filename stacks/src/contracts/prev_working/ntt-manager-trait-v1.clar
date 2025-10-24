@@ -2,14 +2,27 @@
 
 ;; This is needed so that the transceiver can call into the manager
 (define-trait ntt-manager-trait (
-  ;; Get associated contracts
+  ;; Get Stacks token contract
+  ;; Fails if we are in burn mode and contract is on foriegn chain
   (get-token-contract () (response principal uint))
+  ;; Get 32-byte address of token contract
+  (get-addr32-token-contract () (response (buff 32) uint))
+  ;; Get principal of permanent state contract
   (get-state-contract () (response principal uint))
+  ;; Get principal of permanent token owner contract
+  (get-token-owner-contract () (response principal uint))
+  ;; Get 32-byte address of state contract
+  (get-addr32-state-contract () (response (buff 32) uint))
   ;; Get info from token contract
-  (get-decimals () (response uint uint))
+  (get-token-decimals () (response uint uint))
   (get-token-balance (principal) (response uint uint))
+  (get-token-supply () (response uint uint))
   ;; Get latest version of NTT manager from state contract
   (get-active-contract () (response principal uint))
+  ;; Get NTT manager mode:
+  ;;  - 0: Locking
+  ;;  - 1: Burn/mint
+  (get-mode () (response (buff 1) uint))
   ;; Send a token transfer to peer chain
   (send-token-transfer (
       <transceiver-trait> ;; Transceiver to send message through

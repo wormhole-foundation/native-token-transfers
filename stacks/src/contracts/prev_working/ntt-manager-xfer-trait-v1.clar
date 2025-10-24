@@ -5,6 +5,6 @@
   ;; Fails if caller is not successor contract
   (transfer-state ()
     (response {
-      pauser: principal,  ;; Account which can pause this contract
-      next-sequence: uint ;; Sequence number of next message
+      next-sequence: uint,                         ;; Sequence number of next message
+      pauser: principal                            ;; Account which can pause this contract
     } uint))))

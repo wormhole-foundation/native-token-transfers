@@ -1,7 +1,9 @@
-;; title: wormhole-transceiver
-;; version: v1
-;; summary:
-;; description: NTT transceiver for Wormhole protocol
+;; Title: wormhole-transceiver
+;; Version: v1
+;; Summary: Wormhole Transceiver for Wormhole Native Token Transfer (NTT) protocol
+;; Description:
+;;   This contract interacts with the NTT manager and the Wormhole Core contract
+;;   It does not interact with the token contract, and does not need to be modified when deploying for a new token
 
 ;;;; --- INPORTANT NOTE ---
 ;; This contract does NOT use the wormhole-core proxy!
@@ -12,7 +14,6 @@
 (impl-trait .transceiver-trait-v1.transceiver-trait)
 (impl-trait .wormhole-transceiver-xfer-trait-v1.transfer-trait)
 
-(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 (use-trait ntt-manager-trait .ntt-manager-trait-v1.ntt-manager-trait)
 (use-trait previous-transfer-trait .wormhole-transceiver-xfer-trait-v1.transfer-trait)
 
@@ -74,9 +75,6 @@
 (define-constant NTT_MANAGER_MAX_PAYLOAD_LEN u1024)
 ;; Max payload length for a transceiver message
 (define-constant NTT_XCVR_MAX_PAYLOAD_LEN u2048)
-;; NTT can operate in either locking/burning mode (only locking supported now)
-(define-constant NTT_MODE_LOCKING 0x00)
-(define-constant NTT_MODE_BURNING 0x01)
 
 (define-constant MAX_VALUE_U8 u255)
 (define-constant MAX_VALUE_U16 u65535)
@@ -87,12 +85,13 @@
 (define-data-var initialized bool false)
 (define-data-var ntt-manager principal .ntt-manager-v1)
 (define-data-var ntt-manager-state principal .ntt-manager-state)
-(define-data-var token-contract principal (if is-in-mainnet 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-token))
+;; Not a valid token contract, but will be set on init
+(define-data-var token-contract principal 'SP000000000000000000002Q6VF78)
 
 ;;;; Data Maps
 
 ;; NOTE: These maps do not migrate when the contract is updated
-;;       Data structures that grow unbounded and must persist through updates should be kept in`wormhole-transceiver-state`
+;;       Data structures that grow unbounded and must persist through updates should be kept in `wormhole-transceiver-state`
 
 ;; Accounts allowed to call admin functions
 ;; Defaults to contract deployer
@@ -109,7 +108,7 @@
   (buff 32)
 )
 
-;;;; BEGIN PAUSE CODE
+;;;; ----- PAUSE CODE ---->
 ;; This block can be copied into any contract to add pause functionality (must have error values defined)
 
 (define-data-var pauser principal tx-sender)
@@ -141,7 +140,8 @@
 
 (define-read-only (get-pauser)
   (var-get pauser))
-;;;; END PAUSE CODE
+
+;;;; <---- PAUSE_CODE -----
 
 ;;;; Public Functions: Admin
 
@@ -181,7 +181,7 @@
 
 ;;;; Public Functions: Wormhole-NTT protocol
 
-;; ALL FUNCTIONS HERE ARE CAN ONLY BE CALLED BY NTT MANAGER AND MUST CALL `check-caller` and `check-transceiver-enabled`!
+;; ALL FUNCTIONS HERE ARE CAN ONLY BE CALLED BY NTT MANAGER AND MUST CALL `check-caller` and `check-enabled`!
 
 ;; @desc: Post a message to Wormhole Guardians via `wormhole-core` contract
 (define-public (send-token-transfer
@@ -189,7 +189,7 @@
     (recipient-chain (buff 2))
     (recipient-ntt-manager (buff 32))
     (refund-address (buff 32)))
-  (let ((enabled (try! (check-transceiver-enabled)))
+  (let ((enabled (try! (check-enabled)))
         (checked-caller (try! (check-caller)))
         (ntt-state-addr32 (try! (get-addr32-ntt-manager-state-contract)))
         (payload (try! (build-token-transfer-payload recipient-chain ntt-state-addr32 recipient-ntt-manager refund-address ntt-payload none)))
@@ -216,7 +216,7 @@
 ;; @desc Lock tokens and send cross-chain message via specified transceiver
 ;;       Returns a tuple with `recipient: none` if funds still pending because addr32 lookup failed
 (define-public (receive-token-transfer (manager <ntt-manager-trait>) (vaa-bytes (buff 4096)))
-  (let ((enabled (try! (check-transceiver-enabled)))
+  (let ((enabled (try! (check-enabled)))
         (xcvr-message (try! (parse-and-verify-token-transfer vaa-bytes)))
         (ntt-state-addr32 (try! (get-addr32-ntt-manager-state-contract))))
 
@@ -253,10 +253,11 @@
     (try! (inner-set-ntt-manager manager))
     ;; Send TransceiverInit message
     (let ((ntt-state-addr32 (try! (get-addr32-ntt-manager-state-contract)))
+          (ntt-mode (try! (contract-call? manager get-mode)))
           (token-addr32 (try! (get-addr32-token-contract)))
-          (token-decimals (try! (contract-call? manager get-decimals)))
+          (token-decimals (try! (contract-call? manager get-token-decimals)))
           (token-decimals-as-buff-1 (try! (uint-to-buff-1-be token-decimals)))
-          (payload (try! (build-transceiver-init-payload ntt-state-addr32 NTT_MODE_LOCKING token-addr32 token-decimals-as-buff-1))))
+          (payload (try! (build-transceiver-init-payload ntt-state-addr32 ntt-mode token-addr32 token-decimals-as-buff-1))))
       (try! (contract-call? .wormhole-core-v4 post-message payload u0 none))
       (var-set initialized true)
       (ok true))))
@@ -352,7 +353,7 @@
   (ok (asserts! (is-initialized) ERR_NOT_INITIALIZED)))
 
 ;; @desc Check if we can use contract (initialized, not paused)
-(define-private (check-transceiver-enabled)
+(define-private (check-enabled)
   (begin
     (try! (check-initialized))
     (try! (check-paused))

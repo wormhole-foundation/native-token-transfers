@@ -46,6 +46,7 @@
 
 (use-trait manager-trait .ntt-manager-trait-v1.ntt-manager-trait)
 (use-trait transceiver-trait .transceiver-trait-v1.transceiver-trait)
+(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 
 ;;;; Constants
 
@@ -59,35 +60,30 @@
     (try! (check-active-ntt-manager ntt-manager))
     (contract-call? ntt-manager get-token-contract)))
 
-(define-public (get-addr32-token-contract (ntt-manager <manager-trait>))
+(define-public (get-token-contract-addr32 (ntt-manager <manager-trait>))
   (begin
     (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager get-addr32-token-contract)))
+    (contract-call? ntt-manager get-token-contract-addr32)))
+
+(define-public (get-token-manager (ntt-manager <manager-trait>))
+  (begin
+    (try! (check-active-ntt-manager ntt-manager))
+    (contract-call? ntt-manager get-token-manager)))
+
+(define-public (get-token-manager-addr32 (ntt-manager <manager-trait>))
+  (begin
+    (try! (check-active-ntt-manager ntt-manager))
+    (contract-call? ntt-manager get-token-manager-addr32)))
 
 (define-public (get-state-contract (ntt-manager <manager-trait>))
   (begin
     (try! (check-active-ntt-manager ntt-manager))
     (contract-call? ntt-manager get-state-contract)))
 
-(define-public (get-addr32-state-contract (ntt-manager <manager-trait>))
+(define-public (get-state-contract-addr32 (ntt-manager <manager-trait>))
   (begin
     (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager get-addr32-state-contract)))
-
-(define-public (get-token-decimals (ntt-manager <manager-trait>))
-  (begin
-    (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager get-token-decimals)))
-
-(define-public (get-token-balance (ntt-manager <manager-trait>) (p principal))
-  (begin
-    (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager get-token-balance p)))
-
-(define-public (get-token-supply (ntt-manager <manager-trait>))
-  (begin
-    (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager get-token-supply)))
+    (contract-call? ntt-manager get-state-contract-addr32)))
 
 (define-public (get-active-contract (ntt-manager <manager-trait>))
   (begin
@@ -99,20 +95,26 @@
     (try! (check-active-ntt-manager ntt-manager))
     (contract-call? ntt-manager get-mode)))
 
-(define-public (send-token-transfer (ntt-manager <manager-trait>) (transceiver <transceiver-trait>) (amount uint) (recipient-chain (buff 2)) (recipient-address (buff 32)))
+(define-public (send-token-transfer
+    (ntt-manager <manager-trait>)
+    (token <sip-010-trait>)
+    (transceiver <transceiver-trait>)
+    (amount uint)
+    (recipient-chain (buff 2))
+    (recipient-address (buff 32)))
   (begin
     (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager send-token-transfer transceiver amount recipient-chain recipient-address)))
+    (contract-call? ntt-manager send-token-transfer token transceiver amount recipient-chain recipient-address)))
 
-(define-public (receive-token-transfer (ntt-manager <manager-trait>) (source-chain (buff 2)) (source-ntt-manager (buff 32)) (ntt-manager-payload (buff 1024)))
+(define-public (receive-token-transfer
+    (ntt-manager <manager-trait>)
+    (token <sip-010-trait>)
+    (source-chain (buff 2))
+    (source-ntt-manager (buff 32))
+    (ntt-manager-payload (buff 1024)))
   (begin
     (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager receive-token-transfer source-chain source-ntt-manager ntt-manager-payload)))
-
-(define-public (release-tokens-pending (ntt-manager <manager-trait>) (transceiver <transceiver-trait>) (recipient principal))
-  (begin
-    (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager release-tokens-pending transceiver recipient)))
+    (contract-call? ntt-manager receive-token-transfer token source-chain source-ntt-manager ntt-manager-payload)))
 
 ;;;; Read-only functions
 

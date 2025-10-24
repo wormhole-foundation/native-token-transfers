@@ -5,6 +5,7 @@ import { ChainContext, Wormhole, chainToPlatform, type Chain, type ChainAddress,
 import { Keypair } from "@solana/web3.js";
 import fs from "fs";
 import { encoding } from '@wormhole-foundation/sdk-connect';
+import stacks from "@wormhole-foundation/sdk/platforms/stacks";
 
 export type SignerType = "privateKey" | "ledger";
 
@@ -117,6 +118,26 @@ export async function getSigner<N extends Network, C extends Chain>(
                     throw new Error("Unsupported signer type");
             }
             break;
+        case "Stacks":
+          switch (type) {
+            case "privateKey":
+                const privateKey = source ?? process.env.STACKS_PRIVATE_KEY;
+                if (!privateKey) {
+                    throw new Error("STACKS_PRIVATE_KEY env var not set");
+                }
+                source = privateKey;
+                signer = await stacks.getSigner(
+                  await chain.getRpc(),
+                  privateKey,
+                  { debug: false }
+                )
+                break;
+            case "ledger":
+                throw new Error("Ledger not yet supported on Stacks");
+            default:
+                throw new Error("Unsupported signer type");
+          }
+          break
         default:
             throw new Error("Unrecognized platform: " + platform);
     }

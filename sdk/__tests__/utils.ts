@@ -687,9 +687,9 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
   const nttManagerContractName = "ntt-manager-v1"
   const wormholeTransceiverContractName = "wormhole-transceiver-v1"
   const nttManagerProxyContractName = "ntt-manager-proxy-v1"
-  const tokenOwnerContractName = "token-owner"
+  const tokenManagerContractName = "token-manager"
+  const bridgedTokenContractName = "bridged-token"
 
-  // const nttContractNamesSuffix = ``
   const nttContractNamesSuffix = `-${Date.now().toString().slice(-4)}`
   console.log(`Using suffix: ${nttContractNamesSuffix}`)
 
@@ -707,7 +707,8 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
   const contractNames = [
     nttStateContractName,
     "wormhole-transceiver-state",
-    tokenOwnerContractName,
+    bridgedTokenContractName,
+    tokenManagerContractName,
     nttManagerContractName,
     wormholeTransceiverContractName,
     nttManagerProxyContractName,
@@ -721,17 +722,23 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
     return path.join(contractsDirectory, `${c}.clar`)
   })
 
+  const replaceAddresses = (code: string) : string => {
+    return code
+      .replaceAll("SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE", deployerAddress)
+      .replaceAll("SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4", deployerAddress)
+      .replaceAll("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM", deployerAddress)
+  }
+
   const requirements = requirementsPath.map( c => ({
     name: path.basename(c).replace(".clar", ""),
-    code: fs.readFileSync(c, "utf-8")
+    code: replaceAddresses(fs.readFileSync(c, "utf-8"))
   }))
+
+
 
   const contracts = contractsPath.map( c => {
     const name = path.basename(c).replace(".clar", "") + nttContractNamesSuffix
-    let code = fs.readFileSync(c, "utf-8")
-    .replaceAll("SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE", deployerAddress)
-    .replaceAll("SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4", deployerAddress)
-    .replaceAll("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM", deployerAddress)
+    let code = replaceAddresses(fs.readFileSync(c, "utf-8"))
     
     contractNames.forEach(cn => {
       code = code.replaceAll(` .${cn}`, ` .${cn}${nttContractNamesSuffix}`)
@@ -825,6 +832,7 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
     Cl.uint(8),
     Cl.none()
   ]
+
   const initializeTx = await makeContractCall({
     contractName: nttManagerContractName + nttContractNamesSuffix,
     contractAddress: deployerAddress,
@@ -864,6 +872,7 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
       functionName: 'initialize',
       functionArgs: [
         Cl.principal(`${deployerAddress}.${nttManagerContractName + nttContractNamesSuffix}`),
+        ctx.mode === "locking" ? Cl.principal(`${deployerAddress}.${sbtcTokenContractName}`) : Cl.principal(`${deployerAddress}.${bridgedTokenContractName}`),
         Cl.none()
       ],
       senderKey: wallet,
@@ -917,11 +926,9 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
         wormhole: `${deployerAddress}.${wormholeTransceiverContractName}${nttContractNamesSuffix}`
       },
       manager: `${deployerAddress}.${nttStateContractName}${nttContractNamesSuffix}`,
-      // manager: `${deployerAddress}.${nttManagerProxyContractName}${nttContractNamesSuffix}`,
-      // manager: `${deployerAddress}.${nttManagerContractName}${nttContractNamesSuffix}`,
       state: `${deployerAddress}.${nttStateContractName}${nttContractNamesSuffix}`,
-      token: ctx.mode === "burning" ? `${deployerAddress}.${tokenOwnerContractName}${nttContractNamesSuffix}` : `${deployerAddress}.${sbtcTokenContractName}`,
-      tokenOwner: `${deployerAddress}.${tokenOwnerContractName}${nttContractNamesSuffix}`,
+      token: ctx.mode === "burning" ? `${deployerAddress}.${bridgedTokenContractName}${nttContractNamesSuffix}` : `${deployerAddress}.${sbtcTokenContractName}`,
+      tokenOwner: `${deployerAddress}.${tokenManagerContractName}${nttContractNamesSuffix}`,
     }
   }
 }

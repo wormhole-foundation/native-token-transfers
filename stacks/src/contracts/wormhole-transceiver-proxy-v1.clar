@@ -45,6 +45,7 @@
 ;;;; Traits
 
 (use-trait transceiver-trait .transceiver-trait-v1.transceiver-trait)
+(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 
 ;;;; Constants
 
@@ -92,11 +93,6 @@
   (begin
     (try! (check-active-transceiver transceiver))
     (contract-call? transceiver send-token-transfer ntt-payload recipient-chain recipient-ntt-manager refund-address)))
-
-(define-public (parse-and-verify-token-transfer (transceiver <transceiver-trait>) (payload (buff 4096)))
-  (begin
-    (try! (check-active-transceiver transceiver))
-    (contract-call? transceiver parse-and-verify-token-transfer payload)))
 
 ;;;; Read-only functions
 

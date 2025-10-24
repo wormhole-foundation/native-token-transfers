@@ -33,17 +33,6 @@
   bool       ;; Consumed?
 )
 
-;; Tokens that have been released by a VAA, but we don't know where to send them on the Stacks chain
-;; Only relevant to protocols that use 32-byte addressing instead of full Stacks addresses
-;; Must be claimed by `claim-tokens`
-(define-map tokens-pending
-  {
-    protocol: uint,     ;; ID of protocol on which funds were sent
-    addr32:  (buff 32)  ;; Recipient's principal mapped to 32-byte address
-  }
-  uint                  ;; Amount unlocked and pending
-)
-
 ;; Set of protocols and current active transceiver for each
 ;; Each protocol can only have one transceiver at a time
 (define-map protocols
@@ -132,19 +121,6 @@
     (try! (check-caller))
     (ok (map-delete peers chain))))
 
-(define-public (tokens-pending-set
-    (key { protocol: uint, addr32: (buff 32) })
-    (value uint))
-  (begin
-    (try! (check-caller))
-    (ok (map-set tokens-pending key value))))
-
-(define-public (tokens-pending-delete
-    (key { protocol: uint, addr32: (buff 32) }))
-  (begin
-    (try! (check-caller))
-    (ok (map-delete tokens-pending key))))
-
 ;; @desc Set raw buffer in key/value store using `map-insert` (fails if entry exists)
 ;;       Caller is responsible for serializing data with `to-consensus-buff?`
 ;;       If no error, returns `(ok bool)` with the result of `map-insert`
@@ -208,10 +184,6 @@
 
 (define-read-only (kv-store-get (key (string-ascii 32)))
   (map-get? kv-store key))
-
-(define-read-only (tokens-pending-get
-    (key { protocol: uint, addr32: (buff 32) }))
-  (map-get? tokens-pending key))
 
 (define-read-only (consumed-messages-get (hash (buff 32)))
   (map-get? consumed-messages hash))

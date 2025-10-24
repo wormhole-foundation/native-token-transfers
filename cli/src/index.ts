@@ -20,12 +20,13 @@ import * as spl from "@solana/spl-token";
 import fs from "fs";
 import path from "path";
 import readline from "readline";
-import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toUniversal, type AccountAddress, type Chain, type ChainAddress, type Network, type Platform } from "@wormhole-foundation/sdk";
+import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toNative, toUniversal, type AccountAddress, type Chain, type ChainAddress, type Network, type Platform, type SignAndSendSigner, type UniversalOrNative } from "@wormhole-foundation/sdk";
 import { Transaction } from "@mysten/sui/transactions";
 import { bcs } from "@mysten/sui/bcs";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-sui-ntt";
+import "@wormhole-foundation/sdk-stacks-ntt";
 import "@wormhole-foundation/sdk-definitions-ntt";
 import type { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
 
@@ -63,7 +64,9 @@ import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
 import { AbiCoder, ethers, Interface } from "ethers";
 import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
-import type { StacksChains } from "@wormhole-foundation/sdk-stacks";
+import { StacksPlatform, type StacksChains } from "@wormhole-foundation/sdk-stacks";
+import { broadcastTransaction, Cl, fetchNonce, makeContractCall, makeContractDeploy, PostConditionMode } from "@stacks/transactions";
+import type { StacksNtt } from "@wormhole-foundation/sdk-stacks-ntt";
 
 // TODO: contract upgrades on solana
 // TODO: set special relaying?
@@ -216,6 +219,10 @@ export type SuiDeploymentResult<C extends Chain> = ChainAddress<C> & {
         nttCommon?: string,
         wormholeTransceiver?: string
     },
+}
+
+export type StacksDeploymentResult<C extends Chain> = ChainAddress<C> & {
+  state: UniversalOrNative<C>
 }
 
 // TODO: rename
@@ -2465,6 +2472,7 @@ async function deploy<N extends Network, C extends Chain>(
     gasEstimateMultiplier?: number
 ): Promise<ChainAddress<C> | SuiDeploymentResult<C>> {
     if (version === null) {
+      console.log(`Warning local`)
         await warnLocalDeployment(yes);
     }
     const platform = chainToPlatform(ch.chain);
@@ -3422,21 +3430,210 @@ async function deploySui<N extends Network, C extends Chain>(
             throw deploymentError;
         }
     });
-
   }
+
 async function deployStacks<N extends Network, C extends Chain>(
   pwd: string,
   mode: Ntt.Mode,
   ch: ChainContext<N, C>,
   token: string,
   signerType: SignerType
-): Promise<ChainAddress<StacksChains>> {
-  console.log(pwd)
-  console.log(mode)
-  console.log(ch)
-  console.log(token)
-  console.log(signerType)
-    return undefined as any
+): Promise<StacksDeploymentResult<C>> {
+  ensureNttRoot(pwd);
+
+  const wormhole = ch.config.contracts.coreBridge
+  // console.log(pwd)
+  // console.log(mode)
+  // console.log(ch)
+  // console.log(token)
+  // console.log(signerType)
+  // console.log(`corebridge:`)
+  // console.log(ch.config.contracts.coreBridge)
+  if(!wormhole) {
+    console.error("Core bridge not found")
+    process.exit(1)
+  }
+
+  const signer = await getSigner(ch, signerType)
+  const signAndSendSigner = signer.signer as SignAndSendSigner<N,C>
+  const clientBaseUrl = (await ch.getRpc()).client.baseUrl
+  const stacksContractsDirectory = `${pwd}/stacks/src/contracts`
+  const stacksRequirementsDirectory = `${pwd}/stacks/test/requirements`
+  const deployerAddress = signer.address.address.toString()
+  console.log(`Deploying Stacks NTT from ${deployerAddress} rpc ${clientBaseUrl} ${signAndSendSigner}...`)
+  const traits = [
+    stacksContractsDirectory + "/transceiver-trait-v1",
+    stacksContractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
+    stacksContractsDirectory + "/ntt-manager-xfer-trait-v1",
+    stacksContractsDirectory + "/ntt-manager-trait-v1",
+  ]
+
+  if(ch.network === "Devnet") {
+    traits.unshift(stacksRequirementsDirectory + "/sip-010-trait-ft-standard")
+  }
+
+  const nttStateContractName = "ntt-manager-state"
+  const nttManagerContractName = "ntt-manager-v1"
+  const wormholeTransceiverContractName = "wormhole-transceiver-v1"
+  const nttManagerProxyContractName = "ntt-manager-proxy-v1"
+  const tokenManagerContractName = "token-manager"
+  const bridgedTokenContractName = "bridged-token"
+
+  const nttContracts = [
+    stacksContractsDirectory + "/" + nttStateContractName,
+    stacksContractsDirectory + "/" + "wormhole-transceiver-state",
+    stacksContractsDirectory + "/" + bridgedTokenContractName,
+    stacksContractsDirectory + "/" + tokenManagerContractName,
+    stacksContractsDirectory + "/" + nttManagerContractName,
+    stacksContractsDirectory + "/" + wormholeTransceiverContractName,
+    stacksContractsDirectory + "/" + nttManagerProxyContractName,
+  ]
+
+  const replaceAddresses = (code: string, network: N) : string => {
+    if(network === "Mainnet") {
+      return code
+    } else if (network === "Testnet") {
+      return code.replaceAll(
+        "SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard",
+        "ST3VXT52QEQPZ5246A16RFNMR1PRJ96JK6YYX37N8.sip-010-trait-ft-standard") // testnet SIP-10
+    } else if (network === "Devnet") {
+      return code.replaceAll(
+        "SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard",
+        `${deployerAddress}.sip-010-trait-ft-standard`) // in devnet we'll deploy it ourselves
+    } else {
+      throw new Error(`Unknown network: ${network}`)
+    }
+  }
+
+  const stacksNetwork = ch.network.toLowerCase() as 'mainnet' | 'testnet' | 'devnet'
+
+  const contractsToDeploy = [...traits, ...nttContracts].map(contractPath => {
+    return {
+      name: path.basename(contractPath),
+      code: replaceAddresses(fs.readFileSync(contractPath + ".clar", "utf-8"), ch.network)
+    }
+  })
+
+  let nonce = await fetchNonce({
+    address: deployerAddress,
+    client: { baseUrl: clientBaseUrl },
+  });
+
+  console.log(`Attempting to deploy ${contractsToDeploy.length} contracts to Stacks ${ch.network}...`)
+  for(const contract of contractsToDeploy) {
+    console.log(`Deploying ${contract.name}`)
+    const deployTx = await makeContractDeploy({
+        contractName: contract.name,
+        codeBody: contract.code,
+        clarityVersion: 3,
+        senderKey: signer.source.source,
+        nonce,
+        network: stacksNetwork,
+        client: { baseUrl: clientBaseUrl },
+        postConditionMode: PostConditionMode.Allow,
+      })
+
+    const broadcastResult = await broadcastTransaction({
+      transaction: deployTx,
+      network: stacksNetwork,
+      client: { baseUrl: clientBaseUrl },
+    })
+    if ("error" in broadcastResult && broadcastResult.reason === "ContractAlreadyExists") {
+      console.log(`Contract already exists, not deploying ${contract.name}`);
+    } else {
+      console.log(`Waiting for deploy tx ${broadcastResult.txid}`)
+      await StacksPlatform.waitForTx(broadcastResult.txid, clientBaseUrl, false)
+      console.log(chalk.green(`Deployed ${contract.name}`))
+      nonce += 1n;
+    }
+  }
+
+  console.log(chalk.green(`All contracts deployed.`))
+  console.log(`Initializing NTT Manager with mode: ${mode} ...`)
+  const isLocking = mode === "locking"
+  // const initializeFunction = isLocking ? "initialize-locking-mode" : "initialize-burning-mode"
+  // const args = isLocking ? [Cl.principal(token)] : [
+  //   // TODO
+  // ]
+
+  // const initializeTx = await makeContractCall({
+  //   contractName: nttManagerContractName,
+  //   contractAddress: deployerAddress,
+  //   functionName: initializeFunction,
+  //   functionArgs: args,
+  //   senderKey: signer.source.source,
+  //   network: stacksNetwork,
+  //   client: { baseUrl: clientBaseUrl },
+  //   postConditionMode: PostConditionMode.Allow,
+  // })
+
+  // const initializeTxHash = await broadcastTransaction({
+  //   transaction: initializeTx,
+  //   network: stacksNetwork,
+  //   client: { baseUrl: clientBaseUrl },
+  // })
+
+  // console.log(`Waiting for initialize tx ${initializeTxHash.txid}`)
+  // await StacksPlatform.waitForTx(initializeTxHash.txid, clientBaseUrl, false)
+
+  // console.log(chalk.green(`NTT Manager initialized.`))
+
+  // console.log(`Initializing transceiver ...`)
+  // const initializeTransceiverTx = await makeContractCall({
+  //   contractName: wormholeTransceiverContractName,
+  //   contractAddress: deployerAddress,
+  //   functionName: "initialize",
+  //   functionArgs: [
+  //     Cl.principal(`${deployerAddress}.${nttManagerContractName}`),
+  //     isLocking ? Cl.principal(token) : Cl.principal(`${deployerAddress}.${bridgedTokenContractName}`),
+  //     Cl.none()
+  //   ],
+  //   senderKey: signer.source.source,
+  //   network: stacksNetwork,
+  //   client: { baseUrl: clientBaseUrl },
+  //   postConditionMode: PostConditionMode.Allow,
+  // })
+
+  // const initializeTransceiverTxHash = await broadcastTransaction({
+  //   transaction: initializeTransceiverTx,
+  //   network: stacksNetwork,
+  //   client: { baseUrl: clientBaseUrl },
+  // })
+
+  // console.log(`Waiting for initialize transceiver tx ${initializeTransceiverTxHash.txid}`)
+  // await StacksPlatform.waitForTx(initializeTransceiverTxHash.txid, clientBaseUrl, false)
+
+  // console.log(chalk.green(`Transceiver initialized.`))
+
+  // console.log(`Setting transceiver...`)
+
+  // const addTransceiverTx = await makeContractCall({
+  //   contractName: nttManagerContractName,
+  //   contractAddress: deployerAddress,
+  //   functionName: 'add-transceiver',
+  //   functionArgs: [
+  //     Cl.address(`${deployerAddress}.${wormholeTransceiverContractName}`)
+  //   ],
+  //   senderKey: signer.source.source,
+  //   network: stacksNetwork,
+  //   client: { baseUrl: clientBaseUrl },
+  //   postConditionMode: PostConditionMode.Allow,
+  // })
+
+  // const addTransceiverTxHash = await broadcastTransaction({
+  //   transaction: addTransceiverTx,
+  //   client: { baseUrl: clientBaseUrl },
+  // })
+  
+  // console.log(`Waiting for add transceiver tx ${addTransceiverTxHash.txid}`)
+  // await StacksPlatform.waitForTx(addTransceiverTxHash.txid, clientBaseUrl, false)
+  // console.log(chalk.green(`✅ Added transceiver to NTT manager`))
+
+  return {
+    chain: ch.chain,
+    address: toNative(ch.chain, `${deployerAddress}.ntt-manager-v1`),
+    state: toNative(ch.chain, `${deployerAddress}.ntt-manager-state`),
+  }
 }
 
 async function missingConfigs(
@@ -3714,29 +3911,34 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     overrides?: WormholeConfigOverrides<N>,
 ): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
   console.log(`Pulling chain config`, network, manager)
-    const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform], overrides);
+    const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform, stacks.Platform], overrides);
     const ch = wh.getChain(manager.chain);
 
     const nativeManagerAddress = canonicalAddress(manager);
 
     const { ntt, addresses }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts>; } =
     await nttFromManager<N, C>(ch, nativeManagerAddress);
+console.log(`1`)
+const mode = await ntt.getMode();
+const outboundLimit = await ntt.getOutboundLimit();
+const threshold = await ntt.getThreshold();
+console.log(`2`)
 
-    const mode = await ntt.getMode();
-    const outboundLimit = await ntt.getOutboundLimit();
-    const threshold = await ntt.getThreshold();
+const decimals = await ntt.getTokenDecimals();
+// insert decimal point into number
+const outboundLimitDecimals = formatNumber(outboundLimit, decimals);
 
-    const decimals = await ntt.getTokenDecimals();
-    // insert decimal point into number
-    const outboundLimitDecimals = formatNumber(outboundLimit, decimals);
+console.log(`3`)
+const paused = await ntt.isPaused();
+const owner = await ntt.getOwner();
+const pauser = await ntt.getPauser();
+console.log(`4`)
 
-    const paused = await ntt.isPaused();
-    const owner = await ntt.getOwner();
-    const pauser = await ntt.getPauser();
+const version = getVersion(manager.chain, ntt);
 
-    const version = getVersion(manager.chain, ntt);
-
-    const transceiverPauser = await ntt.getTransceiver(0).then((t) => t?.getPauser() ?? null);
+console.log(`5`)
+const transceiverPauser = await ntt.getTransceiver(0).then((t) => t?.getPauser() ?? null);
+console.log(`6`)
 
     const config: ChainConfig = {
         version,
@@ -3826,6 +4028,8 @@ function getVersion<N extends Network, C extends Chain>(chain: C, ntt: Ntt<N, C>
         case "Sui":
             // For Sui, return a default version since version property is not implemented yet
             return "dev";
+        case "Stacks":
+            return (ntt as StacksNtt<N, StacksChains>).version
         default:
             throw new Error("Unsupported platform");
     }
@@ -3839,14 +4043,15 @@ async function nttFromManager<N extends Network, C extends Chain>(
     ch: ChainContext<N, C>,
     nativeManagerAddress: string,
 ): Promise<{ ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> }> {
-    const onlyManager = await ch.getProtocol("Ntt", {
-        ntt: {
-            manager: nativeManagerAddress,
-            transceiver: {},
-        }
+  const onlyManager = await ch.getProtocol("Ntt", {
+    ntt: {
+        manager: nativeManagerAddress,
+        transceiver: {},
+      }
     });
     const diff = await onlyManager.verifyAddresses();
-
+    console.log(`diff`)
+    console.log(diff)
     const addresses: Partial<Ntt.Contracts> = {
         manager: nativeManagerAddress,
         ...diff
@@ -4168,6 +4373,7 @@ function resolveVersion(latest: boolean, ver: string | undefined, local: boolean
     }
     if (latest) {
         const available = getAvailableVersions(platform);
+        console.log(`available versions: ${available}`)
         return available.sort().reverse()[0];
     } else if (ver) {
         return ver;

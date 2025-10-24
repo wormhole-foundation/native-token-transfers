@@ -1,10 +1,9 @@
 ;; Title: ntt-manager
 ;; Version: v1
-;; Summary:
+;; Summary: NTT Manager contract for Wormhole Native Token Transfer (NTT) protocol
 ;; Description:
-
-;; This contract is for the sBTC fungibile token defined at SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
-;; To deploy for a different SIP-10 token, replace all references to the sBTC contract with references to the chosen token's contract
+;;   This contract interacts with the token contract (if native) and one or more transceivers.
+;;   It is not dependent on any specific cross-chain protocol (Wormhole, Axelar, etc.)
 
 ;;;; Traits
 
@@ -30,20 +29,20 @@
 (define-constant ERR_TRANSCEIVER_NOT_FOUND (err u5003))
 ;; Account does not have pending tokens to claim
 (define-constant ERR_NO_TOKENS_PENDING (err u5004))
+;; Contract has not been initialized
+(define-constant ERR_UNINITIALIZED (err u5005))
+;; Contract has not been initialized
+(define-constant ERR_ALREADY_INITIALIZED (err u5006))
 ;; Token contract not registered
-(define-constant ERR_ADDR32_NOT_REGISTERED (err u5006))
+(define-constant ERR_ADDR32_NOT_REGISTERED (err u5007))
 ;; Generic integer overflow
-(define-constant ERR_INT_OVERFLOW (err u5007))
-;; Value for `decimals` too large
-(define-constant ERR_DECIMALS_OVERFLOW (err u5008))
+(define-constant ERR_INT_OVERFLOW (err u5008))
 ;; No known NTT manager on peer chain
 (define-constant ERR_UNKNOWN_CHAIN (err u5009))
 ;; Contract is paused, all actions disabled
 (define-constant ERR_PAUSED (err u5010))
 ;; Integer division resulted in remainder
 (define-constant ERR_DIV_REMAINDER (err u5011))
-;; Compile time: Scaling list length
-(define-constant ERR_SCALING_LIST_LEN (err u5012))
 
 ;; Update process errors
 (define-constant ERR_UPG_UNAUTHORIZED (err u5101))
@@ -84,10 +83,13 @@
 (define-constant ERR_EXT_PARSING_PRINCIPAL_1 (err u5406))
 (define-constant ERR_EXT_PARSING_PRINCIPAL_2 (err u5407))
 
+;; Deployment assert errors
+(define-constant ERR_SCALING_LIST_LEN (err u5501))
+(define-constant ERR_CFG_TOKEN_CONTRACT (err u5503))
+
 (define-constant MAX_VALUE_U8 u255)
 (define-constant MAX_VALUE_U16 u65535)
 (define-constant MAX_VALUE_U64 u18446744073709551615)
-(define-constant TOKEN_CONTRACT (if is-in-mainnet 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-token))
 
 ;; ID for a token transfer message: [0x99, 'N', 'T', 'T']
 (define-constant PREFIX_TOKEN_TRANSFER 0x994e5454)
@@ -102,6 +104,9 @@
 ;; Known protocols
 (define-constant PROTOCOL_WORMHOLE u1)
 (define-constant PROTOCOL_AXELAR u2)
+
+;;;; Data Vars: Don't export to sucessor contract
+(define-data-var initialized bool false)
 
 ;;;; Data Vars: Export to sucessor contract
 (define-data-var next-sequence uint u0)
@@ -126,7 +131,7 @@
   (buff 32)
 )
 
-;;;; BEGIN PAUSE CODE
+;;;; ----- PAUSE CODE ---->
 ;; This block can be copied into any contract to add pause functionality (must have error values defined)
 
 (define-data-var pauser principal tx-sender)
@@ -158,7 +163,8 @@
 
 (define-read-only (get-pauser)
   (var-get pauser))
-;;;; END PAUSE CODE
+
+;;;; <---- PAUSE_CODE -----
 
 ;;;; Public Functions: Admin
 
@@ -183,10 +189,10 @@
 ;; @desc Lock tokens and send cross-chain message via specified transceiver
 ;;       `contract-caller` must have registered a 32-byte address via `wormhole-core`
 (define-public (send-token-transfer (transceiver <transceiver-trait>) (amount uint) (recipient-chain (buff 2)) (recipient-address (buff 32)))
-  (let ((check1 (try! (check-paused)))
+  (let ((check1 (try! (check-enabled)))
         (check2 (try! (check-transceiver-trait transceiver)))
         (sequence (get-next-sequence))
-        (token-decimals (unwrap! (get-decimals) ERR_TT_GET_DECIMALS))
+        (token-decimals (try! (contract-call? .token-owner get-decimals)))
         (scaled-val (try! (scale-amount-to-u64 amount token-decimals)))
         (scaled-amount (get amount scaled-val))
         (scaled-decimals-as-buff-1 (try! (uint-to-buff-1-be (get decimals scaled-val))))
@@ -197,9 +203,7 @@
           (uint-to-buff-16-be sequence)))
         (ntt-peer (unwrap! (contract-call? .ntt-manager-state peers-get recipient-chain) ERR_UNKNOWN_CHAIN))
         (ntt-payload (try! (build-token-transfer-payload message-id scaled-decimals-as-buff-1 sender scaled-amount recipient-address recipient-chain none))))
-    ;; Take tokens from user and lock them in this contract
-    ;; TODO: Add memo?
-    (try! (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token transfer scaled-amount tx-sender (get-contract-principal) none))
+    (try! (contract-call? .token-owner lock-or-burn-tokens amount tx-sender))
     (try! (contract-call? transceiver send-token-transfer ntt-payload recipient-chain (get address ntt-peer) sender))
     (var-set next-sequence (+ sequence u1))
     (ok sequence)))
@@ -207,12 +211,12 @@
 ;; @desc Lock tokens and send cross-chain message via specified transceiver
 ;;       Returns a tuple with `recipient: none` if funds still pending because addr32 lookup failed
 (define-public (receive-token-transfer (source-chain (buff 2)) (source-ntt-manager (buff 32)) (ntt-manager-payload (buff 1024)))
-  (let ((check1 (try! (check-paused)))
+  (let ((check1 (try! (check-enabled)))
         (transceiver contract-caller)
         (protocol (try! (check-transceiver transceiver)))
         (ntt-manager-message (try! (parse-token-transfer-payload ntt-manager-payload)))
         (peer-decimals (get decimals ntt-manager-message))
-        (native-decimals (unwrap! (get-decimals) ERR_TT_GET_DECIMALS))
+        (native-decimals (try! (contract-call? .token-owner get-decimals)))
         (amount (try! (scale-decimals (get amount ntt-manager-message) peer-decimals native-decimals)))
         (peer-data (unwrap! (contract-call? .ntt-manager-state peers-get source-chain) ERR_UNKNOWN_CHAIN))
         (uid (keccak256 (concat source-chain ntt-manager-payload)))
@@ -237,14 +241,12 @@
       ERR_TT_CHECK_SOURCE_NTT_MANAGER)
     (asserts! (is-eq (get recipient-chain ntt-manager-message) WORMHOLE_STACKS_CHAIN_ID)
       ERR_TT_CHECK_RECIPIENT_CHAIN_ID)
-    ;; (asserts! (is-eq (get source-token ntt-manager-message) (try! (get-addr32-token-contract)))
-    ;;   ERR_TT_CHECK_TOKEN)
 
     ;; Final Check: Try to consume hash to check for message replay
     (try! (contract-call? .ntt-manager-state consume-message uid))
     (match recipient
       ;; We know recipient account, unlock and send to account
-      r (try! (as-contract (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token transfer amount tx-sender r none)))
+      r (try! (contract-call? .token-owner unlock-or-mint-tokens amount r))
       ;; We don't know recipient account yet. Allow account to claim later
       (let ((idx {
               protocol: protocol,
@@ -264,64 +266,78 @@
 ;; @desc Release any pending tokens for given principal
 ;;       Returns `(ok amount-transferred)` on success
 (define-public (release-tokens-pending (transceiver <transceiver-trait>) (recipient principal))
-  (let ((check1 (try! (check-paused)))
+  (let ((check1 (try! (check-enabled)))
         (check2 (try! (check-transceiver-trait transceiver)))
         (idx {
           protocol: (unwrap! (get-transceiver-trait-protocol transceiver) ERR_TRANSCEIVER_NOT_FOUND),
           addr32: (try! (contract-call? transceiver get-addr32 recipient))
         })
         (amount (unwrap! (contract-call? .ntt-manager-state tokens-pending-get idx) ERR_NO_TOKENS_PENDING)))
-    (try! (as-contract (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token transfer amount tx-sender recipient none)))
+    (try! (contract-call? .token-owner unlock-or-mint-tokens amount recipient))
     (try! (contract-call? .ntt-manager-state tokens-pending-delete idx))
     (ok amount)))
 
-;;;; Public Functions: Contract update
+;;;; Public Functions: Contract update and init
 
-;; @desc Call in active contract to start update process
-(define-public (start-update (successor principal))
-  (let ((successor-parts (unwrap! (principal-destruct? successor) ERR_UPG_CHECK_CONTRACT_ADDRESS)))
-    (try! (check-admin))
-    ;; Check we have a contract principal and not a standard principal
-    (asserts! (is-some (get name successor-parts)) ERR_UPG_CHECK_CONTRACT_ADDRESS)
-    (contract-call? .ntt-manager-state start-ownership-transfer successor)))
+;; MUST CALL ONE `initialize-` function prior to use! 
+
+(define-public (initialize-locking-mode (contract principal))
+  (begin
+    (try! (check-uninitialized))
+    (var-set initialized true)
+    (contract-call? .token-owner initialize-locking-mode contract)))
+
+(define-public (initialize-burning-mode
+    (name (string-ascii 32))
+    (symbol (string-ascii 32))
+    (decimals uint)
+    (uri (optional (string-utf8 256))))
+  (begin
+    (try! (check-uninitialized))
+    (var-set initialized true)
+    (contract-call? .token-owner initialize-burning-mode name symbol decimals uri)))
 
 ;; @desc Call in successor contract, after active contract has called `start-update`, to finalize update
-(define-public (finalize-update (previous-contract <previous-transfer-trait>) (import {
-  pauser: bool
-}))
+(define-public (initialize-from-previous
+    (previous-contract <previous-transfer-trait>)
+    (import {
+      pauser: bool
+    }))
   (let ((active-contract (contract-call? .ntt-manager-state get-owner)))
+    (try! (check-uninitialized))
     (asserts! (is-eq (contract-of previous-contract) active-contract) ERR_UPG_UNAUTHORIZED)
+    (try! (contract-call? .token-owner finalize-ownership-transfer))
     (try! (contract-call? .ntt-manager-state finalize-ownership-transfer))
     (let ((previous-state (try! (contract-call? previous-contract transfer-state))))
       (var-set next-sequence (get next-sequence previous-state))
       (if (get pauser import)
         (var-set pauser (get pauser previous-state))
         true)
+      (var-set initialized true)
       (ok true))))
+
+;; @desc Call in active contract to start update process
+(define-public (begin-state-transfer (successor principal))
+  (let ((successor-parts (unwrap! (principal-destruct? successor) ERR_UPG_CHECK_CONTRACT_ADDRESS)))
+    (try! (check-admin))
+    ;; Check we have a contract principal and not a standard principal
+    (asserts! (is-some (get name successor-parts)) ERR_UPG_CHECK_CONTRACT_ADDRESS)
+    (try! (contract-call? .token-owner start-ownership-transfer successor))
+    (try! (contract-call? .ntt-manager-state start-ownership-transfer successor))
+    (ok true)))
 
 ;; @desc Transfer state and funds to new contract (caller)
 ;;       Doesn't transfer maps, currently only transfers locked funds
 ;;       Must call AFTER ownership of state contract has been transferred
 ;;       Can be called multiple times, in case more funds somehow get locked in old contract
 (define-public (transfer-state)
-  (let ((active-contract (contract-call? .ntt-manager-state get-owner))
-        (contract-principal (get-contract-principal))
-        (stx-balance (stx-get-balance contract-principal))
-        (token-balance (unwrap! (get-tokens-locked) ERR_UPG_TOKEN_BALANCE)))
+  (let ((active-contract (contract-call? .ntt-manager-state get-owner)))
     ;; Only the contract set by the ContractUpgrade VAA is allowed to call this function
     (asserts! (is-eq contract-caller active-contract) ERR_UNAUTHORIZED)
-    ;; If we have an STX balance (we shouldn't), transfer to new contract
-    (if (> stx-balance u0)
-      (try! (as-contract (stx-transfer? stx-balance tx-sender active-contract)))
-      true)
-    ;; If we have an SIP10 token balance (we should), transfer to new contract
-    (if (> token-balance u0)
-      (try! (as-contract (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token transfer token-balance tx-sender active-contract none)))
-      true)
     ;; Return all moveable state
     (ok {
-      pauser: (get-pauser),
-      next-sequence: (get-next-sequence)
+      next-sequence: (get-next-sequence),
+      pauser: (get-pauser)
     })))
 
 ;; @desc If update process fails, we can cancel
@@ -330,13 +346,19 @@
     (try! (check-admin))
     (contract-call? .ntt-manager-state cancel-ownership-transfer)))
 
-;;;; Public Functions: Misc.
-
-;; @desc Get 32-byte address of token contract
-(define-public (get-addr32-token-contract)
-  (get-addr32-from-cache TOKEN_CONTRACT))
-
 ;;;; Read-only Functions
+
+(define-read-only (get-mode)
+  (contract-call? .token-owner get-mode))
+
+(define-read-only (is-locking-mode)
+  (contract-call? .token-owner is-locking-mode))
+
+(define-read-only (is-burning-mode)
+  (contract-call? .token-owner is-burning-mode))
+
+(define-read-only (is-initialized)
+  (var-get initialized))
 
 (define-read-only (is-admin (account principal))
   (default-to false (map-get? admins account)))
@@ -371,24 +393,38 @@
 (define-read-only (get-state-contract)
   (ok .ntt-manager-state))
 
+(define-read-only (get-token-owner-contract)
+  (ok .token-owner))
+
+(define-public (get-addr32-state-contract)
+  (get-addr32-from-cache .ntt-manager-state))
+
 (define-read-only (get-token-contract)
-  (ok TOKEN_CONTRACT))
+  (contract-call? .token-owner get-token-contract))
+
+;; @desc Get 32-byte address of token contract
+(define-public (get-addr32-token-contract)
+  (get-addr32-from-cache (try! (contract-call? .token-owner get-token-contract))))
 
 ;; @desc Get latest deployment from state contract
 (define-read-only (get-active-contract)
   (ok (contract-call? .ntt-manager-state get-active-ntt-manager)))
 
+;; @desc Get tokens locked in NTT protocol
+(define-read-only (get-tokens-locked)
+  (get-token-balance .token-owner))
+
 ;; @desc Get token balance for any account
 (define-read-only (get-token-balance (p principal))
-  (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token get-balance p))
+  (contract-call? .token-owner get-balance p))
 
 ;; @desc Get decimals from token contract
-(define-read-only (get-decimals)
-  (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token get-decimals))
+(define-read-only (get-token-decimals)
+  (contract-call? .token-owner get-decimals))
 
-;; @desc Get tokens locked in this contract
-(define-read-only (get-tokens-locked)
-  (get-token-balance (get-contract-principal)))
+;; @desc Get token balance for any account
+(define-read-only (get-token-supply)
+  (contract-call? .token-owner get-total-supply))
 
 ;; @desc Like previous function but uses trait type
 (define-read-only (get-transceiver-trait-protocol (transceiver <transceiver-trait>))
@@ -467,6 +503,21 @@
 ;; @desc Check if caller is admin
 (define-private (check-admin)
   (ok (asserts! (is-admin contract-caller) ERR_UNAUTHORIZED)))
+
+;; @desc Assert that contract has been initialized
+(define-private (check-initialized)
+  (ok (asserts! (is-initialized) ERR_UNINITIALIZED)))
+
+;; @desc Assert that contract has NOT been initialized
+(define-private (check-uninitialized)
+  (ok (asserts! (not (is-initialized)) ERR_ALREADY_INITIALIZED)))
+
+;; @desc Check if we can use contract (initialized, not paused)
+(define-private (check-enabled)
+  (begin
+    (try! (check-initialized))
+    (try! (check-paused))
+    (ok true)))
 
 ;; @desc Get 32-byte address of token contract
 ;;       Cache results in a data-map since it doesn't change, to avoid the cost of `contract-call?`
