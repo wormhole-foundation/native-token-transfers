@@ -10,7 +10,7 @@ export type NttManagerMessage<P extends CustomizableBytes = undefined> =
   LayoutToType<ReturnType<typeof nttManagerMessageLayout<P>>>;
 
 export const nttManagerMessageLayout = <
-  const P extends CustomizableBytes = undefined
+  const P extends CustomizableBytes = undefined,
 >(
   customPayload?: P
 ) =>

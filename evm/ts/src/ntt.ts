@@ -30,9 +30,12 @@ import {
 import "@wormhole-foundation/sdk-evm-core";
 
 import {
+  decodeTrimmedAmount,
+  EncodedTrimmedAmount,
   EvmNttTransceiver,
   Ntt,
   NttTransceiver,
+  untrim,
   WormholeNttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import { Contract, type Provider, type TransactionRequest } from "ethers";
@@ -288,17 +291,17 @@ export class EvmNtt<N extends Network, C extends EvmChains>
 
   async *setOwner(owner: AnyEvmAddress) {
     const canonicalOwner = new EvmAddress(owner).toString();
-    const tx = await this.manager.transferOwnership.populateTransaction(
-      canonicalOwner
-    );
+    const tx =
+      await this.manager.transferOwnership.populateTransaction(canonicalOwner);
     yield this.createUnsignedTx(tx, "Ntt.setOwner");
   }
 
   async *setPauser(pauser: AnyEvmAddress) {
     const canonicalPauser = new EvmAddress(pauser).toString();
-    const tx = await this.manager.transferPauserCapability.populateTransaction(
-      canonicalPauser
-    );
+    const tx =
+      await this.manager.transferPauserCapability.populateTransaction(
+        canonicalPauser
+      );
     yield this.createUnsignedTx(tx, "Ntt.setPauser");
   }
 
@@ -586,7 +589,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     const encoded: EncodedTrimmedAmount = (
       await this.manager.getOutboundLimitParams()
     ).limit;
-    const trimmedAmount: TrimmedAmount = decodeTrimmedAmount(encoded);
+    const trimmedAmount = decodeTrimmedAmount(encoded);
     const tokenDecimals = await this.getTokenDecimals();
 
     return untrim(trimmedAmount, tokenDecimals);
@@ -605,7 +608,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     const encoded: EncodedTrimmedAmount = (
       await this.manager.getInboundLimitParams(toChainId(fromChain))
     ).limit;
-    const trimmedAmount: TrimmedAmount = decodeTrimmedAmount(encoded);
+    const trimmedAmount = decodeTrimmedAmount(encoded);
     const tokenDecimals = await this.getTokenDecimals();
 
     return untrim(trimmedAmount, tokenDecimals);
@@ -700,42 +703,5 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       description,
       parallelizable
     );
-  }
-}
-
-type EncodedTrimmedAmount = bigint; // uint72
-
-type TrimmedAmount = {
-  amount: bigint;
-  decimals: number;
-};
-
-function decodeTrimmedAmount(encoded: EncodedTrimmedAmount): TrimmedAmount {
-  const decimals = Number(encoded & 0xffn);
-  const amount = encoded >> 8n;
-  return {
-    amount,
-    decimals,
-  };
-}
-
-function untrim(trimmed: TrimmedAmount, toDecimals: number): bigint {
-  const { amount, decimals: fromDecimals } = trimmed;
-  return scale(amount, fromDecimals, toDecimals);
-}
-
-function scale(
-  amount: bigint,
-  fromDecimals: number,
-  toDecimals: number
-): bigint {
-  if (fromDecimals == toDecimals) {
-    return amount;
-  }
-
-  if (fromDecimals > toDecimals) {
-    return amount / 10n ** BigInt(fromDecimals - toDecimals);
-  } else {
-    return amount * 10n ** BigInt(toDecimals - fromDecimals);
   }
 }

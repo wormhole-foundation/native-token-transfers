@@ -42,7 +42,7 @@ import {
   fetchCapabilities,
   fetchSignedQuote,
   fetchStatus,
-  RelayStatus,
+  isRelayStatusFailed,
 } from "./utils.js";
 import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
@@ -99,7 +99,7 @@ export namespace NttExecutorRoute {
 
   export type TransferReceipt<
     SC extends Chain = Chain,
-    DC extends Chain = Chain
+    DC extends Chain = Chain,
   > = _TransferReceipt<NttRoute.ManualAttestationReceipt, SC, DC> & {
     params: ValidatedParams;
   };
@@ -711,12 +711,7 @@ export class NttExecutorRoute<N extends Network>
       if (!txStatus) throw new Error("No transaction status found");
 
       const relayStatus = txStatus.status;
-      if (
-        relayStatus === RelayStatus.Failed || // this could happen if simulation fails
-        relayStatus === RelayStatus.Underpaid || // only happens if you don't pay at least the costEstimate
-        relayStatus === RelayStatus.Unsupported || // capabilities check didn't pass
-        relayStatus === RelayStatus.Aborted // An unrecoverable error indicating the attempt should stop (bad data, pre-flight checks failed, or chain-specific conditions)
-      ) {
+      if (isRelayStatusFailed(relayStatus)) {
         receipt = {
           ...receipt,
           state: TransferState.Failed,

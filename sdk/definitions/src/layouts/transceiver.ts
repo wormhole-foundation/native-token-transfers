@@ -9,12 +9,12 @@ import { Prefix, prefixItem } from "./prefix.js";
 
 export type TransceiverMessage<
   MP extends CustomizableBytes = undefined,
-  TP extends CustomizableBytes = undefined
+  TP extends CustomizableBytes = undefined,
 > = LayoutToType<ReturnType<typeof transceiverMessageLayout<MP, TP>>>;
 
 export const transceiverMessageLayout = <
   const MP extends CustomizableBytes = undefined,
-  const TP extends CustomizableBytes = undefined
+  const TP extends CustomizableBytes = undefined,
 >(
   prefix: Prefix,
   nttManagerPayload?: MP,
