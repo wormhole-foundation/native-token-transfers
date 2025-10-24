@@ -70,7 +70,7 @@ import { type SuiChains } from "@wormhole-foundation/sdk-sui";
 
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
-import { handleRpcError } from "./error";
+import { handleDeploymentError } from "./error";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
@@ -3053,7 +3053,7 @@ async function deployEvm<N extends Network, C extends Chain>(
     const tokenContract = new ethers.Contract(token, abi, provider);
     decimals = await tokenContract.decimals();
   } catch (error) {
-    handleRpcError(error, ch.chain, ch.network, rpc);
+    handleDeploymentError(error, ch.chain, ch.network, rpc);
   }
 
   // TODO: should actually make these ENV variables.
@@ -3292,7 +3292,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
   try {
     mintInfo = await connection.getAccountInfo(tokenMint);
   } catch (error) {
-    handleRpcError(error, ch.chain, ch.network, ch.config.rpc);
+    handleDeploymentError(error, ch.chain, ch.network, ch.config.rpc);
   }
   if (!mintInfo) {
     console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
@@ -4106,7 +4106,7 @@ async function deploySui<N extends Network, C extends Chain>(
     } catch (deploymentError) {
       // Restore original Move.toml files if deployment fails
       restore();
-      handleRpcError(deploymentError, ch.chain, ch.network, ch.config.rpc);
+      handleDeploymentError(deploymentError, ch.chain, ch.network, ch.config.rpc);
     }
   });
 }
