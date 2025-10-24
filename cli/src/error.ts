@@ -3,19 +3,60 @@ import type { Chain, Network } from "@wormhole-foundation/sdk";
 import { chainToPlatform } from "@wormhole-foundation/sdk-base";
 
 /**
- * Handles RPC-related errors and provides helpful error messages with suggestions.
- *
+ * @param error - The error that occurred (typically from execSync)
+ * @param rpc - The RPC endpoint URL
+ * @returns true if this was a Sui deployment error and was handled, false otherwise
+ */
+function handleSuiDeploymentError(error: any, rpc: string): boolean {
+  if (!error.stdout && !error.stderr && !error.output) {
+    return false;
+  }
+  
+  console.error(chalk.red("\nSui deployment failed\n"));
+  
+  let errorMessage = "";
+  
+  // Check stdout first (where sui client publish errors often appear)
+  if (error.stdout) {
+    const stdout = error.stdout.toString().trim();
+    if (stdout && !stdout.startsWith('{')) {
+      errorMessage = stdout;
+    }
+  }
+  
+  // Check error.output array [stdin, stdout, stderr]
+  if (!errorMessage && error.output && Array.isArray(error.output)) {
+    if (error.output[1]) {
+      const stdout = error.output[1].toString().trim();
+      if (stdout && !stdout.startsWith('{')) {
+        errorMessage = stdout;
+      }
+    }
+  }
+  
+  // Fallback to error.message
+  if (!errorMessage && error.message) {
+    errorMessage = error.message;
+  }
+  
+  console.error(chalk.red(errorMessage || "Unknown deployment error"));
+  
+  return true;
+}
+
+/**
  * @param error - The error that occurred
  * @param chain - The chain being deployed to
  * @param network - The network (Mainnet, Testnet, Devnet)
  * @param rpc - The RPC endpoint URL that failed
+ * @returns true if this was an RPC error and was handled, false otherwise
  */
-export function handleRpcError(
+function handleRpcConnectionError(
   error: any,
   chain: Chain,
   network: Network,
   rpc: string
-): never {
+): boolean {
   const errorMessage = error?.message || String(error);
   const errorStack = error?.stack || "";
 
@@ -79,9 +120,60 @@ export function handleRpcError(
           `  • https://wormhole.com/docs/products/token-transfers/native-token-transfers/faqs/#how-can-i-specify-a-custom-rpc-for-ntt`
       )
     );
-  } else {
-    console.error(chalk.red("\n Error during deployment:"));
-    console.error(errorMessage);
+    
+    return true;
   }
+  
+  return false;
+}
+
+/**
+ * @param error - The error that occurred
+ */
+function handleGenericError(error: any): never {
+  console.error(chalk.red("\nDeployment failed\n"));
+  
+  const errorMessage = error?.message || String(error);
+  
+  // Show stdout if available
+  if (error.stdout) {
+    console.error(chalk.yellow("Output:"));
+    console.error(error.stdout.toString());
+  }
+  
+  // Show stderr if available
+  if (error.stderr) {
+    console.error(chalk.yellow("\nError output:"));
+    console.error(error.stderr.toString());
+  }
+  
+  // Show message if no stdout/stderr
+  if (!error.stdout && !error.stderr) {
+    console.error(chalk.yellow("Error:"), errorMessage);
+    
+    // Show stack trace for debugging if available
+    if (error.stack) {
+      console.error(chalk.dim("\nStack trace:"));
+      console.error(chalk.dim(error.stack));
+    }
+  }
+  
   process.exit(1);
+}
+
+export function handleDeploymentError(
+  error: any,
+  chain: Chain,
+  network: Network,
+  rpc: string
+): never {
+  if (chain === "Sui" && handleSuiDeploymentError(error, rpc)) {
+    process.exit(1);
+  }
+  
+  if (handleRpcConnectionError(error, chain, network, rpc)) {
+    process.exit(1);
+  }
+  
+  handleGenericError(error);
 }

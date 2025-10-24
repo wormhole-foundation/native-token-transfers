@@ -70,7 +70,7 @@ import { type SuiChains } from "@wormhole-foundation/sdk-sui";
 
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
-import { handleRpcError } from "./error";
+import { handleDeploymentError } from "./error";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
@@ -3053,7 +3053,7 @@ async function deployEvm<N extends Network, C extends Chain>(
     const tokenContract = new ethers.Contract(token, abi, provider);
     decimals = await tokenContract.decimals();
   } catch (error) {
-    handleRpcError(error, ch.chain, ch.network, rpc);
+    handleDeploymentError(error, ch.chain, ch.network, rpc);
   }
 
   // TODO: should actually make these ENV variables.
@@ -3292,7 +3292,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
   try {
     mintInfo = await connection.getAccountInfo(tokenMint);
   } catch (error) {
-    handleRpcError(error, ch.chain, ch.network, ch.config.rpc);
+    handleDeploymentError(error, ch.chain, ch.network, ch.config.rpc);
   }
   if (!mintInfo) {
     console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
@@ -3612,7 +3612,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // 1. Deploy ntt_common
       console.log("Publishing ntt_common package...");
       const nttCommonResult = execSync(
-        `cd ${packagesPath}/ntt_common && sui client publish --gas-budget ${finalGasBudget} --json`,
+        `cd ${packagesPath}/ntt_common && sui client publish --gas-budget ${finalGasBudget} --skip-dependency-verification --json`,
         {
           encoding: "utf8",
           env: process.env,
@@ -3637,7 +3637,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // 2. Deploy ntt package
       console.log("Publishing ntt package...");
       const nttResult = execSync(
-        `cd ${packagesPath}/ntt && sui client publish --gas-budget ${finalGasBudget} --json`,
+        `cd ${packagesPath}/ntt && sui client publish --gas-budget ${finalGasBudget} --skip-dependency-verification --json`,
         {
           encoding: "utf8",
           env: process.env,
@@ -3662,7 +3662,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // 3. Deploy wormhole_transceiver package
       console.log("Publishing wormhole_transceiver package...");
       const whTransceiverResult = execSync(
-        `cd ${packagesPath}/wormhole_transceiver && sui client publish --gas-budget ${finalGasBudget} --json`,
+        `cd ${packagesPath}/wormhole_transceiver && sui client publish --gas-budget ${finalGasBudget} --skip-dependency-verification --json`,
         {
           encoding: "utf8",
           env: process.env,
@@ -4106,7 +4106,7 @@ async function deploySui<N extends Network, C extends Chain>(
     } catch (deploymentError) {
       // Restore original Move.toml files if deployment fails
       restore();
-      handleRpcError(deploymentError, ch.chain, ch.network, ch.config.rpc);
+      handleDeploymentError(deploymentError, ch.chain, ch.network, ch.config.rpc);
     }
   });
 }
