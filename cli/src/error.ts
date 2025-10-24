@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import type { Chain, Network } from "@wormhole-foundation/sdk";
+import { chainToPlatform } from "@wormhole-foundation/sdk-base";
 
 /**
  * Handles RPC-related errors and provides helpful error messages with suggestions.
@@ -18,10 +19,13 @@ export function handleRpcError(
   const errorMessage = error?.message || String(error);
   const errorStack = error?.stack || "";
   
-  // Check if this is an RPC-related error by looking for "jsonrpc" in stack or message
+  // Check if this is an RPC-related error by looking for common RPC error indicators
   const isRpcError =
     errorMessage.toLowerCase().includes("jsonrpc") ||
-    errorStack.toLowerCase().includes("jsonrpc");
+    errorStack.toLowerCase().includes("jsonrpc") ||
+    errorMessage.toLowerCase().includes("rpc") ||
+    errorMessage.toLowerCase().includes("connection") ||
+    errorMessage.toLowerCase().includes("network error");
 
   if (isRpcError) {
     console.error(chalk.red(`RPC connection error for ${chain} on ${network}\n`));
@@ -48,6 +52,21 @@ export function handleRpcError(
   }
 }
 `));
+    
+    // Show chainlist.org only for EVM chains
+    try {
+      const platform = chainToPlatform(chain as any);
+      if (platform === "Evm") {
+        console.error(
+          chalk.cyan(
+            `Find RPC endpoints for ${chain}: https://chainlist.org`
+          )
+        );
+      }
+    } catch (e) {
+      // If chainToPlatform fails, just skip the platform-specific message
+    }
+    
     console.error(
       chalk.cyan(
         `For more information about overrides.json:\n` +
@@ -60,4 +79,3 @@ export function handleRpcError(
   }
   process.exit(1);
 }
-

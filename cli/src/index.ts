@@ -3288,7 +3288,12 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
   // get the mint authority of 'token'
   const tokenMint = new PublicKey(token);
   const connection: Connection = await ch.getRpc();
-  const mintInfo = await connection.getAccountInfo(tokenMint);
+  let mintInfo;
+  try {
+    mintInfo = await connection.getAccountInfo(tokenMint);
+  } catch (error) {
+    handleRpcError(error, ch.chain, ch.network, ch.config.rpc);
+  }
   if (!mintInfo) {
     console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
     process.exit(1);
@@ -4101,7 +4106,7 @@ async function deploySui<N extends Network, C extends Chain>(
     } catch (deploymentError) {
       // Restore original Move.toml files if deployment fails
       restore();
-      throw deploymentError;
+      handleRpcError(deploymentError, ch.chain, ch.network, ch.config.rpc);
     }
   });
 }
