@@ -3612,7 +3612,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // 1. Deploy ntt_common
       console.log("Publishing ntt_common package...");
       const nttCommonResult = execSync(
-        `cd ${packagesPath}/ntt_common && sui client publish --gas-budget ${finalGasBudget} --skip-dependency-verification --json`,
+        `cd ${packagesPath}/ntt_common && sui client publish --gas-budget ${finalGasBudget} --json`,
         {
           encoding: "utf8",
           env: process.env,
@@ -3637,7 +3637,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // 2. Deploy ntt package
       console.log("Publishing ntt package...");
       const nttResult = execSync(
-        `cd ${packagesPath}/ntt && sui client publish --gas-budget ${finalGasBudget} --skip-dependency-verification --json`,
+        `cd ${packagesPath}/ntt && sui client publish --gas-budget ${finalGasBudget} --json`,
         {
           encoding: "utf8",
           env: process.env,
@@ -3662,7 +3662,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // 3. Deploy wormhole_transceiver package
       console.log("Publishing wormhole_transceiver package...");
       const whTransceiverResult = execSync(
-        `cd ${packagesPath}/wormhole_transceiver && sui client publish --gas-budget ${finalGasBudget} --skip-dependency-verification --json`,
+        `cd ${packagesPath}/wormhole_transceiver && sui client publish --gas-budget ${finalGasBudget} --json`,
         {
           encoding: "utf8",
           env: process.env,
