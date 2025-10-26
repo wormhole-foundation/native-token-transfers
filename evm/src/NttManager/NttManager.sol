@@ -631,13 +631,17 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
 
         if (mode == Mode.LOCKING) {
             // unlock tokens to the specified recipient
-            IERC20(token).safeTransfer(recipient, untrimmedAmount);
+            _unlockTokens(recipient, untrimmedAmount);
         } else if (mode == Mode.BURNING) {
             // mint tokens to the specified recipient
             INttToken(token).mint(recipient, untrimmedAmount);
         } else {
             revert InvalidMode(uint8(mode));
         }
+    }
+
+    function _unlockTokens(address recipient, uint256 untrimmedAmount) internal virtual {
+        IERC20(token).safeTransfer(recipient, untrimmedAmount);
     }
 
     function tokenDecimals() public view override(INttManager, RateLimiter) returns (uint8) {
