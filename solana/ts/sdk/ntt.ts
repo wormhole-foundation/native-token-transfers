@@ -617,7 +617,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
             getTransceiverProgram(
               connection,
               contracts.ntt!.manager,
-              version as IdlVersion
+              version as IdlVersion,
+              !contracts.ntt!.svmShims // Use legacy IDL when svmShims is not set
             ),
             version,
             contracts.ntt!.svmShims
@@ -628,7 +629,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
             getTransceiverProgram(
               connection,
               contracts.ntt!.transceiver[transceiverType]!,
-              version as IdlVersion
+              version as IdlVersion,
+              !contracts.ntt!.svmShims // Use legacy IDL when svmShims is not set
             )
           );
         }

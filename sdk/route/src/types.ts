@@ -50,6 +50,10 @@ export namespace NttRoute {
     transceiver: TransceiverConfig[];
     quoter?: string;
     isWrappedGasToken?: boolean;
+    svmShims?: {
+      postMessageShimOverride?: string;
+      verifyVaaShimOverride?: string;
+    };
   };
 
   export type Config = {
@@ -206,6 +210,7 @@ export namespace NttRoute {
                 )!.address,
               },
               quoter: srcFound.quoter,
+              svmShims: srcFound.svmShims,
             },
             dstContracts: {
               token: dstFound.token,
@@ -215,6 +220,7 @@ export namespace NttRoute {
                   (v) => v.type === "wormhole"
                 )!.address,
               },
+              svmShims: dstFound.svmShims,
             },
           };
         }
@@ -252,6 +258,7 @@ export namespace NttRoute {
               .address,
           },
           quoter: remote.quoter,
+          svmShims: remote.svmShims,
         };
       }
     }

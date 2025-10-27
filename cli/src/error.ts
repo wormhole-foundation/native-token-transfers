@@ -4,7 +4,7 @@ import { chainToPlatform } from "@wormhole-foundation/sdk-base";
 
 /**
  * Handles RPC-related errors and provides helpful error messages with suggestions.
- * 
+ *
  * @param error - The error that occurred
  * @param chain - The chain being deployed to
  * @param network - The network (Mainnet, Testnet, Devnet)
@@ -18,7 +18,7 @@ export function handleRpcError(
 ): never {
   const errorMessage = error?.message || String(error);
   const errorStack = error?.stack || "";
-  
+
   // Check if this is an RPC-related error by looking for common RPC error indicators
   const isRpcError =
     errorMessage.toLowerCase().includes("jsonrpc") ||
@@ -28,7 +28,9 @@ export function handleRpcError(
     errorMessage.toLowerCase().includes("network error");
 
   if (isRpcError) {
-    console.error(chalk.red(`RPC connection error for ${chain} on ${network}\n`));
+    console.error(
+      chalk.red(`RPC connection error for ${chain} on ${network}\n`)
+    );
     console.error(chalk.yellow("RPC endpoint:"), chalk.white(rpc));
     console.error(chalk.yellow("Error:"), errorMessage);
     console.error();
@@ -42,8 +44,13 @@ export function handleRpcError(
         "You can specify a private RPC endpoint by creating an overrides.json file.\n"
       )
     );
-    console.error(chalk.cyan("Create a file named ") + chalk.white("overrides.json") + chalk.cyan(" in your project root:"));
-    console.error(chalk.white(`
+    console.error(
+      chalk.cyan("Create a file named ") +
+        chalk.white("overrides.json") +
+        chalk.cyan(" in your project root:")
+    );
+    console.error(
+      chalk.white(`
 {
   "chains": {
     "${chain}": {
@@ -51,22 +58,21 @@ export function handleRpcError(
     }
   }
 }
-`));
-    
+`)
+    );
+
     // Show chainlist.org only for EVM chains
     try {
       const platform = chainToPlatform(chain as any);
       if (platform === "Evm") {
         console.error(
-          chalk.cyan(
-            `Find RPC endpoints for ${chain}: https://chainlist.org`
-          )
+          chalk.cyan(`Find RPC endpoints for ${chain}: https://chainlist.org`)
         );
       }
     } catch (e) {
       // If chainToPlatform fails, just skip the platform-specific message
     }
-    
+
     console.error(
       chalk.cyan(
         `For more information about overrides.json:\n` +
