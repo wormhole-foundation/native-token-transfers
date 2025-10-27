@@ -35,6 +35,7 @@ export namespace MultiTokenNtt {
     chain: Chain;
     manager: string;
     gmpManager: string;
+    axelarGasMultiplier?: number | "auto";
   };
 
   export interface TokenMeta {
@@ -98,7 +99,8 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
 
   createTransceiverInstructions(
     dstChain: Chain,
-    gasLimit: bigint
+    gasLimit: bigint,
+    axelarGasMultiplier?: number | "auto"
   ): Promise<Ntt.TransceiverInstruction[]>;
 
   quoteDeliveryPrice(
@@ -111,7 +113,8 @@ export interface MultiTokenNtt<N extends Network, C extends Chain> {
     token: TokenAddress<C>,
     amount: bigint,
     destination: ChainAddress,
-    destinationGasLimit: bigint
+    destinationGasLimit: bigint,
+    axelarGasMultiplier?: number | "auto"
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   redeem(

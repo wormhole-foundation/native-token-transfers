@@ -47,6 +47,7 @@ export namespace MultiTokenNttExecutorRoute {
   export type Config = {
     contracts: MultiTokenNtt.Contracts[];
     referrerFee?: ReferrerFeeConfig;
+    axelarGasMultiplier?: number | "auto";
   };
 
   export type ReferrerFeeConfig = NttExecutorRoute.ReferrerFeeConfig;
@@ -481,7 +482,8 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     const transceiverInstructions =
       await sourceNtt.createTransceiverInstructions(
         toChain.chain,
-        params.normalizedParams.gasLimit
+        params.normalizedParams.gasLimit,
+        this.staticConfig.axelarGasMultiplier
       );
 
     const deliveryPrice = await sourceNtt.quoteDeliveryPrice(

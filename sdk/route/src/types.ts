@@ -284,6 +284,7 @@ export namespace MultiTokenNttRoute {
   export type Config = {
     contracts: MultiTokenNtt.Contracts[];
     perTokenOverrides?: MultiTokenNttRoute.PerTokenGasLimit;
+    axelarGasMultiplier?: number | "auto";
   };
 
   export type NormalizedParams = {

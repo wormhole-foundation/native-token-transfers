@@ -54,6 +54,7 @@ export async function getAxelarGasFee(
   sourceChain: Chain,
   destinationChain: Chain,
   gasLimit: bigint,
+  gasMultiplier: number | "auto" = "auto",
   timeoutMs = 10000
 ): Promise<bigint> {
   const url = `${getAxelarApiUrl(network)}/gmp/estimateGasFee`;
@@ -76,7 +77,7 @@ export async function getAxelarGasFee(
       body: JSON.stringify({
         sourceChain: axelarSourceChain,
         destinationChain: axelarDestinationChain,
-        gasMultiplier: "auto",
+        gasMultiplier,
         gasLimit: gasLimit.toString(),
       }),
       signal: controller.signal,

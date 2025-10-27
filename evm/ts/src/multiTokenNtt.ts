@@ -255,7 +255,8 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
 
   async createTransceiverInstructions(
     dstChain: Chain,
-    gasLimit: bigint
+    gasLimit: bigint,
+    axelarGasMultiplier: number | "auto" = "auto"
   ): Promise<Ntt.TransceiverInstruction[]> {
     const sendTransceivers = await this.getSendTransceivers(dstChain);
 
@@ -276,7 +277,8 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
               this.network,
               this.chain,
               dstChain,
-              gasLimit
+              gasLimit,
+              axelarGasMultiplier
             ).catch(() => 1n);
             return {
               index: transceiver.index,
@@ -313,13 +315,15 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     token: TokenAddress<C>,
     amount: bigint,
     destination: ChainAddress,
-    destinationGasLimit: bigint
+    destinationGasLimit: bigint,
+    axelarGasMultiplier: number | "auto" = "auto"
   ): AsyncGenerator<EvmUnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
 
     const transceiverInstructions = await this.createTransceiverInstructions(
       destination.chain,
-      destinationGasLimit
+      destinationGasLimit,
+      axelarGasMultiplier
     );
 
     const totalPrice = await this.quoteDeliveryPrice(

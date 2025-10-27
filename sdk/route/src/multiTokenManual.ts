@@ -246,7 +246,8 @@ export class MultiTokenNttManualRoute<N extends Network>
       params.normalizedParams.sourceTokenId.address,
       amount.units(params.normalizedParams.amount),
       to,
-      params.normalizedParams.gasLimit
+      params.normalizedParams.gasLimit,
+      this.staticConfig.axelarGasMultiplier
     );
     const txids = await signSendWait(fromChain, initXfer, signer);
 
