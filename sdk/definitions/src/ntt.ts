@@ -114,6 +114,12 @@ export namespace Ntt {
     payload: Uint8Array;
   };
 
+  export type TransceiverMeta = {
+    address: string;
+    index: number;
+    type: string;
+  };
+
   export type Peer<C extends Chain> = {
     address: ChainAddress<C>;
     tokenDecimals: number;
