@@ -166,7 +166,6 @@ contract MultiTokenNtt is
             }
         }
         // TODO: should we check if the token exists, and if so, that the metadata didn't change?
-        TokenMeta memory meta = _queryTokenMetaFromTokenContract(localToken);
 
         // clean up existing entry if there is one
         address oldToken = _getLocalTokenStorage()[token.chainId][token.tokenAddress].token;
@@ -175,7 +174,7 @@ contract MultiTokenNtt is
         }
 
         _getLocalTokenStorage()[token.chainId][token.tokenAddress] =
-            LocalTokenInfo({token: localToken, meta: meta});
+            LocalTokenInfo({token: localToken});
         _getForeignTokenStorage()[localToken] = token;
     }
 
@@ -517,7 +516,6 @@ contract MultiTokenNtt is
 
     struct LocalTokenInfo {
         address token;
-        TokenMeta meta;
     }
 
     function _getLocalTokenStorage()
@@ -798,7 +796,7 @@ contract MultiTokenNtt is
             // create the local token
             localToken = _createLocalToken(tokenInfo);
             _getLocalTokenStorage()[tokenInfo.token.chainId][tokenInfo.token.tokenAddress] =
-                LocalTokenInfo({token: localToken, meta: tokenInfo.meta});
+                LocalTokenInfo({token: localToken});
             _getForeignTokenStorage()[localToken] = tokenInfo.token;
         }
 
@@ -863,12 +861,16 @@ contract MultiTokenNtt is
         }
     }
 
+    bytes private constant symbolSig = abi.encodeWithSignature("symbol()");
+    bytes private constant nameSig = abi.encodeWithSignature("name()");
+    bytes private constant decimalsSig = abi.encodeWithSignature("decimals()");
+
     function _queryTokenMetaFromTokenContract(
         address token
     ) internal view returns (TokenMeta memory meta) {
         bytes memory queryResult;
 
-        queryResult = _staticQuery(token, "symbol()");
+        queryResult = _staticQuery(token, symbolSig);
 
         string memory symbol = abi.decode(queryResult, (string));
         bytes32 symbol32;
@@ -876,7 +878,7 @@ contract MultiTokenNtt is
             symbol32 := mload(add(symbol, 32))
         }
 
-        queryResult = _staticQuery(token, "name()");
+        queryResult = _staticQuery(token, nameSig);
 
         string memory name = abi.decode(queryResult, (string));
         bytes32 name32;
@@ -884,7 +886,7 @@ contract MultiTokenNtt is
             name32 := mload(add(name, 32))
         }
 
-        queryResult = _staticQuery(token, "decimals()");
+        queryResult = _staticQuery(token, decimalsSig);
 
         uint8 decimals = abi.decode(queryResult, (uint8));
 
@@ -896,38 +898,34 @@ contract MultiTokenNtt is
     function _getTokenMeta(
         TokenId memory tokenId
     ) internal view returns (TokenMeta memory meta) {
-        if (tokenId.chainId == chainId) {
-            return _queryTokenMetaFromTokenContract(fromWormholeFormat(tokenId.tokenAddress));
-        } else {
-            // TODO: is there a point in caching this at all? we could just query it every time
-            LocalTokenInfo storage localTokenInfo =
-                _getLocalTokenStorage()[tokenId.chainId][tokenId.tokenAddress];
-            if (localTokenInfo.token == address(0)) {
-                revert TokenNotRegistered(tokenId.chainId, tokenId.tokenAddress);
-            }
-            return localTokenInfo.meta;
-        }
+        address token = _localTokenAddress(tokenId);
+        return _queryTokenMetaFromTokenContract(token);
     }
 
     function _tokenDecimals(
         TokenId memory tokenId
     ) internal view override(MultiTokenRateLimiter) returns (uint8) {
+        address token = _localTokenAddress(tokenId);
+        bytes memory queriedDecimals = _staticQuery(token, decimalsSig);
+        return abi.decode(queriedDecimals, (uint8));
+    }
+
+    function _localTokenAddress(TokenId memory tokenId) internal view returns (address) {
         if (tokenId.chainId == chainId) {
-            address token = fromWormholeFormat(tokenId.tokenAddress);
-            bytes memory queriedDecimals = _staticQuery(token, "decimals()");
-            return abi.decode(queriedDecimals, (uint8));
+            return fromWormholeFormat(tokenId.tokenAddress);
         } else {
             LocalTokenInfo storage localTokenInfo =
                 _getLocalTokenStorage()[tokenId.chainId][tokenId.tokenAddress];
-            if (localTokenInfo.token == address(0)) {
+            address result = localTokenInfo.token;
+            if (result == address(0)) {
                 revert TokenNotRegistered(tokenId.chainId, tokenId.tokenAddress);
             }
-            return localTokenInfo.meta.decimals;
+            return result;
         }
     }
 
-    function _staticQuery(address token, string memory sig) internal view returns (bytes memory) {
-        (bool success, bytes memory result) = token.staticcall(abi.encodeWithSignature(sig));
+    function _staticQuery(address token, bytes memory sig) internal view returns (bytes memory) {
+        (bool success, bytes memory result) = token.staticcall(sig);
         if (!success) {
             revert StaticcallFailed();
         }
