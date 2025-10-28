@@ -183,9 +183,17 @@ contract MultiTokenNtt is
 
     /// @dev When we add new immutables, this function should be updated
     function _checkImmutables() internal view override {
+        // NOTE: we don't check `deployer`, because we don't require the new
+        // implementation to be deployed by the same address as the old one, and
+        // it's only used for initialization, which can only be called once
+        // anyway.
+        // NOTE: we also don't check `chainId` because it's derived from
+        // gmpManager in a deterministic way (i.e. can't be overridden in a new deployment)
         super._checkImmutables();
         assert(this.gmpManager() == gmpManager);
         assert(this.rateLimitDuration() == rateLimitDuration);
+        assert(this.tokenImplementation() == tokenImplementation);
+        assert(this.WETH() == WETH);
     }
 
     // ==================== External Interface ===============================================
