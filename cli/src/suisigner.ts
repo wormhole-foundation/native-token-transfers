@@ -73,15 +73,15 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
 
       // Use the actual transaction that was prepared, not a new empty one
       // The transaction is already a Transaction object from SuiUnsignedTransaction
-      if (!(transaction instanceof Transaction)) {
-        console.error(
-          "ERROR: Expected Transaction object, got:",
-          typeof transaction
-        );
-        throw new Error(
-          `Expected Transaction object, got ${typeof transaction}`
-        );
-      }
+      // if (!(transaction instanceof Transaction)) {
+      //   console.error(
+      //     "ERROR: Expected Transaction object, got:",
+      //     typeof transaction
+      //   );
+      //   throw new Error(
+      //     `Expected Transaction object, got ${typeof transaction}`
+      //   );
+      // }
 
       try {
         // Log transaction details for debugging
