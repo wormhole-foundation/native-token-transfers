@@ -67,6 +67,7 @@ import {
   SolanaAddress,
 } from "@wormhole-foundation/sdk-solana";
 import { type SuiChains } from "@wormhole-foundation/sdk-sui";
+import { registerSolanaTransceiver } from "./solanaHelpers";
 
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
@@ -724,7 +725,7 @@ yargs(hideBin(process.argv))
         argv["gas-estimate-multiplier"]
       );
 
-      const [config, _ctx, _ntt, decimals] = await pullChainConfig(
+      const [config, ctx, ntt, decimals] = await pullChainConfig(
         network,
         deployedManager,
         overrides
@@ -733,6 +734,19 @@ yargs(hideBin(process.argv))
       console.log("token decimals:", chalk.yellow(decimals));
 
       config.transceivers.wormhole.executor = argv["executor"];
+
+      // Register transceiver for Solana chains
+      if (chainToPlatform(chain) === "Solana") {
+        console.log("Registering Solana wormhole transceiver...");
+        const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
+        const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
+        const signer = await getSigner(ctx, signerType, undefined, argv["payer"]);
+        try {
+          await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
+        } catch (e) {
+          console.warn(chalk.yellow("Transceiver registration failed. You can retry with 'ntt push'."));
+        }
+      }
 
       deployments.chains[chain] = config;
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
@@ -1260,14 +1274,11 @@ yargs(hideBin(process.argv))
             continue;
           }
           const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
-          const tx = solanaNtt.registerWormholeTransceiver({
-            payer: signer.address.address as AccountAddress<SolanaChains>,
-            owner: signer.address.address as AccountAddress<SolanaChains>,
-          });
+          const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
           try {
-            await signSendWait(ctx, tx, signer.signer);
+            await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
           } catch (e: any) {
-            console.error(e.logs);
+            // already logged in registerSolanaTransceiver 
           }
         }
         if (missingConfig.solanaUpdateLUT) {
