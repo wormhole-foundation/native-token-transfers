@@ -735,7 +735,6 @@ yargs(hideBin(process.argv))
 
       config.transceivers.wormhole.executor = argv["executor"];
 
-
       deployments.chains[chain] = config;
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
       console.log(`Added ${chain} to ${path}`);
