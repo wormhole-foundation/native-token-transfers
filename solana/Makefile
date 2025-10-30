@@ -72,7 +72,8 @@ test: cargo-test anchor-test
 cargo-test:
 	cargo build-sbf -- -p "ntt-transceiver" --features "mainnet,testing"
 	cargo build-sbf -- --workspace --exclude "ntt-transceiver" --features "mainnet"
-	cargo test-sbf --features "mainnet"
+	cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
+	cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
 	cargo test
 
 anchor-test: idl sdk node_modules
