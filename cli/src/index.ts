@@ -741,11 +741,7 @@ yargs(hideBin(process.argv))
         const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
         const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
         const signer = await getSigner(ctx, signerType, undefined, argv["payer"]);
-        try {
-          await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
-        } catch (e) {
-          console.warn(chalk.yellow("Transceiver registration failed. You can retry with 'ntt push'."));
-        }
+        await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
       }
 
       deployments.chains[chain] = config;
@@ -1275,11 +1271,7 @@ yargs(hideBin(process.argv))
           }
           const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
           const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
-          try {
-            await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
-          } catch (e: any) {
-            // already logged in registerSolanaTransceiver 
-          }
+          await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
         }
         if (missingConfig.solanaUpdateLUT) {
           if (chainToPlatform(chain) !== "Solana") {
