@@ -725,7 +725,7 @@ yargs(hideBin(process.argv))
         argv["gas-estimate-multiplier"]
       );
 
-      const [config, ctx, ntt, decimals] = await pullChainConfig(
+      const [config, _ctx, _ntt, decimals] = await pullChainConfig(
         network,
         deployedManager,
         overrides
