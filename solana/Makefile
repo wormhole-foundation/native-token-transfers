@@ -21,13 +21,13 @@ cargo-build:
 # After building, remove the generics from the idl file. This is necessary as of anchor 0.29.0,
 # because the javascript library does not support generics yet, and just panics
 anchor-build:
-	anchor build --arch sbf
+	anchor build --arch sbf -- --features mainnet
 	for jsonfile in target/idl/*.json; do \
 	  echo "Removing generics from" $$jsonfile; \
 	  ./scripts/patch-idl $$jsonfile; \
 	done
 
-artifacts-mainnet: 
+artifacts-mainnet:
 	$(MAKE) _artifacts TARGET_DIR=$@ NETWORK=mainnet
 
 artifacts-solana-devnet:

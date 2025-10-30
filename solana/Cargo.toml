@@ -54,7 +54,9 @@ solana-address-lookup-table-program = "=1.18.26"
 spl-token = "4.0.0"
 spl-token-2022 = "3.0.2"
 
-wormhole-anchor-sdk = { git = "https://github.com/wormholelabs-xyz/wormhole-scaffolding", branch = "solana/anchor-0.29.0", default-features = false }
+wormhole-anchor-sdk = { git = "https://github.com/wormhole-foundation/wormhole-scaffolding.git", rev = "d38ef8944edfb479ab7eb9399e065711b1dbec13", default-features = false } # TODO: depends on https://github.com/wormhole-foundation/wormhole-scaffolding/pull/105, need to update this once merged
+# NOTE: this is the `main` commit at the time of writing.
+wormhole-svm-definitions = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef" }
 wormhole-sdk = { git = "https://github.com/wormhole-foundation/wormhole", rev = "eee4641" }
 serde_wormhole = { git = "https://github.com/wormhole-foundation/wormhole", rev = "eee4641" }
 
