@@ -735,18 +735,6 @@ yargs(hideBin(process.argv))
 
       config.transceivers.wormhole.executor = argv["executor"];
 
-      // Register transceiver for Solana chains
-      if (chainToPlatform(chain) === "Solana") {
-        console.log("Registering Solana wormhole transceiver...");
-        const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
-        const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
-        const signer = await getSigner(ctx, signerType, undefined, argv["payer"]);
-        try {
-          await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
-        } catch (e: any) {
-          console.error(e.logs);
-        }
-      }
 
       deployments.chains[chain] = config;
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
@@ -3469,6 +3457,22 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 
     try {
       await signSendWait(ch, tx, signer.signer);
+    } catch (e: any) {
+      console.error(e.logs);
+    }
+
+    // After initialize, attempt to register the Wormhole transceiver if shims are available
+    try {
+      const wh = await ntt.getWormholeTransceiver();
+      if (wh && wh.postMessageShim) {
+        await registerSolanaTransceiver(ntt as any, ch, signer);
+      } else {
+        console.warn(
+          chalk.yellow(
+            "Skipping Solana transceiver registration: Wormhole shim not initialized in this environment"
+          )
+        );
+      }
     } catch (e: any) {
       console.error(e.logs);
     }
