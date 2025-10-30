@@ -363,7 +363,7 @@ const options = {
     type: "number",
   },
   payer: {
-    describe: "Path to the payer json file (Solana)",
+    describe: "Path to the payer json file (SVM)",
     type: "string",
   },
   skipChain: {
@@ -537,15 +537,15 @@ yargs(hideBin(process.argv))
         //     type: "string",
         // })
         .option("program-key", {
-          describe: "Path to program key json (Solana)",
+          describe: "Path to program key json (SVM)",
           type: "string",
         })
         .option("payer", {
-          describe: "Path to payer key json (Solana)",
+          describe: "Path to payer key json (SVM)",
           type: "string",
         })
         .option("binary", {
-          describe: "Path to program binary (.so file -- Solana)",
+          describe: "Path to program binary (.so file -- SVM)",
           type: "string",
         })
         .option("token", {
@@ -559,7 +559,7 @@ yargs(hideBin(process.argv))
           choices: ["locking", "burning"],
         })
         .option("solana-priority-fee", {
-          describe: "Priority fee for Solana deployment (in microlamports)",
+          describe: "Priority fee for SVM deployment (in microlamports)",
           type: "number",
           default: 50000,
         })
@@ -757,15 +757,15 @@ yargs(hideBin(process.argv))
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
         .option("payer", {
-          describe: "Path to payer key json (Solana)",
+          describe: "Path to payer key json (SVM)",
           type: "string",
         })
         .option("program-key", {
-          describe: "Path to program key json (Solana)",
+          describe: "Path to program key json (SVM)",
           type: "string",
         })
         .option("binary", {
-          describe: "Path to program binary (.so file -- Solana)",
+          describe: "Path to program binary (.so file -- SVM)",
           type: "string",
         })
         .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
@@ -1113,7 +1113,7 @@ yargs(hideBin(process.argv))
         )
         .example(
           "$0 push --payer <SOLANA_KEYPAIR_PATH>",
-          "Path to the payer json file (Solana), instead of setting SOLANA_PRIVATE_KEY env variable"
+          "Path to the payer json file (SVM), instead of setting SOLANA_PRIVATE_KEY env variable"
         ),
     async (argv) => {
       const deployments: Config = loadConfig(argv["path"]);
@@ -1904,7 +1904,7 @@ yargs(hideBin(process.argv))
       }
     }
   )
-  .command("solana", "Solana commands", (yargs) => {
+  .command(["solana", "svm"], "svm commands", (yargs) => {
     yargs
       .command(
         "key-base58 <keypair>",
@@ -1999,11 +1999,11 @@ yargs(hideBin(process.argv))
             .option("yes", options.yes)
             .option("payer", { ...options.payer, demandOption: true })
             .example(
-              "$0 solana create-spl-multisig Sol1234... --token Sol3456... --manager Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
+              "$0 svm create-spl-multisig Sol1234... --token Sol3456... --manager Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
               "Create multisig with Sol1234... having independent mint privilege alongside NTT token-authority for undeployed program"
             )
             .example(
-              "$0 solana create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
+              "$0 svm create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
               "Create multisig with Sol1234..., Sol3456..., and Sol5678... having mint privileges alongside NTT token-authority for deployed program"
             ),
         async (argv) => {
@@ -2132,6 +2132,107 @@ yargs(hideBin(process.argv))
               console.error(error.logs);
             }
           }
+        }
+      )
+      .command(
+        "build <chain>",
+        "build the SVM program binary without deploying",
+        (yargs) =>
+          yargs
+            .positional("chain", options.chain)
+            .option("program-key", {
+              describe: "Path to program key json",
+              type: "string",
+            })
+            .option("binary", {
+              describe: "Path to existing program binary (.so file) - if provided, only validates the binary",
+              type: "string",
+            })
+            .option("ver", options.version)
+            .option("latest", options.latest)
+            .option("local", options.local)
+            .option("path", options.deploymentPath)
+            .example(
+              "$0 svm build Solana --latest",
+              "Build the SVM program binary using the latest version"
+            )
+            .example(
+              "$0 svm build Solana --ver 1.0.0",
+              "Build using a specific version"
+            )
+            .example(
+              "$0 svm build Solana --local --program-key my-program-keypair.json",
+              "Build from local source with a specific program keypair"
+            )
+            .example(
+              "$0 svm build Solana --latest --binary target/deploy/example_native_token_transfers.so",
+              "Validate an existing binary against the latest version"
+            ),
+        async (argv) => {
+          const path = argv["path"];
+          const deployments: Config = loadConfig(path);
+          const chain: Chain = argv["chain"];
+          const network = deployments.network as Network;
+
+          // Check that the platform is Solana
+          const platform = chainToPlatform(chain);
+          if (platform !== "Solana") {
+            console.error(
+              `build command is only supported for Solana chains. Got platform: ${platform}`
+            );
+            process.exit(1);
+          }
+
+          validateChain(network, chain);
+
+          // Resolve version (--latest, --ver, or --local)
+          const version = resolveVersion(
+            argv["latest"],
+            argv["ver"],
+            argv["local"],
+            platform
+          );
+
+          // Create worktree if version is specified, otherwise use current directory
+          const worktree = version ? createWorkTree(platform, version) : ".";
+
+          // Get wormhole core bridge address for verification
+          const wh = new Wormhole(
+            network,
+            [solana.Platform, evm.Platform, sui.Platform],
+            overrides
+          );
+          const ch = wh.getChain(chain);
+          const wormhole = ch.config.contracts.coreBridge;
+          if (!wormhole) {
+            console.error("Core bridge not found");
+            process.exit(1);
+          }
+
+          const programKeyPath = argv["program-key"];
+          const binaryPath = argv["binary"];
+
+          console.log(`Building SVM program for ${chain} on ${network}...`);
+          if (version) {
+            console.log(chalk.blue(`Using version: ${version}`));
+            console.log(chalk.blue(`Worktree: ${worktree}`));
+          } else {
+            console.log(chalk.blue(`Using local source`));
+          }
+
+          const buildResult = await buildSvm(
+            worktree,
+            network,
+            chain,
+            wormhole,
+            version,
+            programKeyPath,
+            binaryPath
+          );
+
+          console.log(`Program ID: ${buildResult.programId}`);
+          console.log(`Binary: ${buildResult.binary}`);
+          console.log(`Keypair: ${buildResult.programKeypairPath}`);
         }
       )
       .demandCommand();
@@ -2729,7 +2830,7 @@ async function upgradeSolana<N extends Network, C extends SolanaChains>(
     throw new Error("Cannot upgrade Solana to local version"); // TODO: this is not hard to enabled
   }
   const mint = (await ntt.getConfig()).mint;
-  await deploySolana(
+  await deploySvm(
     pwd,
     version,
     await ntt.getMode(),
@@ -2974,7 +3075,7 @@ async function deploy<N extends Network, C extends Chain>(
         process.exit(1);
       }
       const solanaCtx = ch as ChainContext<N, SolanaChains>;
-      return (await deploySolana(
+      return (await deploySvm(
         worktree,
         version,
         mode,
@@ -3145,34 +3246,138 @@ ${simulateArg} \
   return { chain: ch.chain, address: universalManager };
 }
 
-async function deploySolana<N extends Network, C extends SolanaChains>(
+/**
+ * Check if the Solana program supports the bridge-address-from-env feature
+ * @param pwd - Project root directory
+ * @returns true if the feature exists in Cargo.toml
+ */
+function hasBridgeAddressFromEnvFeature(pwd: string): boolean {
+  try {
+    const cargoTomlPath = `${pwd}/solana/programs/example-native-token-transfers/Cargo.toml`;
+    if (!fs.existsSync(cargoTomlPath)) {
+      return false;
+    }
+    const cargoToml = fs.readFileSync(cargoTomlPath, 'utf8');
+    // Check if bridge-address-from-env feature is defined
+    return cargoToml.includes('bridge-address-from-env');
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Build the Solana NTT program using anchor build.
+ * Uses bridge-address-from-env feature if available, otherwise uses network-specific features.
+ * For legacy builds on non-Solana chains, patches the binary after building.
+ * @param pwd - Project root directory
+ * @param network - Network to build for
+ * @param chain - Target chain (used to determine if patching is needed)
+ * @param wormhole - Wormhole core bridge address
+ * @returns Exit code from anchor build
+ */
+async function runAnchorBuild(
   pwd: string,
-  version: string | null,
-  mode: Ntt.Mode,
-  ch: ChainContext<N, C>,
-  token: string,
-  payer: string,
-  initialize: boolean,
-  managerKeyPath?: string,
-  binaryPath?: string,
-  priorityFee?: number
-): Promise<ChainAddress<C>> {
-  ensureNttRoot(pwd);
+  network: Network,
+  chain: Chain,
+  wormhole: string,
+): Promise<number> {
+  checkAnchorVersion(pwd);
 
-  checkSolanaVersion(pwd);
+  const useBridgeFromEnv = hasBridgeAddressFromEnvFeature(pwd);
 
-  // TODO: if the binary is provided, we should not check addresses in the source tree. (so we should move around the control flow a bit)
-  // TODO: factor out some of this into separate functions to help readability of this function (maybe even move to a different file)
+  let buildArgs: string[];
+  let buildEnv: Record<string, string>;
 
-  const wormhole = ch.config.contracts.coreBridge;
-  if (!wormhole) {
-    console.error("Core bridge not found");
-    process.exit(1);
+  if (useBridgeFromEnv) {
+    // New method: use bridge-address-from-env feature with BRIDGE_ADDRESS env var
+    console.log(`Building with bridge-address-from-env feature (BRIDGE_ADDRESS=${wormhole})...`);
+    buildArgs = [
+      "anchor",
+      "build",
+      "-p",
+      "example_native_token_transfers",
+      "--",
+      "--no-default-features",
+      "--features",
+      "bridge-address-from-env"
+    ];
+    buildEnv = {
+      ...process.env,
+      BRIDGE_ADDRESS: wormhole
+    };
+  } else {
+    // Old method: use network-specific feature (mainnet, solana-devnet, tilt-devnet)
+    const networkFeature = cargoNetworkFeature(network);
+    console.log(`Building with ${networkFeature} feature (legacy method)...`);
+    buildArgs = [
+      "anchor",
+      "build",
+      "-p",
+      "example_native_token_transfers",
+      "--",
+      "--no-default-features",
+      "--features",
+      networkFeature
+    ];
+    buildEnv = process.env;
   }
 
-  // grep example_native_token_transfers = ".*"
-  // in solana/Anchor.toml
-  // TODO: what if they rename the program?
+  const proc = Bun.spawn(buildArgs, {
+    cwd: `${pwd}/solana`,
+    env: buildEnv
+  });
+
+  await proc.exited;
+  const exitCode = proc.exitCode ?? 1;
+
+  if (exitCode !== 0) {
+    return exitCode;
+  }
+
+  // For legacy builds on non-Solana chains, patch the binary
+  if (!useBridgeFromEnv && chain !== "Solana") {
+    const binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
+
+    // Get Solana mainnet address for patching
+    const wh = new Wormhole(network, [solana.Platform], overrides);
+    const sol = wh.getChain("Solana");
+    const solanaAddress = sol.config.contracts.coreBridge;
+    if (!solanaAddress) {
+      console.error("Core bridge address not found in Solana config");
+      return 1;
+    }
+
+    console.log(`Patching binary for ${chain}...`);
+    await patchSolanaBinary(binary, wormhole, solanaAddress);
+  }
+
+  return exitCode;
+}
+
+/**
+ * Build the Solana NTT program binary
+ * @param pwd - Project root directory
+ * @param network - Network to build for (affects cargo features)
+ * @param chain - Target chain (for patching non-Solana chains)
+ * @param wormhole - Wormhole core bridge address for verification
+ * @param version - Version string for verification (optional)
+ * @param programKeyPath - Optional path to program keypair (if not provided, will look for {programId}.json)
+ * @param binaryPath - Optional path to pre-built binary (if provided, building is skipped)
+ * @returns Object containing binary path, program ID, and program keypair path
+ */
+async function buildSvm(
+  pwd: string,
+  network: Network,
+  chain: Chain,
+  wormhole: string,
+  version: string | null,
+  programKeyPath?: string,
+  binaryPath?: string
+): Promise<{ binary: string, programId: string, programKeypairPath: string }> {
+  ensureNttRoot(pwd);
+  checkSolanaVersion(pwd);
+
+  // If binary is provided, still need to get program ID
   const existingProgramId = fs
     .readFileSync(`${pwd}/solana/Anchor.toml`)
     .toString()
@@ -3184,17 +3389,17 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     process.exit(1);
   }
 
-  let programKeypairPath;
-  let programKeypair;
+  let programKeypairPath: string;
+  let programKeypair: Keypair;
 
-  if (managerKeyPath) {
-    if (!fs.existsSync(managerKeyPath)) {
-      console.error(`Program keypair not found: ${managerKeyPath}`);
+  if (programKeyPath) {
+    if (!fs.existsSync(programKeyPath)) {
+      console.error(`Program keypair not found: ${programKeyPath}`);
       process.exit(1);
     }
-    programKeypairPath = managerKeyPath;
+    programKeypairPath = programKeyPath;
     programKeypair = Keypair.fromSecretKey(
-      new Uint8Array(JSON.parse(fs.readFileSync(managerKeyPath).toString()))
+      new Uint8Array(JSON.parse(fs.readFileSync(programKeyPath).toString()))
     );
   } else {
     const programKeyJson = `${existingProgramId}.json`;
@@ -3249,6 +3454,62 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     const newLibRs = libRs.replace(existingProgramId, providedProgramId);
     fs.writeFileSync(libRsPath, newLibRs);
   }
+
+  let binary: string;
+
+  if (binaryPath) {
+    console.log(`Using provided binary: ${binaryPath}`);
+    binary = binaryPath;
+  } else {
+    // build the program
+    console.log(`Building SVM program for ${network}...`);
+    const exitCode = await runAnchorBuild(pwd, network, chain, wormhole);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+
+    binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
+    console.log(`Build complete: ${binary}`);
+  }
+
+  // Verify the binary contains expected addresses and version
+  console.log(`Verifying binary...`);
+  await checkSvmBinary(
+    binary,
+    wormhole,
+    providedProgramId,
+    version ?? undefined
+  );
+  console.log(`✓ Binary verification passed`);
+
+  return {
+    binary,
+    programId: providedProgramId,
+    programKeypairPath,
+  };
+}
+
+async function deploySvm<N extends Network, C extends SolanaChains>(
+  pwd: string,
+  version: string | null,
+  mode: Ntt.Mode,
+  ch: ChainContext<N, C>,
+  token: string,
+  payer: string,
+  initialize: boolean,
+  managerKeyPath?: string,
+  binaryPath?: string,
+  priorityFee?: number
+): Promise<ChainAddress<C>> {
+  const wormhole = ch.config.contracts.coreBridge;
+  if (!wormhole) {
+    console.error("Core bridge not found");
+    process.exit(1);
+  }
+
+  // Build the Solana program (or use provided binary)
+  const buildResult = await buildSvm(pwd, ch.network, ch.chain, wormhole, version, managerKeyPath, binaryPath);
+  const { binary, programId: providedProgramId, programKeypairPath } = buildResult;
 
   // First we check that the provided mint's mint authority is the program's token authority PDA when in burning mode.
   // This is checked in the program initialiser anyway, but we can save some
@@ -3331,61 +3592,10 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     }
   }
 
-  let binary: string;
-
+  // Deploy the binary (patching was already done during build for legacy builds on non-Solana chains)
   const skipDeploy = false;
 
   if (!skipDeploy) {
-    if (binaryPath) {
-      binary = binaryPath;
-    } else {
-      // build the program
-      // TODO: build with docker
-      checkAnchorVersion(pwd);
-      const proc = Bun.spawn(
-        [
-          "anchor",
-          "build",
-          "-p",
-          "example_native_token_transfers",
-          "--",
-          "--no-default-features",
-          "--features",
-          cargoNetworkFeature(ch.network),
-        ],
-        {
-          cwd: `${pwd}/solana`,
-        }
-      );
-
-      // const _out = await new Response(proc.stdout).text();
-
-      await proc.exited;
-      if (proc.exitCode !== 0) {
-        process.exit(proc.exitCode ?? 1);
-      }
-
-      binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
-    }
-
-    const wh = new Wormhole(ch.network, [solana.Platform], overrides);
-    const sol = wh.getChain("Solana");
-    const solanaAddress = sol.config.contracts.coreBridge;
-    if (!solanaAddress) {
-      console.error("Core bridge address not found in Solana config");
-      process.exit(1);
-    }
-
-    if (ch.chain !== "Solana") {
-      await patchSolanaBinary(binary, wormhole, solanaAddress);
-    }
-    await checkSolanaBinary(
-      binary,
-      wormhole,
-      providedProgramId,
-      version ?? undefined
-    );
-
     // if buffer.json doesn't exist, create it
     if (!fs.existsSync(`buffer.json`)) {
       execSync(`solana-keygen new -o buffer.json --no-bip39-passphrase`);
@@ -4794,7 +5004,7 @@ async function patchSolanaBinary(
   }
 }
 
-async function checkSolanaBinary(
+async function checkSvmBinary(
   binary: string,
   wormhole: string,
   providedProgramId: string,
