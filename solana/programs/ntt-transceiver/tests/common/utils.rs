@@ -150,6 +150,7 @@ pub async fn get_message_data(
     );
 
     // parse return data
+    println!("{:?}", details.return_data.clone());
     let ix_data = details.return_data.unwrap().data;
     // 8-byte instruction discriminator
     let nonce = u32::from_le_bytes(ix_data[8..12].try_into().unwrap());
