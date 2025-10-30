@@ -741,7 +741,11 @@ yargs(hideBin(process.argv))
         const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
         const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
         const signer = await getSigner(ctx, signerType, undefined, argv["payer"]);
-        await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
+        try {
+          await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
+        } catch (e: any) {
+          console.error(e.logs);
+        }
       }
 
       deployments.chains[chain] = config;
@@ -1271,7 +1275,11 @@ yargs(hideBin(process.argv))
           }
           const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
           const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
-          await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
+          try {
+            await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
+          } catch (e: any) {
+            console.error(e.logs);
+          }
         }
         if (missingConfig.solanaUpdateLUT) {
           if (chainToPlatform(chain) !== "Solana") {

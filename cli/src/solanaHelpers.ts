@@ -11,16 +11,10 @@ export async function registerSolanaTransceiver<N, C extends SolanaChains>(
   ctx: any,
   signer: SignerReturn
 ): Promise<void> {
-  try {
-    const registerTx = solanaNtt.registerWormholeTransceiver({
-      payer: signer.address.address as AccountAddress<C>,
-      owner: signer.address.address as AccountAddress<C>,
-    });
-    await signSendWait(ctx, registerTx, signer.signer);
-    console.log(chalk.green("Wormhole transceiver registered successfully"));
-  } catch (e: any) {
-    console.error(chalk.red("Failed to register wormhole transceiver:"));
-    console.error(e.logs || e.message);
-    throw e;
-  }
+  const registerTx = solanaNtt.registerWormholeTransceiver({
+    payer: signer.address.address as AccountAddress<C>,
+    owner: signer.address.address as AccountAddress<C>,
+  });
+  await signSendWait(ctx, registerTx, signer.signer);
+  console.log(chalk.green("Wormhole transceiver registered successfully"));
 }
