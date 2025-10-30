@@ -3460,18 +3460,9 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
       console.error(e.logs);
     }
 
-    // After initialize, attempt to register the Wormhole transceiver if shims are available
+    // After initialize, attempt to register the Wormhole transceiver
     try {
-      const wh = await ntt.getWormholeTransceiver();
-      if (wh && wh.postMessageShim) {
-        await registerSolanaTransceiver(ntt as any, ch, signer);
-      } else {
-        console.warn(
-          chalk.yellow(
-            "Skipping Solana transceiver registration: Wormhole shim not initialized in this environment"
-          )
-        );
-      }
+      await registerSolanaTransceiver(ntt as any, ch, signer);
     } catch (e: any) {
       console.error(e.logs);
     }
