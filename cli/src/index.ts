@@ -67,6 +67,7 @@ import {
   SolanaAddress,
 } from "@wormhole-foundation/sdk-solana";
 import { type SuiChains } from "@wormhole-foundation/sdk-sui";
+import { registerSolanaTransceiver } from "./solanaHelpers";
 
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
@@ -1260,12 +1261,9 @@ yargs(hideBin(process.argv))
             continue;
           }
           const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
-          const tx = solanaNtt.registerWormholeTransceiver({
-            payer: signer.address.address as AccountAddress<SolanaChains>,
-            owner: signer.address.address as AccountAddress<SolanaChains>,
-          });
+          const solanaCtx = ctx as ChainContext<Network, SolanaChains>;
           try {
-            await signSendWait(ctx, tx, signer.signer);
+            await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
           } catch (e: any) {
             console.error(e.logs);
           }
@@ -3458,6 +3456,13 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
 
     try {
       await signSendWait(ch, tx, signer.signer);
+    } catch (e: any) {
+      console.error(e.logs);
+    }
+
+    // After initialize, attempt to register the Wormhole transceiver
+    try {
+      await registerSolanaTransceiver(ntt as any, ch, signer);
     } catch (e: any) {
       console.error(e.logs);
     }
