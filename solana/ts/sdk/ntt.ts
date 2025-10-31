@@ -80,7 +80,7 @@ export class SolanaNttWormholeTransceiver<
     if (svmShims) {
       const postMessageShimAddress =
         svmShims.postMessageShimOverride ??
-        Ntt.DEFAULT_SVM_SHIM_ADDRESSES[this.manager.chain]["postMessageShim"];
+        Ntt.DEFAULT_SVM_SHIM_ADDRESSES[this.manager.chain]?.["postMessageShim"];
       if (!postMessageShimAddress) {
         throw new Error(
           "No default or override Wormhole Post Message Shim address provided"
@@ -94,7 +94,7 @@ export class SolanaNttWormholeTransceiver<
 
       const verifyVaaShimAddress =
         svmShims.verifyVaaShimOverride ??
-        Ntt.DEFAULT_SVM_SHIM_ADDRESSES[this.manager.chain]["verifyVaaShim"];
+        Ntt.DEFAULT_SVM_SHIM_ADDRESSES[this.manager.chain]?.["verifyVaaShim"];
       if (!verifyVaaShimAddress) {
         throw new Error(
           "No default or override Wormhole Verify VAA Shim address provided"

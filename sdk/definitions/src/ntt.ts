@@ -50,7 +50,7 @@ export namespace Ntt {
   };
 
   export const DEFAULT_SVM_SHIM_ADDRESSES: {
-    [chain in PlatformToChains<"Solana">]: {
+    [chain in PlatformToChains<"Solana">]?: {
       postMessageShim: string;
       verifyVaaShim: string;
     };
@@ -59,14 +59,9 @@ export namespace Ntt {
       postMessageShim: "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX",
       verifyVaaShim: "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at",
     },
-    // TODO: update once shim is configured
-    Pythnet: {
-      postMessageShim: "",
-      verifyVaaShim: "",
-    },
     Fogo: {
-      postMessageShim: "",
-      verifyVaaShim: "",
+      postMessageShim: "EtZMZM22ViKMo4r5y4Anovs3wKQ2owUmDpjygnMMcdEX",
+      verifyVaaShim: "EFaNWErqAtVWufdNb7yofSHHfWFos843DFpu4JBw24at",
     },
   };
 

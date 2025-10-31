@@ -45,10 +45,10 @@
     "@mysten/sui": "1.37.2"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^3.8.8",
-    "@wormhole-foundation/sdk-definitions": "^3.8.8",
-    "@wormhole-foundation/sdk-sui": "^3.8.8",
-    "@wormhole-foundation/sdk-sui-core": "^3.8.8"
+    "@wormhole-foundation/sdk-base": "^3.10.0",
+    "@wormhole-foundation/sdk-definitions": "^3.10.0",
+    "@wormhole-foundation/sdk-sui": "^3.10.0",
+    "@wormhole-foundation/sdk-sui-core": "^3.10.0"
   },
   "type": "module",
   "exports": {
