@@ -61,6 +61,7 @@ impl TrimmedAmount {
             return Ok(amount);
         }
         if from_decimals > to_decimals {
+            // [`u64::checked_pow`] expects a u32 argument
             let power: u32 = (from_decimals - to_decimals).into();
             // Exponentiation will overflow u64 when `power` is greater than 18
             let scaling_factor: u64 = 10u64
@@ -69,6 +70,7 @@ impl TrimmedAmount {
 
             Ok(amount / scaling_factor)
         } else {
+            // [`u64::checked_pow`] expects a u32 argument
             let power: u32 = (to_decimals - from_decimals).into();
 
             // Exponentiation will overflow u64 when `power` is greater than 18
