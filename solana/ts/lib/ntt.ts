@@ -1127,6 +1127,8 @@ export namespace NTT {
     pdas?: Pdas,
     transceiverPdas?: TransceiverPdas
   ): Promise<TransactionInstruction> {
+    const [major, , ,] = parseVersion(program.idl.version);
+
     pdas = pdas ?? NTT.pdas(program.programId);
     transceiverPdas =
       transceiverPdas ?? NTT.transceiverPdas(transceiverProgramId);
@@ -1139,7 +1141,10 @@ export namespace NTT {
       .redeem({})
       .accounts({
         payer: args.payer,
-        config: pdas.configAccount(),
+        // TODO: bump version to properly gate
+        // NOTE: For versions >= 3.x.x, NotPausedConfig is used
+        config:
+          major >= 3 ? { config: pdas.configAccount() } : pdas.configAccount(),
         peer: pdas.peerAccount(chain),
         transceiverMessage: transceiverPdas.transceiverMessageAccount(
           chain,
