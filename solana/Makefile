@@ -67,9 +67,13 @@ node_modules:
 test: cargo-test anchor-test
 
 
+# ntt-transceiver is built separately with `testing` so post message shim ix data is set as return_data
+# See: ntt-transceiver/src/wormhole/accounts.rs::post_message (#[cfg(feature = "testing")])
 cargo-test:
-	cargo build-sbf --features "mainnet"
-	cargo test-sbf --features "mainnet"
+	cargo build-sbf -- -p "ntt-transceiver" --features "mainnet,testing"
+	cargo build-sbf -- --workspace --exclude "ntt-transceiver" --features "mainnet"
+	cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
+	cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
 	cargo test
 
 anchor-test: idl sdk node_modules
