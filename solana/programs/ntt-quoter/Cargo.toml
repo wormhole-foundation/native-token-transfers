@@ -8,16 +8,16 @@ crate-type = ["cdylib", "lib"]
 name = "ntt_quoter"
 
 [features]
-default = ["mainnet", "no-idl"]
+default = ["no-idl"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 
-mainnet = []
-solana-devnet = []
-tilt-devnet = []
-tilt-devnet2 = ["tilt-devnet"]
+mainnet = ["example-native-token-transfers/mainnet"]
+solana-devnet = ["example-native-token-transfers/solana-devnet"]
+tilt-devnet = ["example-native-token-transfers/tilt-devnet"]
+tilt-devnet2 = ["example-native-token-transfers/tilt-devnet2"]
 
 [lints]
 workspace = true

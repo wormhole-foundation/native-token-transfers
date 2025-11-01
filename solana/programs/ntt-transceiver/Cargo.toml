@@ -15,15 +15,16 @@ idl-build = [
   "anchor-lang/idl-build",
   "anchor-spl/idl-build",
   "example-native-token-transfers/idl-build",
-  "wormhole-anchor-sdk/mainnet" # TODO: is this kosher? builds idl without passing on our feature flags
+  "wormhole-anchor-sdk/mainnet",
+  "wormhole-transceiver"
 ]
 no-log-ix-name = []
 cpi = ["no-entrypoint", "example-native-token-transfers/cpi"]
-default = ["mainnet"]
+default = []
 wormhole-transceiver = ["example-native-token-transfers/cpi"]
 transceiver-type-from-env = []
 
-bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env", "example-native-token-transfers/bridge-address-from-env" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/from-env", "wormhole-svm-definitions/from-env", "example-native-token-transfers/bridge-address-from-env" ]
 mainnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/mainnet", "example-native-token-transfers/mainnet" ]
 solana-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet", "example-native-token-transfers/solana-devnet" ]
 tilt-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet" ]
@@ -37,9 +38,9 @@ ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "has
 anchor-lang.workspace = true
 anchor-spl.workspace = true
 solana-program.workspace = true
-wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
-wormhole-verify-vaa-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
-wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
+wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", rev = "783ae2da1", features = ["no-entrypoint", "cpi"] } # TODO: update once https://github.com/wormhole-foundation/wormhole/pull/4559 is merged
+wormhole-verify-vaa-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", rev = "783ae2da1", features = ["no-entrypoint", "cpi"] } # TODO: update once https://github.com/wormhole-foundation/wormhole/pull/4559 is merged
+wormhole-svm-definitions.workspace = true
 cfg-if = "1.0.0"
 
 wormhole-anchor-sdk.workspace = true
