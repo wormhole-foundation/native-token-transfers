@@ -1,0 +1,34 @@
+{
+    "chains": [
+      {
+        "description" : "Solana-Devnet", 
+        "rpc" : "https://api.devnet.solana.com",
+        "networkType" : "solana",
+        "managerAddress" : "0x0ba50e1661e1aa0c07afdbac8349e925b1994b9c3ce2a647523704eba200985c"
+      },
+      {
+        "description": "Sepolia",
+        "rpc": "https://rpc.sepolia.org",
+        "networkType" : "evm",
+        "managerAddress" : "0xB231aD95f2301bc82eA44c515001F0F746D637e0"
+      },
+      {
+        "description": "Arbitrum Sepolia",
+        "rpc": "https://arbitrum-sepolia.blockpi.network/v1/rpc/public",
+        "networkType" : "evm",
+        "managerAddress" : "0xEec94CD3083e067398256a79CcA7e740C5c8ef81"
+      },
+      {
+        "description": "Optimism Sepolia",
+        "rpc": "https://sepolia.optimism.io",
+        "networkType" : "evm",
+        "managerAddress" : "0x7f430D4e7939D994C0955A01FC75D9DE33F12D11"
+      },
+      {
+        "description": "Base Sepolia",
+        "rpc": "https://base-sepolia-rpc.publicnode.com",
+        "networkType" : "evm",
+        "managerAddress" : "0xB03b030b2f5B40819Df76467d67eD1C85Ff66fAD"
+      }
+    ]
+  }
