@@ -13,6 +13,7 @@ import { execSync } from "child_process";
 import * as myEvmSigner from "./evmsigner.js";
 
 import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with { type: "file" };
+
 import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with { type: "file" };
 
 import chalk from "chalk";
@@ -4111,7 +4112,12 @@ async function deploySui<N extends Network, C extends Chain>(
     } catch (deploymentError) {
       // Restore original Move.toml files if deployment fails
       restore();
-      handleDeploymentError(deploymentError, ch.chain, ch.network, ch.config.rpc);
+      handleDeploymentError(
+        deploymentError,
+        ch.chain,
+        ch.network,
+        ch.config.rpc
+      );
     }
   });
 }
@@ -5142,6 +5148,24 @@ function buildVerifierArgs(chain: Chain): string[] {
       "--verify",
       "--verifier",
       "blockscout",
+      "--verifier-url",
+      verifierUrl,
+    ];
+  } else if (verifierType === "sourcify") {
+    const verifierUrl = configuration.get(chain, "verifier_url", {
+      reportError: true,
+    });
+    if (!verifierUrl) {
+      console.error(
+        `verifier_url is required when using sourcify verifier for ${chain}`
+      );
+      process.exit(1);
+    }
+
+    return [
+      "--verify",
+      "--verifier",
+      "sourcify",
       "--verifier-url",
       verifierUrl,
     ];
