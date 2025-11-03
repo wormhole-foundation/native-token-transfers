@@ -177,7 +177,7 @@ export function createTokenTransferCommand(
 
       if (
         Object.prototype.hasOwnProperty.call(argv, "timeout") &&
-        (argv.timeout === undefined || argv.timeout === null)
+        (argv.timeout === undefined || argv.timeout === null || Array.isArray(argv.timeout))
       ) {
         console.error(
           chalk.red(
@@ -232,9 +232,6 @@ export function createTokenTransferCommand(
           error
         );
       }
-
-      await ensureTokenBridgeSupport(sourceCtx, "source", network);
-      await ensureTokenBridgeSupport(destinationCtx, "destination", network);
 
       const chainContexts = new Map<Chain, ChainContext<Network, Chain>>([
         [sourceChainInput, sourceCtx],
