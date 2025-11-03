@@ -200,9 +200,14 @@ export function createTokenTransferCommand(
       const timeoutSeconds = argv.timeout ?? 1200;
       const timeoutMs = Math.max(1, Math.floor(timeoutSeconds)) * 1000;
 
+      const involvedChains = new Set<Chain>([
+        sourceChainInput,
+        destinationChainInput,
+      ]);
       const runtimeOverrides = applyRpcOverrides(
         overrides,
-        rpcArgs as string[] | undefined
+        rpcArgs as string[] | undefined,
+        involvedChains
       );
 
       const wh = new Wormhole(network, [
@@ -751,7 +756,8 @@ function resolveSignerInput(
 
 function applyRpcOverrides<N extends Network>(
   base: WormholeConfigOverrides<N>,
-  rpcArgs?: string[]
+  rpcArgs: string[] | undefined,
+  allowedChains: Set<Chain>
 ): WormholeConfigOverrides<N> {
   if (!rpcArgs || rpcArgs.length === 0) {
     return base;
@@ -787,6 +793,13 @@ function applyRpcOverrides<N extends Network>(
       process.exit(1);
     }
     const chain = chainName as Chain;
+    if (!allowedChains.has(chain)) {
+      console.warn(
+        chalk.yellow(
+          `Warning: RPC override provided for ${chain}, which is not part of this transfer.`
+        )
+      );
+    }
     if (!chainsOverrides[chain]) {
       (chainsOverrides as any)[chain] = {};
     }
