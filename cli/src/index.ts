@@ -105,6 +105,7 @@ import type {
 } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
+import { createTokenTransferCommand } from "./tokenTransfer";
 import { AbiCoder, ethers, Interface } from "ethers";
 import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
 
@@ -1903,6 +1904,7 @@ yargs(hideBin(process.argv))
       }
     }
   )
+  .command(createTokenTransferCommand(overrides))
   .command("solana", "Solana commands", (yargs) => {
     yargs
       .command(
