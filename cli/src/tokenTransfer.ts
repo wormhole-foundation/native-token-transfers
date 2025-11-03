@@ -1,3 +1,6 @@
+// NOTE: We rely on the Wormhole TypeScript SDK for cross-chain execution logic:
+// https://github.com/wormhole-foundation/wormhole-sdk-ts
+
 import chalk from "chalk";
 import type { Argv, CommandModule } from "yargs";
 import {
@@ -40,12 +43,18 @@ type TokenTransferArgs = {
   rpc?: string[];
 };
 
+/**
+ * Platforms that currently have stable token bridge support through the CLI.
+ */
 const SUPPORTED_PLATFORMS: ReadonlySet<Platform> = new Set([
   "Evm",
   "Solana",
   "Sui",
 ]);
 
+/**
+ * Registers the `token-transfer` command and all associated validation / execution logic.
+ */
 export function createTokenTransferCommand(
   overrides: WormholeConfigOverrides<Network>
 ): CommandModule<Record<string, unknown>, TokenTransferArgs> {
@@ -53,7 +62,7 @@ export function createTokenTransferCommand(
     command: "token-transfer",
     describe: "Transfer tokens between chains using the TokenBridge protocol",
     builder: (yargs): Argv<TokenTransferArgs> =>
-      (yargs
+      yargs
         .option("network", {
           alias: "n",
           describe: "Network to use",
@@ -121,7 +130,7 @@ export function createTokenTransferCommand(
           "$0 token-transfer --network Testnet --source-chain Solana --destination-chain Sepolia --token 4zMMC9... --amount 0.1 --rpc Solana=https://api.devnet.solana.com",
           "Override the Solana RPC endpoint for this run"
         )
-        .strict()) as Argv<TokenTransferArgs>,
+        .strict() as Argv<TokenTransferArgs>,
     handler: async (argv) => {
       const networkInput = argv.network;
       if (!isNetwork(networkInput)) {
@@ -156,15 +165,15 @@ export function createTokenTransferCommand(
       const rpcArgs = Array.isArray(rpcRaw)
         ? rpcRaw
         : rpcRaw
-        ? [rpcRaw]
-        : undefined;
+          ? [rpcRaw]
+          : undefined;
 
+      // Reject empty override slots such as `--rpc` or `--rpc ""`
       if (
         rpcArgs &&
         (rpcArgs.length === 0 ||
           rpcArgs.some(
-            (value) =>
-              typeof value !== "string" || value.trim().length === 0
+            (value) => typeof value !== "string" || value.trim().length === 0
           ))
       ) {
         console.error(
@@ -175,9 +184,12 @@ export function createTokenTransferCommand(
         process.exit(1);
       }
 
+      // Users sometimes repeat flags; yargs returns an array in that case. Treat it as invalid.
       if (
         Object.prototype.hasOwnProperty.call(argv, "timeout") &&
-        (argv.timeout === undefined || argv.timeout === null || Array.isArray(argv.timeout))
+        (argv.timeout === undefined ||
+          argv.timeout === null ||
+          Array.isArray(argv.timeout))
       ) {
         console.error(
           chalk.red(
@@ -210,11 +222,11 @@ export function createTokenTransferCommand(
         involvedChains
       );
 
-      const wh = new Wormhole(network, [
-        evm.Platform,
-        solana.Platform,
-        sui.Platform,
-      ], runtimeOverrides);
+      const wh = new Wormhole(
+        network,
+        [evm.Platform, solana.Platform, sui.Platform],
+        runtimeOverrides
+      );
 
       ensureChainSupported(wh, sourceChainInput, "source");
       ensureChainSupported(wh, destinationChainInput, "destination");
@@ -280,6 +292,7 @@ export function createTokenTransferCommand(
       await ensureTokenBridgeSupport(sourceCtx, "source", network);
       await ensureTokenBridgeSupport(destinationCtx, "destination", network);
 
+      // For wrapped assets, ensure the destination chain has already registered the token.
       if (tokenId.address !== "native") {
         try {
           await TokenTransfer.lookupDestinationToken(
@@ -384,9 +397,7 @@ export function createTokenTransferCommand(
         `Transferring ${formatAmount(transferAmount, decimals)} tokens from ${sourceChainInput} to ${destinationChainInput} (${network})`
       );
       console.log(
-        `Source address: ${chalk.cyan(
-          sourceSigner.address.address.toString()
-        )}`
+        `Source address: ${chalk.cyan(sourceSigner.address.address.toString())}`
       );
       console.log(
         `Destination address: ${chalk.cyan(
@@ -486,9 +497,7 @@ export function createTokenTransferCommand(
       }
 
       if (initTxs.length > 0) {
-        console.log(
-          `Source transaction: ${chalk.cyan(initTxs[0].toString())}`
-        );
+        console.log(`Source transaction: ${chalk.cyan(initTxs[0].toString())}`);
         if (initTxs.length > 1) {
           console.log(
             `Wormhole transaction: ${chalk.cyan(initTxs[1].toString())}`
@@ -548,6 +557,10 @@ export function createTokenTransferCommand(
   };
 }
 
+/**
+ * Validate the CLI supports the platform hosting the given chain.
+ * Exits early with a helpful message if not.
+ */
 function ensurePlatformSupported(chain: Chain): void {
   const platform = chainToPlatform(chain);
   if (!SUPPORTED_PLATFORMS.has(platform)) {
@@ -560,6 +573,9 @@ function ensurePlatformSupported(chain: Chain): void {
   }
 }
 
+/**
+ * Lazily fetch and cache chain contexts so downstream calls can reuse RPC clients.
+ */
 function getOrCreateContext(
   wh: Wormhole<Network>,
   cache: Map<Chain, ChainContext<Network, Chain>>,
@@ -573,6 +589,9 @@ function getOrCreateContext(
   return ctx;
 }
 
+/**
+ * Verify the token bridge protocol client is available for the chain.
+ */
 async function ensureTokenBridgeSupport(
   ctx: ChainContext<Network, Chain>,
   role: "source" | "destination",
@@ -590,6 +609,9 @@ async function ensureTokenBridgeSupport(
   }
 }
 
+/**
+ * Determine the decimals for the token we are about to move.
+ */
 async function resolveTokenDecimals(
   wh: Wormhole<Network>,
   token: TokenId,
@@ -641,7 +663,7 @@ async function getSignerSafe<N extends Network, C extends Chain>(
   }
 }
 
-
+/** Format a bigint amount into a human friendly string. */
 function formatAmount(value: bigint, decimals: number): string {
   return amount.display(
     amount.fromBaseUnits(value, decimals),
@@ -649,6 +671,7 @@ function formatAmount(value: bigint, decimals: number): string {
   );
 }
 
+/** Coerce unknown errors into printable strings. */
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -656,6 +679,9 @@ function stringifyError(error: unknown): string {
   return String(error);
 }
 
+/**
+ * Shared exit helper that prints a message and terminates the process.
+ */
 function fail(
   prefix: string,
   error: unknown,
@@ -671,19 +697,22 @@ function fail(
   process.exit(1);
 }
 
+/**
+ * Best-effort detection of transport-level RPC issues.
+ */
 function isLikelyRpcError(error: unknown): boolean {
   const message =
     error instanceof Error
       ? error.message
       : typeof error === "object" && error !== null && "message" in error
-      ? String((error as any).message)
-      : "";
+        ? String((error as any).message)
+        : "";
   const stack =
     error instanceof Error
-      ? error.stack ?? ""
+      ? (error.stack ?? "")
       : typeof error === "object" && error !== null && "stack" in error
-      ? String((error as any).stack)
-      : "";
+        ? String((error as any).stack)
+        : "";
   const haystack = `${message} ${stack}`.toLowerCase();
   return (
     haystack.includes("jsonrpc") ||
@@ -701,6 +730,7 @@ function isLikelyRpcError(error: unknown): boolean {
   );
 }
 
+/** Provide user facing guidance for resolving signer input issues. */
 function buildSignerGuidance(chain: Chain): string {
   const platform = chainToPlatform(chain);
   switch (platform) {
@@ -727,6 +757,9 @@ function buildSignerGuidance(chain: Chain): string {
   }
 }
 
+/**
+ * Normalize CLI signer inputs, supporting either inline secrets or paths.
+ */
 function resolveSignerInput(
   chain: Chain,
   raw?: string
@@ -763,7 +796,9 @@ function applyRpcOverrides<N extends Network>(
     return base;
   }
 
-  const cloned = JSON.parse(JSON.stringify(base ?? {})) as WormholeConfigOverrides<N>;
+  const cloned = JSON.parse(
+    JSON.stringify(base ?? {})
+  ) as WormholeConfigOverrides<N>;
   const chainsOverrides = (cloned.chains ?? {}) as NonNullable<
     typeof cloned.chains
   >;
@@ -778,9 +813,7 @@ function applyRpcOverrides<N extends Network>(
     const rpc = rest.join("=").trim();
     if (!chainName || !rpc) {
       console.error(
-        chalk.red(
-          `Invalid --rpc value "${arg}". Expected format Chain=URL.`
-        )
+        chalk.red(`Invalid --rpc value "${arg}". Expected format Chain=URL.`)
       );
       process.exit(1);
     }
@@ -824,7 +857,8 @@ async function withRetryStatus<T>(
       sawNeedle = true;
       if (process.stdout.isTTY) {
         const padded =
-          message + (lastMessageLength > message.length
+          message +
+          (lastMessageLength > message.length
             ? " ".repeat(lastMessageLength - message.length)
             : "");
         process.stdout.write(`\r${padded}`);
