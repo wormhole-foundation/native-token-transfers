@@ -621,9 +621,10 @@ async function getSignerSafe<N extends Network, C extends Chain>(
           `Unable to reach RPC endpoint for ${ctx.chain}. Ensure the RPC is reachable or override it with --rpc ${ctx.chain}=<url>.`
         )
       );
-    console.error(stringifyError(error));
-    process.exit(1);
-  } else {
+      console.error(stringifyError(error));
+      process.exit(1);
+    }
+
     const guidance = buildSignerGuidance(ctx.chain);
     fail(
       [
@@ -634,7 +635,7 @@ async function getSignerSafe<N extends Network, C extends Chain>(
     );
   }
 }
-}
+
 
 function formatAmount(value: bigint, decimals: number): string {
   return amount.display(
