@@ -28,6 +28,10 @@ import {
 const multiTokenNttWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
 > = {
+  Mainnet: {
+    Ethereum: "0x03dB430D830601DB368991eE55DAa9A708df7912",
+    Monad: "0xFEA937F7124E19124671f1685671d3f04a9Af4E4",
+  },
   Testnet: {
     Sepolia: "0x70b1CD25Aa1DEbEf2BCa0eDbc11228C5EB4dAD0F",
     Monad: "0xFEA937F7124E19124671f1685671d3f04a9Af4E4",
