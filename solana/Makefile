@@ -44,7 +44,9 @@ idl: anchor-build
 	mkdir -p ts/idl/$(VERSION)/json
 	mkdir -p ts/idl/$(VERSION)/ts
 	cp -r target/idl/* ts/idl/$(VERSION)/json/
-	for jsonfile in ts/idl/$(VERSION)/json/*.json; do \
+	for src in target/idl/*.json; do \
+	  filename=$$(basename $$src); \
+	  jsonfile=ts/idl/$(VERSION)/json/$$filename; \
 	  tsfile=$$(echo $$jsonfile | sed 's/json\/\(.*\)\.json/ts\/\1.ts/'); \
 	  tsx scripts/regenerateIdl.ts $$jsonfile > $$tsfile; \
 	done
