@@ -10,10 +10,10 @@ import {
   signSendWait as ssw,
   UniversalAddress,
 } from "@wormhole-foundation/sdk";
-import { DummyTransferHook } from "../../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
-import { type WormholePostMessageShim } from "../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
-import { IDL as WormholePostMessageShimIdl } from "../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
-import { derivePda } from "../../ts/lib/utils.js";
+import { DummyTransferHook } from "../../../ts/idl/1_0_0/ts/dummy_transfer_hook.js";
+import { type WormholePostMessageShim } from "../../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
+import { IDL as WormholePostMessageShimIdl } from "../../../ts/idl/wormhole_shim/ts/wormhole_post_message_shim.js";
+import { derivePda } from "../../../ts/lib/utils.js";
 import { TxHash } from "@wormhole-foundation/sdk-definitions";
 
 export interface ErrorConstructor {

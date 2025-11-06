@@ -25,8 +25,8 @@ import {
   SolanaWormholeCore,
   utils,
 } from "@wormhole-foundation/sdk-solana-core";
-import { IdlVersion, NTT, getTransceiverProgram } from "../ts/index.js";
-import { SolanaNtt } from "../ts/sdk/index.js";
+import { IdlVersion, NTT, getTransceiverProgram } from "../../ts/index.js";
+import { SolanaNtt } from "../../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
   TestHelper,
@@ -39,7 +39,7 @@ import {
 /**
  * Test Config Constants
  */
-const SOLANA_ROOT_DIR = `${__dirname}/../`;
+const SOLANA_ROOT_DIR = `${__dirname}/../../`;
 const VERSION: IdlVersion = "3.0.0";
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 const GUARDIAN_KEY =
