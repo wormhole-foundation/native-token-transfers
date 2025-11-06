@@ -1,5 +1,5 @@
 use anchor_lang::{prelude::Pubkey, system_program::System, Id, InstructionData, ToAccountMetas};
-use example_native_token_transfers::instructions::RedeemArgs;
+use example_native_token_transfers::{accounts::NotPausedConfig, instructions::RedeemArgs};
 use solana_sdk::instruction::Instruction;
 
 use crate::sdk::accounts::NTT;
@@ -20,7 +20,9 @@ pub fn redeem(ntt: &NTT, accs: Redeem, args: RedeemArgs) -> Instruction {
 
     let accounts = example_native_token_transfers::accounts::Redeem {
         payer: accs.payer,
-        config: ntt.config(),
+        config: NotPausedConfig {
+            config: ntt.config(),
+        },
         peer: accs.peer,
         transceiver_message: accs.transceiver_message,
         transceiver: ntt.registered_transceiver(&accs.transceiver),
