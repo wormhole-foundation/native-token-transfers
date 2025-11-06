@@ -79,7 +79,7 @@ jobs:
           export PATH="${HOME}/.local/share/solana/install/active_release/bin:${PATH}"
 
           mkdir -p "${BPF_OUT_DIR}"
-          
+
           cargo build-sbf --features "mainnet"
           cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
           cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
