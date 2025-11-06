@@ -296,6 +296,7 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
     }
 
     function _enqueueOutboundTransfer(
+        uint16 sourceChain,
         uint64 sequence,
         TrimmedAmount amount,
         uint16 recipientChain,
@@ -311,13 +312,15 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
             refundAddress: refundAddress,
             txTimestamp: uint64(block.timestamp),
             sender: senderAddress,
-            transceiverInstructions: transceiverInstructions
+            transceiverInstructions: transceiverInstructions,
+            sourceChain: sourceChain
         });
 
         emit OutboundTransferQueued(sequence);
     }
 
     function _enqueueInboundTransfer(
+        uint16 sourceChain,
         bytes32 digest,
         TrimmedAmount amount,
         address recipient
@@ -325,7 +328,8 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
         _getInboundQueueStorage()[digest] = InboundQueuedTransfer({
             amount: amount,
             recipient: recipient,
-            txTimestamp: uint64(block.timestamp)
+            txTimestamp: uint64(block.timestamp),
+            sourceChain: sourceChain
         });
 
         emit InboundTransferQueued(digest);

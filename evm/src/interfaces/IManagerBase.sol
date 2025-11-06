@@ -39,6 +39,12 @@ interface IManagerBase {
     /// @param index The index of the transceiver in the bitmap.
     event MessageAttestedTo(bytes32 digest, address transceiver, uint8 index);
 
+    /// @notice Emitted when a message has been attested to.
+    /// @dev Topic0
+    ///      0x9fbae37d6867991331ee754b07fe4cc479ea8f0cd952e61f450740d6c350e580.
+    /// @param sourceChain The source chain.
+    event MessageAttestedTo(uint16 indexed sourceChain);
+
     /// @notice Emmitted when the threshold required transceivers is changed.
     /// @dev Topic0
     ///      0x2a855b929b9a53c6fb5b5ed248b27e502b709c088e036a5aa17620c8fc5085a9.
