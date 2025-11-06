@@ -3,7 +3,6 @@
 
 use anchor_lang::prelude::{Clock, ErrorCode, Pubkey};
 use anchor_spl::token::{Mint, TokenAccount};
-use common::setup::{TestData, OTHER_CHAIN};
 use example_native_token_transfers::{
     bitmap::Bitmap,
     error::NTTError,
@@ -17,27 +16,20 @@ use ntt_messages::{
     transceiver::TransceiverMessage, transceivers::wormhole::WormholeTransceiver,
     trimmed_amount::TrimmedAmount,
 };
-use sdk::accounts::NTT;
 use solana_program_test::*;
 use solana_sdk::{
     instruction::InstructionError, signature::Keypair, signer::Signer,
     transaction::TransactionError,
 };
-use wormhole_anchor_sdk::wormhole::PostedVaa;
-
-use crate::{
+use test_utils::{
     common::{
+        fixtures::{TestData, ANOTHER_CHAIN, OTHER_MANAGER, OUTBOUND_LIMIT, UNREGISTERED_CHAIN},
         query::GetAccountDataAnchor,
-        setup::{ANOTHER_CHAIN, OUTBOUND_LIMIT, UNREGISTERED_CHAIN},
+        submit::Submittable,
     },
+    helpers::{assert_queued, init_transfer_accs_args, setup, setup_with_transfer_fee},
     sdk::{
         accounts::{good_ntt, NTTAccounts},
-        instructions::transfer::Transfer,
-    },
-};
-use crate::{
-    common::{setup::OTHER_MANAGER, submit::Submittable},
-    sdk::{
         instructions::{
             admin::{set_outbound_limit, set_paused, SetOutboundLimit, SetPaused},
             transfer::{
@@ -45,46 +37,13 @@ use crate::{
                 transfer_with_token_program_id,
             },
         },
-        transceivers::wormhole::instructions::release_outbound::{
-            release_outbound, ReleaseOutbound,
+        transceivers::{
+            accounts::{good_ntt_transceiver, NTTTransceiverAccounts},
+            instructions::release_outbound::{release_outbound, ReleaseOutbound},
         },
     },
 };
-
-pub mod common;
-pub mod sdk;
-
-use crate::common::setup::{setup, setup_with_transfer_fee};
-
-/// Helper function for setting up transfer accounts and args.
-/// It sets the accounts up properly, so for negative testing we just modify the
-/// result.
-fn init_accs_args(
-    ntt: &NTT,
-    ctx: &mut ProgramTestContext,
-    test_data: &TestData,
-    outbox_item: Pubkey,
-    amount: u64,
-    should_queue: bool,
-) -> (Transfer, TransferArgs) {
-    let accs = Transfer {
-        payer: ctx.payer.pubkey(),
-        mint: test_data.mint,
-        from: test_data.user_token_account,
-        from_authority: test_data.user.pubkey(),
-        peer: ntt.peer(OTHER_CHAIN),
-        outbox_item,
-    };
-
-    let args = TransferArgs {
-        amount,
-        recipient_chain: ChainId { id: OTHER_CHAIN },
-        recipient_address: [1u8; 32],
-        should_queue,
-    };
-
-    (accs, args)
-}
+use wormhole_anchor_sdk::wormhole::PostedVaa;
 
 #[tokio::test]
 pub async fn test_transfer_locking() {
@@ -129,7 +88,8 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
 
     let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
 
-    let (accs, args) = init_accs_args(&good_ntt, ctx, test_data, outbox_item.pubkey(), 154, false);
+    let (accs, args) =
+        init_transfer_accs_args(&good_ntt, ctx, test_data, outbox_item.pubkey(), 154, false);
 
     approve_token_authority(
         &good_ntt,
@@ -165,6 +125,7 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
 
     release_outbound(
         &good_ntt,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -189,7 +150,7 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
         outbox_item_account_after,
     );
 
-    let wh_message = good_ntt.wormhole_message(&outbox_item.pubkey());
+    let wh_message = good_ntt_transceiver.wormhole_message(&outbox_item.pubkey());
 
     // NOTE: technically this is not a PostedVAA but a PostedMessage, but the
     // sdk does not export that type, so we parse it as a PostedVAA instead.
@@ -233,7 +194,8 @@ async fn test_transfer_with_transfer_fee(
 ) {
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(&good_ntt, ctx, test_data, outbox_item.pubkey(), 154, false);
+    let (accs, args) =
+        init_transfer_accs_args(&good_ntt, ctx, test_data, outbox_item.pubkey(), 154, false);
 
     approve_token_authority_with_token_program_id(
         &good_ntt,
@@ -261,7 +223,7 @@ async fn test_burn_mode_burns_tokens() {
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -312,7 +274,7 @@ async fn locking_mode_locks_tokens() {
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -357,17 +319,14 @@ async fn locking_mode_locks_tokens() {
 
     // NOTE: we transfer 1050, but only 1000 gets locked (token is 9 decimals, and
     // gets trimmed to 7 because of the target chain's decimals)
-
     assert_eq!(
         token_account_before.amount - 1000,
         token_account_after.amount
     );
-
     assert_eq!(
         custody_account_before.amount + 1000,
         custody_account_after.amount
     );
-
     assert_eq!(mint_before.supply, mint_after.supply);
 }
 
@@ -377,7 +336,7 @@ async fn test_bad_mint() {
 
     let outbox_item = Keypair::new();
 
-    let (mut accs, args) = init_accs_args(
+    let (mut accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -442,7 +401,7 @@ async fn test_invalid_peer() {
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &BadNTT {},
         &mut ctx,
         &test_data,
@@ -491,7 +450,7 @@ async fn test_unregistered_peer_cant_transfer() {
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &BadNTT {},
         &mut ctx,
         &test_data,
@@ -531,7 +490,7 @@ async fn test_cant_transfer_to_unregistered_peer() {
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -580,7 +539,7 @@ async fn test_rate_limit() {
     let outbox_item = Keypair::new();
     let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -622,7 +581,7 @@ async fn test_transfer_wrong_mode() {
     let (mut ctx, test_data) = setup(Mode::Burning).await;
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -681,7 +640,7 @@ async fn test_cant_transfer_more_than_balance() {
     .unwrap();
 
     // try to transfer more than balance
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -713,15 +672,6 @@ async fn test_cant_transfer_more_than_balance() {
     );
 }
 
-async fn assert_queued(ctx: &mut ProgramTestContext, outbox_item: Pubkey) {
-    let outbox_item_account: OutboxItem = ctx.get_account_data_anchor(outbox_item).await;
-
-    let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
-
-    assert!(!outbox_item_account.released.get(0).unwrap());
-    assert!(outbox_item_account.release_timestamp > clock.unix_timestamp);
-}
-
 #[tokio::test]
 async fn test_large_tx_queue() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
@@ -730,7 +680,7 @@ async fn test_large_tx_queue() {
 
     let too_much = OUTBOUND_LIMIT + 1000;
     let should_queue = true;
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -773,7 +723,7 @@ async fn test_cant_transfer_when_paused() {
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -847,7 +797,7 @@ async fn test_large_tx_no_queue() {
 
     let too_much = OUTBOUND_LIMIT + 1000;
     let should_queue = false;
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -886,7 +836,7 @@ async fn test_cant_release_queued() {
     let outbox_item = Keypair::new();
 
     let too_much = OUTBOUND_LIMIT + 1000;
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -914,6 +864,7 @@ async fn test_cant_release_queued() {
     // check that 'revert_on_delay = true' returns correct error
     let err = release_outbound(
         &good_ntt,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -937,6 +888,7 @@ async fn test_cant_release_queued() {
     // check that 'revert_on_delay = false' succeeds but does not release
     release_outbound(
         &good_ntt,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -952,7 +904,7 @@ async fn test_cant_release_queued() {
     assert_queued(&mut ctx, outbox_item.pubkey()).await;
 
     // just to be safe, let's make sure the wormhole message account wasn't initialised
-    let wh_message = good_ntt.wormhole_message(&outbox_item.pubkey());
+    let wh_message = good_ntt_transceiver.wormhole_message(&outbox_item.pubkey());
     assert!(ctx
         .banks_client
         .get_account(wh_message)
@@ -967,7 +919,7 @@ async fn test_cant_release_twice() {
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) = init_accs_args(
+    let (accs, args) = init_transfer_accs_args(
         &good_ntt,
         &mut ctx,
         &test_data,
@@ -992,6 +944,7 @@ async fn test_cant_release_twice() {
 
     release_outbound(
         &good_ntt,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
@@ -1007,6 +960,7 @@ async fn test_cant_release_twice() {
     // make sure we can't release again
     let err = release_outbound(
         &good_ntt,
+        &good_ntt_transceiver,
         ReleaseOutbound {
             payer: ctx.payer.pubkey(),
             outbox_item: outbox_item.pubkey(),
