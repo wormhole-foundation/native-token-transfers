@@ -9,25 +9,24 @@ use ntt_messages::{
 };
 use solana_program_test::*;
 use solana_sdk::signer::Signer;
-use wormhole_svm_definitions::{solana::Finality::Finalized, EncodeFinality};
-
-use crate::{
+use test_utils::{
     common::{
-        setup::{setup, OTHER_CHAIN, OTHER_TRANSCEIVER},
+        fixtures::{OTHER_CHAIN, OTHER_TRANSCEIVER},
         submit::Submittable,
-        utils::get_message_data,
     },
+    helpers::{get_message_data, setup},
     sdk::{
-        accounts::{good_ntt, good_ntt_transceiver, NTTAccounts},
-        transceivers::wormhole::instructions::{
-            broadcast_id::{broadcast_id, BroadcastId},
-            broadcast_peer::{broadcast_peer, BroadcastPeer},
+        accounts::{good_ntt, NTTAccounts},
+        transceivers::{
+            accounts::good_ntt_transceiver,
+            instructions::{
+                broadcast_id::{broadcast_id, BroadcastId},
+                broadcast_peer::{broadcast_peer, BroadcastPeer},
+            },
         },
     },
 };
-
-pub mod common;
-pub mod sdk;
+use wormhole_svm_definitions::{solana::Finality::Finalized, EncodeFinality};
 
 #[tokio::test]
 async fn test_broadcast_peer() {

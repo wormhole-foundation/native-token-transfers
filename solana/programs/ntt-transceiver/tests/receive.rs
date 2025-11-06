@@ -6,9 +6,8 @@ use anchor_spl::token::{Token, TokenAccount};
 use example_native_token_transfers::{
     error::NTTError,
     instructions::{RedeemArgs, ReleaseInboundArgs},
-    transfer::Payload,
 };
-use ntt_messages::{mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage};
+use ntt_messages::mode::Mode;
 use ntt_transceiver::vaa_body::VaaBodyData;
 use solana_program::instruction::InstructionError;
 use solana_program_test::*;
@@ -16,72 +15,34 @@ use solana_sdk::{
     pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::TransactionError,
 };
 use spl_associated_token_account::get_associated_token_address_with_program_id;
-use wormhole_sdk::{vaa::digest, Address};
-
-use crate::{
+use test_utils::{
     common::{
+        fixtures::{ANOTHER_CHAIN, OTHER_CHAIN, OTHER_TRANSCEIVER},
         query::GetAccountDataAnchor,
-        setup::{setup, TestData, ANOTHER_CHAIN, OTHER_CHAIN, OTHER_TRANSCEIVER},
         submit::Submittable,
-        utils::{make_transfer_message, post_vaa_helper},
+    },
+    helpers::{
+        init_receive_message_accs, init_redeem_accs, make_transfer_message, post_vaa_helper, setup,
     },
     sdk::{
-        accounts::{good_ntt, good_ntt_transceiver, NTTAccounts, NTTTransceiverAccounts},
+        accounts::{good_ntt, NTTAccounts},
         instructions::{
             post_vaa::close_signatures,
-            redeem::{redeem, Redeem},
+            redeem::redeem,
             release_inbound::{release_inbound_unlock, ReleaseInbound},
         },
-        transceivers::wormhole::instructions::{
-            receive_message::{
-                receive_message_account, receive_message_instruction_data, ReceiveMessage,
-            },
-            unverified_message_account::{
-                post_unverified_message_account, UnverifiedMessageAccount,
+        transceivers::{
+            accounts::good_ntt_transceiver,
+            instructions::{
+                receive_message::{receive_message_account, receive_message_instruction_data},
+                unverified_message_account::{
+                    post_unverified_message_account, UnverifiedMessageAccount,
+                },
             },
         },
     },
 };
-
-pub mod common;
-pub mod sdk;
-
-fn init_redeem_accs(
-    ctx: &mut ProgramTestContext,
-    test_data: &TestData,
-    chain_id: u16,
-    ntt_manager_message: NttManagerMessage<NativeTokenTransfer<Payload>>,
-) -> Redeem {
-    Redeem {
-        payer: ctx.payer.pubkey(),
-        peer: good_ntt.peer(chain_id),
-        transceiver: good_ntt_transceiver.program(),
-        transceiver_message: good_ntt_transceiver
-            .transceiver_message(chain_id, ntt_manager_message.id),
-        inbox_item: good_ntt.inbox_item(chain_id, ntt_manager_message),
-        inbox_rate_limit: good_ntt.inbox_rate_limit(chain_id),
-        mint: test_data.mint,
-    }
-}
-
-fn init_receive_message_accs(
-    ctx: &mut ProgramTestContext,
-    chain_id: u16,
-    id: [u8; 32],
-    guardian_set_index: u32,
-    guardian_signatures: Pubkey,
-) -> ReceiveMessage {
-    ReceiveMessage {
-        payer: ctx.payer.pubkey(),
-        peer: good_ntt_transceiver.transceiver_peer(chain_id),
-        chain_id,
-        id,
-        guardian_set: good_ntt
-            .wormhole()
-            .guardian_set_with_bump(guardian_set_index),
-        guardian_signatures,
-    }
-}
+use wormhole_sdk::{vaa::digest, Address};
 
 #[tokio::test]
 async fn test_receive_instruction_data() {
@@ -135,6 +96,8 @@ async fn test_receive_instruction_data() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -152,6 +115,8 @@ async fn test_receive_instruction_data() {
     redeem(
         &good_ntt,
         init_redeem_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             &test_data,
             OTHER_CHAIN,
@@ -279,6 +244,8 @@ async fn test_receive_message_account() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -296,6 +263,8 @@ async fn test_receive_message_account() {
     redeem(
         &good_ntt,
         init_redeem_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             &test_data,
             OTHER_CHAIN,
@@ -384,6 +353,8 @@ async fn test_double_receive() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -400,6 +371,8 @@ async fn test_double_receive() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -444,6 +417,8 @@ async fn test_wrong_recipient_ntt_manager() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -461,6 +436,8 @@ async fn test_wrong_recipient_ntt_manager() {
     let err = redeem(
         &good_ntt,
         init_redeem_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             &test_data,
             OTHER_CHAIN,
@@ -501,6 +478,8 @@ async fn test_wrong_transceiver_peer() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -546,6 +525,8 @@ async fn test_wrong_manager_peer() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -563,6 +544,8 @@ async fn test_wrong_manager_peer() {
     let err = redeem(
         &good_ntt,
         init_redeem_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             &test_data,
             OTHER_CHAIN,
@@ -603,6 +586,8 @@ async fn test_wrong_inbox_item() {
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             OTHER_CHAIN,
             [0u8; 32],
@@ -619,6 +604,8 @@ async fn test_wrong_inbox_item() {
 
     // use 'ANOTHER_CHAIN' inbox item account here
     let mut redeem_accs = init_redeem_accs(
+        &good_ntt,
+        &good_ntt_transceiver,
         &mut ctx,
         &test_data,
         OTHER_CHAIN,
