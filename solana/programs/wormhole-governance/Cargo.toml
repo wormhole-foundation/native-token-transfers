@@ -37,6 +37,11 @@ solana-program.workspace = true
 wormhole-anchor-sdk.workspace = true
 wormhole-io.workspace = true
 wormhole-sdk.workspace = true
+wormhole-svm-definitions.workspace = true
+
+cfg-if.workspace = true
+
+const-crypto = "0.3.0"
 
 [dev-dependencies]
 hex.workspace = true

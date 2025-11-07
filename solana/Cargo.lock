@@ -6438,11 +6438,14 @@ name = "wormhole-governance"
 version = "3.0.0"
 dependencies = [
  "anchor-lang",
+ "cfg-if",
+ "const-crypto",
  "hex",
  "solana-program",
  "wormhole-anchor-sdk",
  "wormhole-io",
  "wormhole-sdk",
+ "wormhole-svm-definitions 1.0.0 (git+https://github.com/wormhole-foundation/wormhole?rev=325cca4b628f17536f54b079eeb82b41247bfbef)",
 ]
 
 [[package]]
