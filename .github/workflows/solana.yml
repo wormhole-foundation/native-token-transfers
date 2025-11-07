@@ -81,7 +81,8 @@ jobs:
           mkdir -p "${BPF_OUT_DIR}"
 
           cargo build-sbf --features "mainnet"
-          cargo test-sbf --features "mainnet"
+          cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
+          cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
           cargo test
 
   check-version:
