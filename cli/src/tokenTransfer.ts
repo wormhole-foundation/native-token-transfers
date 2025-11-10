@@ -173,6 +173,9 @@ export function createTokenTransferCommand(
   };
 }
 
+/**
+ * Runs the full token transfer flow from argument validation through relay submission.
+ */
 async function executeTokenTransfer(
   argv: TokenTransferArgs,
   overrides: WormholeConfigOverrides<Network>
@@ -716,6 +719,9 @@ async function executeTokenTransfer(
   );
 }
 
+/**
+ * Extract Wormhole NTT contract addresses per configured chain from the deployment file.
+ */
 function buildContractsByChain(
   chainsConfig: Config["chains"],
   deploymentPath: string
@@ -766,6 +772,9 @@ function buildContractsByChain(
   return contracts;
 }
 
+/**
+ * Fetch contract metadata for a specific chain, erroring if the deployment lacks it.
+ */
 function getContractsForChain(
   map: Map<Chain, Ntt.Contracts>,
   chain: Chain,
@@ -780,6 +789,9 @@ function getContractsForChain(
   return entry;
 }
 
+/**
+ * Convert deployment contracts into the executor route config understood by the SDK.
+ */
 function buildExecutorRouteConfig(
   contracts: Map<Chain, Ntt.Contracts>
 ): NttExecutorRoute.Config {
@@ -814,6 +826,9 @@ type PerTokenOverrides = NonNullable<
   NonNullable<ReferrerFeeConfig["perTokenOverrides"]>[Chain]
 >;
 
+/**
+ * Attach a msgValue override so the executor funds rent/gas for a given destination token.
+ */
 function applyMsgValueOverride(
   config: NttExecutorRoute.Config,
   token: TokenId,
@@ -834,6 +849,7 @@ function applyMsgValueOverride(
   tokenOverride.msgValue = msgValue;
 }
 
+/** Render human-friendly descriptions for route quote warnings. */
 function formatQuoteWarning(warning: QuoteWarning): string {
   switch (warning.type) {
     case "DestinationCapacityWarning":
@@ -886,6 +902,9 @@ async function resolveTokenDecimals(
   }
 }
 
+/**
+ * Wrapper around getSigner that annotates RPC issues and provides platform guidance.
+ */
 async function getSignerSafe<N extends Network, C extends Chain>(
   ctx: ChainContext<N, C>,
   source?: string,
@@ -928,6 +947,9 @@ function stringifyError(error: unknown): string {
   return String(error);
 }
 
+/**
+ * Present TokenTransferError details consistently before exiting the CLI.
+ */
 function reportTokenTransferError(error: unknown): void {
   if (error instanceof TokenTransferError) {
     console.error(chalk.red(error.message));
@@ -1058,6 +1080,9 @@ function resolveSignerInput(
   return { key: raw };
 }
 
+/**
+ * Normalize the destination address into the canonical ChainAddress wrapper.
+ */
 function parseDestinationAddress(
   chain: Chain,
   address: string
@@ -1072,6 +1097,9 @@ function parseDestinationAddress(
   }
 }
 
+/**
+ * Merge `--rpc Chain=URL` overrides into the Wormhole configuration for this run.
+ */
 function applyRpcOverrides<N extends Network>(
   base: WormholeConfigOverrides<N>,
   rpcArgs: string[] | undefined,
@@ -1118,15 +1146,20 @@ function applyRpcOverrides<N extends Network>(
         )
       );
     }
-    const currentOverrides =
-      chainsOverrides[chain] ??
-      (chainsOverrides[chain] = {} as ChainOverrideEntry);
-    currentOverrides.rpc = rpc;
+    const currentOverrides = chainsOverrides[chain];
+    const clonedOverride: ChainOverrideEntry = {
+      ...(currentOverrides ?? {}),
+    };
+    clonedOverride.rpc = rpc;
+    chainsOverrides[chain] = clonedOverride;
   }
 
   return cloned;
 }
 
+/**
+ * Intercepts console output to show a spinner when a retriable log message appears.
+ */
 async function withRetryStatus<T>(
   needle: string | RegExp,
   fn: () => Promise<T>
@@ -1188,6 +1221,9 @@ async function withRetryStatus<T>(
   }
 }
 
+/**
+ * Verify the selected Wormhole network exposes RPC config for the requested chain.
+ */
 function ensureChainSupported<N extends Network>(
   wh: Wormhole<N>,
   chain: Chain,
