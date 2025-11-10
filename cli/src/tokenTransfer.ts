@@ -48,6 +48,7 @@ type TokenTransferArgs = {
   "destination-chain": Chain;
   amount: string;
   "destination-address": string;
+  "destination-msg-value"?: string;
   payer?: string;
   "deployment-path"?: string;
   timeout?: number;
@@ -1031,8 +1032,20 @@ function resolveSignerInput(
     if (platform === "Solana") {
       return { file: raw };
     }
-    const keyFromFile = fs.readFileSync(raw, "utf8").trim();
-    return { key: keyFromFile };
+    try {
+      const keyFromFile = fs.readFileSync(raw, "utf8").trim();
+      if (!keyFromFile) {
+        throw new TokenTransferError(
+          `Key file ${raw} is empty. Provide a private key or remove --payer/inline key.`
+        );
+      }
+      return { key: keyFromFile };
+    } catch (error) {
+      throw new TokenTransferError(
+        `Failed to read key material from ${raw}. Ensure the file exists and is readable.`,
+        { cause: error }
+      );
+    }
   }
 
   if (platform === "Solana") {
@@ -1049,41 +1062,12 @@ function parseDestinationAddress(
   chain: Chain,
   address: string
 ): ChainAddress<Chain> {
-  ensureAddressFormat(chain, address);
   try {
     return Wormhole.chainAddress(chain, address);
   } catch (error) {
     fail(
       `Invalid destination address for ${chain}. Ensure the address is in the canonical format expected by Wormhole.`,
       error
-    );
-  }
-}
-
-function ensureAddressFormat(chain: Chain, address: string): void {
-  const platform = chainToPlatform(chain);
-  const trimmed = address.trim();
-  const evmPattern = /^0x[a-fA-F0-9]{40}$/;
-  const solanaPattern = /^[1-9A-HJ-NP-Za-km-z]{32,88}$/;
-  const suiPattern = /^0x[a-fA-F0-9]{1,64}$/;
-  let valid = true;
-  switch (platform) {
-    case "Evm":
-      valid = evmPattern.test(trimmed);
-      break;
-    case "Solana":
-      valid = solanaPattern.test(trimmed);
-      break;
-    case "Sui":
-      valid = suiPattern.test(trimmed);
-      break;
-    default:
-      valid = trimmed.length > 0;
-  }
-  if (!valid) {
-    fail(
-      `Destination address ${trimmed} is not a valid ${platform} address for ${chain}.`,
-      new Error("Invalid address format")
     );
   }
 }
