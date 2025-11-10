@@ -5,13 +5,14 @@ import chalk from "chalk";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
-  TokenTransfer,
   amount,
   assertChain,
+  canonicalAddress,
   chainToPlatform,
   chains,
   isNetwork,
   networks,
+  routes,
 } from "@wormhole-foundation/sdk";
 import type {
   Chain,
@@ -19,26 +20,36 @@ import type {
   Network,
   Platform,
   TokenId,
+  TransactionId,
   WormholeConfigOverrides,
 } from "@wormhole-foundation/sdk";
+import type { QuoteWarning } from "@wormhole-foundation/sdk-connect";
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
 import { getSigner, type SignerStuff } from "./getSigner";
 import { handleRpcError } from "./error";
-import "@wormhole-foundation/sdk-evm-tokenbridge";
-import "@wormhole-foundation/sdk-solana-tokenbridge";
-import "@wormhole-foundation/sdk-sui-tokenbridge";
+import {
+  NttExecutorRoute,
+  NttRoute,
+  nttExecutorRoute,
+} from "@wormhole-foundation/sdk-route-ntt";
+import type { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
+import "@wormhole-foundation/sdk-evm-ntt";
+import "@wormhole-foundation/sdk-solana-ntt";
+import "@wormhole-foundation/sdk-sui-ntt";
+import { loadConfig, type ChainConfig, type Config } from "./deployments";
 import fs from "fs";
 
 type TokenTransferArgs = {
   network: string;
   "source-chain": Chain;
   "destination-chain": Chain;
-  token: string;
+  token?: string;
   amount: string;
   "source-key"?: string;
   "destination-key"?: string;
+  "deployment-path"?: string;
   timeout?: number;
   rpc?: string[];
 };
@@ -52,6 +63,8 @@ const SUPPORTED_PLATFORMS: ReadonlySet<Platform> = new Set([
   "Sui",
 ]);
 
+const DEFAULT_SOLANA_MSG_VALUE = 11_500_000n; // lamports
+
 /**
  * Registers the `token-transfer` command and all associated validation / execution logic.
  */
@@ -60,7 +73,8 @@ export function createTokenTransferCommand(
 ): CommandModule<Record<string, unknown>, TokenTransferArgs> {
   return {
     command: "token-transfer",
-    describe: "Transfer tokens between chains using the TokenBridge protocol",
+    describe:
+      "Transfer tokens between chains using the Native Token Transfers (NTT) protocol",
     builder: (yargs): Argv<TokenTransferArgs> =>
       yargs
         .option("network", {
@@ -81,9 +95,9 @@ export function createTokenTransferCommand(
         })
         .option("token", {
           describe:
-            "Token address on the source chain (use 'native' for native tokens where supported)",
+            "Optional token address on the source chain (validated against the deployment file)",
           type: "string",
-          demandOption: true,
+          demandOption: false,
         })
         .option("amount", {
           describe: "Human-readable token amount to transfer",
@@ -98,6 +112,17 @@ export function createTokenTransferCommand(
         .option("destination-key", {
           describe:
             "Private key or path to key file for the destination chain (otherwise env vars are used)",
+          type: "string",
+        })
+        .option("deployment-path", {
+          alias: "p",
+          describe: "Path to the deployment file produced by the CLI",
+          type: "string",
+          demandOption: true,
+        })
+        .option("destination-msg-value", {
+          describe:
+            "Override msgValue (native units) for the destination chain. Required when destination is Solana/SVM to cover executor rent.",
           type: "string",
         })
         .option("rpc", {
@@ -119,15 +144,15 @@ export function createTokenTransferCommand(
           return true;
         })
         .example(
-          "$0 token-transfer --network Testnet --source-chain Sepolia --destination-chain Solana --token 0xToken... --amount 1.25",
-          "Transfer 1.25 tokens from Sepolia to Solana on Testnet"
+          "$0 token-transfer --network Testnet --source-chain Sepolia --destination-chain Solana --amount 1.25 --deployment-path ./deployment.json",
+          "Transfer 1.25 tokens between Sepolia and Solana using the deployments listed in deployment.json"
         )
         .example(
-          "$0 token-transfer -n Testnet --source-chain Solana --destination-chain Sepolia --token 4zMMC9... --amount 0.1",
-          "Transfer 0.1 tokens from Solana to Sepolia on Testnet"
+          "$0 token-transfer -n Testnet --source-chain Solana --destination-chain Sepolia --amount 0.1 --deployment-path ./deployment.json",
+          "Transfer 0.1 tokens from Solana to Sepolia with deployments described in deployment.json"
         )
         .example(
-          "$0 token-transfer --network Testnet --source-chain Solana --destination-chain Sepolia --token 4zMMC9... --amount 0.1 --rpc Solana=https://api.devnet.solana.com",
+          "$0 token-transfer --network Testnet --source-chain Solana --destination-chain Sepolia --token 4zMMC9... --amount 0.1 --deployment-path ./deployment.json --rpc Solana=https://api.devnet.solana.com",
           "Override the Solana RPC endpoint for this run"
         )
         .strict() as Argv<TokenTransferArgs>,
@@ -147,16 +172,56 @@ export function createTokenTransferCommand(
       ensurePlatformSupported(sourceChainInput);
       ensurePlatformSupported(destinationChainInput);
 
-      const tokenInput = argv.token.trim();
-      if (!tokenInput) {
-        console.error(chalk.red("Token address must not be empty"));
-        process.exit(1);
-      }
-
       const amountInput = argv.amount.trim();
       if (!amountInput) {
         console.error(chalk.red("Amount must not be empty"));
         process.exit(1);
+      }
+      const tokenInput = argv.token?.trim();
+      const destinationMsgValueArg = argv["destination-msg-value"];
+      let destinationMsgValueOverride: bigint | undefined;
+      if (destinationMsgValueArg !== undefined) {
+        if (Array.isArray(destinationMsgValueArg)) {
+          console.error(
+            chalk.red("--destination-msg-value may only be specified once")
+          );
+          process.exit(1);
+        }
+        if (destinationMsgValueArg === null) {
+          console.error(
+            chalk.red("--destination-msg-value must be a positive integer")
+          );
+          process.exit(1);
+        }
+        if (typeof destinationMsgValueArg !== "string") {
+          console.error(
+            chalk.red("--destination-msg-value must be provided as a string")
+          );
+          process.exit(1);
+        }
+        const trimmed = destinationMsgValueArg.trim();
+        if (trimmed.length === 0) {
+          console.error(
+            chalk.red("--destination-msg-value must be a positive integer")
+          );
+          process.exit(1);
+        }
+        try {
+          destinationMsgValueOverride = BigInt(trimmed);
+        } catch {
+          console.error(
+            chalk.red(
+              "--destination-msg-value must be a valid integer (lamports / native units)"
+            )
+          );
+          process.exit(1);
+        }
+        if (destinationMsgValueOverride <= 0n) {
+          console.error(
+            chalk.red("--destination-msg-value must be greater than zero")
+          );
+          process.exit(1);
+        }
       }
 
       const sourceKey = argv["source-key"]?.trim();
@@ -212,6 +277,86 @@ export function createTokenTransferCommand(
       const timeoutSeconds = argv.timeout ?? 1200;
       const timeoutMs = Math.max(1, Math.floor(timeoutSeconds)) * 1000;
 
+      const deploymentPathArg = argv["deployment-path"];
+      if (
+        typeof deploymentPathArg !== "string" ||
+        deploymentPathArg.trim().length === 0
+      ) {
+        console.error(
+          chalk.red("--deployment-path must point to a deployment file.")
+        );
+        process.exit(1);
+      }
+      const deploymentPath = deploymentPathArg.trim();
+
+      const deployments = loadConfig(deploymentPath);
+      const configuredChainEntries = Object.entries(deployments.chains).filter(
+        (entry): entry is [string, ChainConfig] => entry[1] !== undefined
+      );
+      const configuredChains = configuredChainEntries.map(([chain]) => chain as Chain);
+
+      if (configuredChains.length === 0) {
+        console.error(
+          chalk.red(
+            `Deployment file ${deploymentPath} does not contain any configured chains.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (deployments.network !== network) {
+        console.error(
+          chalk.red(
+            `Deployment file ${deploymentPath} targets ${deployments.network}, but --network was set to ${network}.`
+          )
+        );
+        process.exit(1);
+      }
+
+      const sourceDeployment = deployments.chains[sourceChainInput];
+      if (!sourceDeployment) {
+        console.error(
+          chalk.red(
+            `Chain ${sourceChainInput} is not present in ${deploymentPath}. Available chains: ${configuredChains.join(", ")}`
+          )
+        );
+        process.exit(1);
+      }
+
+      const destinationDeployment = deployments.chains[destinationChainInput];
+      if (!destinationDeployment) {
+        console.error(
+          chalk.red(
+            `Chain ${destinationChainInput} is not present in ${deploymentPath}. Available chains: ${configuredChains.join(", ")}`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (
+        tokenInput &&
+        !tokenAddressesMatch(tokenInput, sourceDeployment.token, sourceChainInput)
+      ) {
+        console.error(
+          chalk.red(
+            `Token ${tokenInput} does not match the deployment token ${sourceDeployment.token} for ${sourceChainInput}.`
+          )
+        );
+        process.exit(1);
+      }
+
+      let tokenId: TokenId;
+      let destinationTokenId: TokenId;
+      try {
+        tokenId = Wormhole.tokenId(sourceChainInput, sourceDeployment.token);
+        destinationTokenId = Wormhole.tokenId(
+          destinationChainInput,
+          destinationDeployment.token
+        );
+      } catch (error) {
+        fail("Failed to parse token identifiers from deployment file", error);
+      }
+
       const involvedChains = new Set<Chain>([
         sourceChainInput,
         destinationChainInput,
@@ -250,65 +395,10 @@ export function createTokenTransferCommand(
         );
       }
 
-      const chainContexts = new Map<Chain, ChainContext<Network, Chain>>([
-        [sourceChainInput, sourceCtx],
-        [destinationChainInput, destinationCtx],
-      ]);
-
-      let tokenId: TokenId;
-      try {
-        tokenId = Wormhole.tokenId(
-          sourceChainInput,
-          tokenInput === "native" ? "native" : tokenInput
-        );
-      } catch (error) {
-        if (tokenInput !== "native") {
-          const platform = chainToPlatform(sourceChainInput);
-          let hint = "";
-          if (platform === "Evm") {
-            hint =
-              "Expected a 0x-prefixed address with 40 hexadecimal characters.";
-          } else if (platform === "Solana") {
-            hint = "Expected a valid Solana base58 address.";
-          } else if (platform === "Sui") {
-            hint =
-              "Expected a valid Sui address (0x-prefixed with 64 hexadecimal characters).";
-          }
-          console.error(
-            chalk.red(
-              `Invalid token address "${tokenInput}" for ${sourceChainInput}. ${hint}`
-            )
-          );
-          process.exit(1);
-        }
-        fail("Failed to parse token identifier", error);
-      }
-
       const { key: normalizedSourceKey, file: normalizedSourceFile } =
         resolveSignerInput(sourceCtx.chain, sourceKey);
       const { key: normalizedDestinationKey, file: normalizedDestinationFile } =
         resolveSignerInput(destinationCtx.chain, destinationKey);
-
-      await ensureTokenBridgeSupport(sourceCtx, "source", network);
-      await ensureTokenBridgeSupport(destinationCtx, "destination", network);
-
-      // For wrapped assets, ensure the destination chain has already registered the token.
-      if (tokenId.address !== "native") {
-        try {
-          await TokenTransfer.lookupDestinationToken(
-            sourceCtx,
-            destinationCtx,
-            tokenId
-          );
-        } catch (error) {
-          console.error(
-            chalk.red(
-              `Token ${tokenId.address} is not registered on ${destinationCtx.chain}. The asset must exist on the destination chain before transferring.`
-            )
-          );
-          process.exit(1);
-        }
-      }
 
       const sourceSigner = await getSignerSafe(
         sourceCtx,
@@ -380,19 +470,106 @@ export function createTokenTransferCommand(
         process.exit(1);
       }
 
-      let xfer: TokenTransfer<Network>;
+      let contractsByChain: Map<Chain, Ntt.Contracts>;
       try {
-        xfer = await wh.tokenTransfer(
-          tokenId,
-          transferAmount,
-          sourceSigner.address,
-          destinationSigner.address,
-          "TokenBridge"
-        );
+        contractsByChain = buildContractsByChain(deployments.chains, deploymentPath);
       } catch (error) {
-        fail("Failed to prepare token transfer", error);
+        fail(
+          error instanceof Error ? error.message : String(error),
+          error
+        );
       }
 
+      getContractsForChain(contractsByChain, sourceChainInput, deploymentPath);
+      getContractsForChain(contractsByChain, destinationChainInput, deploymentPath);
+
+      const executorConfig = buildExecutorRouteConfig(contractsByChain);
+      const destinationPlatform = chainToPlatform(destinationChainInput);
+      if (destinationPlatform === "Solana") {
+        const msgValueToUse =
+          destinationMsgValueOverride ?? DEFAULT_SOLANA_MSG_VALUE;
+        applyMsgValueOverride(executorConfig, destinationTokenId, msgValueToUse);
+        if (destinationMsgValueOverride === undefined) {
+          console.warn(
+            chalk.yellow(
+              `Destination ${destinationChainInput} requires msgValue funding for the Wormhole Executor. Using default ${msgValueToUse.toString()} lamports. Pass --destination-msg-value to override.`
+            )
+          );
+        } else {
+          console.log(
+            `Using custom msgValue ${destinationMsgValueOverride.toString()} for ${destinationChainInput}.`
+          );
+        }
+      } else if (destinationMsgValueOverride !== undefined) {
+        console.warn(
+          chalk.yellow(
+            `--destination-msg-value is only required for SVM destinations. Ignoring override for ${destinationChainInput}.`
+          )
+        );
+      }
+      const ExecutorRoute = nttExecutorRoute(executorConfig);
+      const routeInstance = new ExecutorRoute(wh);
+
+      const transferRequest = await routes.RouteTransferRequest.create(wh, {
+        source: tokenId,
+        destination: destinationTokenId,
+      });
+
+      const validation = await routeInstance.validate(transferRequest, {
+        amount: amountInput,
+      });
+      if (!validation.valid) {
+        const reason =
+          validation.error instanceof Error
+            ? validation.error.message
+            : "Unknown validation error";
+        console.error(chalk.red(`Transfer validation failed: ${reason}`));
+        process.exit(1);
+      }
+      const validatedParams =
+        validation.params as NttExecutorRoute.ValidatedParams;
+
+      let quoteResult;
+      try {
+        quoteResult = await routeInstance.quote(
+          transferRequest,
+          validatedParams
+        );
+      } catch (error) {
+        fail(
+          `Failed to fetch execution quote between ${sourceChainInput} and ${destinationChainInput}`,
+          error,
+          sourceCtx,
+          network
+        );
+      }
+
+      if (!quoteResult.success) {
+        fail(
+          `Failed to fetch execution quote between ${sourceChainInput} and ${destinationChainInput}`,
+          quoteResult.error,
+          sourceCtx,
+          network
+        );
+      }
+
+      const executorQuote = quoteResult.details as NttWithExecutor.Quote | undefined;
+      if (!executorQuote) {
+        fail(
+          "Executor quote did not include relay details",
+          new Error("Missing executor quote details")
+        );
+      }
+
+      if (quoteResult.warnings?.length) {
+        for (const warning of quoteResult.warnings) {
+          console.warn(chalk.yellow(formatQuoteWarning(warning)));
+        }
+      }
+
+      const estimatedDestinationAmount = amount.display(
+        quoteResult.destinationToken.amount
+      );
       console.log(
         `Transferring ${formatAmount(transferAmount, decimals)} tokens from ${sourceChainInput} to ${destinationChainInput} (${network})`
       );
@@ -405,88 +582,70 @@ export function createTokenTransferCommand(
         )}`
       );
       console.log(
-        `Token: ${chalk.cyan(
-          tokenId.address
+        `Source token: ${chalk.cyan(
+          sourceDeployment.token
         )} (decimals: ${decimals.toString()})`
       );
-
-      try {
-        const payload =
-          (xfer.transfer as { payload?: Uint8Array }).payload ?? undefined;
-        const quoteDetails: TokenTransfer.QuoteTransferDetails = {
-          token: xfer.transfer.token,
-          amount: xfer.transfer.amount,
-          protocol: "TokenBridge",
-          ...(payload ? { payload } : {}),
-        };
-        const quote = await TokenTransfer.quoteTransfer(
-          wh,
-          sourceCtx,
-          destinationCtx,
-          quoteDetails
-        );
-        const destCtxForQuote = getOrCreateContext(
-          wh,
-          chainContexts,
-          quote.destinationToken.token.chain
-        );
-        const destDecimals = await resolveTokenDecimals(
-          wh,
-          quote.destinationToken.token,
-          destCtxForQuote,
-          network
-        );
+      console.log(
+        `Destination token: ${chalk.cyan(destinationDeployment.token)}`
+      );
+      console.log(
+        `Estimated destination amount: ${estimatedDestinationAmount}`
+      );
+      if (quoteResult.relayFee) {
         console.log(
-          `Estimated destination amount: ${formatAmount(
-            quote.destinationToken.amount,
-            destDecimals
+          `Estimated relay fee (${quoteResult.relayFee.token.chain} native): ${amount.display(
+            quoteResult.relayFee.amount
           )}`
         );
-        if (quote.relayFee) {
-          const feeCtx = getOrCreateContext(
-            wh,
-            chainContexts,
-            quote.relayFee.token.chain
-          );
-          const feeDecimals = await resolveTokenDecimals(
-            wh,
-            quote.relayFee.token,
-            feeCtx,
-            network
-          );
-          console.log(
-            `Estimated relayer fee: ${formatAmount(
-              quote.relayFee.amount,
-              feeDecimals
-            )}`
-          );
-        }
-        if (quote.destinationNativeGas) {
-          console.log(
-            `Estimated destination native gas: ${quote.destinationNativeGas.toString()}`
-          );
-        }
-      } catch (error) {
-        if (isLikelyRpcError(error)) {
-          console.error(
-            chalk.red(
-              `Failed to fetch transfer quote. Check RPC endpoints for ${sourceCtx.chain} or ${destinationCtx.chain}.`
-            )
-          );
-          console.error(stringifyError(error));
-          process.exit(1);
-        }
-        console.warn(
-          chalk.yellow(
-            `Warning: failed to fetch transfer quote (${stringifyError(error)})`
-          )
+      }
+      if (quoteResult.destinationNativeGas) {
+        console.log(
+          `Estimated destination native gas drop-off: ${amount.display(
+            quoteResult.destinationNativeGas
+          )}`
         );
+      }
+      console.log(
+        `Executor referrer fee: ${formatAmount(
+          executorQuote.referrerFee,
+          decimals
+        )} (${executorQuote.referrerFeeDbps.toString()} dBps)`
+      );
+      console.log(
+        `Estimated execution cost (${sourceChainInput} native): ${formatAmount(
+          executorQuote.estimatedCost,
+          sourceCtx.config.nativeTokenDecimals
+        )}`
+      );
+      if (executorQuote.gasDropOff > 0n) {
+        console.log(
+          `Destination gas drop-off (${destinationChainInput} native): ${formatAmount(
+            executorQuote.gasDropOff,
+            destinationCtx.config.nativeTokenDecimals
+          )}`
+        );
+      }
+      const expiresAt = quoteResult.expires ?? executorQuote.expires;
+      if (expiresAt) {
+        console.log(`Quote expires at ${expiresAt.toISOString()}`);
+      }
+      if (quoteResult.provider) {
+        console.log(`Route provider: ${quoteResult.provider}`);
+      }
+      if (quoteResult.eta) {
+        console.log(`Estimated relay ETA: ${quoteResult.eta} seconds`);
       }
 
       console.log(`Submitting transfer on ${sourceChainInput}...`);
-      let initTxs: readonly string[];
+      let receipt: NttExecutorRoute.TransferReceipt;
       try {
-        initTxs = await xfer.initiateTransfer(sourceSigner.signer);
+        receipt = (await routeInstance.initiate(
+          transferRequest,
+          sourceSigner.signer,
+          quoteResult,
+          destinationSigner.address
+        )) as NttExecutorRoute.TransferReceipt;
       } catch (error) {
         fail(
           `Failed to submit transfer transaction on ${sourceChainInput}`,
@@ -496,65 +655,191 @@ export function createTokenTransferCommand(
         );
       }
 
-      if (initTxs.length > 0) {
-        console.log(`Source transaction: ${chalk.cyan(initTxs[0].toString())}`);
-        if (initTxs.length > 1) {
-          console.log(
-            `Wormhole transaction: ${chalk.cyan(initTxs[1].toString())}`
-          );
+      const originTxs =
+        "originTxs" in receipt && Array.isArray(receipt.originTxs)
+          ? (receipt.originTxs as TransactionId[])
+          : [];
+      if (originTxs.length > 0) {
+        originTxs.forEach((tx: TransactionId, index: number) => {
+          const label =
+            index === 0
+              ? "Source transaction"
+              : `Source transaction #${index + 1}`;
+          console.log(`${label}: ${chalk.cyan(tx.txid.toString())}`);
+        });
+      }
+
+      const sourceTxId = originTxs.at(-1)?.txid;
+      if (sourceTxId) {
+        console.log(
+          `Waiting for attestation (timeout ${Math.floor(timeoutMs / 1000)} seconds)...`
+        );
+        try {
+        const vaa = await withRetryStatus(
+          /Retrying Wormholescan/i,
+          async () =>
+            wh.getVaa(sourceTxId, "Ntt:WormholeTransfer", timeoutMs)
+        );
+          if (vaa) {
+            console.log(
+              `Attestation sequence: ${chalk.cyan(vaa.sequence.toString())}`
+            );
+          }
+        } catch (error) {
+          if (isLikelyRpcError(error)) {
+            console.error(
+              chalk.red(
+                `Failed while waiting for attestation. Verify Wormhole RPC endpoints are reachable.`
+              )
+            );
+            console.error(stringifyError(error));
+            process.exit(1);
+          }
+          fail("Failed while waiting for attestation", error);
         }
+        const wormholeScanUrl = `https://wormholescan.io/#/tx/${sourceTxId}?network=${network}`;
+        console.log(`WormholeScan URL: ${wormholeScanUrl}`);
       }
 
       console.log(
-        `Waiting for attestation (timeout ${Math.floor(timeoutMs / 1000)} seconds)...`
+        chalk.green(
+          "Transfer submitted. The Wormhole Executor will relay the transfer automatically once finalized."
+        )
       );
-      try {
-        const attestations = await withRetryStatus(
-          "Retrying Wormholescan:GetVaaBytes",
-          async () => xfer.fetchAttestation(timeoutMs)
-        );
-        if (attestations.length > 0) {
-          console.log(
-            `Attestation sequence: ${chalk.cyan(
-              attestations[0].sequence.toString()
-            )}`
-          );
-        }
-      } catch (error) {
-        if (isLikelyRpcError(error)) {
-          console.error(
-            chalk.red(
-              `Failed while waiting for attestation. Verify Wormhole RPC endpoints are reachable.`
-            )
-          );
-          console.error(stringifyError(error));
-          process.exit(1);
-        }
-        fail("Failed while waiting for attestation", error);
-      }
+      console.log(
+        "Track progress via Wormholescan or by rerunning this command to fetch status."
+      );
 
-      console.log(`Redeeming transfer on ${destinationChainInput}...`);
-      let destTxs: readonly string[];
-      try {
-        destTxs = await xfer.completeTransfer(destinationSigner.signer);
-      } catch (error) {
-        fail(
-          `Failed to redeem transfer on ${destinationChainInput}`,
-          error,
-          destinationCtx,
-          network
-        );
-      }
-
-      if (destTxs.length > 0) {
-        console.log(
-          `Destination transaction: ${chalk.cyan(destTxs[0].toString())}`
-        );
-      }
-
-      console.log(chalk.green("Transfer completed successfully."));
     },
   };
+}
+
+function buildContractsByChain(
+  chainsConfig: Config["chains"],
+  deploymentPath: string
+): Map<Chain, Ntt.Contracts> {
+  const contracts = new Map<Chain, Ntt.Contracts>();
+  for (const [chainName, cfg] of Object.entries(chainsConfig)) {
+    if (!cfg) {
+      continue;
+    }
+    let chain: Chain;
+    try {
+      assertChain(chainName as Chain);
+      chain = chainName as Chain;
+    } catch {
+      continue;
+    }
+    const wormholeTransceiver = cfg.transceivers?.wormhole?.address;
+    if (!wormholeTransceiver) {
+      throw new Error(
+        `Deployment file ${deploymentPath} is missing the wormhole transceiver address for ${chain}.`
+      );
+    }
+    contracts.set(chain, {
+      token: cfg.token,
+      manager: cfg.manager,
+      transceiver: {
+        wormhole: wormholeTransceiver,
+      },
+    });
+  }
+  if (contracts.size === 0) {
+    throw new Error(
+      `Deployment file ${deploymentPath} does not define any chains with Wormhole transceivers.`
+    );
+  }
+  return contracts;
+}
+
+function getContractsForChain(
+  map: Map<Chain, Ntt.Contracts>,
+  chain: Chain,
+  deploymentPath: string
+): Ntt.Contracts {
+  const entry = map.get(chain);
+  if (!entry) {
+    throw new Error(
+      `Chain ${chain} is not configured with Wormhole transceiver data in ${deploymentPath}.`
+    );
+  }
+  return entry;
+}
+
+function buildExecutorRouteConfig(
+  contracts: Map<Chain, Ntt.Contracts>
+): NttExecutorRoute.Config {
+  const tokenEntries = Array.from(contracts.entries()).map(
+    ([chain, contract]) => ({
+      chain,
+      token: contract.token,
+      manager: contract.manager,
+      transceiver: Object.entries(contract.transceiver).map(
+        ([type, address]) => ({
+          type: type as NttRoute.TransceiverType,
+          address,
+        })
+      ),
+    })
+  );
+  if (tokenEntries.length === 0) {
+    throw new Error("Unable to build executor config without token entries.");
+  }
+  const tokenGroupKey = "ntt-deployment-token";
+  return {
+    ntt: {
+      tokens: {
+        [tokenGroupKey]: tokenEntries,
+      },
+    },
+  };
+}
+
+type ReferrerFeeConfig = NonNullable<NttExecutorRoute.Config["referrerFee"]>;
+type PerTokenOverrides = NonNullable<
+  NonNullable<ReferrerFeeConfig["perTokenOverrides"]>[Chain]
+>;
+
+function applyMsgValueOverride(
+  config: NttExecutorRoute.Config,
+  token: TokenId,
+  msgValue: bigint
+): void {
+  if (!config.referrerFee) {
+    config.referrerFee = { feeDbps: 0n, perTokenOverrides: {} };
+  } else if (!config.referrerFee.perTokenOverrides) {
+    config.referrerFee.perTokenOverrides = {};
+  }
+  const perTokenOverrides =
+    (config.referrerFee.perTokenOverrides ??=
+      {} as NonNullable<ReferrerFeeConfig["perTokenOverrides"]>);
+  const canonicalToken = canonicalAddress(token);
+  const chainOverrides = (perTokenOverrides[token.chain] ??=
+    {} as PerTokenOverrides);
+  const tokenOverride = (chainOverrides[canonicalToken] ??= {});
+  tokenOverride.msgValue = msgValue;
+}
+
+function tokenAddressesMatch(input: string, actual: string, chain: Chain): boolean {
+  const platform = chainToPlatform(chain);
+  if (platform === "Evm" || platform === "Sui") {
+    return input.toLowerCase() === actual.toLowerCase();
+  }
+  return input === actual;
+}
+
+function formatQuoteWarning(warning: QuoteWarning): string {
+  switch (warning.type) {
+    case "DestinationCapacityWarning":
+      if (warning.delayDurationSec) {
+        return `Destination is capacity constrained; expected delay ${warning.delayDurationSec} seconds.`;
+      }
+      return "Destination is currently capacity constrained; transfer may be delayed.";
+    case "GovernorLimitWarning":
+      return `Transfer may violate governor limits (${warning.reason}).`;
+    default:
+      return "Transfer warning received.";
+  }
 }
 
 /**
@@ -570,42 +855,6 @@ function ensurePlatformSupported(chain: Chain): void {
       )
     );
     process.exit(1);
-  }
-}
-
-/**
- * Lazily fetch and cache chain contexts so downstream calls can reuse RPC clients.
- */
-function getOrCreateContext(
-  wh: Wormhole<Network>,
-  cache: Map<Chain, ChainContext<Network, Chain>>,
-  chain: Chain
-): ChainContext<Network, Chain> {
-  let ctx = cache.get(chain);
-  if (!ctx) {
-    ctx = wh.getChain(chain);
-    cache.set(chain, ctx);
-  }
-  return ctx;
-}
-
-/**
- * Verify the token bridge protocol client is available for the chain.
- */
-async function ensureTokenBridgeSupport(
-  ctx: ChainContext<Network, Chain>,
-  role: "source" | "destination",
-  network: Network
-): Promise<void> {
-  try {
-    await ctx.getTokenBridge();
-  } catch (error) {
-    fail(
-      `TokenBridge is not available on ${role} chain ${ctx.chain}`,
-      error,
-      ctx,
-      network
-    );
   }
 }
 
@@ -843,28 +1092,47 @@ function applyRpcOverrides<N extends Network>(
 }
 
 async function withRetryStatus<T>(
-  needle: string,
+  needle: string | RegExp,
   fn: () => Promise<T>
 ): Promise<T> {
   const originalLog = console.log;
   let lastMessageLength = 0;
   let lastMessage = "";
   let sawNeedle = false;
+  const spinnerFrames = [". ", ": ", ":.", "::"];
+  let spinnerIndex = 0;
+
+  const matchesNeedle = (message: string): boolean => {
+    if (typeof needle === "string") {
+      return message.includes(needle);
+    }
+    const regex = needle;
+    const result = regex.test(message);
+    if (regex.global) {
+      regex.lastIndex = 0;
+    }
+    return result;
+  };
 
   console.log = (...args: any[]) => {
     const message = args.map(String).join(" ");
-    if (message.startsWith(needle)) {
+    if (matchesNeedle(message)) {
       sawNeedle = true;
+      const spinner =
+        "[" +
+        spinnerFrames[spinnerIndex++ % spinnerFrames.length].padEnd(2, " ") +
+        "]";
+      const display = `${spinner} ${message}`;
       if (process.stdout.isTTY) {
         const padded =
-          message +
-          (lastMessageLength > message.length
-            ? " ".repeat(lastMessageLength - message.length)
+          display +
+          (lastMessageLength > display.length
+            ? " ".repeat(lastMessageLength - display.length)
             : "");
         process.stdout.write(`\r${padded}`);
-        lastMessageLength = message.length;
+        lastMessageLength = display.length;
       } else {
-        lastMessage = message;
+        lastMessage = display;
       }
       return;
     }
