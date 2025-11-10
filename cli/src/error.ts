@@ -177,3 +177,17 @@ export function handleDeploymentError(
   
   handleGenericError(error);
 }
+
+export function handleRpcError(
+  error: any,
+  chain: Chain,
+  network: Network,
+  rpc?: string
+): void {
+  if (rpc && handleRpcConnectionError(error, chain, network, rpc)) {
+    return;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(chalk.red(`RPC error for ${chain} on ${network}`));
+  console.error(message);
+}
