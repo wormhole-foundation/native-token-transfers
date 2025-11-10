@@ -7,6 +7,7 @@ COPY solana/Cargo.lock Cargo.lock
 COPY solana/Cargo.toml Cargo.toml
 COPY solana/modules modules
 COPY solana/programs programs
+COPY solana/tests tests
 COPY solana/rust-toolchain rust-toolchain
 
 ENV RUST_BACKTRACE=1

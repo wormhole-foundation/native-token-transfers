@@ -44,7 +44,9 @@ idl: anchor-build
 	mkdir -p ts/idl/$(VERSION)/json
 	mkdir -p ts/idl/$(VERSION)/ts
 	cp -r target/idl/* ts/idl/$(VERSION)/json/
-	for jsonfile in ts/idl/$(VERSION)/json/*.json; do \
+	for src in target/idl/*.json; do \
+	  filename=$$(basename $$src); \
+	  jsonfile=ts/idl/$(VERSION)/json/$$filename; \
 	  tsfile=$$(echo $$jsonfile | sed 's/json\/\(.*\)\.json/ts\/\1.ts/'); \
 	  tsx scripts/regenerateIdl.ts $$jsonfile > $$tsfile; \
 	done
@@ -67,9 +69,12 @@ node_modules:
 test: cargo-test anchor-test
 
 
+# ntt-transceiver is built separately with `testing` so post message shim ix data is set as return_data
+# See: ntt-transceiver/src/wormhole/accounts.rs::post_message (#[cfg(feature = "testing")])
 cargo-test:
 	cargo build-sbf --features "mainnet"
-	cargo test-sbf --features "mainnet"
+	cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
+	cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
 	cargo test
 
 anchor-test: idl sdk node_modules

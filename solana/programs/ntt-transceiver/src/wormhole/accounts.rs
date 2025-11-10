@@ -72,6 +72,23 @@ pub fn post_message<'info, A: TypePrefixedPayload>(
         TypePrefixedPayload::to_vec_payload(payload),
     )?;
 
+    // Instruction data passed onto the Post Message Shim program is used to recreate the VAA.
+    // Cargo tests, however, do not expose a way to fetch inner instructions. As a workaround during
+    // testing, we build with this feature enabled and set the instruction data as the return data.
+    // The test first simulates this instruction to fetch the return data before submitting it.
+    #[cfg(feature = "testing")]
+    {
+        use anchor_lang::InstructionData;
+
+        let ix_data = wormhole_post_message_shim_interface::instruction::PostMessage {
+            nonce: batch_id,
+            consistency_level: Finality::Finalized,
+            payload: TypePrefixedPayload::to_vec_payload(payload),
+        }
+        .data();
+        solana_program::program::set_return_data(&ix_data);
+    }
+
     Ok(())
 }
 

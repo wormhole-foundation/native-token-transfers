@@ -1,121 +1,31 @@
 #![cfg(feature = "test-sbf")]
 #![feature(type_changing_struct_update)]
 
-use anchor_lang::prelude::*;
-use common::setup::{TestData, OTHER_CHAIN};
-use example_native_token_transfers::{
-    instructions::{RedeemArgs, TransferArgs},
-    queue::{inbox::InboxRateLimit, outbox::OutboxRateLimit},
-    transfer::Payload,
-};
-use ntt_messages::{
-    chain_id::ChainId, mode::Mode, ntt::NativeTokenTransfer, ntt_manager::NttManagerMessage,
-};
-use sdk::{
-    accounts::{good_ntt, NTTAccounts},
-    transceivers::wormhole::instructions::receive_message::ReceiveMessage,
-};
+use example_native_token_transfers::instructions::RedeemArgs;
+use ntt_messages::mode::Mode;
 use solana_program_test::*;
 use solana_sdk::{signature::Keypair, signer::Signer};
-use wormhole_sdk::Address;
-
-use crate::{
+use test_utils::{
     common::{
-        query::GetAccountDataAnchor,
-        setup::{setup, OTHER_TRANSCEIVER},
-        utils::make_transfer_message,
+        fixtures::{OTHER_CHAIN, OTHER_TRANSCEIVER},
+        submit::Submittable,
+    },
+    helpers::{
+        inbound_capacity, init_receive_message_accs, init_redeem_accs, init_transfer_accs_args,
+        make_transfer_message, outbound_capacity, post_vaa_helper, setup,
     },
     sdk::{
+        accounts::good_ntt,
         instructions::{
-            redeem::{redeem, Redeem},
-            transfer::Transfer,
+            redeem::redeem,
+            transfer::{approve_token_authority, transfer},
         },
-        transceivers::wormhole::instructions::receive_message::receive_message,
+        transceivers::{
+            accounts::good_ntt_transceiver, instructions::receive_message::receive_message,
+        },
     },
 };
-use crate::{
-    common::{submit::Submittable, utils::post_vaa_helper},
-    sdk::instructions::transfer::{approve_token_authority, transfer},
-};
-
-pub mod common;
-pub mod sdk;
-
-fn init_transfer_accs_args(
-    ctx: &mut ProgramTestContext,
-    test_data: &TestData,
-    outbox_item: Pubkey,
-    amount: u64,
-    should_queue: bool,
-) -> (Transfer, TransferArgs) {
-    let accs = Transfer {
-        payer: ctx.payer.pubkey(),
-        peer: good_ntt.peer(OTHER_CHAIN),
-        mint: test_data.mint,
-        from: test_data.user_token_account,
-        from_authority: test_data.user.pubkey(),
-        outbox_item,
-    };
-
-    let args = TransferArgs {
-        amount,
-        recipient_chain: ChainId { id: OTHER_CHAIN },
-        recipient_address: [1u8; 32],
-        should_queue,
-    };
-
-    (accs, args)
-}
-
-fn init_redeem_accs(
-    ctx: &mut ProgramTestContext,
-    test_data: &TestData,
-    chain_id: u16,
-    ntt_manager_message: NttManagerMessage<NativeTokenTransfer<Payload>>,
-) -> Redeem {
-    Redeem {
-        payer: ctx.payer.pubkey(),
-        peer: good_ntt.peer(chain_id),
-        transceiver: good_ntt.program(),
-        transceiver_message: good_ntt.transceiver_message(chain_id, ntt_manager_message.id),
-        inbox_item: good_ntt.inbox_item(chain_id, ntt_manager_message),
-        inbox_rate_limit: good_ntt.inbox_rate_limit(chain_id),
-        mint: test_data.mint,
-    }
-}
-
-fn init_receive_message_accs(
-    ctx: &mut ProgramTestContext,
-    vaa: Pubkey,
-    chain_id: u16,
-    id: [u8; 32],
-) -> ReceiveMessage {
-    ReceiveMessage {
-        payer: ctx.payer.pubkey(),
-        peer: good_ntt.transceiver_peer(chain_id),
-        vaa,
-        chain_id,
-        id,
-    }
-}
-
-async fn outbound_capacity(ctx: &mut ProgramTestContext) -> u64 {
-    let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
-    let rate_limit: OutboxRateLimit = ctx
-        .get_account_data_anchor(good_ntt.outbox_rate_limit())
-        .await;
-
-    rate_limit.rate_limit.capacity_at(clock.unix_timestamp)
-}
-
-async fn inbound_capacity(ctx: &mut ProgramTestContext) -> u64 {
-    let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
-    let rate_limit: InboxRateLimit = ctx
-        .get_account_data_anchor(good_ntt.inbox_rate_limit(OTHER_CHAIN))
-        .await;
-
-    rate_limit.rate_limit.capacity_at(clock.unix_timestamp)
-}
+use wormhole_sdk::Address;
 
 #[tokio::test]
 async fn test_cancel() {
@@ -141,12 +51,19 @@ async fn test_cancel() {
     )
     .await;
 
-    let inbound_limit_before = inbound_capacity(&mut ctx).await;
-    let outbound_limit_before = outbound_capacity(&mut ctx).await;
+    let inbound_limit_before = inbound_capacity(&good_ntt, &mut ctx).await;
+    let outbound_limit_before = outbound_capacity(&good_ntt, &mut ctx).await;
 
     receive_message(
         &good_ntt,
-        init_receive_message_accs(&mut ctx, vaa0, OTHER_CHAIN, [0u8; 32]),
+        &good_ntt_transceiver,
+        init_receive_message_accs(
+            &good_ntt_transceiver,
+            &mut ctx,
+            vaa0,
+            OTHER_CHAIN,
+            [0u8; 32],
+        ),
     )
     .submit(&mut ctx)
     .await
@@ -155,6 +72,8 @@ async fn test_cancel() {
     redeem(
         &good_ntt,
         init_redeem_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             &test_data,
             OTHER_CHAIN,
@@ -166,17 +85,26 @@ async fn test_cancel() {
     .await
     .unwrap();
 
-    assert_eq!(outbound_limit_before, outbound_capacity(&mut ctx).await);
+    assert_eq!(
+        outbound_limit_before,
+        outbound_capacity(&good_ntt, &mut ctx).await
+    );
 
     assert_eq!(
         inbound_limit_before - 1000,
-        inbound_capacity(&mut ctx).await
+        inbound_capacity(&good_ntt, &mut ctx).await
     );
 
     let outbox_item = Keypair::new();
 
-    let (accs, args) =
-        init_transfer_accs_args(&mut ctx, &test_data, outbox_item.pubkey(), 7000, true);
+    let (accs, args) = init_transfer_accs_args(
+        &good_ntt,
+        &mut ctx,
+        &test_data,
+        outbox_item.pubkey(),
+        7000,
+        true,
+    );
 
     approve_token_authority(
         &good_ntt,
@@ -194,15 +122,25 @@ async fn test_cancel() {
 
     assert_eq!(
         outbound_limit_before - 7000,
-        outbound_capacity(&mut ctx).await
+        outbound_capacity(&good_ntt, &mut ctx).await
     );
 
     // fully replenished
-    assert_eq!(inbound_limit_before, inbound_capacity(&mut ctx).await);
+    assert_eq!(
+        inbound_limit_before,
+        inbound_capacity(&good_ntt, &mut ctx).await
+    );
 
     receive_message(
         &good_ntt,
-        init_receive_message_accs(&mut ctx, vaa1, OTHER_CHAIN, [1u8; 32]),
+        &good_ntt_transceiver,
+        init_receive_message_accs(
+            &good_ntt_transceiver,
+            &mut ctx,
+            vaa1,
+            OTHER_CHAIN,
+            [1u8; 32],
+        ),
     )
     .submit(&mut ctx)
     .await
@@ -211,6 +149,8 @@ async fn test_cancel() {
     redeem(
         &good_ntt,
         init_redeem_accs(
+            &good_ntt,
+            &good_ntt_transceiver,
             &mut ctx,
             &test_data,
             OTHER_CHAIN,
@@ -224,11 +164,11 @@ async fn test_cancel() {
 
     assert_eq!(
         outbound_limit_before - 5000,
-        outbound_capacity(&mut ctx).await
+        outbound_capacity(&good_ntt, &mut ctx).await
     );
 
     assert_eq!(
         inbound_limit_before - 2000,
-        inbound_capacity(&mut ctx).await
+        inbound_capacity(&good_ntt, &mut ctx).await
     );
 }
