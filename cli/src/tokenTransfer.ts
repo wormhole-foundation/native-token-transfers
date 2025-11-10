@@ -965,13 +965,13 @@ function isLikelyRpcError(error: unknown): boolean {
     error instanceof Error
       ? error.message
       : typeof error === "object" && error !== null && "message" in error
-        ? String((error as any).message)
+        ? String((error as { message: unknown }).message)
         : "";
   const stack =
     error instanceof Error
       ? (error.stack ?? "")
       : typeof error === "object" && error !== null && "stack" in error
-        ? String((error as any).stack)
+        ? String((error as { stack: unknown }).stack)
         : "";
   const haystack = `${message} ${stack}`.toLowerCase();
   return (
@@ -1084,10 +1084,9 @@ function applyRpcOverrides<N extends Network>(
   const cloned = JSON.parse(
     JSON.stringify(base ?? {})
   ) as WormholeConfigOverrides<N>;
-  const chainsOverrides = (cloned.chains ?? {}) as NonNullable<
-    typeof cloned.chains
-  >;
-  cloned.chains = chainsOverrides;
+  type ChainOverrideEntry = Record<string, unknown> & { rpc?: string };
+  const chainsOverrides =
+    (cloned.chains ?? (cloned.chains = {})) as Record<Chain, ChainOverrideEntry>;
 
   for (const arg of rpcArgs) {
     if (typeof arg !== "string") {
@@ -1116,10 +1115,10 @@ function applyRpcOverrides<N extends Network>(
         )
       );
     }
-    if (!chainsOverrides[chain]) {
-      (chainsOverrides as any)[chain] = {};
-    }
-    (chainsOverrides as any)[chain].rpc = rpc;
+    const currentOverrides =
+      chainsOverrides[chain] ??
+      (chainsOverrides[chain] = {} as ChainOverrideEntry);
+    currentOverrides.rpc = rpc;
   }
 
   return cloned;
