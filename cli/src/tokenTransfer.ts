@@ -759,14 +759,26 @@ function buildContractsByChain(
       continue;
     }
     const wormholeTransceiver = cfg.transceivers?.wormhole?.address;
+    const tokenAddress = cfg.token;
+    const managerAddress = cfg.manager;
+    if (!tokenAddress) {
+      throw new Error(
+        `Deployment file ${deploymentPath} is missing the token address for ${chain}.`
+      );
+    }
+    if (!managerAddress) {
+      throw new Error(
+        `Deployment file ${deploymentPath} is missing the manager address for ${chain}.`
+      );
+    }
     if (!wormholeTransceiver) {
       throw new Error(
         `Deployment file ${deploymentPath} is missing the wormhole transceiver address for ${chain}.`
       );
     }
     contracts.set(chain, {
-      token: cfg.token,
-      manager: cfg.manager,
+      token: tokenAddress,
+      manager: managerAddress,
       transceiver: {
         wormhole: wormholeTransceiver,
       },
