@@ -17,6 +17,7 @@ import {
 import type {
   Chain,
   ChainContext,
+  ChainAddress,
   Network,
   Platform,
   TokenId,
@@ -45,10 +46,9 @@ type TokenTransferArgs = {
   network: string;
   "source-chain": Chain;
   "destination-chain": Chain;
-  token?: string;
   amount: string;
-  "source-key"?: string;
-  "destination-key"?: string;
+  "destination-address": string;
+  payer?: string;
   "deployment-path"?: string;
   timeout?: number;
   rpc?: string[];
@@ -93,25 +93,20 @@ export function createTokenTransferCommand(
           choices: chains,
           demandOption: true,
         })
-        .option("token", {
+        .option("destination-address", {
           describe:
-            "Optional token address on the source chain (validated against the deployment file)",
+            "Destination wallet address in canonical format.",
           type: "string",
-          demandOption: false,
+          demandOption: true,
         })
         .option("amount", {
           describe: "Human-readable token amount to transfer",
           type: "string",
           demandOption: true,
         })
-        .option("source-key", {
+        .option("payer", {
           describe:
-            "Private key or path to key file for the source chain (otherwise env vars are used)",
-          type: "string",
-        })
-        .option("destination-key", {
-          describe:
-            "Private key or path to key file for the destination chain (otherwise env vars are used)",
+            "Path to the Solana payer keypair JSON (required when Solana is the source unless SOLANA_PRIVATE_KEY is set).",
           type: "string",
         })
         .option("deployment-path", {
@@ -144,15 +139,15 @@ export function createTokenTransferCommand(
           return true;
         })
         .example(
-          "$0 token-transfer --network Testnet --source-chain Sepolia --destination-chain Solana --amount 1.25 --deployment-path ./deployment.json",
+          "$0 token-transfer --network Testnet --source-chain Sepolia --destination-chain Solana --amount 1.25 --destination-address Ez6j... --p ./deployment.json",
           "Transfer 1.25 tokens between Sepolia and Solana using the deployments listed in deployment.json"
         )
         .example(
-          "$0 token-transfer -n Testnet --source-chain Solana --destination-chain Sepolia --amount 0.1 --deployment-path ./deployment.json",
+          "$0 token-transfer -n Testnet --source-chain Solana --destination-chain Sepolia --amount 0.1 --destination-address 0xabc... --p ./deployment.json",
           "Transfer 0.1 tokens from Solana to Sepolia with deployments described in deployment.json"
         )
         .example(
-          "$0 token-transfer --network Testnet --source-chain Solana --destination-chain Sepolia --token 4zMMC9... --amount 0.1 --deployment-path ./deployment.json --rpc Solana=https://api.devnet.solana.com",
+          "$0 token-transfer --network Testnet --source-chain Solana --destination-chain Sepolia --amount 0.1 --destination-address 0xabc... --p ./deployment.json --rpc Solana=https://api.devnet.solana.com",
           "Override the Solana RPC endpoint for this run"
         )
         .strict() as Argv<TokenTransferArgs>,
@@ -177,7 +172,6 @@ export function createTokenTransferCommand(
         console.error(chalk.red("Amount must not be empty"));
         process.exit(1);
       }
-      const tokenInput = argv.token?.trim();
       const destinationMsgValueArg = argv["destination-msg-value"];
       let destinationMsgValueOverride: bigint | undefined;
       if (destinationMsgValueArg !== undefined) {
@@ -224,8 +218,54 @@ export function createTokenTransferCommand(
         }
       }
 
-      const sourceKey = argv["source-key"]?.trim();
-      const destinationKey = argv["destination-key"]?.trim();
+      const payerRaw = argv["payer"];
+      if (Array.isArray(payerRaw)) {
+        console.error(chalk.red("--payer may only be specified once"));
+        process.exit(1);
+      }
+      const payerPath =
+        typeof payerRaw === "string" ? payerRaw.trim() : undefined;
+      if (payerRaw !== undefined && (!payerPath || payerPath.length === 0)) {
+        console.error(
+          chalk.red("--payer must be a path to a Solana keypair JSON file")
+        );
+        process.exit(1);
+      }
+
+      const destinationAddressRaw = argv["destination-address"];
+      if (Array.isArray(destinationAddressRaw)) {
+        console.error(
+          chalk.red("--destination-address may only be specified once")
+        );
+        process.exit(1);
+      }
+
+      const destinationAddressInput =
+        typeof destinationAddressRaw === "string"
+          ? destinationAddressRaw.trim()
+          : undefined;
+
+      if (
+        destinationAddressRaw === undefined ||
+        destinationAddressInput === undefined ||
+        destinationAddressInput.length === 0
+      ) {
+        console.error(
+          chalk.red(
+            "--destination-address must include a non-empty canonical address string"
+          )
+        );
+        process.exit(1);
+      }
+
+      if (payerPath && chainToPlatform(sourceChainInput) !== "Solana") {
+        console.warn(
+          chalk.yellow(
+            "--payer is only used when the source chain is Solana. Ignoring provided path."
+          )
+        );
+      }
+
       const rpcRaw = argv["rpc"];
       const rpcArgs = Array.isArray(rpcRaw)
         ? rpcRaw
@@ -333,18 +373,6 @@ export function createTokenTransferCommand(
         process.exit(1);
       }
 
-      if (
-        tokenInput &&
-        !tokenAddressesMatch(tokenInput, sourceDeployment.token, sourceChainInput)
-      ) {
-        console.error(
-          chalk.red(
-            `Token ${tokenInput} does not match the deployment token ${sourceDeployment.token} for ${sourceChainInput}.`
-          )
-        );
-        process.exit(1);
-      }
-
       let tokenId: TokenId;
       let destinationTokenId: TokenId;
       try {
@@ -395,20 +423,19 @@ export function createTokenTransferCommand(
         );
       }
 
+      const sourceSignerOverride =
+        chainToPlatform(sourceCtx.chain) === "Solana" ? payerPath : undefined;
       const { key: normalizedSourceKey, file: normalizedSourceFile } =
-        resolveSignerInput(sourceCtx.chain, sourceKey);
-      const { key: normalizedDestinationKey, file: normalizedDestinationFile } =
-        resolveSignerInput(destinationCtx.chain, destinationKey);
-
+        resolveSignerInput(sourceCtx.chain, sourceSignerOverride);
       const sourceSigner = await getSignerSafe(
         sourceCtx,
         normalizedSourceKey,
         normalizedSourceFile
       );
-      const destinationSigner = await getSignerSafe(
-        destinationCtx,
-        normalizedDestinationKey,
-        normalizedDestinationFile
+
+      const destinationAddress = parseDestinationAddress(
+        destinationChainInput,
+        destinationAddressInput
       );
 
       const decimals = await resolveTokenDecimals(
@@ -576,10 +603,11 @@ export function createTokenTransferCommand(
       console.log(
         `Source address: ${chalk.cyan(sourceSigner.address.address.toString())}`
       );
+      const destinationAddressDisplay = Wormhole.canonicalAddress(
+        destinationAddress
+      );
       console.log(
-        `Destination address: ${chalk.cyan(
-          destinationSigner.address.address.toString()
-        )}`
+        `Destination address: ${chalk.cyan(destinationAddressDisplay)}`
       );
       console.log(
         `Source token: ${chalk.cyan(
@@ -644,7 +672,7 @@ export function createTokenTransferCommand(
           transferRequest,
           sourceSigner.signer,
           quoteResult,
-          destinationSigner.address
+          destinationAddress
         )) as NttExecutorRoute.TransferReceipt;
       } catch (error) {
         fail(
@@ -820,14 +848,6 @@ function applyMsgValueOverride(
   tokenOverride.msgValue = msgValue;
 }
 
-function tokenAddressesMatch(input: string, actual: string, chain: Chain): boolean {
-  const platform = chainToPlatform(chain);
-  if (platform === "Evm" || platform === "Sui") {
-    return input.toLowerCase() === actual.toLowerCase();
-  }
-  return input === actual;
-}
-
 function formatQuoteWarning(warning: QuoteWarning): string {
   switch (warning.type) {
     case "DestinationCapacityWarning":
@@ -985,21 +1005,20 @@ function buildSignerGuidance(chain: Chain): string {
   switch (platform) {
     case "Evm":
       return [
-        "Provide an EVM private key using one of:",
-        "  • Export ETH_PRIVATE_KEY in your environment",
-        "  • Pass --source-key / --destination-key with the hex-encoded key or a path to a file containing it",
+        "Provide an EVM private key by exporting ETH_PRIVATE_KEY in your environment.",
+        "Ensure the variable contains a 0x-prefixed hex string for the signer you intend to use.",
       ].join("\n");
     case "Solana":
       return [
         "Provide a Solana signer using one of:",
         "  • Export SOLANA_PRIVATE_KEY (base58) in your environment",
-        "  • Pass --source-key / --destination-key with the base58 secret or a path to the keypair JSON",
+        "  • Pass --payer with the path to the keypair JSON file",
       ].join("\n");
     case "Sui":
       return [
         "Provide a Sui private key using one of:",
         "  • Export SUI_PRIVATE_KEY in your environment",
-        "  • Pass --source-key / --destination-key with the Base64-encoded key or a path to a file containing it",
+        "  • Provide a Base64-encoded key via configuration",
       ].join("\n");
     default:
       return "Provide the appropriate private key for this platform.";
@@ -1034,6 +1053,49 @@ function resolveSignerInput(
   }
 
   return { key: raw };
+}
+
+function parseDestinationAddress(
+  chain: Chain,
+  address: string
+): ChainAddress<Chain> {
+  ensureAddressFormat(chain, address);
+  try {
+    return Wormhole.chainAddress(chain, address);
+  } catch (error) {
+    fail(
+      `Invalid destination address for ${chain}. Ensure the address is in the canonical format expected by Wormhole.`,
+      error
+    );
+  }
+}
+
+function ensureAddressFormat(chain: Chain, address: string): void {
+  const platform = chainToPlatform(chain);
+  const trimmed = address.trim();
+  const evmPattern = /^0x[a-fA-F0-9]{40}$/;
+  const solanaPattern = /^[1-9A-HJ-NP-Za-km-z]{32,88}$/;
+  const suiPattern = /^0x[a-fA-F0-9]{1,64}$/;
+  let valid = true;
+  switch (platform) {
+    case "Evm":
+      valid = evmPattern.test(trimmed);
+      break;
+    case "Solana":
+      valid = solanaPattern.test(trimmed);
+      break;
+    case "Sui":
+      valid = suiPattern.test(trimmed);
+      break;
+    default:
+      valid = trimmed.length > 0;
+  }
+  if (!valid) {
+    fail(
+      `Destination address ${trimmed} is not a valid ${platform} address for ${chain}.`,
+      new Error("Invalid address format")
+    );
+  }
 }
 
 function applyRpcOverrides<N extends Network>(
