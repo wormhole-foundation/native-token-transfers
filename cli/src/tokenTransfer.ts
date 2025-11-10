@@ -1081,9 +1081,12 @@ function applyRpcOverrides<N extends Network>(
     return base;
   }
 
-  const cloned = JSON.parse(
-    JSON.stringify(base ?? {})
-  ) as WormholeConfigOverrides<N>;
+  const cloned: WormholeConfigOverrides<N> = {
+    ...(base ?? {}),
+    chains: {
+      ...(base?.chains ?? {}),
+    },
+  };
   type ChainOverrideEntry = Record<string, unknown> & { rpc?: string };
   const chainsOverrides =
     (cloned.chains ?? (cloned.chains = {})) as Record<Chain, ChainOverrideEntry>;
