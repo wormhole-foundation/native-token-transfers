@@ -563,13 +563,14 @@ async function executeTokenTransfer(
     );
   }
 
-  const executorQuote = quoteResult.details as NttWithExecutor.Quote | undefined;
-  if (!executorQuote) {
+  const executorQuoteDetails = quoteResult.details;
+  if (!isExecutorQuote(executorQuoteDetails)) {
     fail(
       "Executor quote did not include relay details",
       new Error("Missing executor quote details")
     );
   }
+  const executorQuote = executorQuoteDetails;
 
   if (quoteResult.warnings?.length) {
     for (const warning of quoteResult.warnings) {
@@ -862,6 +863,27 @@ function formatQuoteWarning(warning: QuoteWarning): string {
     default:
       return "Transfer warning received.";
   }
+}
+
+/**
+ * Runtime type guard ensuring quote details include executor fee fields.
+ */
+function isExecutorQuote(
+  value: unknown
+): value is NttWithExecutor.Quote {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<NttWithExecutor.Quote>;
+  const hasValidExpiry =
+    candidate.expires === undefined || candidate.expires instanceof Date;
+  return (
+    typeof candidate.referrerFee === "bigint" &&
+    typeof candidate.referrerFeeDbps === "bigint" &&
+    typeof candidate.estimatedCost === "bigint" &&
+    typeof candidate.gasDropOff === "bigint" &&
+    hasValidExpiry
+  );
 }
 
 /**
