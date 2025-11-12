@@ -29,7 +29,7 @@ import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
 import { getSigner, type SignerStuff } from "./getSigner";
-import { handleRpcError } from "./error";
+import { logRpcError } from "./error";
 import {
   NttExecutorRoute,
   NttRoute,
@@ -972,7 +972,7 @@ function fail(
   network?: Network
 ): never {
   if (ctx && network && isLikelyRpcError(error)) {
-    handleRpcError(error, ctx.chain, network, ctx.config.rpc);
+    logRpcError(error, ctx.chain, network, ctx.config.rpc);
   }
   throw new TokenTransferError(prefix, {
     cause: error instanceof Error ? error : new Error(String(error)),

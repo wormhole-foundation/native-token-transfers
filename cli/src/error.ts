@@ -178,7 +178,10 @@ export function handleDeploymentError(
   handleGenericError(error);
 }
 
-export function handleRpcError(
+/**
+ * Log a concise RPC failure when connection-specific guidance wasn’t already printed.
+ */
+export function logRpcError(
   error: any,
   chain: Chain,
   network: Network,
