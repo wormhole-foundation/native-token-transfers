@@ -2,6 +2,7 @@
 // https://github.com/wormhole-foundation/wormhole-sdk-ts
 
 import chalk from "chalk";
+import ora, { type Ora } from "ora";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
@@ -1258,11 +1259,8 @@ async function withRetryStatus<T>(
   fn: () => Promise<T>
 ): Promise<T> {
   const originalLog = console.log;
-  let lastMessageLength = 0;
-  let lastMessage = "";
   let sawNeedle = false;
-  const spinnerFrames = [". ", ": ", ":.", "::"];
-  let spinnerIndex = 0;
+  let spinner: Ora | null = null;
 
   const matchesNeedle = (message: string): boolean => {
     if (typeof needle === "string") {
@@ -1276,40 +1274,36 @@ async function withRetryStatus<T>(
     return result;
   };
 
-  console.log = (...args: any[]) => {
+  const stopSpinner = (): void => {
+    if (!spinner) {
+      return;
+    }
+    spinner.stop();
+    spinner = null;
+  };
+
+  console.log = (...args: Parameters<typeof console.log>) => {
     const message = args.map(String).join(" ");
     if (matchesNeedle(message)) {
       sawNeedle = true;
-      const spinner =
-        "[" +
-        spinnerFrames[spinnerIndex++ % spinnerFrames.length].padEnd(2, " ") +
-        "]";
-      const display = `${spinner} ${message}`;
-      if (process.stdout.isTTY) {
-        const padded =
-          display +
-          (lastMessageLength > display.length
-            ? " ".repeat(lastMessageLength - display.length)
-            : "");
-        process.stdout.write(`\r${padded}`);
-        lastMessageLength = display.length;
+      if (!spinner) {
+        spinner = ora({ text: message }).start();
       } else {
-        lastMessage = display;
+        spinner.text = message;
       }
       return;
     }
+    stopSpinner();
     originalLog(...args);
   };
 
   try {
-    const result = await fn();
+    return await fn();
+  } finally {
+    stopSpinner();
     if (sawNeedle && process.stdout.isTTY) {
       process.stdout.write("\n");
-    } else if (sawNeedle && lastMessage && !process.stdout.isTTY) {
-      originalLog(lastMessage);
     }
-    return result;
-  } finally {
     console.log = originalLog;
   }
 }
