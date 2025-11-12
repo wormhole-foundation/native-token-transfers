@@ -213,7 +213,7 @@ impl Readable for GovernanceMessage {
             ));
         }
         let chain: u16 = Readable::read(reader)?;
-        if Chain::from(chain) != Chain::Solana {
+        if chain != wormhole_svm_definitions::CHAIN_ID {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Invalid GovernanceMessage chain",
