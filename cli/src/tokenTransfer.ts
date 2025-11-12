@@ -66,7 +66,7 @@ class TokenTransferError extends Error {
 }
 
 /**
- * Platforms that currently have stable token bridge support through the CLI.
+ * Platforms that currently have stable NTT support through the CLI.
  */
 const SUPPORTED_PLATFORMS: ReadonlySet<Platform> = new Set([
   "Evm",
