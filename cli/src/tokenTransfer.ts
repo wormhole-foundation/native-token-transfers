@@ -41,6 +41,7 @@ import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-sui-ntt";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 import fs from "fs";
+import readline from "readline";
 
 type TokenTransferArgs = {
   network: string;
@@ -193,6 +194,8 @@ async function executeTokenTransfer(
 
   ensurePlatformSupported(sourceChainInput);
   ensurePlatformSupported(destinationChainInput);
+  const sourcePlatform = chainToPlatform(sourceChainInput);
+  const destinationPlatform = chainToPlatform(destinationChainInput);
 
   const amountInput = argv.amount.trim();
   if (!amountInput) {
@@ -413,7 +416,7 @@ async function executeTokenTransfer(
   }
 
   const sourceSignerOverride =
-    chainToPlatform(sourceCtx.chain) === "Solana" ? payerPath : undefined;
+    sourcePlatform === "Solana" ? payerPath : undefined;
   const { key: normalizedSourceKey, file: normalizedSourceFile } =
     resolveSignerInput(sourceCtx.chain, sourceSignerOverride);
   const sourceSigner = await getSignerSafe(
@@ -495,7 +498,6 @@ async function executeTokenTransfer(
   getContractsForChain(contractsByChain, destinationChainInput, deploymentPath);
 
   const executorConfig = buildExecutorRouteConfig(contractsByChain);
-  const destinationPlatform = chainToPlatform(destinationChainInput);
   if (destinationPlatform === "Solana") {
     const msgValueToUse =
       destinationMsgValueOverride ?? DEFAULT_SOLANA_MSG_VALUE;
@@ -581,8 +583,9 @@ async function executeTokenTransfer(
   const estimatedDestinationAmount = amount.display(
     quoteResult.destinationToken.amount
   );
+  const formattedTransferAmount = formatAmount(transferAmount, decimals);
   console.log(
-    `Transferring ${formatAmount(transferAmount, decimals)} tokens from ${sourceChainInput} to ${destinationChainInput} (${network})`
+    `Transferring ${formattedTransferAmount} tokens from ${sourceChainInput} to ${destinationChainInput} (${network})`
   );
   console.log(
     `Source address: ${chalk.cyan(sourceSigner.address.address.toString())}`
@@ -647,6 +650,19 @@ async function executeTokenTransfer(
   }
   if (quoteResult.eta) {
     console.log(`Estimated relay ETA: ${quoteResult.eta} seconds`);
+  }
+
+  if (network === "Mainnet") {
+    const confirmed = await confirmMainnetTransfer(
+      formattedTransferAmount,
+      sourceChainInput,
+      destinationChainInput,
+      sourcePlatform
+    );
+    if (!confirmed) {
+      console.log("Transfer cancelled. Re-run the command when you are ready.");
+      return;
+    }
   }
 
   console.log(`Submitting transfer on ${sourceChainInput}...`);
@@ -848,6 +864,61 @@ function applyMsgValueOverride(
     {} as PerTokenOverrides);
   const tokenOverride = (chainOverrides[canonicalToken] ??= {});
   tokenOverride.msgValue = msgValue;
+}
+
+/**
+ * Prompt the operator to confirm they entered a human-readable amount before Mainnet submissions.
+ */
+async function confirmMainnetTransfer(
+  formattedAmount: string,
+  sourceChain: Chain,
+  destinationChain: Chain,
+  platform: Platform
+): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  const unitDescriptor =
+    platform === "Solana" ? "lamports" : "base units";
+  const prompt = [
+    "",
+    chalk.yellow(
+      `You are about to submit a Mainnet transfer of ${formattedAmount} tokens from ${sourceChain} to ${destinationChain}.`
+    ),
+    chalk.yellow(
+      `Confirm this amount is expressed in human-readable units (not ${unitDescriptor}).`
+    ),
+    "Type \"yes\" (or \"y\") to continue: ",
+  ].join("\n");
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (result: boolean): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    rl.once("SIGINT", () => {
+      console.log("\nTransfer cancelled.");
+      settle(false);
+      rl.close();
+    });
+
+    rl.once("close", () => {
+      if (!settled) {
+        settle(false);
+      }
+    });
+
+    rl.question(prompt, (answer) => {
+      const normalized = answer.trim().toLowerCase();
+      settle(normalized === "yes" || normalized === "y");
+      rl.close();
+    });
+  });
 }
 
 /** Render human-friendly descriptions for route quote warnings. */
