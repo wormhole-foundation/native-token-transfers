@@ -64,10 +64,6 @@ export async function getAxelarGasFee(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // Set a minimum fee of 1 to avoid 0-fee issue with relays not proceeding
-  // past the gas paid step
-  let fee = 1n;
-
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -93,14 +89,16 @@ export async function getAxelarGasFee(
     const result = await response.json();
 
     const parsedFee = BigInt(result);
-    if (parsedFee > 0n) {
-      fee = parsedFee;
+    if (parsedFee <= 0n) {
+      throw new Error(
+        `Invalid gas fee estimate: ${parsedFee}. Received zero or negative fee.`
+      );
     }
+
+    return parsedFee;
   } finally {
     clearTimeout(timeoutId);
   }
-
-  return fee;
 }
 
 export async function getAxelarTransactionStatus(

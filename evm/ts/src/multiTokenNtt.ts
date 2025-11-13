@@ -269,17 +269,13 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
               payload: new Uint8Array([1]), // disable standard relayer, use executor route for automatic relay
             };
           case "axelar": {
-            // If we fail to fetch the gas fee, then use 1 wei as a fallback.
-            // The Axelar GMP status API should return an invalid gas fee error
-            // which the track() method will surface, allowing a user to top up
-            // the gas fee.
             const gasFee = await getAxelarGasFee(
               this.network,
               this.chain,
               dstChain,
               gasLimit,
               axelarGasMultiplier
-            ).catch(() => 1n);
+            );
             return {
               index: transceiver.index,
               payload: encoding.bignum.toBytes(gasFee, 32),
