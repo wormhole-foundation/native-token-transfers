@@ -2,6 +2,49 @@ import chalk from "chalk";
 import type { Chain, Network } from "@wormhole-foundation/sdk";
 import { chainToPlatform } from "@wormhole-foundation/sdk-base";
 
+const RPC_ERROR_KEYWORDS = [
+  "jsonrpc",
+  "network error",
+  "rpc",
+  "connection",
+  "unable to connect",
+  "404 not found",
+  "status code: 404",
+  "status code",
+  "not found",
+  "could not connect",
+  "failed to fetch",
+  "connect to",
+] as const;
+
+function extractErrorDetails(
+  error: unknown
+): { message: string; stack: string } {
+  if (error instanceof Error) {
+    return {
+      message: error.message ?? "",
+      stack: error.stack ?? "",
+    };
+  }
+  if (typeof error === "object" && error !== null) {
+    const message =
+      "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+    const stack =
+      "stack" in error ? String((error as { stack?: unknown }).stack ?? "") : "";
+    return { message, stack };
+  }
+  return { message: String(error ?? ""), stack: "" };
+}
+
+export function isRpcConnectionError(error: unknown): boolean {
+  const { message, stack } = extractErrorDetails(error);
+  const haystack = `${message} ${stack}`.toLowerCase();
+  if (!haystack.trim()) {
+    return false;
+  }
+  return RPC_ERROR_KEYWORDS.some((needle) => haystack.includes(needle));
+}
+
 /**
  * @param error - The error that occurred (typically from execSync)
  * @param rpc - The RPC endpoint URL
@@ -57,41 +100,33 @@ function handleRpcConnectionError(
   network: Network,
   rpc: string
 ): boolean {
+  if (!isRpcConnectionError(error)) {
+    return false;
+  }
+
   const errorMessage = error?.message || String(error);
-  const errorStack = error?.stack || "";
 
-  // Check if this is an RPC-related error by looking for common RPC error indicators
-  const isRpcError =
-    errorMessage.toLowerCase().includes("jsonrpc") ||
-    errorStack.toLowerCase().includes("jsonrpc") ||
-    errorMessage.toLowerCase().includes("rpc") ||
-    errorMessage.toLowerCase().includes("connection") ||
-    errorMessage.toLowerCase().includes("network error");
-
-  if (isRpcError) {
-    console.error(
-      chalk.red(`RPC connection error for ${chain} on ${network}\n`)
-    );
-    console.error(chalk.yellow("RPC endpoint:"), chalk.white(rpc));
-    console.error(chalk.yellow("Error:"), errorMessage);
-    console.error();
-    console.error(
-      chalk.yellow(
-        "This error usually means the RPC endpoint is missing, invalid, or unreachable."
-      )
-    );
-    console.error(
-      chalk.yellow(
-        "You can specify a private RPC endpoint by creating an overrides.json file.\n"
-      )
-    );
-    console.error(
-      chalk.cyan("Create a file named ") +
-        chalk.white("overrides.json") +
-        chalk.cyan(" in your project root:")
-    );
-    console.error(
-      chalk.white(`
+  console.error(chalk.red(`RPC connection error for ${chain} on ${network}\n`));
+  console.error(chalk.yellow("RPC endpoint:"), chalk.white(rpc));
+  console.error(chalk.yellow("Error:"), errorMessage);
+  console.error();
+  console.error(
+    chalk.yellow(
+      "This error usually means the RPC endpoint is missing, invalid, or unreachable."
+    )
+  );
+  console.error(
+    chalk.yellow(
+      "You can specify a private RPC endpoint by creating an overrides.json file.\n"
+    )
+  );
+  console.error(
+    chalk.cyan("Create a file named ") +
+      chalk.white("overrides.json") +
+      chalk.cyan(" in your project root:")
+  );
+  console.error(
+    chalk.white(`
 {
   "chains": {
     "${chain}": {
@@ -100,31 +135,28 @@ function handleRpcConnectionError(
   }
 }
 `)
-    );
+  );
 
-    // Show chainlist.org only for EVM chains
-    try {
-      const platform = chainToPlatform(chain as any);
-      if (platform === "Evm") {
-        console.error(
-          chalk.cyan(`Find RPC endpoints for ${chain}: https://chainlist.org`)
-        );
-      }
-    } catch (e) {
-      // If chainToPlatform fails, just skip the platform-specific message
+  // Show chainlist.org only for EVM chains
+  try {
+    const platform = chainToPlatform(chain as any);
+    if (platform === "Evm") {
+      console.error(
+        chalk.cyan(`Find RPC endpoints for ${chain}: https://chainlist.org`)
+      );
     }
-
-    console.error(
-      chalk.cyan(
-        `For more information about overrides.json:\n` +
-          `  • https://wormhole.com/docs/products/token-transfers/native-token-transfers/faqs/#how-can-i-specify-a-custom-rpc-for-ntt`
-      )
-    );
-    
-    return true;
+  } catch (e) {
+    // If chainToPlatform fails, just skip the platform-specific message
   }
-  
-  return false;
+
+  console.error(
+    chalk.cyan(
+      `For more information about overrides.json:\n` +
+        `  • https://wormhole.com/docs/products/token-transfers/native-token-transfers/faqs/#how-can-i-specify-a-custom-rpc-for-ntt`
+    )
+  );
+
+  return true;
 }
 
 /**

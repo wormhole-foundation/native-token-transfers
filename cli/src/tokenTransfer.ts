@@ -30,7 +30,7 @@ import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
 import { getSigner, type SignerStuff } from "./getSigner";
-import { logRpcError } from "./error";
+import { isRpcConnectionError, logRpcError } from "./error";
 import {
   NttExecutorRoute,
   NttRoute,
@@ -715,7 +715,7 @@ async function executeTokenTransfer(
         );
       }
     } catch (error) {
-      if (isLikelyRpcError(error)) {
+      if (isRpcConnectionError(error)) {
         throw new TokenTransferError(
           "Failed while waiting for attestation. Verify Wormhole RPC endpoints are reachable.",
           { cause: error }
@@ -1007,7 +1007,7 @@ async function getSignerSafe<N extends Network, C extends Chain>(
   try {
     return await getSigner(ctx, "privateKey", source, filePath);
   } catch (error) {
-    if (isLikelyRpcError(error)) {
+    if (isRpcConnectionError(error)) {
       throw new TokenTransferError(
         `Unable to reach RPC endpoint for ${ctx.chain}. Ensure the RPC is reachable or override it with --rpc ${ctx.chain}=<url>.`,
         { cause: error }
@@ -1065,45 +1065,12 @@ function fail(
   ctx?: ChainContext<Network, Chain>,
   network?: Network
 ): never {
-  if (ctx && network && isLikelyRpcError(error)) {
+  if (ctx && network && isRpcConnectionError(error)) {
     logRpcError(error, ctx.chain, network, ctx.config.rpc);
   }
   throw new TokenTransferError(prefix, {
     cause: error instanceof Error ? error : new Error(String(error)),
   });
-}
-
-/**
- * Best-effort detection of transport-level RPC issues.
- */
-function isLikelyRpcError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" && error !== null && "message" in error
-        ? String((error as { message: unknown }).message)
-        : "";
-  const stack =
-    error instanceof Error
-      ? (error.stack ?? "")
-      : typeof error === "object" && error !== null && "stack" in error
-        ? String((error as { stack: unknown }).stack)
-        : "";
-  const haystack = `${message} ${stack}`.toLowerCase();
-  return (
-    haystack.includes("jsonrpc") ||
-    haystack.includes("network error") ||
-    haystack.includes("rpc") ||
-    haystack.includes("connection") ||
-    haystack.includes("unable to connect") ||
-    haystack.includes("404 not found") ||
-    haystack.includes("status code: 404") ||
-    haystack.includes("status code") ||
-    haystack.includes("not found") ||
-    haystack.includes("could not connect") ||
-    haystack.includes("failed to fetch") ||
-    haystack.includes("connect to")
-  );
 }
 
 /** Provide user facing guidance for resolving signer input issues. */
