@@ -18,9 +18,9 @@
     "ntt": "src/index.ts"
   },
   "dependencies": {
-    "chalk": "^5.3.0",
-    "ora": "^7.0.1",
-    "yargs": "^17.7.2"
+    "chalk": "^5.6.0",
+    "ora": "8.2.0",
+    "yargs": "18.0.0"
   },
   "overrides": {
     "@wormhole-foundation/sdk-definitions-ntt": {
