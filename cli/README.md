@@ -1,5 +1,7 @@
 # NTT cli
 
+Comprehensive setup instructions, walkthroughs, and deployment guides live in the Native Token Transfers documentation. Start with [Get Started with NTT](https://wormhole.com/docs/products/token-transfers/native-token-transfers/get-started/).
+
 ## Prerequisites
 
 - [bun](https://bun.sh/docs/installation)
