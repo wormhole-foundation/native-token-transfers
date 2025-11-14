@@ -676,6 +676,14 @@ async function executeTokenTransfer(
       destinationAddress
     )) as NttExecutorRoute.TransferReceipt;
   } catch (error) {
+    if (
+      sourcePlatform === "Sui" &&
+      isUnsupportedSuiDestinationError(error)
+    ) {
+      throw new TokenTransferError(
+        `NTT CLI does not currently support transfers from Sui to ${destinationChainInput}.`
+      );
+    }
     fail(
       `Failed to submit transfer transaction on ${sourceChainInput}`,
       error,
@@ -1039,6 +1047,13 @@ function stringifyError(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function isUnsupportedSuiDestinationError(error: unknown): boolean {
+  const message = stringifyError(error).toLowerCase();
+  return message.includes(
+    "executor only supports solana and evm destination chains"
+  );
 }
 
 /**
