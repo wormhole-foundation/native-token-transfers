@@ -269,17 +269,13 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
               payload: new Uint8Array([1]), // disable standard relayer, use executor route for automatic relay
             };
           case "axelar": {
-            // If we fail to fetch the gas fee, then use 1 wei as a fallback.
-            // The Axelar GMP status API should return an invalid gas fee error
-            // which the track() method will surface, allowing a user to top up
-            // the gas fee.
             const gasFee = await getAxelarGasFee(
               this.network,
               this.chain,
               dstChain,
               gasLimit,
               axelarGasMultiplier
-            ).catch(() => 1n);
+            );
             return {
               index: transceiver.index,
               payload: encoding.bignum.toBytes(gasFee, 32),
@@ -679,6 +675,13 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
     if (!existingToken) {
       // Redeeming will create the token on this chain
       // so we need to account for the extra gas.
+      return 1_000_000n;
+    }
+
+    if (this.chain === "Monad") {
+      // Monad gas is higher than other EVMs
+      // e.g., here's a redeem tx on Monad where the wallet estimated 750k gas. add sufficient buffer.
+      // https://mainnet-beta.monvision.io/tx/0xa4c2c3c2c07c548ad54de7065e54eb3ae1ed017384af43c32a86d32676c3aaef
       return 1_000_000n;
     }
 

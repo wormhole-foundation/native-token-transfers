@@ -147,15 +147,16 @@ describe("Axelar Utility Functions", () => {
       );
     });
 
-    it("should return minimum fee of 1 when API returns 0", async () => {
+    it("should throw error when API returns 0", async () => {
       const mockResponse = {
         ok: true,
         json: async () => "0",
       };
       mockFetch.mockResolvedValue(mockResponse);
 
-      const fee = await getAxelarGasFee("Testnet", "Sepolia", "Monad", 500000n);
-      expect(fee).toBe(1n);
+      await expect(
+        getAxelarGasFee("Testnet", "Sepolia", "Monad", 500000n)
+      ).rejects.toThrow("Invalid gas fee estimate");
     });
 
     it("should throw error when API call fails", async () => {
