@@ -678,6 +678,13 @@ export class EvmMultiTokenNtt<N extends Network, C extends EvmChains>
       return 1_000_000n;
     }
 
+    if (this.chain === "Monad") {
+      // Monad gas is higher than other EVMs
+      // e.g., here's a redeem tx on Monad where the wallet estimated 750k gas. add sufficient buffer.
+      // https://mainnet-beta.monvision.io/tx/0xa4c2c3c2c07c548ad54de7065e54eb3ae1ed017384af43c32a86d32676c3aaef
+      return 1_000_000n;
+    }
+
     // Upper estimate for redeeming an existing token. Based on observed gas usage
     // but padded to be well above the limit.
     return 650_000n;

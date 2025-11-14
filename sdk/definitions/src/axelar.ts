@@ -172,7 +172,8 @@ export function parseGMPStatus(response: any): GMPStatus | string {
 export function parseGMPError(response: any): GMPError | undefined {
   if (response.error) {
     return {
-      message: response.error.error.message,
+      // message: response.error.error.message,
+      message: "Transfer failed", // Simplified error message
       txHash: response.error.sourceTransactionHash,
       chain: response.error.chain,
     };
