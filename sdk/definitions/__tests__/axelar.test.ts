@@ -81,7 +81,7 @@ describe("Axelar Utility Functions", () => {
       };
       const error = parseGMPError(response);
       expect(error).toEqual({
-        message: "execution failed",
+        message: "Transfer failed",
         txHash: "0xabc123",
         chain: "ethereum",
       });
@@ -270,7 +270,7 @@ describe("Axelar Utility Functions", () => {
       );
       expect(result.status).toBe(GMPStatus.DEST_EXECUTE_ERROR);
       expect(result.error).toEqual({
-        message: "execution reverted",
+        message: "Transfer failed",
         txHash: "0xabc123",
         chain: "ethereum",
       });

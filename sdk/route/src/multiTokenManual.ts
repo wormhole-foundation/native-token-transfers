@@ -201,9 +201,12 @@ export class MultiTokenNttManualRoute<N extends Network>
         token: request.destination.id,
         amount: dstAmount,
       },
+      // For Monad, set ETA to 3 minutes because Axelar takes this long
       eta:
-        finality.estimateFinalityTime(request.fromChain.chain) +
-        guardians.guardianAttestationEta * 1000,
+        request.fromChain.chain === "Monad"
+          ? 3 * 60 * 1000 // 3 minutes
+          : finality.estimateFinalityTime(request.fromChain.chain) +
+            guardians.guardianAttestationEta * 1000,
     };
 
     const { fromChain, toChain } = request;
