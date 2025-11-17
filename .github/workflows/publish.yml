@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.11.0
           cache: "npm"
           registry-url: "https://registry.npmjs.org"
           # Node 24 ships with npm 11.x which includes OIDC support (requires 11.5.1+)
