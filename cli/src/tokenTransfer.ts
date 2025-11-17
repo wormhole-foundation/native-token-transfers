@@ -681,7 +681,7 @@ async function executeTokenTransfer(
       isUnsupportedSuiDestinationError(error)
     ) {
       throw new TokenTransferError(
-        `NTT CLI does not currently support transfers from Sui to ${destinationChainInput}.`
+        `Sui transfers on Testnet are currently limited to Solana and Avalanche destinations. ${destinationChainInput} is not yet supported.`
       );
     }
     fail(
