@@ -104,23 +104,35 @@ interface IWormholeTransceiverState {
     /// @dev This function is only callable by the `owner`.
     /// @param chainId The Wormhole chain ID of the peer to set.
     /// @param peerContract The address of the peer contract on the given chain.
-    function setWormholePeer(uint16 chainId, bytes32 peerContract) external payable;
+    function setWormholePeer(
+        uint16 chainId,
+        bytes32 peerContract
+    ) external payable;
 
     /// @notice Set whether the chain is EVM compatible.
     /// @dev This function is only callable by the `owner`.
     /// @param chainId The Wormhole chain ID to set.
     /// @param isEvm A boolean indicating whether the chain is an EVM chain.
-    function setIsWormholeEvmChain(uint16 chainId, bool isEvm) external;
+    function setIsWormholeEvmChain(
+        uint16 chainId,
+        bool isEvm
+    ) external;
 
     /// @notice Set whether Wormhole relaying is enabled for the given chain.
     /// @dev This function is only callable by the `owner`.
     /// @param chainId The Wormhole chain ID to set.
     /// @param isRelayingEnabled A boolean indicating whether relaying is enabled.
-    function setIsWormholeRelayingEnabled(uint16 chainId, bool isRelayingEnabled) external;
+    function setIsWormholeRelayingEnabled(
+        uint16 chainId,
+        bool isRelayingEnabled
+    ) external;
 
     /// @notice Set whether special relaying is enabled for the given chain.
     /// @dev This function is only callable by the `owner`.
     /// @param chainId The Wormhole chain ID to set.
     /// @param isRelayingEnabled A boolean indicating whether special relaying is enabled.
-    function setIsSpecialRelayingEnabled(uint16 chainId, bool isRelayingEnabled) external;
+    function setIsSpecialRelayingEnabled(
+        uint16 chainId,
+        bool isRelayingEnabled
+    ) external;
 }

@@ -11,7 +11,10 @@ type TrimmedAmount is uint72;
 
 using {gt as >, lt as <, sub as -, add as +, eq as ==, min, unwrap} for TrimmedAmount global;
 
-function minUint8(uint8 a, uint8 b) pure returns (uint8) {
+function minUint8(
+    uint8 a,
+    uint8 b
+) pure returns (uint8) {
     return a < b ? a : b;
 }
 
@@ -29,7 +32,10 @@ function unwrap(
     return TrimmedAmount.unwrap(a);
 }
 
-function packTrimmedAmount(uint64 amt, uint8 decimals) pure returns (TrimmedAmount) {
+function packTrimmedAmount(
+    uint64 amt,
+    uint8 decimals
+) pure returns (TrimmedAmount) {
     // cast to u72 first to prevent overflow
     uint72 amount = uint72(amt);
     uint72 dec = uint72(decimals);
@@ -40,12 +46,18 @@ function packTrimmedAmount(uint64 amt, uint8 decimals) pure returns (TrimmedAmou
     return TrimmedAmount.wrap(amount | dec);
 }
 
-function eq(TrimmedAmount a, TrimmedAmount b) pure returns (bool) {
+function eq(
+    TrimmedAmount a,
+    TrimmedAmount b
+) pure returns (bool) {
     return TrimmedAmountLib.getAmount(a) == TrimmedAmountLib.getAmount(b)
         && TrimmedAmountLib.getDecimals(a) == TrimmedAmountLib.getDecimals(b);
 }
 
-function checkDecimals(TrimmedAmount a, TrimmedAmount b) pure {
+function checkDecimals(
+    TrimmedAmount a,
+    TrimmedAmount b
+) pure {
     uint8 aDecimals = TrimmedAmountLib.getDecimals(a);
     uint8 bDecimals = TrimmedAmountLib.getDecimals(b);
     if (aDecimals != bDecimals) {
@@ -53,19 +65,28 @@ function checkDecimals(TrimmedAmount a, TrimmedAmount b) pure {
     }
 }
 
-function gt(TrimmedAmount a, TrimmedAmount b) pure returns (bool) {
+function gt(
+    TrimmedAmount a,
+    TrimmedAmount b
+) pure returns (bool) {
     checkDecimals(a, b);
 
     return TrimmedAmountLib.getAmount(a) > TrimmedAmountLib.getAmount(b);
 }
 
-function lt(TrimmedAmount a, TrimmedAmount b) pure returns (bool) {
+function lt(
+    TrimmedAmount a,
+    TrimmedAmount b
+) pure returns (bool) {
     checkDecimals(a, b);
 
     return TrimmedAmountLib.getAmount(a) < TrimmedAmountLib.getAmount(b);
 }
 
-function sub(TrimmedAmount a, TrimmedAmount b) pure returns (TrimmedAmount) {
+function sub(
+    TrimmedAmount a,
+    TrimmedAmount b
+) pure returns (TrimmedAmount) {
     checkDecimals(a, b);
 
     return packTrimmedAmount(
@@ -74,7 +95,10 @@ function sub(TrimmedAmount a, TrimmedAmount b) pure returns (TrimmedAmount) {
     );
 }
 
-function add(TrimmedAmount a, TrimmedAmount b) pure returns (TrimmedAmount) {
+function add(
+    TrimmedAmount a,
+    TrimmedAmount b
+) pure returns (TrimmedAmount) {
     checkDecimals(a, b);
 
     return packTrimmedAmount(
@@ -83,7 +107,10 @@ function add(TrimmedAmount a, TrimmedAmount b) pure returns (TrimmedAmount) {
     );
 }
 
-function min(TrimmedAmount a, TrimmedAmount b) pure returns (TrimmedAmount) {
+function min(
+    TrimmedAmount a,
+    TrimmedAmount b
+) pure returns (TrimmedAmount) {
     checkDecimals(a, b);
 
     return TrimmedAmountLib.getAmount(a) < TrimmedAmountLib.getAmount(b) ? a : b;
@@ -116,7 +143,10 @@ library TrimmedAmountLib {
     ///      This function should only be used for testing purposes, as it
     ///      should not be necessary to change the decimals of a TrimmedAmount
     ///      under normal circumstances.
-    function setDecimals(TrimmedAmount a, uint8 decimals) internal pure returns (TrimmedAmount) {
+    function setDecimals(
+        TrimmedAmount a,
+        uint8 decimals
+    ) internal pure returns (TrimmedAmount) {
         return TrimmedAmount.wrap((TrimmedAmount.unwrap(a) & ~uint72(0xFF)) | decimals);
     }
 
@@ -160,7 +190,10 @@ library TrimmedAmountLib {
         }
     }
 
-    function shift(TrimmedAmount amount, uint8 toDecimals) internal pure returns (TrimmedAmount) {
+    function shift(
+        TrimmedAmount amount,
+        uint8 toDecimals
+    ) internal pure returns (TrimmedAmount) {
         uint8 actualToDecimals = minUint8(TRIMMED_DECIMALS, toDecimals);
         return packTrimmedAmount(
             SafeCast.toUint64(scale(getAmount(amount), getDecimals(amount), actualToDecimals)),
@@ -196,7 +229,10 @@ library TrimmedAmountLib {
         return packTrimmedAmount(SafeCast.toUint64(amountScaled), actualToDecimals);
     }
 
-    function untrim(TrimmedAmount amt, uint8 toDecimals) internal pure returns (uint256) {
+    function untrim(
+        TrimmedAmount amt,
+        uint8 toDecimals
+    ) internal pure returns (uint256) {
         uint256 deNorm = uint256(getAmount(amt));
         uint8 fromDecimals = getDecimals(amt);
         uint256 amountScaled = scale(deNorm, fromDecimals, toDecimals);
