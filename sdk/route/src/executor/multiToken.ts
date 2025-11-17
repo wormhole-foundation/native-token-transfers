@@ -268,9 +268,12 @@ export class MultiTokenNttExecutorRoute<N extends Network>
           gasDropOff,
           toChain.config.nativeTokenDecimals
         ),
+        // For Monad, set ETA to 3 minutes because Axelar takes this long
         eta:
-          finality.estimateFinalityTime(request.fromChain.chain) +
-          guardians.guardianAttestationEta * 1000,
+          request.fromChain.chain === "Monad"
+            ? 3 * 60 * 1000 // 3 minutes
+            : finality.estimateFinalityTime(request.fromChain.chain) +
+              guardians.guardianAttestationEta * 1000,
         expires,
         details: {
           ...executorQuote,
