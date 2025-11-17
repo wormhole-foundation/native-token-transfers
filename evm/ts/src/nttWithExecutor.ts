@@ -51,7 +51,6 @@ const nttManagerWithExecutorAddresses: Partial<
   Testnet: {
     ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
     Avalanche: "0x4e9Af03fbf1aa2b79A2D4babD3e22e09f18Bb8EE",
-    Moca: "0x47f26bF9253Eb398fBAf825D7565FE975D839a71",
     BaseSepolia: "0x5845E08d890E21687F7Ebf7CbAbD360cD91c6245",
     Bsc: "0x39B57Dd9908F8be02CfeE283b67eA1303Bc29fe1",
     OptimismSepolia: "0xaDB1C56D363FF5A75260c3bd27dd7C1fC8421EF5",
