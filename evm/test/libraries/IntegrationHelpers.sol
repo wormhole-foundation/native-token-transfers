@@ -3,8 +3,9 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import {WormholeTransceiver} from
-    "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import {
+    WormholeTransceiver
+} from "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
 import {DummyToken, DummyTokenMintAndBurn} from "../../src/mocks/DummyToken.sol";
 import "../../src/libraries/TrimmedAmount.sol";
 import {Utils} from "./../libraries/Utils.sol";
@@ -39,10 +40,10 @@ contract IntegrationHelpers is Test {
             encodedInstructionWormhole =
                 wormholeTransceiverChain2.encodeWormholeTransceiverInstruction(instruction);
         }
-        return TransceiverStructs.TransceiverInstruction({
-            index: 0,
-            payload: encodedInstructionWormhole
-        });
+        return
+            TransceiverStructs.TransceiverInstruction({
+                index: 0, payload: encodedInstructionWormhole
+            });
     }
 
     function encodeTransceiverInstruction(
@@ -80,7 +81,10 @@ contract IntegrationHelpers is Test {
         );
     }
 
-    function _enableSR(WormholeTransceiver[2] memory transceivers, uint16 chainId) internal {
+    function _enableSR(
+        WormholeTransceiver[2] memory transceivers,
+        uint16 chainId
+    ) internal {
         for (uint256 i; i < transceivers.length; i++) {
             transceivers[i].setIsWormholeRelayingEnabled(chainId, true);
             transceivers[i].setIsWormholeEvmChain(chainId, true);
@@ -142,7 +146,10 @@ contract IntegrationHelpers is Test {
         return TransceiverStructs.nttManagerMessageDigest(sourceChainId, nttManagerMessage);
     }
 
-    function getTotalSupply(uint256 forkId, DummyToken token) public returns (uint256) {
+    function getTotalSupply(
+        uint256 forkId,
+        DummyToken token
+    ) public returns (uint256) {
         vm.selectFork(forkId);
         return token.totalSupply();
     }

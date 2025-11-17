@@ -23,7 +23,10 @@ contract OwnershipTests is Test {
         nttManager.initialize();
     }
 
-    function checkOwnership(DummyTransceiver e, address nttManagerOwner) public {
+    function checkOwnership(
+        DummyTransceiver e,
+        address nttManagerOwner
+    ) public {
         address transceiverNttManager = e.getNttManagerOwner();
         assertEq(transceiverNttManager, nttManagerOwner);
     }

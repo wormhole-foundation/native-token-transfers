@@ -26,7 +26,10 @@ interface INttToken {
     // NOTE: the `mint` method is not present in the standard ERC20 interface.
     //       If using NTT in hub-and-spoke mode, this function is required in the token contract for all spoke chains.
     //       If using NTT in burn-and-mint mode, this function is required in the token contract for all chains.
-    function mint(address account, uint256 amount) external;
+    function mint(
+        address account,
+        uint256 amount
+    ) external;
 
     // NOTE: the `setMinter` method is not present in the standard ERC20 interface.
     //       This is not a required function for integration with NTT. It is recommended to provide flexibility to change the minter in the future,
