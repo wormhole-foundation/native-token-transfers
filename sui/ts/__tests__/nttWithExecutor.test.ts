@@ -327,19 +327,21 @@ describe("SuiNttWithExecutor", () => {
     });
   });
 
-  describe("getSupportedDestinationChains", () => {
-    it("should return supported Solana and EVM chains", async () => {
-      const chains = await suiNttWithExecutor.getSupportedDestinationChains();
+  describe("isSupportedDestinationChain", () => {
+    it("returns true for Solana and EVM platforms", () => {
+      expect(suiNttWithExecutor.isSupportedDestinationChain("Solana")).toBe(
+        true
+      );
+      expect(suiNttWithExecutor.isSupportedDestinationChain("Ethereum")).toBe(
+        true
+      );
+      expect(suiNttWithExecutor.isSupportedDestinationChain("Arbitrum")).toBe(
+        true
+      );
+    });
 
-      expect(chains).toContain("Solana");
-      expect(chains).toContain("Ethereum");
-      expect(chains).toContain("Bsc");
-      expect(chains).toContain("Polygon");
-      expect(chains).toContain("Avalanche");
-      expect(chains).toContain("Arbitrum");
-      expect(chains).toContain("Optimism");
-      expect(chains).toContain("Base");
-      expect(chains).toHaveLength(8);
+    it("returns false for unsupported platforms", () => {
+      expect(suiNttWithExecutor.isSupportedDestinationChain("Sui")).toBe(false);
     });
   });
 });
