@@ -12,10 +12,6 @@ import {
 import { execSync } from "child_process";
 import * as myEvmSigner from "./evmsigner.js";
 
-import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with { type: "file" };
-
-import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with { type: "file" };
-
 import chalk from "chalk";
 import yargs from "yargs";
 import { $ } from "bun";
@@ -76,7 +72,10 @@ import { handleDeploymentError } from "./error";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
-const EXCLUDED_DIFF_PATHS = ["transceivers.wormhole.executor"];
+const EXCLUDED_DIFF_PATHS = [
+  "transceivers.wormhole.executor",
+  "managerVariant",
+];
 
 // Helper functions for nested object access
 function getNestedValue(obj: any, path: string[]): any {
@@ -380,39 +379,116 @@ const options = {
   },
 } as const;
 
-// TODO: this is a temporary hack to allow deploying from main (as we only need
-// the changes to the evm script)
-async function withCustomEvmDeployerScript<A>(
+/**
+ * Executes a callback with deployment scripts, optionally overriding them with version 1 scripts.
+ *
+ * Version 1 Script Override:
+ * --------------------------
+ * For version 1 deployments (scripts without DEPLOY_SCRIPT_VERSION comment), we extract the
+ * scripts from commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7. This commit contains the last
+ * known-good version 1 scripts that are compatible with all old NTT versions.
+ *
+ * Why override version 1 scripts?
+ * - Version 1 scripts in old worktrees don't all work
+ * - The scripts at commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7 is known to work for all old versions
+ * - This ensures consistent behaviour across all version 1 deployments
+ *
+ * Starting from version 2, scripts in the worktree are reliable and can be used as-is.
+ * Version 2+ scripts include the DEPLOY_SCRIPT_VERSION comment and use environment variables.
+ */
+async function withDeploymentScript<A>(
   pwd: string,
+  useBundledV1Scripts: boolean,
   then: () => Promise<A>
 ): Promise<A> {
   ensureNttRoot(pwd);
-  const overrides = [
-    { path: `${pwd}/evm/script/DeployWormholeNtt.s.sol`, with: evmDeployFile },
-    {
-      path: `${pwd}/evm/script/helpers/DeployWormholeNttBase.sol`,
-      with: evmDeployFileHelper,
-    },
-  ];
-  for (const { path, with: withFile } of overrides) {
-    const old = `${path}.old`;
-    if (fs.existsSync(path)) {
-      fs.copyFileSync(path, old);
+
+  const scriptDir = `${pwd}/evm/script`;
+  const backupDir = `${pwd}/evm/script.backup`;
+
+  // Override with v1 scripts from git commit if needed
+  if (useBundledV1Scripts && pwd !== ".") {
+    // Remove any existing backup
+    if (fs.existsSync(backupDir)) {
+      fs.rmSync(backupDir, { recursive: true, force: true });
     }
-    fs.copyFileSync(withFile, path);
-  }
-  try {
-    return await then();
-  } finally {
-    // restore old files
-    for (const { path } of overrides) {
-      const old = `${path}.old`;
-      if (fs.existsSync(old)) {
-        fs.copyFileSync(old, path);
-        fs.unlinkSync(old);
+
+    // Backup original worktree scripts
+    if (fs.existsSync(scriptDir)) {
+      fs.cpSync(scriptDir, backupDir, { recursive: true });
+    }
+
+    // Extract v1 scripts from the specific git commit
+    const tempDir = `${pwd}/evm/script.temp`;
+    const absoluteTempDir = path.resolve(tempDir);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    try {
+      // Use git archive to extract evm/script from commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7
+      // - git archive must run from repository root (process.cwd())
+      // - Extract to absolute path to handle worktree locations correctly
+      // - --strip-components=2 removes both "evm/" and "script/" path prefixes
+      execSync(
+        `git archive 3f56da6541eb9d09f84cc676391e6fbc5b687dd7 evm/script | tar -x -C "${absoluteTempDir}" --strip-components=2`,
+        { cwd: process.cwd(), stdio: 'pipe' }
+      );
+
+      // Replace the script directory with the extracted version
+      fs.rmSync(scriptDir, { recursive: true, force: true });
+      fs.cpSync(tempDir, scriptDir, { recursive: true });
+    } finally {
+      // Clean up temp directory
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }
   }
+
+  try {
+    return await then();
+  } finally {
+    // Restore original scripts if we overrode them
+    if (useBundledV1Scripts && pwd !== ".") {
+      fs.rmSync(scriptDir, { recursive: true, force: true });
+      if (fs.existsSync(backupDir)) {
+        fs.cpSync(backupDir, scriptDir, { recursive: true });
+        fs.rmSync(backupDir, { recursive: true, force: true });
+      }
+    }
+  }
+}
+
+/**
+ * Detects the deploy script version by checking for DEPLOY_SCRIPT_VERSION comment
+ * Version 1: Scripts with run() method that takes explicit parameters
+ * Version 2+: Scripts with run() method that reads from environment variables
+ */
+function detectDeployScriptVersion(pwd: string): number {
+  const scriptPath = `${pwd}/evm/script/DeployWormholeNtt.s.sol`;
+
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Deploy script not found: ${scriptPath}`);
+  }
+
+  const scriptContent = fs.readFileSync(scriptPath, "utf8");
+
+  // Look for DEPLOY_SCRIPT_VERSION comment
+  const versionMatch = scriptContent.match(/\/\/\s*DEPLOY_SCRIPT_VERSION:\s*(\d+)/);
+
+  if (versionMatch) {
+    return parseInt(versionMatch[1], 10);
+  }
+
+  // Default to version 1 if no version comment found
+  return 1;
+}
+
+/**
+ * Checks if manager variants are supported by checking if NttManagerNoRateLimiting.sol exists
+ */
+function supportsManagerVariants(pwd: string): boolean {
+  const noRateLimitingPath = `${pwd}/evm/src/NttManager/NttManagerNoRateLimiting.sol`;
+  return fs.existsSync(noRateLimitingPath);
 }
 
 yargs(hideBin(process.argv))
@@ -598,6 +674,12 @@ yargs(hideBin(process.argv))
           type: "boolean",
           default: true,
         })
+        .option("manager-variant", {
+          describe: "NttManager variant to deploy (EVM only)",
+          type: "string",
+          choices: ["standard", "noRateLimiting", "wethUnwrap"],
+          default: "standard",
+        })
         .example(
           "$0 add-chain Ethereum --token 0x1234... --mode burning --latest",
           "Add Ethereum chain with the latest contract version in burning mode"
@@ -715,6 +797,7 @@ yargs(hideBin(process.argv))
         !argv["skip-verify"],
         argv["yes"],
         argv["executor"],
+        argv["manager-variant"],
         argv["payer"],
         argv["program-key"],
         argv["binary"],
@@ -735,6 +818,12 @@ yargs(hideBin(process.argv))
       console.log("token decimals:", chalk.yellow(decimals));
 
       config.transceivers.wormhole.executor = argv["executor"];
+
+      // Add manager variant to config for EVM chains
+      const platform = chainToPlatform(chain);
+      if (platform === "Evm" && argv["manager-variant"]) {
+        (config as any).managerVariant = argv["manager-variant"];
+      }
 
       deployments.chains[chain] = config;
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
@@ -771,6 +860,11 @@ yargs(hideBin(process.argv))
           type: "string",
         })
         .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
+        .option("manager-variant", {
+          describe: "NttManager variant to upgrade to (EVM only). If not specified, preserves the existing variant from deployment config.",
+          type: "string",
+          choices: ["standard", "noRateLimiting", "wethUnwrap"],
+        })
         .example(
           "$0 upgrade Ethereum --latest",
           "Upgrade the Ethereum contract to the latest version"
@@ -838,6 +932,11 @@ yargs(hideBin(process.argv))
         overrides
       );
 
+      // Determine manager variant: use flag if provided, otherwise use config value, default to "standard"
+      const managerVariant = argv["manager-variant"]
+        ?? chainConfig.managerVariant
+        ?? "standard";
+
       await upgrade(
         currentVersion,
         toVersion,
@@ -845,6 +944,7 @@ yargs(hideBin(process.argv))
         ctx,
         signerType,
         !argv["skip-verify"],
+        managerVariant,
         argv["payer"],
         argv["program-key"],
         argv["binary"],
@@ -2623,6 +2723,7 @@ async function upgrade<N extends Network, C extends Chain>(
   ctx: ChainContext<N, C>,
   signerType: SignerType,
   evmVerify: boolean,
+  managerVariant?: string,
   solanaPayer?: string,
   solanaProgramKeyPath?: string,
   solanaBinaryPath?: string,
@@ -2641,6 +2742,7 @@ async function upgrade<N extends Network, C extends Chain>(
         evmCtx,
         signerType,
         evmVerify,
+        managerVariant,
         gasEstimateMultiplier
       );
     case "Solana":
@@ -2674,6 +2776,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
   ctx: ChainContext<N, C>,
   signerType: SignerType,
   evmVerify: boolean,
+  managerVariant?: string,
   gasEstimateMultiplier?: number
 ): Promise<void> {
   ensureNttRoot(pwd);
@@ -2695,23 +2798,55 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
     verifyArgs = verifyArgsArray.join(" ");
   }
 
+  // Detect script version to determine upgrade strategy
+  const scriptVersion = detectDeployScriptVersion(pwd);
+  console.log(`Detected deploy script version: ${scriptVersion}`);
+
+  // Validate manager variant support for upgrades
+  const variant = managerVariant || "standard";
+  if (variant !== "standard") {
+    if (!supportsManagerVariants(pwd)) {
+      console.error(
+        `Manager variant '${variant}' is not supported in this version. ` +
+        `The NttManagerNoRateLimiting.sol contract does not exist.`
+      );
+      process.exit(1);
+    }
+    if (scriptVersion < 2) {
+      console.error(
+        `Manager variant selection requires deploy script version 2+, but found version ${scriptVersion}. ` +
+        `Please upgrade to a newer version that supports manager variants.`
+      );
+      process.exit(1);
+    }
+  }
+
   console.log("Upgrading manager...");
   const slowFlag = getSlowFlag(ctx.chain);
   const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-  await withCustomEvmDeployerScript(pwd, async () => {
-    execSync(
-      `forge script --via-ir script/DeployWormholeNtt.s.sol \
+
+  // Use bundled v1 scripts if version 1 detected
+  const useBundledV1 = scriptVersion === 1;
+
+  await withDeploymentScript(pwd, useBundledV1, async () => {
+
+    // Set MANAGER_VARIANT env var (old scripts will ignore it)
+    const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${ctx.config.rpc} \
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
 --broadcast ${slowFlag} ${gasMultiplier} \
-${verifyArgs} | tee last-run.stdout`,
-      {
-        cwd: `${pwd}/evm`,
-        stdio: "inherit",
-      }
-    );
+${verifyArgs} | tee last-run.stdout`;
+
+    execSync(command, {
+      cwd: `${pwd}/evm`,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        MANAGER_VARIANT: variant,
+      },
+    });
   });
 }
 
@@ -2940,6 +3075,7 @@ async function deploy<N extends Network, C extends Chain>(
   evmVerify: boolean,
   yes: boolean,
   executor: boolean,
+  managerVariant?: string,
   solanaPayer?: string,
   solanaProgramKeyPath?: string,
   solanaBinaryPath?: string,
@@ -2965,6 +3101,7 @@ async function deploy<N extends Network, C extends Chain>(
         signerType,
         evmVerify,
         executor,
+        managerVariant || "standard",
         gasEstimateMultiplier
       );
     case "Solana":
@@ -3014,6 +3151,7 @@ async function deployEvm<N extends Network, C extends Chain>(
   signerType: SignerType,
   verify: boolean,
   executor: boolean,
+  managerVariant: string,
   gasEstimateMultiplier?: number
 ): Promise<ChainAddress<C>> {
   ensureNttRoot(pwd);
@@ -3055,8 +3193,6 @@ async function deployEvm<N extends Network, C extends Chain>(
     handleDeploymentError(error, ch.chain, ch.network, rpc);
   }
 
-  // TODO: should actually make these ENV variables.
-  const sig = "run(address,address,address,address,uint8,uint8)";
   const modeUint = mode === "locking" ? 0 : 1;
   const signer = await getSigner(ch, signerType);
   const signerArgs = forgeSignerArgs(signer.source);
@@ -3072,6 +3208,28 @@ async function deployEvm<N extends Network, C extends Chain>(
     stdio: "pipe",
   });
 
+  // Detect script version to determine deployment strategy
+  const scriptVersion = detectDeployScriptVersion(pwd);
+  console.log(`Detected deploy script version: ${scriptVersion}`);
+
+  // Validate manager variant support
+  if (managerVariant !== "standard") {
+    if (!supportsManagerVariants(pwd)) {
+      console.error(
+        `Manager variant '${managerVariant}' is not supported in this version. ` +
+        `The NttManagerNoRateLimiting.sol contract does not exist.`
+      );
+      process.exit(1);
+    }
+    if (scriptVersion < 2) {
+      console.error(
+        `Manager variant selection requires deploy script version 2+, but found version ${scriptVersion}. ` +
+        `Please upgrade to a newer version that supports manager variants.`
+      );
+      process.exit(1);
+    }
+  }
+
   console.log("Deploying manager...");
   const deploy = async (simulate: boolean): Promise<string> => {
     const simulateArg = simulate ? "" : "--skip-simulation";
@@ -3079,23 +3237,55 @@ async function deployEvm<N extends Network, C extends Chain>(
     const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
     const effectiveRelayer =
       relayer || "0x0000000000000000000000000000000000000000";
-    await withCustomEvmDeployerScript(pwd, async () => {
+
+    // Use bundled v1 scripts if version 1 detected
+    const useBundledV1 = scriptVersion === 1;
+
+    await withDeploymentScript(pwd, useBundledV1, async () => {
+
       try {
-        execSync(
-          `
-forge script --via-ir script/DeployWormholeNtt.s.sol \
+        let command: string;
+        let env: NodeJS.ProcessEnv = { ...process.env };
+
+        if (scriptVersion === 1) {
+          // Version 1: Use explicit signature with parameters
+          const sig = "run(address,address,address,address,uint8,uint8)";
+          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${rpc} \
 ${simulateArg} \
 --sig "${sig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
-          )} ${signerArgs} 2>&1 | tee last-run.stdout`,
-          {
-            cwd: `${pwd}/evm`,
-            encoding: "utf8",
-            stdio: "inherit",
-          }
-        );
+          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
+        } else {
+          // Version 2+: Use environment variables
+          env = {
+            ...env,
+            RELEASE_CORE_BRIDGE_ADDRESS: wormhole,
+            RELEASE_TOKEN_ADDRESS: token,
+            RELEASE_DECIMALS: decimals.toString(),
+            RELEASE_MODE: modeUint.toString(),
+            RELEASE_WORMHOLE_RELAYER_ADDRESS: effectiveRelayer,
+            RELEASE_SPECIAL_RELAYER_ADDRESS: specialRelayer,
+            RELEASE_CONSISTENCY_LEVEL: "202",
+            RELEASE_GAS_LIMIT: "500000",
+            MANAGER_VARIANT: managerVariant,
+          };
+
+          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
+--rpc-url ${rpc} \
+${simulateArg} \
+--broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
+            " "
+          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
+        }
+
+        execSync(command, {
+          cwd: `${pwd}/evm`,
+          encoding: "utf8",
+          stdio: "inherit",
+          env,
+        });
       } catch (error) {
         console.error("Failed to deploy manager");
         // NOTE: we don't exit here. instead, we check if the manager was
