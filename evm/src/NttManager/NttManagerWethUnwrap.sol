@@ -32,4 +32,7 @@ contract NttManagerWethUnwrap is NttManager {
         (bool success,) = payable(recipient).call{value: untrimmedAmount}("");
         require(success, "Failed to transfer to recipient");
     }
+
+    /// @notice Allow the contract to receive ETH from WETH withdrawals
+    receive() external payable {}
 }
