@@ -25,6 +25,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
+import * as solanaWeb3 from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs from "fs";
 import path from "path";
@@ -1201,6 +1202,11 @@ yargs(hideBin(process.argv))
         .option("skip-chain", options.skipChain)
         .option("only-chain", options.onlyChain)
         .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
+        .option("dangerously-transfer-ownership-in-one-step", {
+          describe: "Use 1-step ownership transfer for Solana (DANGEROUS - skips claim step)",
+          type: "boolean",
+          default: false,
+        })
         .example(
           "$0 push",
           "Push local configuration changes to the blockchain"
@@ -1406,7 +1412,8 @@ yargs(hideBin(process.argv))
           !argv["skip-verify"],
           argv["yes"],
           payerPath,
-          gasEstimateMultiplier
+          gasEstimateMultiplier,
+          argv["dangerously-transfer-ownership-in-one-step"]
         );
       }
     }
@@ -4480,7 +4487,8 @@ async function pushDeployment<C extends Chain>(
   evmVerify: boolean,
   yes: boolean,
   filePath?: string,
-  gasEstimateMultiplier?: number
+  gasEstimateMultiplier?: number,
+  dangerouslyTransferOwnershipInOneStep?: boolean
 ): Promise<void> {
   const diff = diffObjects(
     deployment.config.local!,
@@ -4517,7 +4525,38 @@ async function pushDeployment<C extends Chain>(
         deployment.manager.chain,
         diff[k]?.push!
       );
-      updateOwner = deployment.ntt.setOwner(address, signer.address.address);
+      // For Solana, we need to use the low-level transfer ownership instructions
+      if (chainToPlatform(deployment.manager.chain) === "Solana") {
+        const solanaNtt = deployment.ntt as SolanaNtt<typeof deployment.ctx.config.network, SolanaChains>;
+        const owner = new SolanaAddress(signer.address.address).unwrap();
+        const newOwner = new SolanaAddress(address).unwrap();
+
+        // Use one-step or two-step based on flag
+        const ix = dangerouslyTransferOwnershipInOneStep
+          ? await NTT.createTransferOwnershipOneStepUncheckedInstruction(
+              solanaNtt.program,
+              { owner, newOwner }
+            )
+          : await NTT.createTransferOwnershipInstruction(
+              solanaNtt.program,
+              { owner, newOwner }
+            );
+
+        const tx = new solanaWeb3.Transaction();
+        tx.add(ix);
+        tx.feePayer = owner;
+        // Convert to AsyncGenerator format expected by updateOwner
+        updateOwner = (async function*() {
+          yield solanaNtt.createUnsignedTx(
+            { transaction: tx },
+            dangerouslyTransferOwnershipInOneStep
+              ? "Transfer ownership (1-step)"
+              : "Propose ownership transfer (2-step)"
+          ) as UnsignedTransaction<any, any>;
+        })();
+      } else {
+        updateOwner = deployment.ntt.setOwner(address, signer.address.address);
+      }
     } else if (k === "pauser") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
