@@ -3513,7 +3513,7 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
           `Set the mint authority to the program's token authority PDA with e.g.:`
         );
         console.error(
-          `ntt solana set-mint-authority --token ${token} --manager ${providedProgramId}`
+          `ntt set-mint-authority --token ${token} --manager ${providedProgramId} --chain Solana`
         );
         process.exit(1);
       }
