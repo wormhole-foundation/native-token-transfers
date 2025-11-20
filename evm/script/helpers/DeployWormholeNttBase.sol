@@ -8,6 +8,8 @@ import "../../src/interfaces/INttManager.sol";
 import "../../src/interfaces/IWormholeTransceiver.sol";
 
 import {NttManager} from "../../src/NttManager/NttManager.sol";
+import {NttManagerNoRateLimiting} from "../../src/NttManager/NttManagerNoRateLimiting.sol";
+import {NttManagerWethUnwrap} from "../../src/NttManager/NttManagerWethUnwrap.sol";
 import {WormholeTransceiver} from
     "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -35,11 +37,42 @@ contract DeployWormholeNttBase is ParseNttConfig {
     // gas on testnet, pick up the phone and start dialing!
     uint256 constant MIN_WORMHOLE_GAS_LIMIT = 150000;
 
+    function deployNttManagerImplementation(
+        string memory variantStr,
+        address token,
+        IManagerBase.Mode mode,
+        uint16 wormholeChainId,
+        uint64 rateLimitDuration,
+        bool shouldSkipRatelimiter
+    ) internal returns (address implementation) {
+        // Deploy the appropriate Manager Implementation based on variant
+        if (keccak256(bytes(variantStr)) == keccak256(bytes("noRateLimiting"))) {
+            console2.log("Deploying NttManagerNoRateLimiting variant");
+            NttManagerNoRateLimiting impl =
+                new NttManagerNoRateLimiting(token, mode, wormholeChainId);
+            implementation = address(impl);
+        } else if (keccak256(bytes(variantStr)) == keccak256(bytes("wethUnwrap"))) {
+            console2.log("Deploying NttManagerWethUnwrap variant");
+            NttManagerWethUnwrap impl = new NttManagerWethUnwrap(
+                token, mode, wormholeChainId, rateLimitDuration, shouldSkipRatelimiter
+            );
+            implementation = address(impl);
+        } else {
+            // Default to standard NttManager
+            console2.log("Deploying standard NttManager variant");
+            NttManager impl = new NttManager(
+                token, mode, wormholeChainId, rateLimitDuration, shouldSkipRatelimiter
+            );
+            implementation = address(impl);
+        }
+    }
+
     function deployNttManager(
-        DeploymentParams memory params
+        DeploymentParams memory params,
+        string memory variantStr
     ) internal returns (address) {
-        // Deploy the Manager Implementation.
-        NttManager implementation = new NttManager(
+        address implementation = deployNttManagerImplementation(
+            variantStr,
             params.token,
             params.mode,
             params.wormholeChainId,
@@ -48,8 +81,7 @@ contract DeployWormholeNttBase is ParseNttConfig {
         );
 
         // NttManager Proxy
-        NttManager nttManagerProxy =
-            NttManager(address(new ERC1967Proxy(address(implementation), "")));
+        NttManager nttManagerProxy = NttManager(address(new ERC1967Proxy(implementation, "")));
 
         nttManagerProxy.initialize();
 
