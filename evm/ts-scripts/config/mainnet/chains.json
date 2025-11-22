@@ -17,7 +17,7 @@
       "description": "Arbitrum",
       "evmNetworkId": 42161,
       "chainId": 23,
-      "rpc": "https://arbitrum.llamarpc.com"
+      "rpc": "https://api.zan.top/arb-one"
     },
     {
       "description": "Optimism",
@@ -30,6 +30,12 @@
       "evmNetworkId": 8453,
       "chainId": 30,
       "rpc": "https://mainnet.base.org"
+    },
+    {
+      "description": "Monad",
+      "evmNetworkId": 143,
+      "chainId": 48,
+      "rpc": "https://rpc.monad.xyz"
     },
     {
       "description": "XRPL EVM",
