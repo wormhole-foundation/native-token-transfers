@@ -46,7 +46,7 @@ const nttManagerWithExecutorAddresses: Partial<
     XRPLEVM: "0x6bBd1ff3bB303F88835A714EE3241bF45DE26d29",
     Seievm: "0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445",
     CreditCoin: "0x5454b995719626256C96fb57454b044ffb3Da2F9",
-    Monad: "0x93FE94Ad887a1B04DBFf1f736bfcD1698D4cfF66",
+    Monad: "0xc3F3dDa544815a440633176c7598f5B97500793e",
   },
   Testnet: {
     ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
@@ -76,9 +76,21 @@ const gasLimitOverrides: Partial<
   Mainnet: {
     Arbitrum: 800_000n,
     CreditCoin: 1_500_000n,
+    Monad: 1_000_000n,
   },
   Testnet: {
     ArbitrumSepolia: 800_000n,
+  },
+};
+
+// Tracks which executor contracts support the transferETH method.
+// Currently only Monad Mainnet supports this, but all executor contracts should eventually
+// be upgraded to support transferETH.
+const supportsTransferETH: Partial<
+  Record<Network, Partial<Record<EvmChains, boolean>>>
+> = {
+  Mainnet: {
+    Monad: true,
   },
 };
 
@@ -87,6 +99,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
 {
   readonly chainId: bigint;
   readonly executorAddress: string;
+  readonly supportsTransferETH: boolean;
 
   constructor(
     readonly network: N,
@@ -104,6 +117,8 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     if (!executorAddress)
       throw new Error(`Executor address not found for chain ${this.chain}`);
     this.executorAddress = executorAddress;
+    this.supportsTransferETH =
+      supportsTransferETH[this.network]?.[this.chain] ?? false;
   }
 
   static async fromRpc<N extends Network>(
@@ -141,33 +156,18 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       options
     );
 
-    if (wrapNative) {
+    // Use transferETH if wrapNative is requested and the contract supports it
+    const useTransferETH = wrapNative && this.supportsTransferETH;
+
+    if (wrapNative && !this.supportsTransferETH) {
       yield ntt.wrapNative(sender, amount);
     }
 
-    const tokenContract = EvmPlatform.getTokenImplementation(
-      this.provider,
-      ntt.tokenAddress
-    );
-
-    const allowance = await tokenContract.allowance(
-      senderAddress,
-      this.executorAddress
-    );
-
-    if (allowance < amount) {
-      const txReq = await tokenContract.approve.populateTransaction(
-        this.executorAddress,
-        amount
-      );
-
-      yield ntt.createUnsignedTx(txReq, "Ntt.Approve");
-    }
-
-    // ABI for the INttManagerWithExecutor transfer function
+    // ABI for the INttManagerWithExecutor transfer functions
     // TODO: type safety. typechain brings in so much boilerplate code and is soft deprecated. Use Viem instead?
     const abi = [
       "function transfer(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64 msgId)",
+      "function transferETH(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64 msgId)",
     ];
 
     const iface = new Interface(abi);
@@ -192,24 +192,67 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       payee: quote.referrer.address.toString(),
     };
 
-    const data = iface.encodeFunctionData("transfer", [
-      nttManager,
-      amount,
-      recipientChain,
-      recipientAddress,
-      refundAddress,
-      encodedInstructions,
-      executorArgs,
-      feeArgs,
-    ]);
+    let data: string;
+    let msgValue: bigint;
+
+    if (useTransferETH) {
+      data = iface.encodeFunctionData("transferETH", [
+        nttManager,
+        amount,
+        recipientChain,
+        recipientAddress,
+        refundAddress,
+        encodedInstructions,
+        executorArgs,
+        feeArgs,
+      ]);
+      msgValue = quote.estimatedCost + deliveryPrice + amount;
+    } else {
+      // Standard ERC20 transfer flow with approval
+      const tokenContract = EvmPlatform.getTokenImplementation(
+        this.provider,
+        ntt.tokenAddress
+      );
+
+      const allowance = await tokenContract.allowance(
+        senderAddress,
+        this.executorAddress
+      );
+
+      if (allowance < amount) {
+        const txReq = await tokenContract.approve.populateTransaction(
+          this.executorAddress,
+          amount
+        );
+
+        yield ntt.createUnsignedTx(txReq, "Ntt.Approve");
+      }
+
+      data = iface.encodeFunctionData("transfer", [
+        nttManager,
+        amount,
+        recipientChain,
+        recipientAddress,
+        refundAddress,
+        encodedInstructions,
+        executorArgs,
+        feeArgs,
+      ]);
+      msgValue = quote.estimatedCost + deliveryPrice;
+    }
 
     const txReq = {
       to: this.executorAddress,
       data,
-      value: quote.estimatedCost + deliveryPrice,
+      value: msgValue,
     };
 
-    yield ntt.createUnsignedTx(txReq, "NttWithExecutor.transfer");
+    yield ntt.createUnsignedTx(
+      txReq,
+      useTransferETH
+        ? "NttWithExecutor.transferETH"
+        : "NttWithExecutor.transfer"
+    );
   }
 
   async estimateMsgValueAndGasLimit(

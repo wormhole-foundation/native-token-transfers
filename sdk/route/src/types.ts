@@ -50,6 +50,7 @@ export namespace NttRoute {
     transceiver: TransceiverConfig[];
     quoter?: string;
     isWrappedGasToken?: boolean;
+    unwrapsOnRedeem?: boolean;
     svmShims?: {
       postMessageShimOverride?: string;
       verifyVaaShimOverride?: string;
@@ -169,7 +170,11 @@ export namespace NttRoute {
         const remote = configs.find((config) => config.chain === toChain.chain);
         if (!remote) return;
 
-        return Wormhole.tokenId(toChain.chain, remote.token);
+        if (remote.unwrapsOnRedeem) {
+          return nativeTokenId(toChain.chain);
+        } else {
+          return Wormhole.tokenId(toChain.chain, remote.token);
+        }
       })
       .filter((x) => !!x) as TokenId[];
   }
@@ -251,7 +256,7 @@ export namespace NttRoute {
           );
         }
         return {
-          token: remote.token,
+          token: remote.unwrapsOnRedeem ? "native" : remote.token,
           manager: remote.manager,
           transceiver: {
             wormhole: remote.transceiver.find((v) => v.type === "wormhole")!
