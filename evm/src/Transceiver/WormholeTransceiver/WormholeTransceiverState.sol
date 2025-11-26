@@ -210,7 +210,10 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     // =============== Admin ===============================================================
 
     /// @inheritdoc IWormholeTransceiverState
-    function setWormholePeer(uint16 peerChainId, bytes32 peerContract) external payable onlyOwner {
+    function setWormholePeer(
+        uint16 peerChainId,
+        bytes32 peerContract
+    ) external payable onlyOwner {
         if (peerChainId == 0) {
             revert InvalidWormholeChainIdZero();
         }
@@ -230,12 +233,12 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         _getWormholePeersStorage()[peerChainId] = peerContract;
 
         // Publish a message for this transceiver registration
-        TransceiverStructs.TransceiverRegistration memory registration = TransceiverStructs
-            .TransceiverRegistration({
-            transceiverIdentifier: WH_PEER_REGISTRATION_PREFIX,
-            transceiverChainId: peerChainId,
-            transceiverAddress: peerContract
-        });
+        TransceiverStructs.TransceiverRegistration memory registration =
+            TransceiverStructs.TransceiverRegistration({
+                transceiverIdentifier: WH_PEER_REGISTRATION_PREFIX,
+                transceiverChainId: peerChainId,
+                transceiverAddress: peerContract
+            });
         wormhole.publishMessage{value: msg.value}(
             0, TransceiverStructs.encodeTransceiverRegistration(registration), consistencyLevel
         );
@@ -244,7 +247,10 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     }
 
     /// @inheritdoc IWormholeTransceiverState
-    function setIsWormholeEvmChain(uint16 chainId, bool isEvm) external onlyOwner {
+    function setIsWormholeEvmChain(
+        uint16 chainId,
+        bool isEvm
+    ) external onlyOwner {
         if (chainId == 0) {
             revert InvalidWormholeChainIdZero();
         }
@@ -254,7 +260,10 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     }
 
     /// @inheritdoc IWormholeTransceiverState
-    function setIsWormholeRelayingEnabled(uint16 chainId, bool isEnabled) external onlyOwner {
+    function setIsWormholeRelayingEnabled(
+        uint16 chainId,
+        bool isEnabled
+    ) external onlyOwner {
         if (chainId == 0) {
             revert InvalidWormholeChainIdZero();
         }
@@ -264,7 +273,10 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     }
 
     /// @inheritdoc IWormholeTransceiverState
-    function setIsSpecialRelayingEnabled(uint16 chainId, bool isEnabled) external onlyOwner {
+    function setIsSpecialRelayingEnabled(
+        uint16 chainId,
+        bool isEnabled
+    ) external onlyOwner {
         if (chainId == 0) {
             revert InvalidWormholeChainIdZero();
         }

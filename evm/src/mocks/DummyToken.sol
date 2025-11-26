@@ -10,19 +10,31 @@ contract DummyToken is ERC20, ERC1967Upgrade {
 
     // NOTE: this is purposefully not called mint() to so we can test that in
     // locking mode the NttManager contract doesn't call mint (or burn)
-    function mintDummy(address to, uint256 amount) public {
+    function mintDummy(
+        address to,
+        uint256 amount
+    ) public {
         _mint(to, amount);
     }
 
-    function mint(address, uint256) public virtual {
+    function mint(
+        address,
+        uint256
+    ) public virtual {
         revert("Locking nttManager should not call 'mint()'");
     }
 
-    function burnFrom(address, uint256) public virtual {
+    function burnFrom(
+        address,
+        uint256
+    ) public virtual {
         revert("No nttManager should call 'burnFrom()'");
     }
 
-    function burn(address, uint256) public virtual {
+    function burn(
+        address,
+        uint256
+    ) public virtual {
         revert("Locking nttManager should not call 'burn()'");
     }
 
@@ -34,7 +46,10 @@ contract DummyToken is ERC20, ERC1967Upgrade {
 }
 
 contract DummyTokenMintAndBurn is DummyToken {
-    function mint(address to, uint256 amount) public override {
+    function mint(
+        address to,
+        uint256 amount
+    ) public override {
         // TODO - add access control here?
         _mint(to, amount);
     }

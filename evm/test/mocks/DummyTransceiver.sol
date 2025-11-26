@@ -42,8 +42,10 @@ contract DummyTransceiver is Transceiver, ITransceiverReceiver {
     ) external {
         TransceiverStructs.TransceiverMessage memory parsedTransceiverMessage;
         TransceiverStructs.NttManagerMessage memory parsedNttManagerMessage;
-        (parsedTransceiverMessage, parsedNttManagerMessage) = TransceiverStructs
-            .parseTransceiverAndNttManagerMessage(TEST_TRANSCEIVER_PAYLOAD_PREFIX, encodedMessage);
+        (parsedTransceiverMessage, parsedNttManagerMessage) =
+            TransceiverStructs.parseTransceiverAndNttManagerMessage(
+                TEST_TRANSCEIVER_PAYLOAD_PREFIX, encodedMessage
+            );
         _deliverToNttManager(
             SENDING_CHAIN_ID,
             parsedTransceiverMessage.sourceNttManagerAddress,

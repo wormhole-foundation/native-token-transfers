@@ -637,8 +637,10 @@ contract TestUpgrades is Test, IRateLimiterEvents {
             IWormholeTransceiver.WormholeTransceiverInstruction(relayer_off);
         bytes memory encodedInstructionWormhole =
             wormholeTransceiverChain1.encodeWormholeTransceiverInstruction(instruction);
-        TransceiverStructs.TransceiverInstruction memory TransceiverInstruction = TransceiverStructs
-            .TransceiverInstruction({index: 0, payload: encodedInstructionWormhole});
+        TransceiverStructs.TransceiverInstruction memory TransceiverInstruction =
+            TransceiverStructs.TransceiverInstruction({
+                index: 0, payload: encodedInstructionWormhole
+            });
         TransceiverStructs.TransceiverInstruction[] memory TransceiverInstructions =
             new TransceiverStructs.TransceiverInstruction[](1);
         TransceiverInstructions[0] = TransceiverInstruction;
