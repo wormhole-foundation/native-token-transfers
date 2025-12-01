@@ -68,10 +68,13 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
         }
     }
 
-    constructor(uint64 _rateLimitDuration, bool _skipRateLimiting) {
+    constructor(
+        uint64 _rateLimitDuration,
+        bool _skipRateLimiting
+    ) {
         if (
-            _rateLimitDuration == 0 && !_skipRateLimiting
-                || _rateLimitDuration != 0 && _skipRateLimiting
+            _rateLimitDuration == 0 && !_skipRateLimiting || _rateLimitDuration != 0
+                && _skipRateLimiting
         ) {
             revert UndefinedRateLimiting();
         }
@@ -79,7 +82,10 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
         rateLimitDuration = _rateLimitDuration;
     }
 
-    function _setLimit(TrimmedAmount limit, RateLimitParams storage rateLimitParams) internal {
+    function _setLimit(
+        TrimmedAmount limit,
+        RateLimitParams storage rateLimitParams
+    ) internal {
         TrimmedAmount oldLimit = rateLimitParams.limit;
         if (oldLimit.isNull()) {
             rateLimitParams.currentCapacity = limit;
@@ -119,7 +125,10 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
         return _getOutboundQueueStorage()[queueSequence];
     }
 
-    function _setInboundLimit(TrimmedAmount limit, uint16 chainId_) internal virtual {
+    function _setInboundLimit(
+        TrimmedAmount limit,
+        uint16 chainId_
+    ) internal virtual {
         RateLimitParams storage rateLimitParams = _getInboundLimitParamsStorage()[chainId_];
         TrimmedAmount oldLimit = rateLimitParams.limit;
         uint8 decimals = tokenDecimals();
@@ -233,7 +242,10 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
         );
     }
 
-    function _consumeInboundAmount(TrimmedAmount amount, uint16 chainId_) internal {
+    function _consumeInboundAmount(
+        TrimmedAmount amount,
+        uint16 chainId_
+    ) internal {
         if (rateLimitDuration == 0) return;
         _consumeRateLimitAmount(
             amount,
@@ -242,7 +254,10 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
         );
     }
 
-    function _backfillInboundAmount(TrimmedAmount amount, uint16 chainId_) internal {
+    function _backfillInboundAmount(
+        TrimmedAmount amount,
+        uint16 chainId_
+    ) internal {
         if (rateLimitDuration == 0) return;
         _backfillRateLimitAmount(
             amount,
@@ -323,9 +338,7 @@ abstract contract RateLimiter is IRateLimiter, IRateLimiterEvents {
         address recipient
     ) internal {
         _getInboundQueueStorage()[digest] = InboundQueuedTransfer({
-            amount: amount,
-            recipient: recipient,
-            txTimestamp: uint64(block.timestamp)
+            amount: amount, recipient: recipient, txTimestamp: uint64(block.timestamp)
         });
 
         emit InboundTransferQueued(digest);
