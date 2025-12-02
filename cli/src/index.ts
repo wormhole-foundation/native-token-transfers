@@ -70,6 +70,8 @@ import { registerSolanaTransceiver } from "./solanaHelpers";
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 import { handleDeploymentError } from "./error";
+import { loadConfig, type ChainConfig, type Config } from "./deployments";
+export type { ChainConfig, Config } from "./deployments";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
@@ -105,6 +107,7 @@ import type {
 } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
+import { createTokenTransferCommand } from "./tokenTransfer";
 import { AbiCoder, ethers, Interface } from "ethers";
 import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
 
@@ -259,35 +262,6 @@ export type SuiDeploymentResult<C extends Chain> = ChainAddress<C> & {
     ntt?: string;
     nttCommon?: string;
     wormholeTransceiver?: string;
-  };
-};
-
-// TODO: rename
-export type ChainConfig = {
-  version: string;
-  mode: Ntt.Mode;
-  paused: boolean;
-  owner: string;
-  pauser?: string;
-  manager: string;
-  token: string;
-  transceivers: {
-    threshold: number;
-    wormhole: { address: string; pauser?: string; executor?: boolean };
-  };
-  limits: {
-    outbound: string;
-    inbound: Partial<{ [C in Chain]: string }>;
-  };
-};
-
-export type Config = {
-  network: Network;
-  chains: Partial<{
-    [C in Chain]: ChainConfig;
-  }>;
-  defaultLimits?: {
-    outbound: string;
   };
 };
 
@@ -2010,6 +1984,7 @@ yargs(hideBin(process.argv))
       }
     }
   )
+  .command(createTokenTransferCommand(overrides))
   .command("solana", "Solana commands", (yargs) => {
     yargs
       .command(
@@ -5254,16 +5229,6 @@ function checkAnchorVersion(pwd: string) {
       throw error;
     }
   }
-}
-
-function loadConfig(path: string): Config {
-  if (!fs.existsSync(path)) {
-    console.error(`File not found: ${path}`);
-    console.error(`Create with 'ntt init' or specify another file with --path`);
-    process.exit(1);
-  }
-  const deployments: Config = JSON.parse(fs.readFileSync(path).toString());
-  return deployments;
 }
 
 function resolveVersion(
