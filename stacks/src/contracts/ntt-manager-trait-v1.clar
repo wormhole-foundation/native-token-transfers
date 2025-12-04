@@ -25,6 +25,8 @@
   (get-state-contract-addr32 () (response (buff 32) uint))
   ;; Get latest version of NTT manager from state contract
   (get-active-contract () (response principal uint))
+  ;; Get peer for given protocol
+  (get-peer ((buff 2)) (response (buff 32) uint))
   ;; Send a token transfer to peer chain
   (send-token-transfer (
       <sip-010-trait>     ;; Token contract

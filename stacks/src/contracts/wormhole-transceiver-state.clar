@@ -15,7 +15,12 @@
 (define-constant ERR_MESSAGE_REPLAYED (err u12002))
 (define-constant ERR_XFER_NOT_IN_PROGRESS (err u12003))
 (define-constant ERR_BUFFER_LEN (err u12004))
-(define-constant ERR_ALREADY_REGISTERED (err u12004))
+(define-constant ERR_ALREADY_REGISTERED (err u12005))
+(define-constant ERR_CANT_REGISTER_SELF (err u12006))
+(define-constant ERR_UNINITIALIZED (err u12007))
+(define-constant ERR_ALREADY_INITIALIZED (err u12008))
+
+(define-constant WORMHOLE_STACKS_CHAIN_ID 0x003c)
 
 ;;;; Data Vars
 
@@ -25,6 +30,9 @@
 
 ;; Used to transfer ownership during contract upgrade
 (define-data-var transferring-to (optional principal) none)
+
+;; SIP-10 token contract. Cannot change once initialized
+(define-data-var token-contract (optional principal) none)
 
 ;;;; Data Maps
 
@@ -52,6 +60,11 @@
 ;;;; Public functions
 
 ;; ALL PUBLIC FUNCTIONS WHICH MODIFY STATE MUST CALL `check-caller`
+(define-public (initialize (token principal))
+  (begin
+    (try! (check-caller))
+    (asserts! (not (is-initialized)) ERR_ALREADY_INITIALIZED)
+    (ok (var-set token-contract (some token)))))
 
 ;; @desc Track hashes of processed messages so we don't replay them
 ;;       Returns `(ok true)` if the message is marked as "consumed"
@@ -70,6 +83,7 @@
     (try! (check-caller))
     (asserts! (is-eq (len chain) u2) ERR_BUFFER_LEN)
     (asserts! (is-eq (len contract) u32) ERR_BUFFER_LEN)
+    (asserts! (not (is-eq chain WORMHOLE_STACKS_CHAIN_ID) ) ERR_CANT_REGISTER_SELF)
     (asserts! (map-insert peers chain contract) ERR_ALREADY_REGISTERED)
     (ok true)))
 
@@ -136,6 +150,12 @@
 ;; @desc Get contract we're transferring ownership to
 (define-read-only (get-transferring-to)
   (var-get transferring-to))
+
+(define-read-only (get-token-contract)
+  (ok (unwrap! (var-get token-contract) ERR_UNINITIALIZED)))
+
+(define-read-only (is-initialized)
+  (is-some (var-get token-contract)))
 
 ;; These functions simply call `map-get?` on the given map
 

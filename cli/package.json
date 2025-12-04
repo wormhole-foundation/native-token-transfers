@@ -18,35 +18,21 @@
   },
   "dependencies": {
     "@mysten/sui": "1.37.2",
-    "@wormhole-foundation/sdk-sui-ntt": "^2.0.3",
+    "@wormhole-foundation/sdk-stacks": "3.10.0",
+    "@wormhole-foundation/sdk-stacks-core": "3.10.0",
+    "@wormhole-foundation/sdk-stacks-ntt": "file:../stacks/ts",
+    "@wormhole-foundation/sdk-sui-ntt": "file:../sui/ts",
     "chalk": "^5.3.0",
     "yargs": "^17.7.2"
   },
   "overrides": {
-    "@wormhole-foundation/sdk-definitions-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.8.5",
-      "@wormhole-foundation/sdk-definitions": "^3.8.5"
-    },
-    "@wormhole-foundation/sdk-evm-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.8.5",
-      "@wormhole-foundation/sdk-definitions": "^3.8.5",
-      "@wormhole-foundation/sdk-evm": "^3.8.5",
-      "@wormhole-foundation/sdk-evm-core": "^3.8.5"
-    },
-    "@wormhole-foundation/sdk-route-ntt": {
-      "@wormhole-foundation/sdk-connect": "^3.8.5"
-    },
-    "@wormhole-foundation/sdk-solana-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.8.5",
-      "@wormhole-foundation/sdk-definitions": "^3.8.5",
-      "@wormhole-foundation/sdk-solana": "^3.8.5",
-      "@wormhole-foundation/sdk-solana-core": "^3.8.5"
-    },
-    "@wormhole-foundation/sdk-sui-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.8.5",
-      "@wormhole-foundation/sdk-definitions": "^3.8.5",
-      "@wormhole-foundation/sdk-sui": "^3.8.5",
-      "@wormhole-foundation/sdk-sui-core": "^3.8.5"
-    }
+    "@wormhole-foundation/sdk-base": "3.10.0",
+    "@wormhole-foundation/sdk-definitions": "3.10.0",
+    "@wormhole-foundation/sdk-definitions-ntt": "file:../sdk/definitions",
+    "@wormhole-foundation/sdk-connect": "3.10.0",
+    "@wormhole-foundation/sdk-stacks": "3.10.0",
+    "@wormhole-foundation/sdk-stacks-core": "3.10.0",
+    "@wormhole-foundation/sdk-stacks-ntt": "file:../stacks/ts",
+    "@wormhole-foundation/sdk-sui-ntt": "file:../sui/ts"
   }
 }

@@ -21,8 +21,10 @@ function isPathExcluded(path: string, excludedPaths: string[]): boolean {
 
 export function diffObjects<T extends Record<string, any>>(obj1: T, obj2: T, excludedPaths: string[] = [], currentPath: string = ""): Partial<DiffMap<T>> {
     const result: Partial<DiffMap<T>> = {};
-
     for (const key in obj1) {
+        if(key === "manager") {
+          continue
+        }
         if (obj1.hasOwnProperty(key)) {
             const keyPath = currentPath ? `${currentPath}.${key}` : key;
 

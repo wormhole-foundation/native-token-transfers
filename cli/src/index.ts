@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
+// Import local SDK first to ensure address registration happens before any SDK usage
+import { StacksAddress } from "@wormhole-foundation/sdk-stacks";
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
@@ -20,7 +22,7 @@ import * as spl from "@solana/spl-token";
 import fs from "fs";
 import path from "path";
 import readline from "readline";
-import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, networks, platforms, signSendWait, toNative, toUniversal, type AccountAddress, type Chain, type ChainAddress, type Network, type Platform, type SignAndSendSigner, type UniversalOrNative } from "@wormhole-foundation/sdk";
+import { ChainContext, UniversalAddress, Wormhole, assertChain, canonicalAddress, chainToPlatform, chains, isNetwork, keccak256, networks, platforms, signSendWait, toNative, toUniversal, type AccountAddress, type Chain, type ChainAddress, type Network, type Platform, type SignAndSendSigner, type UniversalOrNative } from "@wormhole-foundation/sdk";
 import { Transaction } from "@mysten/sui/transactions";
 import { bcs } from "@mysten/sui/bcs";
 import "@wormhole-foundation/sdk-evm-ntt";
@@ -889,37 +891,41 @@ yargs(hideBin(process.argv))
             .example("$0 push --skip-verify", "Push changes without verifying contracts on EVM chains")
             .example("$0 push --payer <SOLANA_KEYPAIR_PATH>", "Path to the payer json file (Solana), instead of setting SOLANA_PRIVATE_KEY env variable"),
         async (argv) => {
-            const deployments: Config = loadConfig(argv["path"]);
-            const verbose = argv["verbose"];
-            const network = deployments.network as Network;
-            const deps: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
+          console.log(`1`)
+          const deployments: Config = loadConfig(argv["path"]);
+          const verbose = argv["verbose"];
+          const network = deployments.network as Network;
+          const deps: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
             const signerType = argv["signer-type"] as SignerType;
             const payerPath = argv["payer"];
             const gasEstimateMultiplier = argv["gas-estimate-multiplier"];
             const skipChains = argv["skip-chain"] as string[] || [];
             const onlyChains = argv["only-chain"] as string[] || [];
+            console.log(`2`)
             const shouldSkipChain = (chain: string) => {
-                if(onlyChains.length > 0) {
-                    if(!onlyChains.includes(chain)) {
-                        return true
-                    }
+              if(onlyChains.length > 0) {
+                if(!onlyChains.includes(chain)) {
+                  return true
                 }
-                if(skipChains.includes(chain)) {
-                    return true
-                }
-                return false
+              }
+              if(skipChains.includes(chain)) {
+                return true
+              }
+              return false
             }
             const missing = await missingConfigs(deps, verbose);
-
+            
             if (checkConfigErrors(deps)) {
-                console.error("There are errors in the config file. Please fix these before continuing.");
+              console.error("There are errors in the config file. Please fix these before continuing.");
                 process.exit(1);
             }
-
+              
+              console.log(`3`)
             const nttOwnerForChain: Record<string, string | undefined> = {};
 
 
             for (const [chain, _] of Object.entries(deps)) {
+              console.log(`Looping over ${chain}`)
                 if(shouldSkipChain(chain)) {
                     console.log(`skipping registration for chain ${chain}`)
                     continue
@@ -958,7 +964,9 @@ yargs(hideBin(process.argv))
                     }
                 }
             }
+            console.log(`loops 1 ended`)
             for (const [chain, missingConfig] of Object.entries(missing)) {
+                console.log(`Looping 2 over ${chain}`)
                 if(shouldSkipChain(chain)) {
                     console.log(`skipping registration for chain ${chain}`)
                     continue
@@ -969,10 +977,12 @@ yargs(hideBin(process.argv))
                 const signer = await getSigner(ctx, signerType, undefined, payerPath);
                 const signSendWaitFunc = newSignSendWaiter(nttOwnerForChain[chain])
                 for (const manager of missingConfig.managerPeers) {
+                    console.log(`Setting peer ${manager.address} on ${chain}`)
                     const tx = ntt.setPeer(manager.address, manager.tokenDecimals, manager.inboundLimit, signer.address.address)
                     await signSendWaitFunc(ctx, tx, signer.signer)
                 }
                 for (const transceiver of missingConfig.transceiverPeers) {
+                    console.log(`Setting transceiver peer ${transceiver} on ${chain}`)
                     const tx = ntt.setTransceiverPeer(0, transceiver, signer.address.address)
                     await signSendWaitFunc(ctx, tx, signer.signer)
                 }
@@ -3456,16 +3466,18 @@ async function deployStacks<N extends Network, C extends Chain>(
 
   const signer = await getSigner(ch, signerType)
   const signAndSendSigner = signer.signer as SignAndSendSigner<N,C>
-  const clientBaseUrl = (await ch.getRpc()).client.baseUrl
+  const clientBaseUrl = process.env.STACKS_RPC_URL || (await ch.getRpc()).client.baseUrl
   const stacksContractsDirectory = `${pwd}/stacks/src/contracts`
   const stacksRequirementsDirectory = `${pwd}/stacks/test/requirements`
   const deployerAddress = signer.address.address.toString()
   console.log(`Deploying Stacks NTT from ${deployerAddress} rpc ${clientBaseUrl} ${signAndSendSigner}...`)
+
   const traits = [
     stacksContractsDirectory + "/transceiver-trait-v1",
     stacksContractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
     stacksContractsDirectory + "/ntt-manager-xfer-trait-v1",
     stacksContractsDirectory + "/ntt-manager-trait-v1",
+    stacksContractsDirectory + "/receiver-trait-v1",
   ]
 
   if(ch.network === "Devnet") {
@@ -3531,6 +3543,7 @@ async function deployStacks<N extends Network, C extends Chain>(
         network: stacksNetwork,
         client: { baseUrl: clientBaseUrl },
         postConditionMode: PostConditionMode.Allow,
+        fee: 5000000 // 5 STX TODO changeme
       })
 
     const broadcastResult = await broadcastTransaction({
@@ -3538,6 +3551,7 @@ async function deployStacks<N extends Network, C extends Chain>(
       network: stacksNetwork,
       client: { baseUrl: clientBaseUrl },
     })
+    console.log(`deleteme`, broadcastResult)
     if ("error" in broadcastResult && broadcastResult.reason === "ContractAlreadyExists") {
       console.log(`Contract already exists, not deploying ${contract.name}`);
     } else {
@@ -3551,83 +3565,83 @@ async function deployStacks<N extends Network, C extends Chain>(
   console.log(chalk.green(`All contracts deployed.`))
   console.log(`Initializing NTT Manager with mode: ${mode} ...`)
   const isLocking = mode === "locking"
-  // const initializeFunction = isLocking ? "initialize-locking-mode" : "initialize-burning-mode"
-  // const args = isLocking ? [Cl.principal(token)] : [
-  //   // TODO
-  // ]
+  const initializeFunction = isLocking ? "initialize-locking-mode" : "initialize-burning-mode"
+  const args = isLocking ? [Cl.principal(token)] : [
+    // TODO
+  ]
 
-  // const initializeTx = await makeContractCall({
-  //   contractName: nttManagerContractName,
-  //   contractAddress: deployerAddress,
-  //   functionName: initializeFunction,
-  //   functionArgs: args,
-  //   senderKey: signer.source.source,
-  //   network: stacksNetwork,
-  //   client: { baseUrl: clientBaseUrl },
-  //   postConditionMode: PostConditionMode.Allow,
-  // })
+  const initializeTx = await makeContractCall({
+    contractName: nttManagerContractName,
+    contractAddress: deployerAddress,
+    functionName: initializeFunction,
+    functionArgs: args,
+    senderKey: signer.source.source,
+    network: stacksNetwork,
+    client: { baseUrl: clientBaseUrl },
+    postConditionMode: PostConditionMode.Allow,
+  })
 
-  // const initializeTxHash = await broadcastTransaction({
-  //   transaction: initializeTx,
-  //   network: stacksNetwork,
-  //   client: { baseUrl: clientBaseUrl },
-  // })
+  const initializeTxHash = await broadcastTransaction({
+    transaction: initializeTx,
+    network: stacksNetwork,
+    client: { baseUrl: clientBaseUrl },
+  })
 
-  // console.log(`Waiting for initialize tx ${initializeTxHash.txid}`)
-  // await StacksPlatform.waitForTx(initializeTxHash.txid, clientBaseUrl, false)
+  console.log(`Waiting for initialize tx ${initializeTxHash.txid}`)
+  await StacksPlatform.waitForTx(initializeTxHash.txid, clientBaseUrl, false)
 
-  // console.log(chalk.green(`NTT Manager initialized.`))
+  console.log(chalk.green(`NTT Manager initialized.`))
 
-  // console.log(`Initializing transceiver ...`)
-  // const initializeTransceiverTx = await makeContractCall({
-  //   contractName: wormholeTransceiverContractName,
-  //   contractAddress: deployerAddress,
-  //   functionName: "initialize",
-  //   functionArgs: [
-  //     Cl.principal(`${deployerAddress}.${nttManagerContractName}`),
-  //     isLocking ? Cl.principal(token) : Cl.principal(`${deployerAddress}.${bridgedTokenContractName}`),
-  //     Cl.none()
-  //   ],
-  //   senderKey: signer.source.source,
-  //   network: stacksNetwork,
-  //   client: { baseUrl: clientBaseUrl },
-  //   postConditionMode: PostConditionMode.Allow,
-  // })
+  console.log(`Initializing transceiver ...`)
+  const initializeTransceiverTx = await makeContractCall({
+    contractName: wormholeTransceiverContractName,
+    contractAddress: deployerAddress,
+    functionName: "initialize",
+    functionArgs: [
+      Cl.principal(`${deployerAddress}.${nttManagerContractName}`),
+      isLocking ? Cl.principal(token) : Cl.principal(`${deployerAddress}.${bridgedTokenContractName}`),
+      Cl.none()
+    ],
+    senderKey: signer.source.source,
+    network: stacksNetwork,
+    client: { baseUrl: clientBaseUrl },
+    postConditionMode: PostConditionMode.Allow,
+  })
 
-  // const initializeTransceiverTxHash = await broadcastTransaction({
-  //   transaction: initializeTransceiverTx,
-  //   network: stacksNetwork,
-  //   client: { baseUrl: clientBaseUrl },
-  // })
+  const initializeTransceiverTxHash = await broadcastTransaction({
+    transaction: initializeTransceiverTx,
+    network: stacksNetwork,
+    client: { baseUrl: clientBaseUrl },
+  })
 
-  // console.log(`Waiting for initialize transceiver tx ${initializeTransceiverTxHash.txid}`)
-  // await StacksPlatform.waitForTx(initializeTransceiverTxHash.txid, clientBaseUrl, false)
+  console.log(`Waiting for initialize transceiver tx ${initializeTransceiverTxHash.txid}`)
+  await StacksPlatform.waitForTx(initializeTransceiverTxHash.txid, clientBaseUrl, false)
 
-  // console.log(chalk.green(`Transceiver initialized.`))
+  console.log(chalk.green(`Transceiver initialized.`))
 
-  // console.log(`Setting transceiver...`)
+  console.log(`Setting transceiver...`)
 
-  // const addTransceiverTx = await makeContractCall({
-  //   contractName: nttManagerContractName,
-  //   contractAddress: deployerAddress,
-  //   functionName: 'add-transceiver',
-  //   functionArgs: [
-  //     Cl.address(`${deployerAddress}.${wormholeTransceiverContractName}`)
-  //   ],
-  //   senderKey: signer.source.source,
-  //   network: stacksNetwork,
-  //   client: { baseUrl: clientBaseUrl },
-  //   postConditionMode: PostConditionMode.Allow,
-  // })
+  const addTransceiverTx = await makeContractCall({
+    contractName: nttManagerContractName,
+    contractAddress: deployerAddress,
+    functionName: 'add-transceiver',
+    functionArgs: [
+      Cl.address(`${deployerAddress}.${wormholeTransceiverContractName}`)
+    ],
+    senderKey: signer.source.source,
+    network: stacksNetwork,
+    client: { baseUrl: clientBaseUrl },
+    postConditionMode: PostConditionMode.Allow,
+  })
 
-  // const addTransceiverTxHash = await broadcastTransaction({
-  //   transaction: addTransceiverTx,
-  //   client: { baseUrl: clientBaseUrl },
-  // })
+  const addTransceiverTxHash = await broadcastTransaction({
+    transaction: addTransceiverTx,
+    client: { baseUrl: clientBaseUrl },
+  })
   
-  // console.log(`Waiting for add transceiver tx ${addTransceiverTxHash.txid}`)
-  // await StacksPlatform.waitForTx(addTransceiverTxHash.txid, clientBaseUrl, false)
-  // console.log(chalk.green(`✅ Added transceiver to NTT manager`))
+  console.log(`Waiting for add transceiver tx ${addTransceiverTxHash.txid}`)
+  await StacksPlatform.waitForTx(addTransceiverTxHash.txid, clientBaseUrl, false)
+  console.log(chalk.green(`✅ Added transceiver to NTT manager`))
 
   return {
     chain: ch.chain,
@@ -3689,8 +3703,14 @@ async function missingConfigs(
             if (peer === null) {
                 const configLimit = from.config.local?.limits?.inbound?.[toChain]?.replace(".", "");
                 count++;
+                console.log(`[Missing configs] Pushing peer for ${fromChain} -> ${toChain}`)
+                
+                console.log(`Manager state address: ${Buffer.from(to.manager.address.toString().slice(2), "hex").toString("utf-8").split(".")[0] + '.ntt-manager-state'}`)
                 missing.managerPeers.push({
-                    address: to.manager,
+                    address: toChain === "Stacks" ? {
+                      chain: toChain,
+                      address: new UniversalAddress(keccak256(Buffer.from(to.manager.address.toString().slice(2), "hex").toString("utf-8").split(".")[0] + '.ntt-manager-state').toHex())
+                    }: to.manager,
                     tokenDecimals: to.decimals,
                     inboundLimit: BigInt(configLimit ?? 0),
                 });
@@ -3734,9 +3754,19 @@ async function missingConfigs(
 
             const transceiverPeer = await retryWithExponentialBackoff(() => from.whTransceiver.getPeer(toChain), 5, 5000);
             const transceiverAddress = await to.whTransceiver.getAddress();
+            console.log(`Transceiver address for ${fromChain} -> ${toChain}: ${transceiverAddress.address} , actually using: `, new UniversalAddress(Buffer.from(keccak256(Buffer.from(transceiverAddress.address.address.toString().slice(2), "hex").toString("utf-8"))).toString('hex'), "hex").toString())
+            console.log(keccak256(transceiverAddress.address.toString()).toHex())
+            console.log(new UniversalAddress(keccak256(transceiverAddress.address.toString()).toHex()).toString())
+            console.log(`Should be: 8d54fe81c0ebb7fd96691dde1d18fbacc536ae4dda36115e2fd7248bf1781d80`)
+            
             if (transceiverPeer === null) {
                 count++;
-                missing.transceiverPeers.push(transceiverAddress);
+                missing.transceiverPeers.push(
+                  toChain === "Stacks" ? {
+                    chain: toChain,
+                    address: new UniversalAddress(keccak256(transceiverAddress.address.toString()).toHex())
+                  } : transceiverAddress
+                );
             } else {
                 // @ts-ignore TODO
                 if (!Buffer.from(transceiverPeer.address.address).equals(Buffer.from(transceiverAddress.address.address))) {
@@ -3776,6 +3806,7 @@ async function pushDeployment<C extends Chain>(deployment: Deployment<C>,
     // we perform this last to make sure we don't accidentally lock ourselves out
     let updateOwner: ReturnType<typeof deployment.ntt.setOwner> | undefined = undefined;
     let managerUpgrade: { from: string, to: string } | undefined;
+    delete diff["manager"]; // manager cannot be a diff, caused by Stacks addresses handling
     for (const k of Object.keys(diff)) {
         if (k === "version") {
             // TODO: check against existing version, and make sure no major version changes
@@ -3863,19 +3894,22 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
         if (verbose) {
             process.stdout.write(`Fetching config for ${chain}......\n`);
         }
+        console.log(`a`)
         assertChain(chain);
         const managerAddress: string | undefined = deployment.manager;
         if (managerAddress === undefined) {
-            console.error(`manager field not found for chain ${chain}`);
-            // process.exit(1);
-            continue;
+          console.error(`manager field not found for chain ${chain}`);
+          // process.exit(1);
+          continue;
         }
+        console.log(`b: managerAddress`, managerAddress, toUniversal(chain, managerAddress))
         const [remote, ctx, ntt, decimals] = await pullChainConfig(
-            network,
-            { chain, address: toUniversal(chain, managerAddress) },
-            overrides
+          network,
+          { chain, address: toUniversal(chain, managerAddress) },
+          overrides
         );
         const local = deployments.chains[chain];
+        console.log(`c`)
 
         // TODO: what if it's not index 0...
         // we should check that the address of this transceiver matches the
@@ -3885,7 +3919,7 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
             console.error(`Wormhole transceiver not found for ${chain}`);
             process.exit(1);
         }
-
+        console.log(`BUILDING DEPS.........`, managerAddress)
         deps[chain] = {
             ctx,
             ntt,
@@ -3911,35 +3945,36 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     overrides?: WormholeConfigOverrides<N>,
 ): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
   console.log(`Pulling chain config`, network, manager)
-    const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform, stacks.Platform], overrides);
-    const ch = wh.getChain(manager.chain);
-
-    const nativeManagerAddress = canonicalAddress(manager);
-
+  console.log(`1.1`)
+  const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform, stacks.Platform], overrides);
+  const ch = wh.getChain(manager.chain);
+  console.log(`1.2`, manager)
+  
+  const nativeManagerAddress = canonicalAddress(manager);
+  console.log(`1.3`)
+  
+  console.log(`About to call ntt constructor with`, typeof nativeManagerAddress)
     const { ntt, addresses }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts>; } =
     await nttFromManager<N, C>(ch, nativeManagerAddress);
-console.log(`1`)
-const mode = await ntt.getMode();
-const outboundLimit = await ntt.getOutboundLimit();
-const threshold = await ntt.getThreshold();
-console.log(`2`)
+    console.log(`!@!!!! addresses`, addresses)
+    const mode = await ntt.getMode();
+    const outboundLimit = await ntt.getOutboundLimit();
+    const threshold = await ntt.getThreshold();
+    
+    const decimals = await ntt.getTokenDecimals();
+    console.log(`Got token decimals: ${decimals}`)
+    // insert decimal point into number
+    const outboundLimitDecimals = formatNumber(outboundLimit, decimals);
 
-const decimals = await ntt.getTokenDecimals();
-// insert decimal point into number
-const outboundLimitDecimals = formatNumber(outboundLimit, decimals);
-
-console.log(`3`)
-const paused = await ntt.isPaused();
-const owner = await ntt.getOwner();
-const pauser = await ntt.getPauser();
-console.log(`4`)
-
-const version = getVersion(manager.chain, ntt);
-
-console.log(`5`)
-const transceiverPauser = await ntt.getTransceiver(0).then((t) => t?.getPauser() ?? null);
-console.log(`6`)
-
+    const paused = await ntt.isPaused();
+    const owner = await ntt.getOwner();
+    const pauser = await ntt.getPauser();
+    console.log(`1.4`)
+    
+    const version = getVersion(manager.chain, ntt);
+    
+    const transceiverPauser = await ntt.getTransceiver(0).then((t) => t?.getPauser() ?? null);
+    
     const config: ChainConfig = {
         version,
         mode,
@@ -3948,14 +3983,15 @@ console.log(`6`)
         manager: nativeManagerAddress,
         token: addresses.token!,
         transceivers: {
-            threshold,
-            wormhole: { address: addresses.transceiver!.wormhole! },
+          threshold,
+          wormhole: { address: addresses.transceiver!.wormhole! },
         },
         limits: {
-            outbound: outboundLimitDecimals,
-            inbound: {},
+          outbound: outboundLimitDecimals,
+          inbound: {},
         },
-    };
+      };
+      console.log(`1.5`)
     if (transceiverPauser) {
         config.transceivers.wormhole.pauser = transceiverPauser.toString();
     }
@@ -4050,8 +4086,7 @@ async function nttFromManager<N extends Network, C extends Chain>(
       }
     });
     const diff = await onlyManager.verifyAddresses();
-    console.log(`diff`)
-    console.log(diff)
+    console.log(`$$$$$$$$$ DIFF`, diff)
     const addresses: Partial<Ntt.Contracts> = {
         manager: nativeManagerAddress,
         ...diff

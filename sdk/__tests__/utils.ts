@@ -698,10 +698,11 @@ async function deployStacks(ctx: Ctx): Promise<Ctx> {
     requirementsDirectory + "/sbtc-registry",
     requirementsDirectory + "/sbtc-token",
     requirementsDirectory + "/sbtc-deposit",
-    // contractsDirectory + "/transceiver-trait-v1",
-    // contractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
-    // contractsDirectory + "/ntt-manager-xfer-trait-v1",
-    // contractsDirectory + "/ntt-manager-trait-v1",
+    contractsDirectory + "/transceiver-trait-v1",
+    contractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
+    contractsDirectory + "/ntt-manager-trait-v1",
+    contractsDirectory + "/receiver-trait-v1",
+    contractsDirectory + "/ntt-manager-xfer-trait-v1",
   ]
 
   const contractNames = [
@@ -952,7 +953,6 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
   const { signer, address: sender } = targetCtx.signers;
 
   const nttManager = await getNtt(targetCtx);
-  console.log(`[!!] Setting peer for manager in chain: ${target.chain} with value: ${peerManager.address.toString()} (exactly: ${universalAddress(peerManager)}) for chain: ${peer.chain}`)
   const setPeerTxs = nttManager.setPeer(
     peerManager,
     tokenDecimals,

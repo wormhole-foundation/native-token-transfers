@@ -7,8 +7,8 @@
 
 ;;;; Traits
 
-(impl-trait .ntt-manager-xfer-trait-v1.transfer-trait)
-(impl-trait .ntt-manager-trait-v1.ntt-manager-trait)
+;; (impl-trait .ntt-manager-xfer-trait-v1.transfer-trait)
+;; (impl-trait .ntt-manager-trait-v1.ntt-manager-trait)
 
 ;; Transfer trait used previous contract that we are importing from
 ;; May not match the version of `transfer-trait` this contract implements
@@ -40,6 +40,8 @@
 (define-constant ERR_PAUSED (err u5010))
 ;; Integer division resulted in remainder
 (define-constant ERR_DIV_REMAINDER (err u5011))
+;; Peer not found for protocol
+(define-constant ERR_NO_PEER (err u5012))
 
 ;; Update process errors
 (define-constant ERR_UPG_UNAUTHORIZED (err u5101))
@@ -150,7 +152,7 @@
     (ok (var-set pauser p))))
 
 (define-private (check-pauser)
-  (ok (asserts! (is-eq contract-caller (get-pauser)) ERR_UNAUTHORIZED)))
+  (ok (asserts! (or (is-eq contract-caller (get-pauser)) (is-admin contract-caller)) ERR_UNAUTHORIZED)))
 
 (define-read-only (check-paused)
   (ok (asserts! (is-eq (is-paused) false) ERR_PAUSED)))
@@ -193,7 +195,7 @@
         (scaled-val (try! (scale-amount-to-u64 amount token-decimals)))
         (scaled-amount (get amount scaled-val))
         (scaled-decimals-as-buff-1 (try! (uint-to-buff-1-be (get decimals scaled-val))))
-        (sender (unwrap! (contract-call? .wormhole-core-state stacks-to-wormhole-get contract-caller) ERR_ADDR32_NOT_REGISTERED))
+        (sender (get addr32 (try! (contract-call? .addr32 register contract-caller))))
         ;; Make unique message ID from block height and sequence
         (message-id (concat
           (uint-to-buff-16-be stacks-block-height)
@@ -201,7 +203,7 @@
         (ntt-peer (unwrap! (contract-call? .ntt-manager-state peers-get recipient-chain) ERR_UNKNOWN_CHAIN))
         (ntt-payload (try! (build-token-transfer-payload message-id scaled-decimals-as-buff-1 sender scaled-amount recipient-address recipient-chain none))))
     (try! (contract-call? .token-manager lock-or-burn-tokens token amount tx-sender))
-    (try! (contract-call? transceiver send-token-transfer ntt-payload recipient-chain (get address ntt-peer) sender))
+    (try! (contract-call? transceiver send-token-transfer ntt-payload recipient-chain ntt-peer sender))
     (var-set next-sequence (+ sequence u1))
     (ok sequence)))
 
@@ -232,10 +234,10 @@
           ;;  - Force fixed value of `recipient-addr32` with payload extension, like `keccak256("PayloadExtension")`
           r r
           ;; If no Stacks principal sent in payload extension, try lookup
-          (unwrap! (contract-call? .wormhole-core-state wormhole-to-stacks-get recipient-addr32) ERR_ADDR32_NOT_REGISTERED))))
+          (unwrap! (contract-call? .addr32 lookup recipient-addr32) ERR_ADDR32_NOT_REGISTERED))))
 
     ;; Check message values
-    (asserts! (is-eq source-ntt-manager (get address peer-data))
+    (asserts! (is-eq source-ntt-manager peer-data)
       ERR_TT_CHECK_SOURCE_NTT_MANAGER)
     (asserts! (is-eq (get recipient-chain ntt-manager-message) WORMHOLE_STACKS_CHAIN_ID)
       ERR_TT_CHECK_RECIPIENT_CHAIN_ID)
@@ -261,6 +263,7 @@
 
 (define-public (initialize-locking-mode (token <sip-010-trait>))
   (begin
+    (try! (check-admin))
     (try! (check-uninitialized))
     (var-set initialized true)
     (contract-call? .token-manager initialize-locking-mode token)))
@@ -271,6 +274,7 @@
     (decimals uint)
     (uri (optional (string-utf8 256))))
   (begin
+    (try! (check-admin))
     (try! (check-uninitialized))
     (var-set initialized true)
     (contract-call? .token-manager initialize-burning-mode name symbol decimals uri)))
@@ -282,6 +286,7 @@
       pauser: bool
     }))
   (let ((active-contract (contract-call? .ntt-manager-state get-owner)))
+    (try! (check-admin))
     (try! (check-uninitialized))
     (asserts! (is-eq (contract-of previous-contract) active-contract) ERR_UPG_UNAUTHORIZED)
     (try! (contract-call? .token-manager finalize-ownership-transfer))
@@ -322,6 +327,7 @@
 (define-public (cancel-update)
   (begin
     (try! (check-admin))
+    (try! (contract-call? .token-manager cancel-ownership-transfer))
     (contract-call? .ntt-manager-state cancel-ownership-transfer)))
 
 ;;;; Read-only Functions
@@ -356,17 +362,19 @@
 
 ;; @desc Add authorized NTT manager on other chain
 ;; TODO: Add `inbound-limit` for rate limiting?
-(define-public (add-peer (chain (buff 2)) (contract (buff 32)) (decimals uint))
+(define-public (add-peer (chain (buff 2)) (contract (buff 32)))
   (begin
     (try! (check-admin))
-    (asserts! (<= decimals MAX_VALUE_U8) ERR_INT_OVERFLOW)
-    (contract-call? .ntt-manager-state add-peer chain contract decimals)))
+    (contract-call? .ntt-manager-state add-peer chain contract )))
 
 ;; @desc Remove peer by chain ID
 (define-public (remove-peer (chain (buff 2)))
   (begin
     (try! (check-admin))
     (contract-call? .ntt-manager-state peers-delete chain)))
+
+(define-public (get-peer (chain (buff 2)))
+  (ok (unwrap! (contract-call? .ntt-manager-state peers-get chain) ERR_NO_PEER)))
 
 (define-read-only (get-token-contract)
   (contract-call? .token-manager get-token-contract))
@@ -418,18 +426,20 @@
 ;; @desc Scale amount to different number of decimals
 ;;       Returns error if funds would be lost due to integer division
 (define-read-only (scale-decimals (amount uint) (from uint) (to uint))
-  (if (is-eq to from)
-    ;; No adjustment needed
-    (ok amount)
-    ;; Need to scale amount
-    (if (> to from)
-      ;; We are increasing decimal precision, multiply amount in message by power of 10
-      (ok (* amount (pow u10 (- to from))))
-      ;; We are decreasing decimal precision, divide in message by power of 10
-      (let ((scaling-factor (pow u10 (- from to)))
-            (scaled-amount (/ amount scaling-factor)))
-        (asserts! (is-eq (* scaled-amount scaling-factor) amount) ERR_DIV_REMAINDER)
-        (ok scaled-amount)))))
+  (if (is-eq amount u0)
+    (ok u0)
+    (if (is-eq to from)
+      ;; No adjustment needed
+      (ok amount)
+      ;; Need to scale amount
+      (if (> to from)
+        ;; We are increasing decimal precision, multiply amount in message by power of 10
+        (ok (* amount (pow u10 (- to from))))
+        ;; We are decreasing decimal precision, divide in message by power of 10
+        (let ((scaling-factor (pow u10 (- from to)))
+              (scaled-amount (/ amount scaling-factor)))
+          (asserts! (is-eq (* scaled-amount scaling-factor) amount) ERR_DIV_REMAINDER)
+          (ok scaled-amount))))))
 
 ;; @desc Scale amount down by `entry` decimals, if needed
 ;;       This is a single, foldable step for the `scale-amount-to-u64` function
@@ -460,16 +470,18 @@
 ;; @desc Scale amount and decimals so that amount fits in `u64`
 ;;       Returns error if funds would be lost due to integer division
 (define-read-only (scale-amount-to-u64 (amount uint) (decimals uint))
-  (let ((scaled-val (fold scale-down-by
-          scaling-list
-          { amount: amount, decimals: decimals }))
+  (if (is-eq amount u0)
+    (ok { amount: u0, decimals: decimals })
+    (let ((scaled-val (fold scale-down-by
+            scaling-list
+            { amount: amount, decimals: decimals }))
         (scaled-amount (get amount scaled-val))
         (scaled-by (- decimals (get decimals scaled-val))))
     ;; Check `amount` fits now
     (asserts! (<= scaled-amount MAX_VALUE_U64) ERR_INT_OVERFLOW)
     ;; Reverse scaling to check for "dust"
     (asserts! (is-eq amount (* scaled-amount (pow u10 scaled-by))) ERR_DIV_REMAINDER)
-    (ok scaled-val)))
+    (ok scaled-val))))
 
 ;;;; Private Functions
 
@@ -497,11 +509,11 @@
 (define-private (get-addr32-from-cache (p principal))
   (match (map-get? addr32-cache p)
     ;; Already have, return
-    val (ok val)
+    a (ok a)
     ;; Don't have, register
-    (let ((val (try! (get-addr32-from-wormhole p))))
-      (map-set addr32-cache p val)
-      (ok val))))
+    (let ((addr32 (get addr32 (try! (contract-call? .addr32 register p)))))
+      (map-set addr32-cache p addr32)
+      (ok addr32))))
 
 ;; @desc Build NTT manager payload. This will be later wrapped in a transceiver payload
 ;;       Max size we allow for NTT manager message is 1024 bytes, so `payload` is capped at 958 bytes
@@ -655,17 +667,6 @@
 ;; @desc Get this contract's principal
 (define-private (get-contract-principal)
   (as-contract tx-sender))
-
-;; @desc Get addr32 by calling Wormhole State contract, or Core contract (if necessary)
-;;       NOTE: This calls a specific version of the Wormhole Core contract, which may need to be updated if this contract is re-deployed!
-(define-private (get-addr32-from-wormhole (p principal))
-  (match (contract-call? .wormhole-core-state stacks-to-wormhole-get p)
-    ;; Found in state contract
-    val (ok val)
-    ;; Not found in state contract, try core contract
-    ;; NOTE: If the hardcoded version of `wormhole-core` has been deprecated, you must register the address manually!
-    (let ((result (try! (contract-call? .wormhole-core-v4 get-wormhole-address p))))
-      (ok (get wormhole-address result)))))
 
 ;;;; `uint` to `buff` conversions
 

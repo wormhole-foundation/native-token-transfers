@@ -15,6 +15,9 @@
 (define-constant ERR_MESSAGE_REPLAYED (err u11002))
 (define-constant ERR_XFER_NOT_IN_PROGRESS (err u11003))
 (define-constant ERR_BUFFER_LEN (err u11004))
+(define-constant ERR_CANT_REGISTER_SELF (err u11005))
+
+(define-constant WORMHOLE_STACKS_CHAIN_ID 0x003c)
 
 ;;;; Data Vars
 
@@ -49,11 +52,8 @@
 
 ;; Peer NTT managers on other chain
 (define-map peers
-  (buff 2)  ;; Chain ID
-  {
-    address: (buff 32), ;; NTT manager contract address
-    decimals: uint      ;; Token decimals on peer chain
-  }
+  (buff 2)    ;; Chain ID
+  (buff 32)   ;; NTT manager contract address
 )
 
 ;; Since this contract can't be updated, provide a dynamically-typed key/value store,
@@ -106,15 +106,13 @@
 
 ;; @desc Add authorized NTT manager on other chain
 ;; TODO: Add `inbound-limit` for rate limiting?
-(define-public (add-peer (chain (buff 2)) (contract (buff 32)) (decimals uint))
+(define-public (add-peer (chain (buff 2)) (contract (buff 32)))
   (begin
     (try! (check-caller))
     (asserts! (is-eq (len chain) u2) ERR_BUFFER_LEN)
     (asserts! (is-eq (len contract) u32) ERR_BUFFER_LEN)
-    (ok (map-set peers chain {
-      address: contract,
-      decimals: decimals
-    }))))
+    (asserts! (not (is-eq chain WORMHOLE_STACKS_CHAIN_ID) ) ERR_CANT_REGISTER_SELF)
+    (ok (map-set peers chain contract))))
 
 (define-public (peers-delete (chain (buff 2)))
   (begin

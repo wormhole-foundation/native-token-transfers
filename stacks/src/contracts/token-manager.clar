@@ -21,13 +21,7 @@
 (define-constant ERR_UNAUTHORIZED (err u13002))
 (define-constant ERR_ALREADY_INITIALIZED (err u13003))
 (define-constant ERR_XFER_NOT_IN_PROGRESS (err u13004))
-(define-constant ERR_INVALID_TOKEN_CONTRACT (err u13005))
-(define-constant ERR_INVALID_VALUE (err u13006))
-
-(define-constant ERR_GET_NAME (err u131001))
-(define-constant ERR_GET_SYMBOL (err u131002))
-(define-constant ERR_GET_DECIMALS (err u131003))
-(define-constant ERR_GET_URI (err u131004))
+(define-constant ERR_NOT_OWNER (err u13005))
 
 ;; NTT can operate in either locking/burning mode (only locking supported now)
 (define-constant NTT_MODE_LOCKING 0x00)
@@ -78,23 +72,29 @@
   (let ((is-locking (try! (is-locking-mode))))
     (try! (check-caller))
     (try! (check-token token))
-    (if is-locking
-      ;; Lock tokens in this contract
-      ;; TODO: Add memo?
-      (contract-call? token transfer amount sender (get-contract-principal) none)
-      ;; Burn FTs
-      (contract-call? .bridged-token burn amount sender))))
+
+    (if (is-eq amount u0)
+      (ok true)
+      (if is-locking
+        ;; Lock tokens in this contract
+        ;; TODO: Add memo?
+        (contract-call? token transfer amount sender (get-contract-principal) none)
+        ;; Burn FTs
+        (contract-call? .bridged-token burn amount sender)))))
 
 (define-public (unlock-or-mint-tokens (token <sip-010-trait>) (amount uint) (recipient principal))
   (let ((is-locking (try! (is-locking-mode))))
     (try! (check-caller))
     (try! (check-token token))
-    (if is-locking
-      ;; Unlock and send
-      ;; TODO: Add memo?
-      (as-contract (contract-call? token transfer amount tx-sender recipient none))
-      ;; Mint tokens
-      (contract-call? .bridged-token mint amount recipient))))
+
+    (if (is-eq amount u0)
+      (ok true)
+      (if is-locking
+        ;; Unlock and send
+        ;; TODO: Add memo?
+        (as-contract (contract-call? token transfer amount tx-sender recipient none))
+        ;; Mint tokens
+        (contract-call? .bridged-token mint amount recipient)))))
 
 ;;;; Public functions: Update process
 
@@ -128,6 +128,7 @@
     (memo (optional (buff 34))))
   (begin
     (try! (check-token token))
+    (asserts! (is-eq tx-sender sender) ERR_NOT_OWNER)
     (contract-call? token transfer amount sender recipient memo)))
 
 (define-public (get-name (token <sip-010-trait>))
@@ -143,7 +144,7 @@
 (define-public (get-decimals (token <sip-010-trait>))
   (begin
     (try! (check-token token))
-    (contract-call? token get-symbol)))
+    (contract-call? token get-decimals)))
 
 ;; @desc Get token balance for any account
 (define-public (get-balance (token <sip-010-trait>) (p principal))

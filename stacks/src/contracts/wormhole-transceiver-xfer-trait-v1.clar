@@ -6,5 +6,4 @@
   (transfer-state ()
     (response {
       pauser: principal,          ;; Account which can pause this contract
-      token-contract: principal,  ;; SIP-10 token contract
     } uint))))

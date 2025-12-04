@@ -79,11 +79,6 @@
     (try! (check-active-transceiver transceiver))
     (contract-call? transceiver get-protocol-id)))
 
-(define-public (get-addr32 (transceiver <transceiver-trait>) (p principal))
-  (begin
-    (try! (check-active-transceiver transceiver))
-    (contract-call? transceiver get-addr32 p)))
-
 (define-public (send-token-transfer
     (transceiver <transceiver-trait>)
     (ntt-payload (buff 1024))

@@ -423,7 +423,6 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       provider
     );
     try {
-      console.log(`Getting`)
       const abiVersion = await contract
         .getFunction("NTT_MANAGER_VERSION")
         .staticCall();
@@ -432,7 +431,6 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       }
       return abiVersion;
     } catch (e) {
-      console.log(provider)
       console.error(
         `Failed to get NTT_MANAGER_VERSION from contract ${contracts.ntt?.manager} on ${(await provider.getNetwork()).name}`
       );
@@ -460,7 +458,6 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     tokenDecimals: number,
     inboundLimit: bigint
   ) {
-    console.log(`Ntt.ts set peer to exactly: ${universalAddress(peer)}`)
     const tx = await this.manager.setPeer.populateTransaction(
       toChainId(peer.chain),
       universalAddress(peer),

@@ -124,20 +124,20 @@ describe("Hub and Spoke Tests", function () {
 
 //   console.log(cvToValue(res))
 
-      // await testHub(
-      //   "Stacks",
-      //   "Ethereum",
-      //   "Bsc",
-      //   makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY, STACKS_PRIVATE_KEY),
-      //   ACCT_MNEMONIC
-      // )
       await testHub(
-        "Ethereum",
         "Stacks",
+        "Ethereum",
         "Bsc",
         makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY, STACKS_PRIVATE_KEY),
         ACCT_MNEMONIC
       )
+      // await testHub(
+      //   "Ethereum",
+      //   "Stacks",
+      //   "Bsc",
+      //   makeGetNativeSigner(ETH_PRIVATE_KEY, SOL_PRIVATE_KEY, STACKS_PRIVATE_KEY),
+      //   ACCT_MNEMONIC
+      // )
     })
 
     test("Pausing", async() => {

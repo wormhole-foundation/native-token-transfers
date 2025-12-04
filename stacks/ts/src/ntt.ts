@@ -1,15 +1,14 @@
 import { Chain, chainToChainId, Network } from "@wormhole-foundation/sdk-base";
-import { AccountAddress, UnsignedTransaction, ChainAddress } from "@wormhole-foundation/sdk-connect";
+import { AccountAddress, UnsignedTransaction, ChainAddress, ChainsConfig, Contracts, serialize, toNative, UniversalAddress } from "@wormhole-foundation/sdk-definitions";
 import { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
 import { StacksChains, StacksPlatform, StacksPlatformType, StacksZeroAddress } from "@wormhole-foundation/sdk-stacks";
 import { StacksNetwork } from "@stacks/network";
-import { ChainsConfig, Contracts, serialize, toNative, UniversalAddress } from "@wormhole-foundation/sdk-definitions";
 import { BufferCV, Cl, cvToValue, fetchCallReadOnlyFunction, PostConditionMode } from "@stacks/transactions";
 
 export class StacksNttWormholeTransceiver<N extends Network, C extends StacksChains> implements NttTransceiver<N, C, Ntt.Attestation> {
 
   // static readonly CONTRACT_NAME = 'wormhole-transceiver-v1'
-  // static readonly STATE_CONTRACT_NAME = 'wormhole-transceiver-state'
+  static readonly STATE_CONTRACT_NAME = 'wormhole-transceiver-state'
 
   private readonly contractName: string;
   private readonly deployer: string;
@@ -56,8 +55,24 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
     }
   }
 
-  getPeer<C extends Chain>(chain: C): Promise<ChainAddress<C> | null> {
-    throw new Error("Method not implemented.");
+  async getPeer<C extends Chain>(chain: C): Promise<ChainAddress<C> | null> {
+    const res = await this.readonly(
+      'peers-get',
+      [
+        StacksNtt.chainToClBuffer(chain),
+      ],
+      StacksNttWormholeTransceiver.STATE_CONTRACT_NAME,
+      this.deployer
+    )
+    const resValue = cvToValue(res)
+    if(!resValue) {
+      return null
+    }
+    const address = new UniversalAddress(resValue.value)
+    return {
+      address,
+      chain,
+    }
   }
 
   async *setPauser(newPauser: AccountAddress<C>, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
@@ -138,11 +153,13 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   implements Ntt<N, C> {
 
   static readonly NTT_MANAGER_STATE_CONTRACT_NAME = `ntt-manager-state`
+  static readonly NTT_MANAGER_CONTRACT_NAME = `ntt-manager-v1`
+  static readonly NTT_TOKEN_OWNER_CONTRACT_NAME = `token-manager`
   static readonly WORMHOLE_PROTOCOL_ID = 1
 
   private readonly nttManagerDeployer: string;
-  private readonly nttManagerStateContractName: string;
-  private readonly tokenOwnerContractName: string
+  private readonly nttStateContractName: string;
+  private readonly tokenOwnerContractName: string;
   private readonly tokenAddress: string;
 
   constructor(
@@ -158,25 +175,47 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       throw new Error("NTT Contracts not found")
     }
 
-    const nttManagerStateFullAddress = contracts.ntt.state
-    const managerAddressSplit = !nttManagerStateFullAddress? [] : nttManagerStateFullAddress.split(".")
-    this.nttManagerDeployer = managerAddressSplit[0] || ""
-    this.nttManagerStateContractName = managerAddressSplit[1] || ""
-    
-    this.tokenAddress = contracts.ntt.token
-    
-    const tokenOwnerFullAddress = contracts.ntt.tokenOwner
-    if (tokenOwnerFullAddress) {
-      const tokenOwnerAddressSplit = tokenOwnerFullAddress.split(".")
-      this.tokenOwnerContractName = tokenOwnerAddressSplit[1] || tokenOwnerFullAddress
+    const manager = contracts.ntt.manager
+    this.nttStateContractName = contracts?.ntt?.state
+    this.tokenOwnerContractName = contracts?.ntt?.tokenOwner
+    if(!!manager && manager.startsWith("0x")) {
+      const utf8Manager = Buffer.from(manager.slice(2), "hex").toString("utf-8")
+      console.log(`Manager is hex`, utf8Manager)
+      const deployer = utf8Manager.split(".")[0]
+      const managerName = utf8Manager.split(".")[1]
+      if(!deployer || !managerName) {
+        throw new Error("Invalid manager address")
+      }
+      this.nttManagerDeployer = deployer
+      this.tokenAddress = contracts.ntt.token
     } else {
-      this.tokenOwnerContractName = ""
+      if(!!contracts.ntt.manager) {
+        const managerFullAddress = contracts.ntt.manager
+        const managerAddressSplit = managerFullAddress.split(".")
+        this.nttManagerDeployer = managerAddressSplit[0] || ""
+      } else {
+        const nttManagerStateFullAddress = contracts.ntt.state
+        const managerAddressSplit = !nttManagerStateFullAddress? [] : nttManagerStateFullAddress.split(".")
+        this.nttManagerDeployer = managerAddressSplit[0] || ""
+        
+        // this.nttManagerStateContractName = managerAddressSplit[1] || ""
+      }
+      this.tokenAddress = contracts.ntt.token
+      
+      // if (tokenOwnerFullAddress) {
+      //   const tokenOwnerAddressSplit = tokenOwnerFullAddress.split(".")
+      //   this.tokenOwnerContractName = tokenOwnerAddressSplit[1] || tokenOwnerFullAddress
+      // } else {
+      //   this.tokenOwnerContractName = ""
+      // }
     }
+
   }
-    
+
   async getMode(): Promise<Ntt.Mode> {
     const res = await this.managerReadOnly('get-mode', [])
-    return cvToValue(res)
+    const modeValue = cvToValue(res)
+    return modeValue.value === "0x00" ? "locking" : "burning"
   }
 
   async getFullAddress(): Promise<string> {
@@ -230,8 +269,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
    * or throw an error if it's not.
    */
   async getOwner(): Promise<AccountAddress<C>> {
-    const deployerAddress = this.contracts.ntt!.manager.split(".")[0]!
-    const deployerNative = toNative(this.chain, deployerAddress)
+    const deployerNative = toNative(this.chain, this.nttManagerDeployer)
     const isDeployerOwner = await this.isOwner(deployerNative)
     if (isDeployerOwner) {
       return deployerNative
@@ -310,7 +348,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       functionArgs: [
         StacksNtt.chainToClBuffer(peer.chain),
         Cl.buffer(new UniversalAddress(peer.address.toString()).toUint8Array()),
-        Cl.uint(tokenDecimals),
+        // Cl.uint(tokenDecimals),
       ],
       postConditionMode: PostConditionMode.Allow
     }
@@ -384,36 +422,62 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   }
 
   async getCustodyAddress(): Promise<string> {
-    return `${this.nttManagerDeployer}.${this.tokenOwnerContractName}`
+    return this.getTokenOwnerContractAddress()
   }
 
   async getTokenDecimals(): Promise<number> {
-    console.log(`get token decimals: ${this.tokenAddress}`)
+    let tokenToQuery: string
+    if(!this.tokenAddress) {
+      const token = await this.managerReadOnly(
+        'get-token-contract',
+        []
+      )
+      const tokenValue = cvToValue(token)
+      tokenToQuery = tokenValue.value
+    } else {
+      tokenToQuery = this.tokenAddress
+    }
+    console.log(`get token decimals: ${tokenToQuery}`)
+    console.log(toNative(this.chain, tokenToQuery))
     const decimals = await StacksPlatform.getDecimals(
       this.network,
       this.chain,
       this.connection,
-      toNative(this.chain, this.tokenAddress)
+      toNative(this.chain, tokenToQuery)
     )
     return decimals
   }
 
   async getPeer<C extends Chain>(chain: C): Promise<Ntt.Peer<C> | null> {
-    const res = await this.managerReadOnly(
-      'get-peer',
+    // const res = await this.managerReadOnly(
+    //   'get-peer',
+    //   [
+    //     StacksNtt.chainToClBuffer(chain),
+    //   ]
+    // )
+
+    console.log(`Stacks NTT getPeer for chain: ${chain} buffer`, StacksNtt.chainToClBuffer(chain))
+
+    const res = await this.readonly(
+      'peers-get',
       [
         StacksNtt.chainToClBuffer(chain),
-      ]
+      ],
+      this.getStateContractName(),
+      this.nttManagerDeployer
     )
+  
     const resValue = cvToValue(res)
-    const address = new UniversalAddress(resValue.value.address.value)
-    const decimals = Number(resValue.value.decimals.value)
+    if(!resValue) {
+      return null
+    }
+    const address = new UniversalAddress(resValue.value)
     return {
       address: {
         chain,
         address
       },
-      tokenDecimals: decimals,
+      tokenDecimals: 0, // TODO check do we want decimals back?
       inboundLimit: 0n
     }
   }
@@ -431,7 +495,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       [
         Cl.uint(whProtocol),
       ],
-      this.nttManagerStateContractName,
+      this.getStateContractName(),
       activeNttManager.address
     )
     const resValue = cvToValue(res)
@@ -442,7 +506,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     const res = await this.readonly(
       'get-active-ntt-manager',
       [],
-      this.nttManagerStateContractName,
+      this.getStateContractName(),
       this.nttManagerDeployer
     )
     const resValue = cvToValue(res)
@@ -453,6 +517,14 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       address,
       contractName
     }
+  }
+
+  getStateContractName(): string {
+    return this.nttStateContractName?.split(".")[1] ?? StacksNtt.NTT_MANAGER_STATE_CONTRACT_NAME;
+  }
+
+  getTokenOwnerContractAddress(): string {
+    return this.tokenOwnerContractName ?? `${this.nttManagerDeployer}.${StacksNtt.NTT_TOKEN_OWNER_CONTRACT_NAME}`;
   }
 
   getCurrentOutboundCapacity(): Promise<bigint> {
@@ -499,15 +571,20 @@ export class StacksNtt<N extends Network, C extends StacksChains>
         transceiver: this.contracts.ntt!.transceiver || {},
       };
 
-      const deployerAddress = this.contracts.ntt!.manager.split(".")[0]!
+      console.log(`## VERIFY ADDRESS ##`)
+      console.log(`LOCAL:`)
+      console.log(local)
+
+      const deployerAddress = this.nttManagerDeployer
 
       // In stacks we don't really need to query on-chain state
       // because the deployment must be done by a single address
       // and names are fixed
       const remoteStateAddress = `${deployerAddress}.${StacksNtt.NTT_MANAGER_STATE_CONTRACT_NAME}`
+      console.log(`calling remote`, `${deployerAddress}.${StacksNtt.NTT_MANAGER_CONTRACT_NAME}`)
       const remote: Partial<StacksNttContracts> = {
         manager: this.contracts.ntt!.manager,
-        token: cvToValue(await this.managerReadOnly('get-token-contract', [], this.contracts.ntt!.manager)).value,
+        token: cvToValue(await this.managerReadOnly('get-token-contract', [], `${deployerAddress}.${StacksNtt.NTT_MANAGER_CONTRACT_NAME}`)).value,
         transceiver: {
           wormhole: cvToValue(await this.readonly(
             "protocols-get",
@@ -520,6 +597,9 @@ export class StacksNtt<N extends Network, C extends StacksChains>
         },
         state: remoteStateAddress
       };
+
+      console.log(`REMOTE:`)
+      console.log(remote)
 
       const deleteMatching = (a: any, b: any) => {
         for (const k in a) {
