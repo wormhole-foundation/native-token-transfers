@@ -278,8 +278,10 @@ export class NttExecutorRoute<N extends Network>
           toChain.config.nativeTokenDecimals
         ),
         eta:
-          finality.estimateFinalityTime(request.fromChain.chain) +
-          guardians.guardianAttestationEta * 1000,
+          request.fromChain.chain === "Stacks"
+            ? 10000
+            : finality.estimateFinalityTime(request.fromChain.chain) +
+              guardians.guardianAttestationEta * 1000,
         expires,
         details: executorQuote,
       };
@@ -388,34 +390,56 @@ export class NttExecutorRoute<N extends Network>
       }
     }
 
+    let relayInstructions: Uint8Array;
+
     const relayRequests = [];
 
-    // Add the gas instruction
-    relayRequests.push({
-      request: {
-        type: "GasInstruction" as const,
-        gasLimit,
-        msgValue,
-      },
-    });
-
-    // Add the gas drop-off instruction if applicable
-    if (dropOff > 0n) {
+    if (toChain.chain === "Stacks") {
+      // TODO: explain why there is a different instruction for Stacks
       relayRequests.push({
         request: {
-          type: "GasDropOffInstruction" as const,
-          dropOff,
-          // If the recipient is undefined (e.g. the user hasn’t connected their wallet yet),
-          // we temporarily use a dummy address to fetch a quote.
-          // The recipient address is validated later in the `initiate` method, which will throw if it's still missing.
+          type: "StacksNttReceiveInstruction" as const,
+          nttManager: Buffer.from(
+            // TODO: is using Buffer correct?
+            params.normalizedParams.destinationContracts.manager
+          ),
           recipient: recipient
-            ? recipient.address.toUniversalAddress()
-            : new UniversalAddress(new Uint8Array(32)),
+            ? recipient.address.toUint8Array() // TODO: toNative?
+            : // If the recipient is undefined (e.g. the user hasn't connected their wallet yet),
+              // we temporarily use a dummy address to fetch a quote.
+              // The recipient address is validated later in the `initiate` method, which will throw if it's still missing.
+              new Uint8Array(new Uint8Array(32)),
+          gasDropOff: dropOff,
         },
       });
+    } else {
+      // Add the gas instruction
+      relayRequests.push({
+        request: {
+          type: "GasInstruction" as const,
+          gasLimit,
+          msgValue,
+        },
+      });
+
+      // Add the gas drop-off instruction if applicable
+      if (dropOff > 0n) {
+        relayRequests.push({
+          request: {
+            type: "GasDropOffInstruction" as const,
+            dropOff,
+            // If the recipient is undefined (e.g. the user hasn't connected their wallet yet),
+            // we temporarily use a dummy address to fetch a quote.
+            // The recipient address is validated later in the `initiate` method, which will throw if it's still missing.
+            recipient: recipient
+              ? recipient.address.toUniversalAddress()
+              : new UniversalAddress(new Uint8Array(32)),
+          },
+        });
+      }
     }
 
-    const relayInstructions = serializeLayout(relayInstructionsLayout, {
+    relayInstructions = serializeLayout(relayInstructionsLayout, {
       requests: relayRequests,
     });
 
@@ -472,6 +496,13 @@ export class NttExecutorRoute<N extends Network>
         !request.recipient.equals(to.address.toUniversalAddress())
       ) {
         throw new Error("Gas drop-off recipient does not match");
+      }
+      console.log("foo");
+      if (
+        request.type === "StacksNttReceiveInstruction" &&
+        !encoding.bytes.equals(request.recipient, to.address.toUint8Array())
+      ) {
+        throw new Error("Recipient does not match");
       }
     });
 
@@ -576,30 +607,50 @@ export class NttExecutorRoute<N extends Network>
     const { recipientChain, trimmedAmount } =
       vaa.payload["nttManagerPayload"].payload;
 
-    const token = canonicalAddress({
-      chain: vaa.emitterChain,
-      address: vaa.payload["nttManagerPayload"].payload.sourceToken,
-    });
-    const manager = canonicalAddress({
-      chain: vaa.emitterChain,
-      address: vaa.payload["sourceNttManager"],
-    });
-    const whTransceiver =
-      chainToPlatform(vaa.emitterChain) === "Solana"
-        ? manager
-        : canonicalAddress({
-            chain: vaa.emitterChain,
-            address: vaa.emitterAddress,
-          });
+    let token: string, manager: string, whTransceiver: string;
+    let dstInfo: Ntt.Contracts;
 
-    const dstInfo = NttRoute.resolveDestinationNttContracts(
-      this.staticConfig.ntt,
-      {
+    if (chainToPlatform(vaa.emitterChain) === "Stacks") {
+      const { stacksConfig, dstInfo: stacksDstInfo } =
+        NttRoute.resolveDestinationNttContractsStacksEmitter(
+          this.staticConfig.ntt,
+          vaa.emitterAddress,
+          recipientChain
+        );
+
+      token = stacksConfig.token;
+      manager = stacksConfig.manager;
+      whTransceiver = stacksConfig.transceiver.find(
+        (t) => t.type === "wormhole"
+      )!.address;
+
+      dstInfo = stacksDstInfo;
+    } else {
+      token = canonicalAddress({
+        chain: vaa.emitterChain,
+        address: vaa.payload["nttManagerPayload"].payload.sourceToken,
+      });
+      manager = canonicalAddress({
         chain: vaa.emitterChain,
         address: vaa.payload["sourceNttManager"],
-      },
-      recipientChain
-    );
+      });
+      whTransceiver =
+        chainToPlatform(vaa.emitterChain) === "Solana"
+          ? manager
+          : canonicalAddress({
+              chain: vaa.emitterChain,
+              address: vaa.emitterAddress,
+            });
+
+      dstInfo = NttRoute.resolveDestinationNttContracts(
+        this.staticConfig.ntt,
+        {
+          chain: vaa.emitterChain,
+          address: vaa.payload["sourceNttManager"],
+        },
+        recipientChain
+      );
+    }
 
     const amt = amount.fromBaseUnits(
       trimmedAmount.amount,
