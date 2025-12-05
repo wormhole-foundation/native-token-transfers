@@ -1098,6 +1098,12 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
+      console.log(chalk.green(`✓ ${path} created — this file stores your NTT deployment configuration`));
+      console.log(
+        chalk.cyan(
+          `\nTip: To use custom RPC endpoints, rename example-overrides.json to overrides.json and edit as needed.`
+        )
+      );
     }
   )
   .command(
