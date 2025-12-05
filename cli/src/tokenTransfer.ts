@@ -43,6 +43,12 @@ import "@wormhole-foundation/sdk-sui-ntt";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 import fs from "fs";
 import readline from "readline";
+import {
+  ensurePlatformSupported,
+  normalizeRpcArgs,
+  validatePayerOption,
+  validateTimeout,
+} from "./validation";
 
 type TokenTransferArgs = {
   network: string;
@@ -66,15 +72,6 @@ class TokenTransferError extends Error {
     this.cause = options?.cause;
   }
 }
-
-/**
- * Platforms that currently have stable NTT support through the CLI.
- */
-const SUPPORTED_PLATFORMS: ReadonlySet<Platform> = new Set([
-  "Evm",
-  "Solana",
-  "Sui",
-]);
 
 const DEFAULT_SOLANA_MSG_VALUE = 11_500_000n; // lamports
 
@@ -193,8 +190,14 @@ async function executeTokenTransfer(
   const destinationChainInput = argv["destination-chain"];
   assertChain(destinationChainInput);
 
-  ensurePlatformSupported(sourceChainInput);
-  ensurePlatformSupported(destinationChainInput);
+  ensurePlatformSupported(
+    sourceChainInput,
+    (message) => new TokenTransferError(message)
+  );
+  ensurePlatformSupported(
+    destinationChainInput,
+    (message) => new TokenTransferError(message)
+  );
   const sourcePlatform = chainToPlatform(sourceChainInput);
   const destinationPlatform = chainToPlatform(destinationChainInput);
 
@@ -240,16 +243,12 @@ async function executeTokenTransfer(
     }
   }
 
-  const payerRaw = argv["payer"];
-  if (Array.isArray(payerRaw)) {
-    throw new TokenTransferError("--payer may only be specified once");
-  }
-  const payerPath = typeof payerRaw === "string" ? payerRaw.trim() : undefined;
-  if (payerRaw !== undefined && (!payerPath || payerPath.length === 0)) {
-    throw new TokenTransferError(
-      "--payer must be a path to a Solana keypair JSON file"
-    );
-  }
+  const payerPath = validatePayerOption(
+    argv["payer"],
+    sourceChainInput,
+    (message) => new TokenTransferError(message),
+    (message) => console.warn(chalk.yellow(message))
+  );
 
   const destinationAddressRaw = argv["destination-address"];
   if (Array.isArray(destinationAddressRaw)) {
@@ -273,54 +272,17 @@ async function executeTokenTransfer(
     );
   }
 
-  if (payerPath && chainToPlatform(sourceChainInput) !== "Solana") {
-    console.warn(
-      chalk.yellow(
-        "--payer is only used when the source chain is Solana. Ignoring provided path."
-      )
-    );
-  }
+  const rpcArgs = normalizeRpcArgs(
+    argv["rpc"],
+    (message) => new TokenTransferError(message)
+  );
 
-  const rpcRaw = argv["rpc"];
-  const rpcArgs = Array.isArray(rpcRaw)
-    ? rpcRaw
-    : rpcRaw
-      ? [rpcRaw]
-      : undefined;
-
-  // Reject empty override slots such as `--rpc` or `--rpc ""`
-  if (
-    rpcArgs &&
-    (rpcArgs.length === 0 ||
-      rpcArgs.some(
-        (value) => typeof value !== "string" || value.trim().length === 0
-      ))
-  ) {
-    throw new TokenTransferError(
-      "--rpc expects values in the form Chain=URL. Remove the flag or provide a valid endpoint."
-    );
-  }
-
-  // Users sometimes repeat flags; yargs returns an array in that case. Treat it as invalid.
-  if (
-    Object.prototype.hasOwnProperty.call(argv, "timeout") &&
-    (argv.timeout === undefined ||
-      argv.timeout === null ||
-      Array.isArray(argv.timeout))
-  ) {
-    throw new TokenTransferError(
-      "--timeout expects a numeric value in seconds. Remove the flag or provide a valid number."
-    );
-  }
-
-  if (
-    typeof argv.timeout === "number" &&
-    (Number.isNaN(argv.timeout) || argv.timeout <= 0)
-  ) {
-    throw new TokenTransferError("--timeout must be a positive number of seconds.");
-  }
-
-  const timeoutSeconds = argv.timeout ?? 1200;
+  const timeoutSeconds =
+    validateTimeout(
+      argv.timeout,
+      Object.prototype.hasOwnProperty.call(argv, "timeout"),
+      (message) => new TokenTransferError(message)
+    ) ?? 1200;
   const timeoutMs = Math.max(1, Math.floor(timeoutSeconds)) * 1000;
 
   const deploymentPathArg = argv["deployment-path"];
@@ -969,18 +931,6 @@ function isExecutorQuote(
 /**
  * Validate the CLI supports the platform hosting the given chain.
  * Exits early with a helpful message if not.
- */
-function ensurePlatformSupported(chain: Chain): void {
-  const platform = chainToPlatform(chain);
-  if (!SUPPORTED_PLATFORMS.has(platform)) {
-    throw new TokenTransferError(
-      `Chain ${chain} (platform ${platform}) is not supported by token-transfer`
-    );
-  }
-}
-
-/**
- * Determine the decimals for the token we are about to move.
  */
 async function resolveTokenDecimals(
   wh: Wormhole<Network>,
