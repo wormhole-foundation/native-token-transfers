@@ -117,10 +117,10 @@ export function validateTimeout(
   wasProvided: boolean,
   errorFactory: ErrorFactory
 ): number | undefined {
-  if (!wasProvided || rawTimeout === undefined) {
+  if (!wasProvided) {
     return undefined;
   }
-  if (rawTimeout === null || Array.isArray(rawTimeout)) {
+  if (rawTimeout === undefined || rawTimeout === null || Array.isArray(rawTimeout)) {
     throw errorFactory(
       "--timeout expects a numeric value in seconds. Remove the flag or provide a valid number."
     );
