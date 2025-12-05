@@ -46,6 +46,7 @@ import {
 } from "./utils.js";
 import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
+  AccountAddress,
   isNative,
   relayInstructionsLayout,
   signedQuoteLayout,
@@ -278,8 +279,10 @@ export class NttExecutorRoute<N extends Network>
           toChain.config.nativeTokenDecimals
         ),
         eta:
-          finality.estimateFinalityTime(request.fromChain.chain) +
-          guardians.guardianAttestationEta * 1000,
+          request.fromChain.chain === "Stacks"
+            ? 10000
+            : finality.estimateFinalityTime(request.fromChain.chain) +
+              guardians.guardianAttestationEta * 1000,
         expires,
         details: executorQuote,
       };
@@ -388,34 +391,56 @@ export class NttExecutorRoute<N extends Network>
       }
     }
 
+    let relayInstructions: Uint8Array;
+
     const relayRequests = [];
 
-    // Add the gas instruction
-    relayRequests.push({
-      request: {
-        type: "GasInstruction" as const,
-        gasLimit,
-        msgValue,
-      },
-    });
-
-    // Add the gas drop-off instruction if applicable
-    if (dropOff > 0n) {
+    if (toChain.chain === "Stacks") {
+      // When transferring to Stacks, we use the StacksNttReceiveInstruction, which includes
+      // the pre-hashed recipient address (Stacks "universal" addresses are keccak256 hashes).
+      // The pre-hashed recipient address is used by executor to register the recipient
+      // with the Stacks addr32 contract if it is not already registered.
       relayRequests.push({
         request: {
-          type: "GasDropOffInstruction" as const,
-          dropOff,
-          // If the recipient is undefined (e.g. the user hasn’t connected their wallet yet),
-          // we temporarily use a dummy address to fetch a quote.
-          // The recipient address is validated later in the `initiate` method, which will throw if it's still missing.
+          type: "StacksNttReceiveInstruction" as const,
+          nttManager: Buffer.from(
+            // TODO: is using Buffer correct?
+            params.normalizedParams.destinationContracts.manager
+          ),
           recipient: recipient
-            ? recipient.address.toUniversalAddress()
-            : new UniversalAddress(new Uint8Array(32)),
+            ? recipient.address.toUint8Array()
+            : new Uint8Array(new Uint8Array(32)),
+          gasDropOff: dropOff,
         },
       });
+    } else {
+      // Add the gas instruction
+      relayRequests.push({
+        request: {
+          type: "GasInstruction" as const,
+          gasLimit,
+          msgValue,
+        },
+      });
+
+      // Add the gas drop-off instruction if applicable
+      if (dropOff > 0n) {
+        relayRequests.push({
+          request: {
+            type: "GasDropOffInstruction" as const,
+            dropOff,
+            // If the recipient is undefined (e.g. the user hasn't connected their wallet yet),
+            // we temporarily use a dummy address to fetch a quote.
+            // The recipient address is validated later in the `initiate` method, which will throw if it's still missing.
+            recipient: recipient
+              ? recipient.address.toUniversalAddress()
+              : new UniversalAddress(new Uint8Array(32)),
+          },
+        });
+      }
     }
 
-    const relayInstructions = serializeLayout(relayInstructionsLayout, {
+    relayInstructions = serializeLayout(relayInstructionsLayout, {
       requests: relayRequests,
     });
 
@@ -472,6 +497,12 @@ export class NttExecutorRoute<N extends Network>
         !request.recipient.equals(to.address.toUniversalAddress())
       ) {
         throw new Error("Gas drop-off recipient does not match");
+      }
+      if (
+        request.type === "StacksNttReceiveInstruction" &&
+        !encoding.bytes.equals(request.recipient, to.address.toUint8Array())
+      ) {
+        throw new Error("Stacks recipient does not match");
       }
     });
 
@@ -548,11 +579,59 @@ export class NttExecutorRoute<N extends Network>
     }
 
     const toChain = this.wh.getChain(receipt.to);
+    let recipient: AccountAddress<Chain> | undefined;
+
+    // When redeeming on Stacks, we need to get the pre-hashed recipient address
+    // from the StacksNttReceiveInstruction in case it needs to be registered.
+    if (receipt.to === "Stacks") {
+      const [txStatus] = await fetchStatus(
+        this.wh.network,
+        receipt.originTxs.at(-1)!.txid,
+        receipt.from
+      );
+
+      if (!txStatus) {
+        throw new Error("Failed to fetch transaction status");
+      }
+
+      const { relayInstructionsBytes } = txStatus.requestForExecution;
+
+      const relayInstructionsDecoded = encoding.hex.decode(
+        relayInstructionsBytes
+      );
+
+      const relayInstructions = deserializeLayout(
+        relayInstructionsLayout,
+        relayInstructionsDecoded
+      );
+
+      const stacksInstruction = relayInstructions.requests.find(
+        ({ request }) => request.type === "StacksNttReceiveInstruction"
+      );
+
+      if (
+        !stacksInstruction ||
+        stacksInstruction.request.type !== "StacksNttReceiveInstruction"
+      ) {
+        throw new Error(
+          "No StacksNttReceiveInstruction found in relay instructions"
+        );
+      }
+
+      const recipientBytes = stacksInstruction.request.recipient;
+      const recipientAddress = encoding.bytes.decode(recipientBytes);
+      recipient = Wormhole.parseAddress(receipt.to, recipientAddress);
+    }
+
     const ntt = await toChain.getProtocol("Ntt", {
       ntt: receipt.params.normalizedParams.destinationContracts,
     });
     const sender = Wormhole.parseAddress(signer.chain(), signer.address());
-    const completeXfer = ntt.redeem([receipt.attestation.attestation], sender);
+    const completeXfer = ntt.redeem(
+      [receipt.attestation.attestation],
+      sender,
+      recipient
+    );
 
     const txids = await signSendWait(toChain, completeXfer, signer);
     return {
@@ -576,30 +655,50 @@ export class NttExecutorRoute<N extends Network>
     const { recipientChain, trimmedAmount } =
       vaa.payload["nttManagerPayload"].payload;
 
-    const token = canonicalAddress({
-      chain: vaa.emitterChain,
-      address: vaa.payload["nttManagerPayload"].payload.sourceToken,
-    });
-    const manager = canonicalAddress({
-      chain: vaa.emitterChain,
-      address: vaa.payload["sourceNttManager"],
-    });
-    const whTransceiver =
-      chainToPlatform(vaa.emitterChain) === "Solana"
-        ? manager
-        : canonicalAddress({
-            chain: vaa.emitterChain,
-            address: vaa.emitterAddress,
-          });
+    let token: string, manager: string, whTransceiver: string;
+    let dstInfo: Ntt.Contracts;
 
-    const dstInfo = NttRoute.resolveDestinationNttContracts(
-      this.staticConfig.ntt,
-      {
+    if (chainToPlatform(vaa.emitterChain) === "Stacks") {
+      const { stacksConfig, dstInfo: stacksDstInfo } =
+        NttRoute.resolveDestinationNttContractsStacksEmitter(
+          this.staticConfig.ntt,
+          vaa.emitterAddress,
+          recipientChain
+        );
+
+      token = stacksConfig.token;
+      manager = stacksConfig.manager;
+      whTransceiver = stacksConfig.transceiver.find(
+        (t) => t.type === "wormhole"
+      )!.address;
+
+      dstInfo = stacksDstInfo;
+    } else {
+      token = canonicalAddress({
+        chain: vaa.emitterChain,
+        address: vaa.payload["nttManagerPayload"].payload.sourceToken,
+      });
+      manager = canonicalAddress({
         chain: vaa.emitterChain,
         address: vaa.payload["sourceNttManager"],
-      },
-      recipientChain
-    );
+      });
+      whTransceiver =
+        chainToPlatform(vaa.emitterChain) === "Solana"
+          ? manager
+          : canonicalAddress({
+              chain: vaa.emitterChain,
+              address: vaa.emitterAddress,
+            });
+
+      dstInfo = NttRoute.resolveDestinationNttContracts(
+        this.staticConfig.ntt,
+        {
+          chain: vaa.emitterChain,
+          address: vaa.payload["sourceNttManager"],
+        },
+        recipientChain
+      );
+    }
 
     const amt = amount.fromBaseUnits(
       trimmedAmount.amount,

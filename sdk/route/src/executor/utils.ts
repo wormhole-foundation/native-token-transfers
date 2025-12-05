@@ -110,6 +110,7 @@ export async function fetchSignedQuote(
 export interface StatusResponse extends RelayData {
   signedQuote: SignedQuote;
   estimatedCost: string;
+  requestForExecution: RequestForExecution;
 }
 
 // Fetch Status

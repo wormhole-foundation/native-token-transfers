@@ -15,6 +15,7 @@ import {
   TransferReceipt as _TransferReceipt,
   amount,
   canonicalAddress,
+  encoding,
   isAttested,
   isCompleted,
   isDestinationQueued,
@@ -30,6 +31,10 @@ import {
   toUniversal,
 } from "@wormhole-foundation/sdk-connect";
 import { MultiTokenNtt, Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import {
+  keccak256,
+  UniversalAddress,
+} from "@wormhole-foundation/sdk-definitions";
 import { trackAxelar, trackExecutor } from "./tracking.js";
 
 export namespace NttRoute {
@@ -268,6 +273,58 @@ export namespace NttRoute {
       }
     }
     throw new Error("Cannot find Ntt contracts in config for: " + address);
+  }
+
+  export function resolveDestinationNttContractsStacksEmitter(
+    config: Config,
+    emitterAddress: UniversalAddress,
+    dstChain: Chain
+  ): { stacksConfig: TokenConfig; dstInfo: Ntt.Contracts } {
+    const emitterLower = emitterAddress.toString().toLowerCase();
+
+    for (const tokens of Object.values(config.tokens)) {
+      for (const tokenConfig of tokens) {
+        if (tokenConfig.chain === "Stacks") {
+          const whTransceiver = tokenConfig.transceiver.find(
+            (t) => t.type === "wormhole"
+          );
+          if (whTransceiver) {
+            // The emitter address on the VAA is the keccak256 hash of the transceiver address
+            const hash = keccak256(whTransceiver.address);
+            const hashHex = encoding.hex
+              .encode(hash, true)
+              .toString()
+              .toLowerCase();
+            if (hashHex === emitterLower) {
+              // Find the destination config in the same token group
+              const remote = tokens.find((tc) => tc.chain === dstChain);
+              if (!remote) {
+                throw new Error(
+                  `Cannot find destination Ntt contracts in config for chain: ${dstChain}`
+                );
+              }
+
+              const dstInfo: Ntt.Contracts = {
+                token: remote.unwrapsOnRedeem ? "native" : remote.token,
+                manager: remote.manager,
+                transceiver: {
+                  wormhole: remote.transceiver.find(
+                    (v) => v.type === "wormhole"
+                  )!.address,
+                },
+                quoter: remote.quoter,
+                svmShims: remote.svmShims,
+              };
+
+              return { stacksConfig: tokenConfig, dstInfo };
+            }
+          }
+        }
+      }
+    }
+    throw new Error(
+      `Cannot find Stacks NTT config for emitter: ${emitterAddress}`
+    );
   }
 
   // returns true if the amount is greater than 95% of the capacity

@@ -21,6 +21,8 @@ export const getDefaultReferrerAddress = (chain: Chain): ChainAddress => {
   } else if (chainToPlatform(chain) === "Sui") {
     address =
       "0xbfa1240e48c622d97881473953be730091161b7931d89bd6afe667841cf69ef4";
+  } else if (chainToPlatform(chain) === "Stacks") {
+    address = "ST117FG1AKZ7724AXYMMABVPE4G2MNQ453SNS0S3"; // TODO: update to actual referrer address
   } else {
     throw new Error(`No referrer address for chain ${chain}`);
   }

@@ -263,12 +263,15 @@ export interface Ntt<N extends Network, C extends Chain> {
   /**
    * redeem redeems a set of Attestations to the corresponding transceivers on the destination chain
    * @param attestations The attestations to redeem, the length should be equal to the number of transceivers
+   * @param payer The account that will pay for the transaction
+   * @param recipient The recipient address (only used for Stacks, can be undefined for other platforms)
    *
    * TODO: replace with Map<transceiver type, Attestation>
    */
   redeem(
     attestations: Ntt.Attestation[],
-    payer?: AccountAddress<C>
+    payer: AccountAddress<C>,
+    recipient?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   /** Get the address for the account that custodies locked tokens  */
@@ -370,7 +373,7 @@ export interface Ntt<N extends Network, C extends Chain> {
   completeInboundQueuedTransfer(
     fromChain: Chain,
     transceiverMessage: Ntt.Message,
-    payer?: AccountAddress<C>
+    payer: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
 
   /**

@@ -48,6 +48,7 @@ COPY solana/package.json solana/package.json
 COPY solana/ts solana/ts
 COPY evm/ts evm/ts
 COPY solana/tsconfig.*.json solana/
+COPY stacks/ts stacks/ts
 COPY sui/ts sui/ts
 COPY cli/package.json cli/package.json
 COPY cli/package-lock.json cli/package-lock.json
