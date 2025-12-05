@@ -363,8 +363,11 @@ export function retryWithExponentialBackoff<T>(
   maxRetries: number,
   delay: number
 ): Promise<T> {
+  const MAX_BACKOFF_MS = 10_000;
+  const MAX_JITTER_MS = 1_000;
   const backoff = (retry: number) =>
-    Math.min(2 ** retry * delay, 10000) + Math.random() * 1000;
+    Math.min(2 ** retry * delay, MAX_BACKOFF_MS) +
+    Math.random() * MAX_JITTER_MS;
   const attempt = async (retry: number): Promise<T> => {
     try {
       return await fn();
