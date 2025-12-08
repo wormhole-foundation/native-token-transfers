@@ -29,7 +29,6 @@ import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-sui-ntt";
 import "@wormhole-foundation/sdk-stacks-ntt";
-import "@wormhole-foundation/sdk-definitions-ntt";
 import type { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
 
 import { type SolanaChains, SolanaAddress } from "@wormhole-foundation/sdk-solana";
@@ -1032,7 +1031,6 @@ yargs(hideBin(process.argv))
 
             // pull deps again
             const depsAfterRegistrations: Partial<{ [C in Chain]: Deployment<Chain> }> = await pullDeployments(deployments, network, verbose);
-
             for (const [chain, deployment] of Object.entries(depsAfterRegistrations)) {
                 if(shouldSkipChain(chain)) {
                     console.log(`skipping deployment for chain ${chain}`)
@@ -3703,13 +3701,10 @@ async function missingConfigs(
             if (peer === null) {
                 const configLimit = from.config.local?.limits?.inbound?.[toChain]?.replace(".", "");
                 count++;
-                console.log(`[Missing configs] Pushing peer for ${fromChain} -> ${toChain}`)
-                
-                console.log(`Manager state address: ${Buffer.from(to.manager.address.toString().slice(2), "hex").toString("utf-8").split(".")[0] + '.ntt-manager-state'}`)
                 missing.managerPeers.push({
                     address: toChain === "Stacks" ? {
                       chain: toChain,
-                      address: new UniversalAddress(keccak256(Buffer.from(to.manager.address.toString().slice(2), "hex").toString("utf-8").split(".")[0] + '.ntt-manager-state').toHex())
+                      address: toUniversal("Stacks", to.config.local!.manager.split(".")[0] + '.ntt-manager-state')
                     }: to.manager,
                     tokenDecimals: to.decimals,
                     inboundLimit: BigInt(configLimit ?? 0),
@@ -3754,10 +3749,6 @@ async function missingConfigs(
 
             const transceiverPeer = await retryWithExponentialBackoff(() => from.whTransceiver.getPeer(toChain), 5, 5000);
             const transceiverAddress = await to.whTransceiver.getAddress();
-            console.log(`Transceiver address for ${fromChain} -> ${toChain}: ${transceiverAddress.address} , actually using: `, new UniversalAddress(Buffer.from(keccak256(Buffer.from(transceiverAddress.address.address.toString().slice(2), "hex").toString("utf-8"))).toString('hex'), "hex").toString())
-            console.log(keccak256(transceiverAddress.address.toString()).toHex())
-            console.log(new UniversalAddress(keccak256(transceiverAddress.address.toString()).toHex()).toString())
-            console.log(`Should be: 8d54fe81c0ebb7fd96691dde1d18fbacc536ae4dda36115e2fd7248bf1781d80`)
             
             if (transceiverPeer === null) {
                 count++;
@@ -3790,8 +3781,8 @@ async function pushDeployment<C extends Chain>(deployment: Deployment<C>,
         return;
     }
 
-    const canonical = canonicalAddress(deployment.manager);
-    console.log(`Pushing changes to ${deployment.manager.chain} (${canonical})`)
+
+    const canonical = deployment.manager.chain === "Stacks"? deployment.manager.address.toString() : canonicalAddress(deployment.manager);
 
     console.log(chalk.reset(colorizeDiff(diff)));
     if (!yes) {
@@ -3894,7 +3885,6 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
         if (verbose) {
             process.stdout.write(`Fetching config for ${chain}......\n`);
         }
-        console.log(`a`)
         assertChain(chain);
         const managerAddress: string | undefined = deployment.manager;
         if (managerAddress === undefined) {
@@ -3902,14 +3892,23 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
           // process.exit(1);
           continue;
         }
-        console.log(`b: managerAddress`, managerAddress, toUniversal(chain, managerAddress))
         const [remote, ctx, ntt, decimals] = await pullChainConfig(
           network,
           { chain, address: toUniversal(chain, managerAddress) },
-          overrides
+          {
+            ...overrides,
+            chains: {
+              Stacks: {
+                contracts: {
+                  ntt: {
+                    manager: managerAddress
+                  }
+                }
+              }
+            }
+          }
         );
         const local = deployments.chains[chain];
-        console.log(`c`)
 
         // TODO: what if it's not index 0...
         // we should check that the address of this transceiver matches the
@@ -3919,7 +3918,6 @@ async function pullDeployments(deployments: Config, network: Network, verbose: b
             console.error(`Wormhole transceiver not found for ${chain}`);
             process.exit(1);
         }
-        console.log(`BUILDING DEPS.........`, managerAddress)
         deps[chain] = {
             ctx,
             ntt,
@@ -3944,25 +3942,17 @@ async function pullChainConfig<N extends Network, C extends Chain>(
     manager: ChainAddress<C>,
     overrides?: WormholeConfigOverrides<N>,
 ): Promise<[ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]> {
-  console.log(`Pulling chain config`, network, manager)
-  console.log(`1.1`)
   const wh = new Wormhole(network, [solana.Platform, evm.Platform, sui.Platform, stacks.Platform], overrides);
   const ch = wh.getChain(manager.chain);
-  console.log(`1.2`, manager)
   
-  const nativeManagerAddress = canonicalAddress(manager);
-  console.log(`1.3`)
-  
-  console.log(`About to call ntt constructor with`, typeof nativeManagerAddress)
+  const nativeManagerAddress = !!overrides?.chains?.Stacks ? overrides?.chains?.Stacks?.contracts?.ntt?.manager : canonicalAddress(manager);
     const { ntt, addresses }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts>; } =
     await nttFromManager<N, C>(ch, nativeManagerAddress);
-    console.log(`!@!!!! addresses`, addresses)
     const mode = await ntt.getMode();
     const outboundLimit = await ntt.getOutboundLimit();
     const threshold = await ntt.getThreshold();
     
     const decimals = await ntt.getTokenDecimals();
-    console.log(`Got token decimals: ${decimals}`)
     // insert decimal point into number
     const outboundLimitDecimals = formatNumber(outboundLimit, decimals);
 
@@ -3991,7 +3981,6 @@ async function pullChainConfig<N extends Network, C extends Chain>(
           inbound: {},
         },
       };
-      console.log(`1.5`)
     if (transceiverPauser) {
         config.transceivers.wormhole.pauser = transceiverPauser.toString();
     }
@@ -4176,6 +4165,8 @@ async function pullInboundLimits(ntts: Partial<{ [C in Chain]: Ntt<Network, C> }
             if (chainConf.limits?.inbound === undefined) {
                 chainConf.limits.inbound = {};
             }
+
+            console.log(`Got peer`, peer)
 
             const limit = peer?.inboundLimit ?? 0n;
 
