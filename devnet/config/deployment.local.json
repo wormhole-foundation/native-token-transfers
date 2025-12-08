@@ -1,0 +1,34 @@
+{
+  "chains": {
+    "chainA": {
+      "core": "0xD4e281D5BD0c8E3417eB06D6BB9F3fc04D491BaF",
+      "core_setup": "0x482D1212d32A2638c4dAe521F7BE02b830D57F63",
+      "core_impl": "0xC9DB4E548e5BAC10a05B6c658287fa3F559dbD3d",
+      "guardian": "0xCe178188095c35676407b43208a05e9d5C4A8Bc9",
+      "wormholeChainId": 2,
+      "evmChainId": 31337,
+      "bridge": "0x5871f5930d270D52c8a65120AA68324f34C6B365",
+      "bridge_setup": "0xdf2B29Afb90283270c8377d3d8701A8A6290b401",
+      "bridge_impl": "0xdE9c2540efA08918BA212596AfBcA5B4ADcfF591",
+      "token_impl": "0x44D61789e4e6d2e06be032bD63fB2E86503B53A1",
+      "weth": "0x8d3219B0DEa42836127dFf60B47cAb4Eae837cA3",
+      "ntt_manager": "0x98837726Be96D23bc3021E73A1E8Ee9D09E5D73a",
+      "ntt_transceiver": "0x0e79c7bc5b92cb86ba635522d2238a1d79e67d84"
+    },
+    "chainB": {
+      "core": "0xD4e281D5BD0c8E3417eB06D6BB9F3fc04D491BaF",
+      "core_setup": "0x482D1212d32A2638c4dAe521F7BE02b830D57F63",
+      "core_impl": "0xC9DB4E548e5BAC10a05B6c658287fa3F559dbD3d",
+      "guardian": "0xCe178188095c35676407b43208a05e9d5C4A8Bc9",
+      "wormholeChainId": 4,
+      "evmChainId": 31338,
+      "bridge": "0xdE9c2540efA08918BA212596AfBcA5B4ADcfF591",
+      "bridge_setup": "0x6904B40e4020a697C2a65852cd85A2c4294fA1dA",
+      "bridge_impl": "0x036bede45dc084223C88049FB789d552226fA1C2",
+      "token_impl": "0x6f8D259D1C0d201ED56128DE9F318050C56A5BDa",
+      "weth": "0x44D61789e4e6d2e06be032bD63fB2E86503B53A1",
+      "ntt_manager": "0x5871f5930d270D52c8a65120AA68324f34C6B365",
+      "ntt_transceiver": "0x77c1b9864be0da5a53314a1b7f72bfa7f7fd7264"
+    }
+  }
+}
