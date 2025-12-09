@@ -54,14 +54,8 @@
     "@coral-xyz/borsh": "0.29.0",
     "@solana/spl-token": "0.4.0",
     "@solana/web3.js": "^1.95.8",
-    "bn.js": "5.2.1",
-    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0"
-  },
-  "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^3.10.0",
-    "@wormhole-foundation/sdk-definitions": "^3.10.0",
-    "@wormhole-foundation/sdk-solana": "^3.10.0",
-    "@wormhole-foundation/sdk-solana-core": "^3.10.0"
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
+    "bn.js": "5.2.1"
   },
   "type": "module",
   "exports": {
@@ -75,5 +69,11 @@
         "default": "./dist/cjs/ts/index.js"
       }
     }
+  },
+  "peerDependencies": {
+    "@wormhole-foundation/sdk-base": "^4.4.0",
+    "@wormhole-foundation/sdk-definitions": "^4.4.0",
+    "@wormhole-foundation/sdk-solana": "^4.4.0",
+    "@wormhole-foundation/sdk-solana-core": "^4.4.0"
   }
 }
