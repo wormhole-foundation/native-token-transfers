@@ -1,5 +1,5 @@
 import type { Chain, Network } from "@wormhole-foundation/sdk-base";
-import { chainToChainId } from "@wormhole-foundation/sdk-base";
+import { chainToChainId, chainToPlatform } from "@wormhole-foundation/sdk-base";
 import {
   Contracts,
   UnsignedTransaction,
@@ -30,6 +30,7 @@ import {
   getWormholePackageId,
   getPackageId,
   getTransceivers,
+  getCoinMetadataId,
 } from "./utils.js";
 
 export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
@@ -90,8 +91,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     }
 
     // Validate destination chain is supported (Solana and Evm only for executor)
-    const supportedDestChains = await this.getSupportedDestinationChains();
-    if (!supportedDestChains.includes(destination.chain)) {
+    if (!this.isSupportedDestinationChain(destination.chain)) {
       throw new Error(
         "Executor only supports Solana and EVM destination chains"
       );
@@ -174,14 +174,10 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       );
     }
 
-    // Get coin metadata
-    const coinMetadata = await ntt.provider.getCoinMetadata({
-      coinType,
-    });
-    if (!coinMetadata?.id) {
-      throw new Error(`CoinMetadata not found for ${coinType}`);
-    }
-    const coinMetadataId = coinMetadata.id;
+    const coinMetadataId = await getCoinMetadataId(
+      this.network,
+      this.contracts.ntt!["token"]
+    );
 
     // For non-native tokens, we need to prepare coins once and split multiple times
     let primaryCoinInput: TransactionObjectArgument | undefined;
@@ -416,18 +412,8 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     return { msgValue, gasLimit };
   }
 
-  // Helper function to get supported destination chains
-  getSupportedDestinationChains(): Chain[] {
-    // Sui executor supports Solana and EVM chains
-    return [
-      "Solana",
-      "Ethereum",
-      "Bsc",
-      "Polygon",
-      "Avalanche",
-      "Arbitrum",
-      "Optimism",
-      "Base",
-    ] as Chain[];
+  isSupportedDestinationChain(chain: Chain): boolean {
+    const platform = chainToPlatform(chain);
+    return platform === "Solana" || platform === "Evm";
   }
 }

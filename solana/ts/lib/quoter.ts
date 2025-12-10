@@ -219,9 +219,8 @@ export class NttQuoter {
 
     const programData = programDataAddress(this.program.programId);
 
-    const accInfo = await this.program.provider.connection.getAccountInfo(
-      programData
-    );
+    const accInfo =
+      await this.program.provider.connection.getAccountInfo(programData);
     if (!accInfo) throw new Error("Could not find program data account");
 
     const deserProgramData = deserializeLayout(programDataLayout, accInfo.data);

@@ -3,6 +3,9 @@ import { isValidSuiAddress } from "@mysten/sui/utils";
 import { bcs, fromBase64 } from "@mysten/bcs";
 import { NATIVE_TOKEN_IDENTIFIERS } from "./constants.js";
 import { InboxItemNative } from "./bcs-types.js";
+import { graphql } from "@mysten/sui/graphql/schemas/latest";
+import { SuiGraphQLClient } from "@mysten/sui/graphql";
+import { graphQL, Network } from "@wormhole-foundation/sdk-base";
 
 // TypeScript types matching the Move structs
 export interface SuiMoveObject {
@@ -364,4 +367,37 @@ export function parseInboxItemResult(
   };
 
   return { inboxItemFields, threshold };
+}
+
+// Gets the CoinMetadata object ID for a given coin type.
+// The Sui RPC getCoinMetadata call returns a Currency<T> object,
+// so use this instead if you need the CoinMetadata<T> object ID.
+export async function getCoinMetadataId(
+  network: Network,
+  coinType: string
+): Promise<string> {
+  const graphQLClient = new SuiGraphQLClient({
+    url: graphQL.graphQLAddress(network, "Sui"),
+  });
+
+  const query = graphql(`
+        query {
+          objects(filter: { type: "0x2::coin::CoinMetadata<${coinType}>" }) {
+            nodes {
+              address
+            }
+          }
+        }
+        `);
+
+  const result = await graphQLClient.query({
+    query,
+  });
+
+  const coinMetadataId = result.data?.objects.nodes?.[0]?.address;
+  if (!coinMetadataId) {
+    throw new Error(`CoinMetadata object not found for type ${coinType}`);
+  }
+
+  return coinMetadataId;
 }

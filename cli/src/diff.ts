@@ -1,22 +1,21 @@
 import chalk from "chalk";
 
 export type Diff<T> = {
-    push?: T;
-    pull?: T;
+  push?: T;
+  pull?: T;
 };
-
 
 // type that maps over the keys of an object (recursively), mapping each leaf type to Diff<T>
 type DiffMap<T> = {
-    [K in keyof T]: T[K] extends object ? Partial<DiffMap<T[K]>> : Diff<T[K]>
-}
+  [K in keyof T]: T[K] extends object ? Partial<DiffMap<T[K]>> : Diff<T[K]>;
+};
 
 function isObject(obj: any): obj is Record<string, any> {
-    return obj && typeof obj === 'object' && !Array.isArray(obj);
+  return obj && typeof obj === "object" && !Array.isArray(obj);
 }
 
 function isPathExcluded(path: string, excludedPaths: string[]): boolean {
-    return excludedPaths.includes(path);
+  return excludedPaths.includes(path);
 }
 
 export function diffObjects<T extends Record<string, any>>(obj1: T, obj2: T, excludedPaths: string[] = [], currentPath: string = ""): Partial<DiffMap<T>> {
@@ -28,79 +27,87 @@ export function diffObjects<T extends Record<string, any>>(obj1: T, obj2: T, exc
         if (obj1.hasOwnProperty(key)) {
             const keyPath = currentPath ? `${currentPath}.${key}` : key;
 
-            if (isPathExcluded(keyPath, excludedPaths)) {
-                continue; // Skip excluded paths
-            }
+      if (isPathExcluded(keyPath, excludedPaths)) {
+        continue; // Skip excluded paths
+      }
 
-            if (obj2.hasOwnProperty(key)) {
-                if (isObject(obj1[key]) && isObject(obj2[key])) {
-                    result[key] = diffObjects(obj1[key], obj2[key], excludedPaths, keyPath);
-                } else if (obj1[key] === obj2[key]) {
-                    // result[key] = obj1[key] as any;
-                } else {
-                    result[key] = { pull: obj2[key] , push: obj1[key]} as any;
-                }
-            } else {
-                result[key] = { push: obj1[key] } as any;
-            }
+      if (obj2.hasOwnProperty(key)) {
+        if (isObject(obj1[key]) && isObject(obj2[key])) {
+          result[key] = diffObjects(
+            obj1[key],
+            obj2[key],
+            excludedPaths,
+            keyPath
+          );
+        } else if (obj1[key] === obj2[key]) {
+          // result[key] = obj1[key] as any;
+        } else {
+          result[key] = { pull: obj2[key], push: obj1[key] } as any;
         }
+      } else {
+        result[key] = { push: obj1[key] } as any;
+      }
     }
+  }
 
-    for (const key in obj2) {
-        if (obj2.hasOwnProperty(key) && !obj1.hasOwnProperty(key)) {
-            const keyPath = currentPath ? `${currentPath}.${key}` : key;
+  for (const key in obj2) {
+    if (obj2.hasOwnProperty(key) && !obj1.hasOwnProperty(key)) {
+      const keyPath = currentPath ? `${currentPath}.${key}` : key;
 
-            if (isPathExcluded(keyPath, excludedPaths)) {
-                continue; // Skip excluded paths
-            }
+      if (isPathExcluded(keyPath, excludedPaths)) {
+        continue; // Skip excluded paths
+      }
 
-            result[key] = { pull: obj2[key] } as any;
-        }
+      result[key] = { pull: obj2[key] } as any;
     }
+  }
 
-    // prune empty objects
-    for (const key in result) {
-        if (isObject(result[key])) {
-            if (result[key] && Object.keys(result[key] as object).length === 0) {
-                delete result[key];
-            }
-        }
+  // prune empty objects
+  for (const key in result) {
+    if (isObject(result[key])) {
+      if (result[key] && Object.keys(result[key] as object).length === 0) {
+        delete result[key];
+      }
     }
+  }
 
-    return result;
+  return result;
 }
 
 export function colorizeDiff(diff: any, indent = 2): string {
-    if (!isObject(diff)) return JSON.stringify(diff, null, indent);
+  if (!isObject(diff)) return JSON.stringify(diff, null, indent);
 
-    const jsonString = JSON.stringify(diff, null, indent);
-    let result = '';
-    const lines = jsonString.split('\n');
+  const jsonString = JSON.stringify(diff, null, indent);
+  let result = "";
+  const lines = jsonString.split("\n");
 
-    for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.startsWith('"') && trimmedLine.endsWith(': {')) {
-            const key = trimmedLine.slice(1, trimmedLine.indexOf('": {'));
-            if (isObject(diff[key]) && ('push' in diff[key] || 'pull' in diff[key])) {
-                const push = diff[key].push;
-                const pull = diff[key].pull;
-                if (push !== undefined && pull !== undefined) {
-                    result += `${line}\n`;
-                } else if (push !== undefined) {
-                    result += line.replace(trimmedLine, chalk.red(trimmedLine)) + '\n';
-                } else if (pull !== undefined) {
-                    result += line.replace(trimmedLine, chalk.green(trimmedLine)) + '\n';
-                }
-            } else {
-                result += line + '\n';
-            }
-        } else if (trimmedLine.startsWith('"push"') || trimmedLine.startsWith('"pull"')) {
-            const color = trimmedLine.startsWith('"push"') ? chalk.green : chalk.red;
-            result += line.replace(trimmedLine, color(trimmedLine)) + '\n';
-        } else {
-            result += line + '\n';
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith('"') && trimmedLine.endsWith(": {")) {
+      const key = trimmedLine.slice(1, trimmedLine.indexOf('": {'));
+      if (isObject(diff[key]) && ("push" in diff[key] || "pull" in diff[key])) {
+        const push = diff[key].push;
+        const pull = diff[key].pull;
+        if (push !== undefined && pull !== undefined) {
+          result += `${line}\n`;
+        } else if (push !== undefined) {
+          result += line.replace(trimmedLine, chalk.red(trimmedLine)) + "\n";
+        } else if (pull !== undefined) {
+          result += line.replace(trimmedLine, chalk.green(trimmedLine)) + "\n";
         }
+      } else {
+        result += line + "\n";
+      }
+    } else if (
+      trimmedLine.startsWith('"push"') ||
+      trimmedLine.startsWith('"pull"')
+    ) {
+      const color = trimmedLine.startsWith('"push"') ? chalk.green : chalk.red;
+      result += line.replace(trimmedLine, color(trimmedLine)) + "\n";
+    } else {
+      result += line + "\n";
     }
+  }
 
-    return result;
+  return result;
 }

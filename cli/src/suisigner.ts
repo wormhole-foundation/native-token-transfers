@@ -4,41 +4,35 @@ import type {
   SignedTx,
   Signer,
   UnsignedTransaction,
-} from '@wormhole-foundation/sdk-connect';
+} from "@wormhole-foundation/sdk-connect";
 import {
   PlatformNativeSigner,
   chainToPlatform,
   isNativeSigner,
-} from '@wormhole-foundation/sdk-connect';
+} from "@wormhole-foundation/sdk-connect";
 import {
   SuiPlatform,
   type SuiChains,
-  _platform
-} from '@wormhole-foundation/sdk-sui';
-import { SuiClient } from '@mysten/sui/client';
-import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { Transaction } from '@mysten/sui/transactions';
+  _platform,
+} from "@wormhole-foundation/sdk-sui";
+import { SuiClient } from "@mysten/sui/client";
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import { Transaction } from "@mysten/sui/transactions";
 
 export async function getSuiSigner(
   rpc: SuiClient,
   key: string | Ed25519Keypair,
   opts?: {
     debug?: boolean;
-  },
+  }
 ): Promise<Signer> {
   const keypair: Ed25519Keypair =
-    typeof key === 'string' ? Ed25519Keypair.fromSecretKey(key) : key;
+    typeof key === "string" ? Ed25519Keypair.fromSecretKey(key) : key;
 
   const chain = (await SuiPlatform.chainFromRpc(rpc))[1];
   const address = keypair.getPublicKey().toSuiAddress();
 
-  return new SuiNativeSigner(
-    chain,
-    address,
-    keypair,
-    rpc,
-    opts,
-  );
+  return new SuiNativeSigner(chain, address, keypair, rpc, opts);
 }
 
 export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
@@ -50,7 +44,7 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
     _address: string,
     _signer: Ed25519Keypair,
     readonly client: SuiClient,
-    readonly opts?: { debug?: boolean },
+    readonly opts?: { debug?: boolean }
   ) {
     super(_chain, _address, _signer);
   }
@@ -66,11 +60,9 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
   async sign(tx: UnsignedTransaction<N, C>[]): Promise<SignedTx[]> {
     const signed = [];
 
-
     for (let i = 0; i < tx.length; i++) {
       const txn = tx[i];
       const { transaction, description } = txn;
-
 
       // Enhanced validation and logging
 
@@ -82,12 +74,16 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
       // Use the actual transaction that was prepared, not a new empty one
       // The transaction is already a Transaction object from SuiUnsignedTransaction
       if (!(transaction instanceof Transaction)) {
-        console.error("ERROR: Expected Transaction object, got:", typeof transaction);
-        throw new Error(`Expected Transaction object, got ${typeof transaction}`);
+        console.error(
+          "ERROR: Expected Transaction object, got:",
+          typeof transaction
+        );
+        throw new Error(
+          `Expected Transaction object, got ${typeof transaction}`
+        );
       }
 
       try {
-
         // Log transaction details for debugging
         if (this.opts?.debug) {
         }
@@ -101,7 +97,10 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
           transactionBytes = await transaction.build({ client: this.client });
         }
         let result = await this._signer.signTransaction(transactionBytes);
-        signed.push({ transactionBlock: result.bytes, signature: result.signature });
+        signed.push({
+          transactionBlock: result.bytes,
+          signature: result.signature,
+        });
       } catch (error) {
         console.error(`ERROR: Failed to sign/execute transaction ${i + 1}:`);
         console.error("ERROR: Transaction signing error:", error);
@@ -113,7 +112,10 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
         console.error("ERROR: Transaction context at time of failure:");
         console.error("  - Description:", description);
         console.error("  - Transaction type:", typeof transaction);
-        console.error("  - Transaction blockData exists:", !!transaction.blockData);
+        console.error(
+          "  - Transaction blockData exists:",
+          !!transaction.blockData
+        );
         console.error("  - Signer exists:", !!this._signer);
         console.error("  - Client exists:", !!this.client);
 
@@ -126,7 +128,7 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
 }
 
 export function isSuiNativeSigner<N extends Network>(
-  signer: Signer<N>,
+  signer: Signer<N>
 ): signer is SuiNativeSigner<N> {
   return (
     isNativeSigner(signer) &&
@@ -137,8 +139,8 @@ export function isSuiNativeSigner<N extends Network>(
 
 function isSuiKeypair(thing: any): thing is Ed25519Keypair {
   return (
-    typeof thing.getPublicKey === 'function' &&
-    typeof thing.signPersonalMessage === 'function' &&
-    typeof thing.signTransaction === 'function'
+    typeof thing.getPublicKey === "function" &&
+    typeof thing.signPersonalMessage === "function" &&
+    typeof thing.signTransaction === "function"
   );
 }

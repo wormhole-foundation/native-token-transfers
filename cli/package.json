@@ -1,10 +1,11 @@
 {
   "name": "@wormhole-foundation/ntt-cli",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prettier": "prettier --write ./src"
   },
   "devDependencies": {
     "@types/bun": "latest",

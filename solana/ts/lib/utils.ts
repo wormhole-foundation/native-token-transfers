@@ -120,6 +120,17 @@ export const quoterAddresses = (programId: PublicKeyInitData) => {
   };
 };
 
+export const vaaBody = (vaa: Uint8Array | Buffer) => {
+  const signedVaa = Buffer.isBuffer(vaa) ? vaa : Buffer.from(vaa as Uint8Array);
+  const sigStart = 6;
+  if (signedVaa.length < 6 || !signedVaa[5]) {
+    throw new Error("Invalid VAA");
+  }
+  const numSigners = signedVaa[5];
+  const sigLength = 66;
+  return signedVaa.subarray(sigStart + sigLength * numSigners);
+};
+
 // governance utils
 
 export function serializeInstruction(ix: TransactionInstruction): Buffer {

@@ -17,8 +17,8 @@ pub struct BroadcastId<'info> {
     pub mint: InterfaceAccount<'info, token_interface::Mint>,
 
     /// CHECK: initialized and written to by wormhole core bridge
-    #[account(mut)]
-    pub wormhole_message: Signer<'info>,
+    #[account(mut, seeds = [&emitter.key.to_bytes()], bump, seeds::program = wormhole_svm_definitions::solana::POST_MESSAGE_SHIM_PROGRAM_ID)]
+    pub wormhole_message: UncheckedAccount<'info>,
 
     #[account(
         seeds = [b"emitter"],
@@ -49,7 +49,6 @@ pub fn broadcast_id(ctx: Context<BroadcastId>) -> Result<()> {
         accs.emitter.to_account_info(),
         ctx.bumps.emitter,
         &message,
-        &[],
     )?;
 
     Ok(())

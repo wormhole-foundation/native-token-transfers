@@ -18,6 +18,7 @@ idl-build = [
   "anchor-lang/idl-build",
 ]
 
+bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env" ]
 mainnet = [ "wormhole-anchor-sdk/mainnet" ]
 solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
 tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]
