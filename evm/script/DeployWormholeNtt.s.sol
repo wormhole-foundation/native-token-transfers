@@ -77,8 +77,6 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             rateLimitDuration: 86400,
             shouldSkipRatelimiter: false,
             wormholeCoreBridge: wormhole,
-            wormholeRelayerAddr: vm.envAddress("RELEASE_WORMHOLE_RELAYER_ADDRESS"),
-            specialRelayerAddr: vm.envAddress("RELEASE_SPECIAL_RELAYER_ADDRESS"),
             consistencyLevel: uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL")),
             gasLimit: vm.envUint("RELEASE_GAS_LIMIT"),
             outboundLimit: uint256(type(uint64).max) * scale
