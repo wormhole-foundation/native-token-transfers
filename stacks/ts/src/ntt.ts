@@ -574,9 +574,6 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       this.nttManagerDeployer
     )
     const resValue = cvToValue(res)
-    
-    console.log(resValue)
-
     return resValue.value;
   }
 
