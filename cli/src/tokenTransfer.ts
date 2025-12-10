@@ -1,8 +1,7 @@
 // NOTE: We rely on the Wormhole TypeScript SDK for cross-chain execution logic:
 // https://github.com/wormhole-foundation/wormhole-sdk-ts
 
-import chalk from "chalk";
-import ora, { type Ora } from "ora";
+import { colors } from "./colors.js";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
@@ -274,11 +273,11 @@ async function executeTokenTransfer(
   }
 
   if (payerPath && chainToPlatform(sourceChainInput) !== "Solana") {
-    console.warn(
-      chalk.yellow(
-        "--payer is only used when the source chain is Solana. Ignoring provided path."
-      )
-    );
+console.warn(
+        colors.yellow(
+          "--payer is only used when the source chain is Solana. Ignoring provided path."
+        )
+      );
   }
 
   const rpcRaw = argv["rpc"];
@@ -505,7 +504,7 @@ async function executeTokenTransfer(
     applyMsgValueOverride(executorConfig, destinationTokenId, msgValueToUse);
     if (destinationMsgValueOverride === undefined) {
       console.warn(
-        chalk.yellow(
+        colors.yellow(
           `Destination ${destinationChainInput} requires msgValue funding for the Wormhole Executor. Using default ${msgValueToUse.toString()} lamports. Pass --destination-msg-value to override.`
         )
       );
@@ -516,7 +515,7 @@ async function executeTokenTransfer(
     }
   } else if (destinationMsgValueOverride !== undefined) {
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         `--destination-msg-value is only required for SVM destinations. Ignoring override for ${destinationChainInput}.`
       )
     );
@@ -577,7 +576,7 @@ async function executeTokenTransfer(
 
   if (quoteResult.warnings?.length) {
     for (const warning of quoteResult.warnings) {
-      console.warn(chalk.yellow(formatQuoteWarning(warning)));
+      console.warn(colors.yellow(formatQuoteWarning(warning)));
     }
   }
 
@@ -589,21 +588,21 @@ async function executeTokenTransfer(
     `Transferring ${formattedTransferAmount} tokens from ${sourceChainInput} to ${destinationChainInput} (${network})`
   );
   console.log(
-    `Source address: ${chalk.cyan(sourceSigner.address.address.toString())}`
+    `Source address: ${colors.cyan(sourceSigner.address.address.toString())}`
   );
   const destinationAddressDisplay = Wormhole.canonicalAddress(
     destinationAddress
   );
   console.log(
-    `Destination address: ${chalk.cyan(destinationAddressDisplay)}`
+    `Destination address: ${colors.cyan(destinationAddressDisplay)}`
   );
   console.log(
-    `Source token: ${chalk.cyan(
+    `Source token: ${colors.cyan(
       sourceDeployment.token
     )} (decimals: ${decimals.toString()})`
   );
   console.log(
-    `Destination token: ${chalk.cyan(destinationDeployment.token)}`
+    `Destination token: ${colors.cyan(destinationDeployment.token)}`
   );
   console.log(
     `Estimated destination amount: ${estimatedDestinationAmount}`
@@ -702,7 +701,7 @@ async function executeTokenTransfer(
         index === 0
           ? "Source transaction"
           : `Source transaction #${index + 1}`;
-      console.log(`${label}: ${chalk.cyan(tx.txid.toString())}`);
+      console.log(`${label}: ${colors.cyan(tx.txid.toString())}`);
     });
   }
 
@@ -719,7 +718,7 @@ async function executeTokenTransfer(
     );
       if (vaa) {
         console.log(
-          `Attestation sequence: ${chalk.cyan(vaa.sequence.toString())}`
+          `Attestation sequence: ${colors.cyan(vaa.sequence.toString())}`
         );
       }
     } catch (error) {
@@ -736,7 +735,7 @@ async function executeTokenTransfer(
   }
 
   console.log(
-    chalk.green(
+    colors.green(
       "Transfer submitted. The Wormhole Executor will relay the transfer automatically once finalized."
     )
   );
@@ -892,10 +891,10 @@ async function confirmMainnetTransfer(
     platform === "Solana" ? "lamports" : "base units";
   const prompt = [
     "",
-    chalk.yellow(
+    colors.yellow(
       `You are about to submit a Mainnet transfer of ${formattedAmount} tokens from ${sourceChain} to ${destinationChain}.`
     ),
-    chalk.yellow(
+    colors.yellow(
       `Confirm this amount is expressed in human-readable units (not ${unitDescriptor}).`
     ),
     "Type \"yes\" (or \"y\") to continue: ",
@@ -1061,13 +1060,13 @@ function isUnsupportedSuiDestinationError(error: unknown): boolean {
  */
 function reportTokenTransferError(error: unknown): void {
   if (error instanceof TokenTransferError) {
-    console.error(chalk.red(error.message));
+    console.error(colors.red(error.message));
     if (error.cause) {
       console.error(stringifyError(error.cause));
     }
     return;
   }
-  console.error(chalk.red("Unexpected token-transfer error"));
+  console.error(colors.red("Unexpected token-transfer error"));
   console.error(stringifyError(error));
 }
 
@@ -1217,7 +1216,7 @@ function applyRpcOverrides<N extends Network>(
     const chain = chainName as Chain;
     if (!allowedChains.has(chain)) {
       console.warn(
-        chalk.yellow(
+        colors.yellow(
           `Warning: RPC override provided for ${chain}, which is not part of this transfer.`
         )
       );
@@ -1234,15 +1233,14 @@ function applyRpcOverrides<N extends Network>(
 }
 
 /**
- * Intercepts console output to show a spinner when a retriable log message appears.
+ * Intercepts console output to suppress retry messages while showing status.
  */
 async function withRetryStatus<T>(
   needle: string | RegExp,
   fn: () => Promise<T>
 ): Promise<T> {
   const originalLog = console.log;
-  let sawNeedle = false;
-  let spinner: Ora | null = null;
+  let lastMessage = "";
 
   const matchesNeedle = (message: string): boolean => {
     if (typeof needle === "string") {
@@ -1256,34 +1254,29 @@ async function withRetryStatus<T>(
     return result;
   };
 
-  const stopSpinner = (): void => {
-    if (!spinner) {
-      return;
-    }
-    spinner.stop();
-    spinner = null;
-  };
-
   console.log = (...args: Parameters<typeof console.log>) => {
     const message = args.map(String).join(" ");
     if (matchesNeedle(message)) {
-      sawNeedle = true;
-      if (!spinner) {
-        spinner = ora({ text: message }).start();
-      } else {
-        spinner.text = message;
+      // Show retry status inline (overwrite previous line if TTY)
+      if (process.stdout.isTTY && lastMessage) {
+        process.stdout.write(`\r${message}`.padEnd(lastMessage.length + 1));
+      } else if (!lastMessage) {
+        originalLog(message);
       }
+      lastMessage = message;
       return;
     }
-    stopSpinner();
+    if (lastMessage && process.stdout.isTTY) {
+      process.stdout.write("\n");
+      lastMessage = "";
+    }
     originalLog(...args);
   };
 
   try {
     return await fn();
   } finally {
-    stopSpinner();
-    if (sawNeedle && process.stdout.isTTY) {
+    if (lastMessage && process.stdout.isTTY) {
       process.stdout.write("\n");
     }
     console.log = originalLog;

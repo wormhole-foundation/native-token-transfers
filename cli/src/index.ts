@@ -12,7 +12,7 @@ import {
 import { execSync } from "child_process";
 import * as myEvmSigner from "./evmsigner.js";
 
-import chalk from "chalk";
+import { colors } from "./colors.js";
 import yargs from "yargs";
 import { $ } from "bun";
 import { hideBin } from "yargs/helpers";
@@ -120,7 +120,7 @@ import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
 const overrides: WormholeConfigOverrides<Network> = (function () {
   // read overrides.json file if exists
   if (fs.existsSync("overrides.json")) {
-    console.error(chalk.yellow("Using overrides.json"));
+    console.error(colors.yellow("Using overrides.json"));
     return JSON.parse(fs.readFileSync("overrides.json").toString());
   } else {
     return {};
@@ -721,31 +721,31 @@ yargs(hideBin(process.argv))
 
       // HyperEVM confirmation
       if (chain === "HyperEVM" && !argv["yes"]) {
-        console.log(chalk.yellow("⚠️  HyperEVM Deployment Requirements:"));
+        console.log(colors.yellow("⚠️  HyperEVM Deployment Requirements:"));
         console.log(
-          chalk.yellow(
+          colors.yellow(
             "Before proceeding with the HyperEVM deployment, please ensure:"
           )
         );
         console.log(
-          chalk.yellow(
+          colors.yellow(
             "1. You have created a verified account by depositing into Hyperliquid from the deployer wallet"
           )
         );
         console.log(
-          chalk.white("Hyperliquid app: https://app.hyperliquid.xyz/")
+          colors.white("Hyperliquid app: https://app.hyperliquid.xyz/")
         );
         console.log(
-          chalk.yellow(
+          colors.yellow(
             "2. You have enabled larger blocks to be used for the deployment"
           )
         );
         console.log(
-          chalk.white(
+          colors.white(
             "Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture"
           )
         );
-        console.log(chalk.yellow(""));
+        console.log(colors.yellow(""));
 
         await askForConfirmation(
           "Did you make sure to do steps 1 & 2 mentioned above?"
@@ -790,7 +790,7 @@ yargs(hideBin(process.argv))
         overrides
       );
 
-      console.log("token decimals:", chalk.yellow(decimals));
+      console.log("token decimals:", colors.yellow(decimals));
 
       config.transceivers.wormhole.executor = argv["executor"];
 
@@ -1098,9 +1098,9 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
-      console.log(chalk.green(`${path} created — this file stores your NTT deployment configuration`));
+      console.log(colors.green(`${path} created — this file stores your NTT deployment configuration`));
       console.log(
-        chalk.cyan(
+        colors.cyan(
           `\nTip: To use custom RPC endpoints, rename example-overrides.json to overrides.json and edit as needed.`
         )
       );
@@ -1139,7 +1139,7 @@ yargs(hideBin(process.argv))
           EXCLUDED_DIFF_PATHS
         );
         if (Object.keys(diff).length !== 0) {
-          console.error(chalk.reset(colorizeDiff({ [chain]: diff })));
+          console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           changed = true;
           // Preserve excluded fields from local config when pulling
           const preservedConfig = { ...deployment.config.remote! };
@@ -1443,7 +1443,7 @@ yargs(hideBin(process.argv))
 
         const diff = diffObjects(local!, remote!, EXCLUDED_DIFF_PATHS);
         if (Object.keys(diff).length !== 0) {
-          console.error(chalk.reset(colorizeDiff({ [chain]: diff })));
+          console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           fixable++;
         }
 
@@ -1460,7 +1460,7 @@ yargs(hideBin(process.argv))
       }
 
       if (Object.keys(extraInfo).length > 0) {
-        console.log(chalk.yellow(JSON.stringify(extraInfo, null, 2)));
+        console.log(colors.yellow(JSON.stringify(extraInfo, null, 2)));
       }
 
       // verify peers
@@ -1487,13 +1487,13 @@ yargs(hideBin(process.argv))
         ] of missingConfig.standardRelaying) {
           if (shouldBeSet) {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 `  Standard relaying not configured for ${relayingTarget}`
               )
             );
           } else {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 `  Standard relaying configured for ${relayingTarget}, but should not be`
               )
             );
@@ -1505,13 +1505,13 @@ yargs(hideBin(process.argv))
         ] of missingConfig.specialRelaying) {
           if (shouldBeSet) {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 `  Special relaying not configured for ${relayingTarget}`
               )
             );
           } else {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 `  Special relaying configured for ${relayingTarget}, but should not be`
               )
             );
@@ -1693,12 +1693,12 @@ yargs(hideBin(process.argv))
         if (major === -1) {
           if (!argv["yes"]) {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
               )
             );
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "Ensure the program version you wish to deploy supports SPL Multisig token mint authority"
               )
             );
@@ -2175,12 +2175,12 @@ yargs(hideBin(process.argv))
           // undeployed -- assume version compatible via warning
           if (major === -1 && !argv["yes"]) {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
               )
             );
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "Ensure the program version you wish to deploy supports SPL Multisig token mint authority"
               )
             );
@@ -2290,13 +2290,13 @@ yargs(hideBin(process.argv))
             process.exit(1);
           }
 
-          console.log(chalk.blue("🔗 Manual setPeer Operation"));
-          console.log(`Source Chain: ${chalk.yellow(sourceChain)}`);
-          console.log(`Peer Chain: ${chalk.yellow(peerChain)}`);
-          console.log(`Peer Address: ${chalk.yellow(peerAddress)}`);
-          console.log(`Token Decimals: ${chalk.yellow(tokenDecimals)}`);
+          console.log(colors.blue("🔗 Manual setPeer Operation"));
+          console.log(`Source Chain: ${colors.yellow(sourceChain)}`);
+          console.log(`Peer Chain: ${colors.yellow(peerChain)}`);
+          console.log(`Peer Address: ${colors.yellow(peerAddress)}`);
+          console.log(`Token Decimals: ${colors.yellow(tokenDecimals)}`);
           console.log(
-            `Inbound Limit: ${chalk.yellow(inboundLimit.toString())}`
+            `Inbound Limit: ${colors.yellow(inboundLimit.toString())}`
           );
 
           try {
@@ -2312,7 +2312,7 @@ yargs(hideBin(process.argv))
             );
 
             console.log(
-              `\nSource NTT Manager: ${chalk.yellow(sourceConfig.manager)}`
+              `\nSource NTT Manager: ${colors.yellow(sourceConfig.manager)}`
             );
 
             // Create peer address object
@@ -2325,11 +2325,11 @@ yargs(hideBin(process.argv))
             const signer = await getSigner(ctx, signerType);
 
             console.log(
-              `Signer Address: ${chalk.yellow(
+              `Signer Address: ${colors.yellow(
                 signer.address.address.toString()
               )}`
             );
-            console.log("\n" + chalk.blue("Executing setPeer transaction..."));
+            console.log("\n" + colors.blue("Executing setPeer transaction..."));
 
             // Call setPeer on the NTT instance (it returns an AsyncGenerator)
             const setPeerTxs = ntt.setPeer(
@@ -2352,7 +2352,7 @@ yargs(hideBin(process.argv))
 
               // Display transaction results
               console.log(
-                `Transaction Hash: ${chalk.green(
+                `Transaction Hash: ${colors.green(
                   results[0]?.txid || results[0] || "Transaction completed"
                 )}`
               );
@@ -2386,13 +2386,13 @@ yargs(hideBin(process.argv))
             }
 
             console.log(
-              chalk.green("\n✅ setPeer operation completed successfully!")
+              colors.green("\n✅ setPeer operation completed successfully!")
             );
             console.log(
               `Peer relationship established: ${sourceChain} ↔ ${peerChain}`
             );
           } catch (error) {
-            console.error(chalk.red("\n❌ setPeer operation failed:"));
+            console.error(colors.red("\n❌ setPeer operation failed:"));
             console.error(
               "ERROR: Main error message:",
               error instanceof Error ? error.message : String(error)
@@ -2501,15 +2501,15 @@ yargs(hideBin(process.argv))
             process.exit(1);
           }
 
-          console.log(chalk.blue("💰 Manual Transfer Operation"));
-          console.log(`Source Chain: ${chalk.yellow(sourceChain)}`);
-          console.log(`Destination Chain: ${chalk.yellow(destinationChain)}`);
+          console.log(colors.blue("💰 Manual Transfer Operation"));
+          console.log(`Source Chain: ${colors.yellow(sourceChain)}`);
+          console.log(`Destination Chain: ${colors.yellow(destinationChain)}`);
           console.log(
-            `Destination Address: ${chalk.yellow(destinationAddress)}`
+            `Destination Address: ${colors.yellow(destinationAddress)}`
           );
-          console.log(`Amount: ${chalk.yellow(amount.toString())}`);
+          console.log(`Amount: ${colors.yellow(amount.toString())}`);
           console.log(
-            `Queue if rate limited: ${chalk.yellow(queue.toString())}`
+            `Queue if rate limited: ${colors.yellow(queue.toString())}`
           );
 
           try {
@@ -2525,7 +2525,7 @@ yargs(hideBin(process.argv))
             );
 
             console.log(
-              `\nSource NTT Manager: ${chalk.yellow(sourceConfig.manager)}`
+              `\nSource NTT Manager: ${colors.yellow(sourceConfig.manager)}`
             );
 
             // Create destination address object
@@ -2538,11 +2538,11 @@ yargs(hideBin(process.argv))
             const signer = await getSigner(ctx, signerType);
 
             console.log(
-              `Signer Address: ${chalk.yellow(
+              `Signer Address: ${colors.yellow(
                 signer.address.address.toString()
               )}`
             );
-            console.log("\n" + chalk.blue("Executing transfer transaction..."));
+            console.log("\n" + colors.blue("Executing transfer transaction..."));
 
             // Call transfer on the NTT instance (it returns an AsyncGenerator)
             const transferTxs = ntt.transfer(
@@ -2566,7 +2566,7 @@ yargs(hideBin(process.argv))
 
               // Display transaction results
               console.log(
-                `Transaction Hash: ${chalk.green(
+                `Transaction Hash: ${colors.green(
                   results[0]?.txid || results[0] || "Transaction completed"
                 )}`
               );
@@ -2588,12 +2588,12 @@ yargs(hideBin(process.argv))
             }
 
             console.log(
-              chalk.green("\n✅ Transfer operation completed successfully!")
+              colors.green("\n✅ Transfer operation completed successfully!")
             );
             console.log(`Transfer sent: ${sourceChain} → ${destinationChain}`);
             console.log(`Amount: ${amount.toString()} tokens`);
           } catch (error) {
-            console.error(chalk.red("\n❌ Transfer operation failed:"));
+            console.error(colors.red("\n❌ Transfer operation failed:"));
             console.error(
               "ERROR: Main error message:",
               error instanceof Error ? error.message : String(error)
@@ -2645,7 +2645,7 @@ function checkConfigErrors(
       fatal++;
     }
     if (config.limits.outbound === formatNumber(0n, deployment.decimals)) {
-      console.warn(chalk.yellow(`${chain} has an outbound limit of 0`));
+      console.warn(colors.yellow(`${chain} has an outbound limit of 0`));
     }
     for (const [c, limit] of Object.entries(config.limits.inbound)) {
       if (!checkNumberFormatting(limit, deployment.decimals)) {
@@ -2656,7 +2656,7 @@ function checkConfigErrors(
       }
       if (limit === formatNumber(0n, deployment.decimals)) {
         console.warn(
-          chalk.yellow(`${chain} has an inbound limit of 0 from ${c}`)
+          colors.yellow(`${chain} has an inbound limit of 0 from ${c}`)
         );
       }
     }
@@ -2675,7 +2675,7 @@ function createWorkTree(platform: Platform, version: string): string {
 
   if (fs.existsSync(worktreeName)) {
     console.log(
-      chalk.yellow(
+      colors.yellow(
         `Worktree already exists at ${worktreeName}. Resetting to ${tag}`
       )
     );
@@ -2699,7 +2699,7 @@ function createWorkTree(platform: Platform, version: string): string {
   );
 
   console.log(
-    chalk.green(`Created worktree at ${worktreeName} from tag ${tag}`)
+    colors.green(`Created worktree at ${worktreeName} from tag ${tag}`)
   );
   return worktreeName;
 }
@@ -4258,7 +4258,7 @@ async function deploySui<N extends Network, C extends Chain>(
         );
       }
 
-      console.log(chalk.green("Sui NTT deployment completed successfully!"));
+      console.log(colors.green("Sui NTT deployment completed successfully!"));
       console.log(`NTT Package ID: ${nttPackageId}`);
       console.log(`NTT State ID: ${nttStateId}`);
       console.log(`Wormhole Transceiver Package ID: ${whTransceiverPackageId}`);
@@ -4483,7 +4483,7 @@ async function pushDeployment<C extends Chain>(
   const canonical = canonicalAddress(deployment.manager);
   console.log(`Pushing changes to ${deployment.manager.chain} (${canonical})`);
 
-  console.log(chalk.reset(colorizeDiff(diff)));
+  console.log(colors.reset(colorizeDiff(diff)));
   if (!yes) {
     await askForConfirmation();
   }
@@ -5094,7 +5094,7 @@ function checkSolanaVersion(pwd: string): void {
 
     if (!versionMatch) {
       console.warn(
-        chalk.yellow("Warning: Could not find solana_version in Anchor.toml")
+        colors.yellow("Warning: Could not find solana_version in Anchor.toml")
       );
       return;
     }
@@ -5111,7 +5111,7 @@ function checkSolanaVersion(pwd: string): void {
       });
       const versionMatch = output.match(/solana-cli (\d+\.\d+\.\d+)/);
       if (!versionMatch) {
-        console.error(chalk.red("Error: Could not parse solana CLI version"));
+        console.error(colors.red("Error: Could not parse solana CLI version"));
         process.exit(1);
       }
       currentVersion = versionMatch[1];
@@ -5127,12 +5127,12 @@ function checkSolanaVersion(pwd: string): void {
       }
     } catch (error) {
       console.error(
-        chalk.red(
+        colors.red(
           "Error: solana CLI not found. Please install the Solana toolchain."
         )
       );
       console.error(
-        chalk.yellow(
+        colors.yellow(
           'Install with: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"'
         )
       );
@@ -5140,12 +5140,12 @@ function checkSolanaVersion(pwd: string): void {
     }
 
     if (currentVersion !== requiredVersion) {
-      console.log(chalk.yellow(`Solana version mismatch detected:`));
+      console.log(colors.yellow(`Solana version mismatch detected:`));
       console.log(
-        chalk.yellow(`  Required: ${requiredVersion} (from Anchor.toml)`)
+        colors.yellow(`  Required: ${requiredVersion} (from Anchor.toml)`)
       );
-      console.log(chalk.yellow(`  Current:  ${currentVersion}`));
-      console.log(chalk.yellow(`\nSwitching to required version...`));
+      console.log(colors.yellow(`  Current:  ${currentVersion}`));
+      console.log(colors.yellow(`\nSwitching to required version...`));
 
       // Run the appropriate version switch command
       const installCommand =
@@ -5156,24 +5156,24 @@ function checkSolanaVersion(pwd: string): void {
       try {
         execSync(installCommand, { stdio: "inherit" });
         console.log(
-          chalk.green(
+          colors.green(
             `Successfully switched to Solana version ${requiredVersion}`
           )
         );
       } catch (error) {
         console.error(
-          chalk.red(`Failed to switch Solana version using ${installCommand}`)
+          colors.red(`Failed to switch Solana version using ${installCommand}`)
         );
-        console.error(chalk.red(`Please run manually: ${installCommand}`));
+        console.error(colors.red(`Please run manually: ${installCommand}`));
         process.exit(1);
       }
     }
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      console.warn(chalk.yellow("Warning: Could not read Anchor.toml file"));
+      console.warn(colors.yellow("Warning: Could not read Anchor.toml file"));
     } else {
       console.warn(
-        chalk.yellow(
+        colors.yellow(
           `Warning: Failed to check Solana version: ${
             error instanceof Error ? error.message : error
           }`
@@ -5191,7 +5191,7 @@ function checkAnchorVersion(pwd: string) {
 
     if (!versionMatch) {
       console.error(
-        chalk.red("Error: Could not find anchor_version in Anchor.toml")
+        colors.red("Error: Could not find anchor_version in Anchor.toml")
       );
       process.exit(1);
     }
@@ -5213,22 +5213,22 @@ function checkAnchorVersion(pwd: string) {
     // version looks like "anchor-cli 0.14.0"
     const [_, v] = version.split(" ");
     if (v !== expected) {
-      console.error(chalk.red(`Anchor CLI version mismatch!`));
-      console.error(chalk.red(`  Required: ${expected} (from Anchor.toml)`));
-      console.error(chalk.red(`  Current:  ${v}`));
+      console.error(colors.red(`Anchor CLI version mismatch!`));
+      console.error(colors.red(`  Required: ${expected} (from Anchor.toml)`));
+      console.error(colors.red(`  Current:  ${v}`));
       console.error(
-        chalk.yellow(`\nTo fix this, install the correct version of Anchor`)
+        colors.yellow(`\nTo fix this, install the correct version of Anchor`)
       );
       console.error(
-        chalk.gray("See https://www.anchor-lang.com/docs/installation")
+        colors.gray("See https://www.anchor-lang.com/docs/installation")
       );
       process.exit(1);
     }
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      console.error(chalk.red("Error: Could not read Anchor.toml file"));
+      console.error(colors.red("Error: Could not read Anchor.toml file"));
       console.error(
-        chalk.yellow(`Expected file at: ${pwd}/solana/Anchor.toml`)
+        colors.yellow(`Expected file at: ${pwd}/solana/Anchor.toml`)
       );
       process.exit(1);
     } else {
@@ -5265,17 +5265,17 @@ function resolveVersion(
 function warnLocalDeployment(yes: boolean): Promise<void> {
   if (!yes) {
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         "WARNING: You are deploying from your local working directory."
       )
     );
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         "This bypasses version control and may deploy untested changes."
       )
     );
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         "Ensure your local changes are thoroughly tested and compatible."
       )
     );
