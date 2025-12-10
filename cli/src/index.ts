@@ -74,6 +74,24 @@ import { handleDeploymentError } from "./error";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 export type { ChainConfig, Config } from "./deployments";
 
+// Configuration fields that should be excluded from diff operations
+// These are local-only configurations that don't have on-chain representations
+const EXCLUDED_DIFF_PATHS = ["managerVariant"];
+
+// Helper functions for nested object access
+function getNestedValue(obj: any, path: string[]): any {
+  return path.reduce((current, key) => current?.[key], obj);
+}
+
+function setNestedValue(obj: any, path: string[], value: any): void {
+  const lastKey = path.pop()!;
+  const target = path.reduce((current, key) => {
+    if (!current[key]) current[key] = {};
+    return current[key];
+  }, obj);
+  target[lastKey] = value;
+}
+
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type {
   EvmNtt,
@@ -759,7 +777,7 @@ yargs(hideBin(process.argv))
       // Add manager variant to config for EVM chains
       const platform = chainToPlatform(chain);
       if (platform === "Evm" && argv["manager-variant"]) {
-        (config as any).managerVariant = argv["manager-variant"];
+        config.managerVariant = argv["manager-variant"];
       }
 
       deployments.chains[chain] = config;
@@ -1097,11 +1115,25 @@ yargs(hideBin(process.argv))
         assertChain(chain);
         const diff = diffObjects(
           deployments.chains[chain]!,
-          deployment.config.remote!
+          deployment.config.remote!,
+          EXCLUDED_DIFF_PATHS
         );
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           changed = true;
+          // Preserve excluded fields from local config when pulling
+          const preservedConfig = { ...deployment.config.remote! };
+          for (const excludedPath of EXCLUDED_DIFF_PATHS) {
+            const pathParts = excludedPath.split(".");
+            const localValue = getNestedValue(
+              deployments.chains[chain]!,
+              pathParts
+            );
+            if (localValue !== undefined) {
+              setNestedValue(preservedConfig, [...pathParts], localValue);
+            }
+          }
+          deployments.chains[chain] = preservedConfig;
         }
       }
       if (!changed) {
@@ -1362,7 +1394,7 @@ yargs(hideBin(process.argv))
         const local = deployment.config.local;
         const remote = deployment.config.remote;
 
-        const diff = diffObjects(local!, remote!);
+        const diff = diffObjects(local!, remote!, EXCLUDED_DIFF_PATHS);
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           fixable++;
@@ -4512,7 +4544,8 @@ async function pushDeployment<C extends Chain>(
 ): Promise<void> {
   const diff = diffObjects(
     deployment.config.local!,
-    deployment.config.remote!
+    deployment.config.remote!,
+    EXCLUDED_DIFF_PATHS
   );
   if (Object.keys(diff).length === 0) {
     return;
