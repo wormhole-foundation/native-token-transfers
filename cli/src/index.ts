@@ -59,6 +59,7 @@ import type {
   Ntt,
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
+import { hasExecutorDeployed } from "@wormhole-foundation/sdk-evm-ntt";
 
 import {
   type SolanaChains,
@@ -73,27 +74,6 @@ import { handleDeploymentError } from "./error";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 export type { ChainConfig, Config } from "./deployments";
 
-// Configuration fields that should be excluded from diff operations
-// These are local-only configurations that don't have on-chain representations
-const EXCLUDED_DIFF_PATHS = [
-  "transceivers.wormhole.executor",
-  "managerVariant",
-];
-
-// Helper functions for nested object access
-function getNestedValue(obj: any, path: string[]): any {
-  return path.reduce((current, key) => current?.[key], obj);
-}
-
-function setNestedValue(obj: any, path: string[], value: any): void {
-  const lastKey = path.pop()!;
-  const target = path.reduce((current, key) => {
-    if (!current[key]) current[key] = {};
-    return current[key];
-  }, obj);
-  target[lastKey] = value;
-}
-
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type {
   EvmNtt,
@@ -102,18 +82,12 @@ import type {
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
 import type {
   EvmChains,
-  EvmNativeSigner,
-  EvmUnsignedTransaction,
 } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
 import { createTokenTransferCommand } from "./tokenTransfer";
-import { AbiCoder, ethers, Interface } from "ethers";
-import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
-
-// TODO: contract upgrades on solana
-// TODO: set special relaying?
-// TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
+import { ethers, Interface } from "ethers";
+import { newSignSendWaiter } from "./signSendWait.js";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
@@ -644,11 +618,6 @@ yargs(hideBin(process.argv))
         .option("local", options.local)
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
-        .option("executor", {
-          describe: "Use executor mode",
-          type: "boolean",
-          default: true,
-        })
         .option("manager-variant", {
           describe: "NttManager variant to deploy (EVM only)",
           type: "string",
@@ -666,10 +635,6 @@ yargs(hideBin(process.argv))
         .example(
           "$0 add-chain Avalanche --token 0xabcd... --mode burning --local",
           "Add Avalanche chain using the local contract version"
-        )
-        .example(
-          "$0 add-chain Base --token 0xdef... --mode burning --executor",
-          "Add Base chain with executor mode enabled"
         )
         .example(
           "$0 add-chain Sui --token 0x123::mycoin::MYCOIN --mode burning --sui-treasury-cap 0xabc123... --latest",
@@ -771,7 +736,6 @@ yargs(hideBin(process.argv))
         signerType,
         !argv["skip-verify"],
         argv["yes"],
-        argv["executor"],
         argv["manager-variant"],
         argv["payer"],
         argv["program-key"],
@@ -791,8 +755,6 @@ yargs(hideBin(process.argv))
       );
 
       console.log("token decimals:", colors.yellow(decimals));
-
-      config.transceivers.wormhole.executor = argv["executor"];
 
       // Add manager variant to config for EVM chains
       const platform = chainToPlatform(chain);
@@ -1135,25 +1097,11 @@ yargs(hideBin(process.argv))
         assertChain(chain);
         const diff = diffObjects(
           deployments.chains[chain]!,
-          deployment.config.remote!,
-          EXCLUDED_DIFF_PATHS
+          deployment.config.remote!
         );
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           changed = true;
-          // Preserve excluded fields from local config when pulling
-          const preservedConfig = { ...deployment.config.remote! };
-          for (const excludedPath of EXCLUDED_DIFF_PATHS) {
-            const pathParts = excludedPath.split(".");
-            const localValue = getNestedValue(
-              deployments.chains[chain]!,
-              pathParts
-            );
-            if (localValue !== undefined) {
-              setNestedValue(preservedConfig, pathParts, localValue);
-            }
-          }
-          deployments.chains[chain] = preservedConfig;
         }
       }
       if (!changed) {
@@ -1313,33 +1261,6 @@ yargs(hideBin(process.argv))
           );
           await signSendWaitFunc(ctx, tx, signer.signer);
         }
-        for (const evmChain of missingConfig.evmChains) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsEvmChain(evmChain, true);
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const [relayingTarget, value] of missingConfig.standardRelaying) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsWormholeRelayingEnabled(relayingTarget, value);
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const [relayingTarget, value] of missingConfig.specialRelaying) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsSpecialRelayingEnabled(relayingTarget, value);
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
         if (missingConfig.solanaWormholeTransceiver) {
           if (chainToPlatform(chain) !== "Solana") {
             console.error(
@@ -1441,7 +1362,7 @@ yargs(hideBin(process.argv))
         const local = deployment.config.local;
         const remote = deployment.config.remote;
 
-        const diff = diffObjects(local!, remote!, EXCLUDED_DIFF_PATHS);
+        const diff = diffObjects(local!, remote!);
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           fixable++;
@@ -1478,45 +1399,6 @@ yargs(hideBin(process.argv))
         for (const transceiver of missingConfig.transceiverPeers) {
           console.error(`  Missing transceiver peer: ${transceiver.chain}`);
         }
-        for (const evmChain of missingConfig.evmChains) {
-          console.error(`  ${evmChain} needs to be configured as an EVM chain`);
-        }
-        for (const [
-          relayingTarget,
-          shouldBeSet,
-        ] of missingConfig.standardRelaying) {
-          if (shouldBeSet) {
-            console.warn(
-              colors.yellow(
-                `  Standard relaying not configured for ${relayingTarget}`
-              )
-            );
-          } else {
-            console.warn(
-              colors.yellow(
-                `  Standard relaying configured for ${relayingTarget}, but should not be`
-              )
-            );
-          }
-        }
-        for (const [
-          relayingTarget,
-          shouldBeSet,
-        ] of missingConfig.specialRelaying) {
-          if (shouldBeSet) {
-            console.warn(
-              colors.yellow(
-                `  Special relaying not configured for ${relayingTarget}`
-              )
-            );
-          } else {
-            console.warn(
-              colors.yellow(
-                `  Special relaying configured for ${relayingTarget}, but should not be`
-              )
-            );
-          }
-        }
         if (missingConfig.solanaWormholeTransceiver) {
           console.error("  Missing Solana wormhole transceiver");
         }
@@ -1525,6 +1407,14 @@ yargs(hideBin(process.argv))
         }
       }
 
+      // Check executor availability for EVM chains
+      for (const [chain, deployment] of Object.entries(deps)) {
+          assertChain(chain);
+          const platform = chainToPlatform(chain);
+          if (platform === "Evm" && !hasExecutorDeployed(network, chain as EvmChains)) {
+              console.log(chalk.yellow(`On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`));
+          }
+      }
       if (fixable > 0) {
         console.error(
           "Run `ntt pull` to pull the remote configuration (overwriting the local one)"
@@ -2720,14 +2610,9 @@ yargs(hideBin(process.argv))
 // implicit in the sense that they don't need to be explicitly set in the
 // deployment file.
 // For example, all managers and transceivers need to be registered with each other.
-// Additionally, the EVM chains need to be registered as such, and the standard relaying
-// needs to be enabled for all chains where this is supported.
 type MissingImplicitConfig = {
   managerPeers: Ntt.Peer<Chain>[];
   transceiverPeers: ChainAddress<Chain>[];
-  evmChains: Chain[];
-  standardRelaying: [Chain, boolean][];
-  specialRelaying: [Chain, boolean][];
   solanaWormholeTransceiver: boolean;
   solanaUpdateLUT: boolean;
 };
@@ -3163,7 +3048,6 @@ async function deploy<N extends Network, C extends Chain>(
   signerType: SignerType,
   evmVerify: boolean,
   yes: boolean,
-  executor: boolean,
   managerVariant?: string,
   solanaPayer?: string,
   solanaProgramKeyPath?: string,
@@ -3189,7 +3073,6 @@ async function deploy<N extends Network, C extends Chain>(
         token,
         signerType,
         evmVerify,
-        executor,
         managerVariant || "standard",
         gasEstimateMultiplier
       );
@@ -3239,7 +3122,6 @@ async function deployEvm<N extends Network, C extends Chain>(
   token: string,
   signerType: SignerType,
   verify: boolean,
-  executor: boolean,
   managerVariant: string,
   gasEstimateMultiplier?: number
 ): Promise<ChainAddress<C>> {
@@ -3250,26 +3132,8 @@ async function deployEvm<N extends Network, C extends Chain>(
     console.error("Core bridge not found");
     process.exit(1);
   }
-  const relayer = ch.config.contracts.relayer;
-  if (!relayer && !executor) {
-    console.error(
-      "Standard Relayer not found. If you want to use the Executor, pass the --executor flag to add-chain"
-    );
-    process.exit(1);
-  }
 
   const rpc = ch.config.rpc;
-
-  // TODO: how to make specialRelayer configurable??
-  let specialRelayer: string;
-  if (ch.chain === "Avalanche") {
-    specialRelayer = "0x1a19d8a194630642f750376Ae72b4eDF5aDFd25F";
-  } else if (ch.chain === "Bsc") {
-    specialRelayer = "0x8C56eE9cd232d23541a697C0eBd3cA597DE3c88D";
-  } else {
-    specialRelayer = "0x63BE47835c7D66c4aA5B2C688Dc6ed9771c94C74";
-  }
-
   let provider: ethers.JsonRpcProvider;
   let decimals: number;
 
@@ -3324,8 +3188,6 @@ async function deployEvm<N extends Network, C extends Chain>(
     const simulateArg = simulate ? "" : "--skip-simulation";
     const slowFlag = getSlowFlag(ch.chain);
     const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-    const effectiveRelayer =
-      relayer || "0x0000000000000000000000000000000000000000";
 
     // Use bundled v1 scripts if version 1 detected
     const useBundledV1 = scriptVersion === 1;
@@ -3338,11 +3200,11 @@ async function deployEvm<N extends Network, C extends Chain>(
 
         if (scriptVersion === 1) {
           // Version 1: Use explicit signature with parameters
-          const sig = "run(address,address,address,address,uint8,uint8)";
+          const sig = "run(address,address,uint8,uint8)";
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${rpc} \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
+--sig "${sig}" ${wormhole} ${token} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
           )} ${signerArgs} 2>&1 | tee last-run.stdout`;
@@ -3354,8 +3216,6 @@ ${simulateArg} \
             RELEASE_TOKEN_ADDRESS: token,
             RELEASE_DECIMALS: decimals.toString(),
             RELEASE_MODE: modeUint.toString(),
-            RELEASE_WORMHOLE_RELAYER_ADDRESS: effectiveRelayer,
-            RELEASE_SPECIAL_RELAYER_ADDRESS: specialRelayer,
             RELEASE_CONSISTENCY_LEVEL: "202",
             RELEASE_GAS_LIMIT: "500000",
             MANAGER_VARIANT: managerVariant,
@@ -3416,7 +3276,13 @@ ${simulateArg} \
     .filter((l) => l.length > 0);
   const manager = logs.find((l) => l.includes("NttManager: 0x"))?.split(" ")[1];
   if (!manager) {
-    console.error("Manager not found");
+    // Extract error lines from output to show the actual failure reason
+    const errorLine = logs.find((l) => l.startsWith("Error:"));
+    if (errorLine) {
+      console.error(chalk.red(`\nDeployment failed: ${errorLine}`));
+    } else {
+      console.error(chalk.red("Manager not found in deployment output"));
+    }
     process.exit(1);
   }
   const universalManager = toUniversal(ch.chain, manager);
@@ -4523,9 +4389,6 @@ async function missingConfigs(
     let missing: MissingImplicitConfig = {
       managerPeers: [],
       transceiverPeers: [],
-      evmChains: [],
-      standardRelaying: [],
-      specialRelaying: [],
       solanaWormholeTransceiver: false,
       solanaUpdateLUT: false,
     };
@@ -4605,42 +4468,6 @@ async function missingConfigs(
         }
       }
 
-      if (chainToPlatform(fromChain) === "Evm") {
-        const toIsEvm = chainToPlatform(toChain) === "Evm";
-        const toIsSolana = chainToPlatform(toChain) === "Solana";
-        const whTransceiver = (await from.ntt.getTransceiver(
-          0
-        )) as EvmNttWormholeTranceiver<Network, EvmChains>;
-
-        if (toIsEvm) {
-          const remoteToEvm = await whTransceiver.isEvmChain(toChain);
-          if (!remoteToEvm) {
-            count++;
-            missing.evmChains.push(toChain);
-          }
-
-          const standardRelaying =
-            await whTransceiver.isWormholeRelayingEnabled(toChain);
-          const desiredStandardRelaying = !(
-            from.config.local?.transceivers.wormhole.executor ?? false
-          );
-          if (standardRelaying !== desiredStandardRelaying) {
-            count++;
-            missing.standardRelaying.push([toChain, desiredStandardRelaying]);
-          }
-        } else if (toIsSolana) {
-          const specialRelaying =
-            await whTransceiver.isSpecialRelayingEnabled(toChain);
-          const desiredSpecialRelaying = !(
-            from.config.local?.transceivers.wormhole.executor ?? false
-          );
-          if (specialRelaying !== desiredSpecialRelaying) {
-            count++;
-            missing.specialRelaying.push([toChain, desiredSpecialRelaying]);
-          }
-        }
-      }
-
       const transceiverPeer = await retryWithExponentialBackoff(
         () => from.whTransceiver.getPeer(toChain),
         5,
@@ -4683,8 +4510,7 @@ async function pushDeployment<C extends Chain>(
 ): Promise<void> {
   const diff = diffObjects(
     deployment.config.local!,
-    deployment.config.remote!,
-    EXCLUDED_DIFF_PATHS
+    deployment.config.remote!
   );
   if (Object.keys(diff).length === 0) {
     return;
@@ -4990,8 +4816,6 @@ async function getImmutables<N extends Network, C extends Chain>(
     0
   )) as EvmNttWormholeTranceiver<N, EvmChains>;
   const consistencyLevel = await transceiver.transceiver.consistencyLevel();
-  const wormholeRelayer = await transceiver.transceiver.wormholeRelayer();
-  const specialRelayer = await transceiver.transceiver.specialRelayer();
   const gasLimit = await transceiver.transceiver.gasLimit();
 
   const token = await evmNtt.manager.token();
@@ -4999,8 +4823,6 @@ async function getImmutables<N extends Network, C extends Chain>(
 
   const whTransceiverImmutables = {
     consistencyLevel,
-    wormholeRelayer,
-    specialRelayer,
     gasLimit,
   };
   return {
