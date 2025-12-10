@@ -3199,12 +3199,14 @@ async function deployEvm<N extends Network, C extends Chain>(
         let env: NodeJS.ProcessEnv = { ...process.env };
 
         if (scriptVersion === 1) {
-          // Version 1: Use explicit signature with parameters
-          const sig = "run(address,address,uint8,uint8)";
+          // Version 1: Use explicit signature with parameters (6 params including relayers)
+          // The bundled v1 scripts expect relayer addresses, use zero addresses as defaults
+          const zeroAddress = "0x0000000000000000000000000000000000000000";
+          const sig = "run(address,address,address,address,uint8,uint8)";
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url ${rpc} \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${decimals} ${modeUint} \
+--sig "${sig}" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
           )} ${signerArgs} 2>&1 | tee last-run.stdout`;
