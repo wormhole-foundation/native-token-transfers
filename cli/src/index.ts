@@ -1115,8 +1115,7 @@ yargs(hideBin(process.argv))
         assertChain(chain);
         const diff = diffObjects(
           deployments.chains[chain]!,
-          deployment.config.remote!,
-          EXCLUDED_DIFF_PATHS
+          deployment.config.remote!
         );
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
@@ -1394,7 +1393,7 @@ yargs(hideBin(process.argv))
         const local = deployment.config.local;
         const remote = deployment.config.remote;
 
-        const diff = diffObjects(local!, remote!, EXCLUDED_DIFF_PATHS);
+        const diff = diffObjects(local!, remote!);
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           fixable++;
@@ -1430,45 +1429,6 @@ yargs(hideBin(process.argv))
         }
         for (const transceiver of missingConfig.transceiverPeers) {
           console.error(`  Missing transceiver peer: ${transceiver.chain}`);
-        }
-        for (const evmChain of missingConfig.evmChains) {
-          console.error(`  ${evmChain} needs to be configured as an EVM chain`);
-        }
-        for (const [
-          relayingTarget,
-          shouldBeSet,
-        ] of missingConfig.standardRelaying) {
-          if (shouldBeSet) {
-            console.warn(
-              colors.yellow(
-                `  Standard relaying not configured for ${relayingTarget}`
-              )
-            );
-          } else {
-            console.warn(
-              colors.yellow(
-                `  Standard relaying configured for ${relayingTarget}, but should not be`
-              )
-            );
-          }
-        }
-        for (const [
-          relayingTarget,
-          shouldBeSet,
-        ] of missingConfig.specialRelaying) {
-          if (shouldBeSet) {
-            console.warn(
-              colors.yellow(
-                `  Special relaying not configured for ${relayingTarget}`
-              )
-            );
-          } else {
-            console.warn(
-              colors.yellow(
-                `  Special relaying configured for ${relayingTarget}, but should not be`
-              )
-            );
-          }
         }
         if (missingConfig.solanaWormholeTransceiver) {
           console.error("  Missing Solana wormhole transceiver");
@@ -4583,8 +4543,7 @@ async function pushDeployment<C extends Chain>(
 ): Promise<void> {
   const diff = diffObjects(
     deployment.config.local!,
-    deployment.config.remote!,
-    EXCLUDED_DIFF_PATHS
+    deployment.config.remote!
   );
   if (Object.keys(diff).length === 0) {
     return;
