@@ -1115,7 +1115,8 @@ yargs(hideBin(process.argv))
         assertChain(chain);
         const diff = diffObjects(
           deployments.chains[chain]!,
-          deployment.config.remote!
+          deployment.config.remote!,
+          EXCLUDED_DIFF_PATHS
         );
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
@@ -1393,7 +1394,7 @@ yargs(hideBin(process.argv))
         const local = deployment.config.local;
         const remote = deployment.config.remote;
 
-        const diff = diffObjects(local!, remote!);
+        const diff = diffObjects(local!, remote!, EXCLUDED_DIFF_PATHS);
         if (Object.keys(diff).length !== 0) {
           console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           fixable++;
@@ -4543,7 +4544,8 @@ async function pushDeployment<C extends Chain>(
 ): Promise<void> {
   const diff = diffObjects(
     deployment.config.local!,
-    deployment.config.remote!
+    deployment.config.remote!,
+    EXCLUDED_DIFF_PATHS
   );
   if (Object.keys(diff).length === 0) {
     return;
