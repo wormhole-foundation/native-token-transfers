@@ -18,6 +18,8 @@ export type ChainConfig = {
     outbound: string;
     inbound: Partial<{ [C in Chain]: string }>;
   };
+  // Local-only config (not pushed to chain)
+  managerVariant?: string;
 };
 
 export type Config = {
