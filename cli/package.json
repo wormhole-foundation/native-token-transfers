@@ -24,6 +24,7 @@
     "@wormhole-foundation/sdk-stacks-ntt": "file:../stacks/ts",
     "@wormhole-foundation/sdk-sui-ntt": "file:../sui/ts",
     "chalk": "^5.3.0",
+    "ora": "8.2.0",
     "yargs": "^17.7.2"
   },
   "overrides": {

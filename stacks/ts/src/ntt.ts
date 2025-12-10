@@ -1,6 +1,6 @@
-import { Chain, chainToChainId, Network } from "@wormhole-foundation/sdk-base";
-import { AccountAddress, UnsignedTransaction, ChainAddress, ChainsConfig, Contracts, serialize, toNative, UniversalAddress } from "@wormhole-foundation/sdk-definitions";
-import { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
+import { Chain, chainToChainId, encoding, Network, serializeLayout } from "@wormhole-foundation/sdk-base";
+import { AccountAddress, UnsignedTransaction, ChainAddress, ChainsConfig, Contracts, serialize, toNative, UniversalAddress, keccak256 } from "@wormhole-foundation/sdk-definitions";
+import { nativeTokenTransferLayout, Ntt, nttManagerMessageLayout, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
 import { StacksChains, StacksPlatform, StacksPlatformType, StacksZeroAddress } from "@wormhole-foundation/sdk-stacks";
 import { StacksNetwork } from "@stacks/network";
 import { BufferCV, Cl, cvToValue, fetchCallReadOnlyFunction, PostConditionMode } from "@stacks/transactions";
@@ -549,11 +549,34 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     throw new Error("Method not implemented.");
   }
   getIsApproved(attestation: Ntt.Attestation): Promise<boolean> {
-    throw new Error("Method not implemented.");
+    return this.getIsExecuted(attestation)
   }
-  getIsExecuted(attestation: Ntt.Attestation): Promise<boolean> {
-    throw new Error("Method not implemented.");
+
+  async getIsExecuted(attestation: Ntt.Attestation): Promise<boolean> {
+    const payload =
+      attestation.payloadName === "WormholeTransfer"
+        ? attestation.payload
+        : attestation.payload["payload"];
+    
+    const chainIdBuffer = new ArrayBuffer(2)
+    new DataView(chainIdBuffer).setUint16(0, chainToChainId(attestation.emitterChain))
+    const chainIdArr = new Uint8Array(chainIdBuffer)
+    const hash = keccak256(encoding.bytes.concat(chainIdArr, serializeLayout(
+      nttManagerMessageLayout(nativeTokenTransferLayout),
+      payload["nttManagerPayload"]
+    )))
+    const res = await this.readonly(
+      'consumed-messages-get',
+      [
+        Cl.buffer(hash),
+      ],
+      this.getStateContractName(),
+      this.nttManagerDeployer
+    )
+    const resValue = cvToValue(res)
+    return resValue.value;
   }
+
   getIsTransferInboundQueued(attestation: Ntt.Attestation): Promise<boolean> {
     throw new Error("Method not implemented.");
   }
