@@ -11,10 +11,10 @@ test-sbf = []
 shim = ["ntt-transceiver"]
 # networks
 mainnet = [ "wormhole-anchor-sdk/mainnet", "example-native-token-transfers/mainnet", "ntt-transceiver/mainnet" ]
-bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env", "example-native-token-transfers/bridge-address-from-env", "ntt-transceiver/bridge-address-from-env" ]
-solana-devnet = [ "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet", "example-native-token-transfers/solana-devnet", "ntt-transceiver/solana-devnet" ]
-tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet", "ntt-transceiver/tilt-devnet" ]
-tilt-devnet2 = [ "tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet2", "ntt-transceiver/tilt-devnet2" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/from-env", "example-native-token-transfers/bridge-address-from-env", "ntt-transceiver/bridge-address-from-env" ]
+solana-devnet = [ "wormhole-anchor-sdk/solana-devnet", "example-native-token-transfers/solana-devnet", "ntt-transceiver/solana-devnet" ]
+tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet", "example-native-token-transfers/tilt-devnet", "ntt-transceiver/tilt-devnet" ]
+tilt-devnet2 = [ "tilt-devnet", "example-native-token-transfers/tilt-devnet2", "ntt-transceiver/tilt-devnet2" ]
 
 [lints]
 workspace = true
@@ -48,5 +48,6 @@ example-native-token-transfers = { path = "../../programs/example-native-token-t
 ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
 ntt-transceiver = { path = "../../programs/ntt-transceiver", features = ["testing"], optional = true }
 wormhole-governance = { path = "../../programs/wormhole-governance", features = ["no-entrypoint"] }
-wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
-wormhole-svm-shim = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface" }
+
+wormhole-svm-definitions = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef" }
+wormhole-svm-shim = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef" }
