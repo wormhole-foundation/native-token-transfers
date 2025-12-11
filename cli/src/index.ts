@@ -1431,6 +1431,45 @@ yargs(hideBin(process.argv))
         for (const transceiver of missingConfig.transceiverPeers) {
           console.error(`  Missing transceiver peer: ${transceiver.chain}`);
         }
+        for (const evmChain of missingConfig.evmChains) {
+          console.error(`  ${evmChain} needs to be configured as an EVM chain`);
+        }
+        for (const [
+          relayingTarget,
+          shouldBeSet,
+        ] of missingConfig.standardRelaying) {
+          if (shouldBeSet) {
+            console.warn(
+              colors.yellow(
+                `  Standard relaying not configured for ${relayingTarget}`
+              )
+            );
+          } else {
+            console.warn(
+              colors.yellow(
+                `  Standard relaying configured for ${relayingTarget}, but should not be`
+              )
+            );
+          }
+        }
+        for (const [
+          relayingTarget,
+          shouldBeSet,
+        ] of missingConfig.specialRelaying) {
+          if (shouldBeSet) {
+            console.warn(
+              colors.yellow(
+                `  Special relaying not configured for ${relayingTarget}`
+              )
+            );
+          } else {
+            console.warn(
+              colors.yellow(
+                `  Special relaying configured for ${relayingTarget}, but should not be`
+              )
+            );
+          }
+        }
         if (missingConfig.solanaWormholeTransceiver) {
           console.error("  Missing Solana wormhole transceiver");
         }
