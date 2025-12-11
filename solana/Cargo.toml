@@ -55,7 +55,7 @@ solana-address-lookup-table-program = "=1.18.26"
 spl-token = "4.0.0"
 spl-token-2022 = "3.0.2"
 
-wormhole-anchor-sdk = { git = "https://github.com/wormholelabs-xyz/wormhole-scaffolding", branch = "solana/anchor-0.29.0", default-features = false }
+wormhole-anchor-sdk = { git = "https://github.com/wormhole-foundation/wormhole-scaffolding.git", rev = "1e5f6d6db2e1d77cca291cd77b5b2e05e97b905e", default-features = false }
 wormhole-sdk = { git = "https://github.com/wormhole-foundation/wormhole", rev = "eee4641" }
 serde_wormhole = { git = "https://github.com/wormhole-foundation/wormhole", rev = "eee4641" }
 
