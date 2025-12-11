@@ -47,10 +47,10 @@ jobs:
         run: cargo fmt --check --all --manifest-path Cargo.toml
 
       - name: Run `cargo check`
-        run: cargo check --workspace --tests --manifest-path Cargo.toml
+        run: cargo check --workspace --tests --manifest-path Cargo.toml --features mainnet
 
       - name: Run `cargo clippy`
-        run: cargo clippy --workspace --tests --manifest-path Cargo.toml -- -Dclippy::cast_possible_truncation
+        run: cargo clippy --workspace --tests --manifest-path Cargo.toml --features mainnet -- -Dclippy::cast_possible_truncation
 
       - name: Cache solana tools
         id: cache-solana
@@ -83,7 +83,7 @@ jobs:
           cargo build-sbf --features "mainnet"
           cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
           cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
-          cargo test
+          cargo test --features "mainnet"
 
   check-version:
     name: Check version
