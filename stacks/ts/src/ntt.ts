@@ -457,7 +457,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     }
   }
 
-  async addr32Lookup(principal: string): Promise<string> {
+  async addr32Lookup(hash: Uint8Array): Promise<string> {
     const addr32Address = this.networkToAddr32[this.network]
     if(!addr32Address) {
       throw new Error(`Stacks NTT registerPrincipal for network ${this.network} not found`)
@@ -469,7 +469,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
 
     const res = await this.readonly(
       'lookup',
-      [Cl.principal(principal)],
+      [Cl.buffer(hash)],
       contractName,
       contractAddress
     )
