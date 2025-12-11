@@ -122,7 +122,6 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
     }
   }
 
-
   private async transceiverReadOnly(functionName: string, functionArgs: any[]): Promise<any> {
     return this.readonly(functionName, functionArgs, this.contractName, this.deployer)
   }
@@ -156,6 +155,12 @@ export class StacksNtt<N extends Network, C extends StacksChains>
   static readonly NTT_MANAGER_CONTRACT_NAME = `ntt-manager-v1`
   static readonly NTT_TOKEN_OWNER_CONTRACT_NAME = `token-manager`
   static readonly WORMHOLE_PROTOCOL_ID = 1
+
+  private readonly networkToAddr32: Record<Network, string | undefined> = {
+    "Mainnet": undefined,
+    "Testnet": "ST2W4SFFKXMGFJW7K7NZFK3AH52ZTXDB74HKV9MRA.addr32",
+    "Devnet": ""
+  }
 
   private readonly nttManagerDeployer: string;
   private readonly nttStateContractName: string;
@@ -388,6 +393,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     if(!transceiver) {
       throw new Error("Transceiver for protocol 1 (Wormhole) not found")
     }
+    
     const transceiverAddress = (await transceiver.getAddress()).address.toString()
     const activeNttManager = await this.getActiveNttManager()
     const tx = {
@@ -410,6 +416,66 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       description: "Ntt.transfer",
       parallelizable: false
     }
+  }
+
+  async *addr32RegisterPrincipal(principal: string): AsyncGenerator<UnsignedTransaction<N, C>, any, any> | boolean {
+    const addr32Address = this.networkToAddr32[this.network]
+    if(!addr32Address) {
+      throw new Error(`Stacks NTT registerPrincipal for network ${this.network} not found`)
+    }
+    const [contractAddress, contractName ] = addr32Address.split(".")
+    if(!contractAddress || !contractName) {
+      throw new Error(`Stacks NTT registerPrincipal for network ${this.network} not found`)
+    }
+    const res = await this.readonly(
+      'reverse-lookup',
+      [Cl.principal(principal)],
+      contractName,
+      contractAddress
+    )
+
+    const resValue = cvToValue(res)
+    if(resValue.registered) {
+      return true
+    }
+
+    const tx = {
+      contractName,
+      contractAddress,
+      functionName: 'register',
+      functionArgs: [
+        Cl.principal(principal)
+      ],
+      postConditionMode: PostConditionMode.Allow
+    }
+    yield {
+      transaction: tx,
+      network: this.network,
+      chain: this.chain,
+      description: "Addr32.registerPrincipal",
+      parallelizable: false
+    }
+  }
+
+  async addr32Lookup(principal: string): Promise<string> {
+    const addr32Address = this.networkToAddr32[this.network]
+    if(!addr32Address) {
+      throw new Error(`Stacks NTT registerPrincipal for network ${this.network} not found`)
+    }
+    const [contractAddress, contractName ] = addr32Address.split(".")
+    if(!contractAddress || !contractName) {
+      throw new Error(`Stacks NTT registerPrincipal for network ${this.network} not found`)
+    }
+
+    const res = await this.readonly(
+      'lookup',
+      [Cl.principal(principal)],
+      contractName,
+      contractAddress
+    )
+
+    const resValue = cvToValue(res)
+    return resValue.value
   }
 
   async *redeem(attestations: Ntt.Attestation[], payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
