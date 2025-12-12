@@ -2223,10 +2223,10 @@ yargs(hideBin(process.argv))
 
           console.log(`Building SVM program for ${chain} on ${network}...`);
           if (version) {
-            console.log(chalk.blue(`Using version: ${version}`));
-            console.log(chalk.blue(`Worktree: ${worktree}`));
+            console.log(colors.blue(`Using version: ${version}`));
+            console.log(colors.blue(`Worktree: ${worktree}`));
           } else {
-            console.log(chalk.blue(`Using local source`));
+            console.log(colors.blue(`Using local source`));
           }
 
           const buildResult = await buildSvm(
@@ -2836,9 +2836,8 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
 
   await withDeploymentScript(pwd, useBundledV1, async () => {
 
-    // Set MANAGER_VARIANT env var (old scripts will ignore it)
     const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${ctx.config.rpc} \
+--rpc-url "${ctx.config.rpc}" \
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
@@ -3236,7 +3235,7 @@ async function deployEvm<N extends Network, C extends Chain>(
           const zeroAddress = "0x0000000000000000000000000000000000000000";
           const sig = "run(address,address,address,address,uint8,uint8)";
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${rpc} \
+--rpc-url "${rpc}" \
 ${simulateArg} \
 --sig "${sig}" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
@@ -3256,7 +3255,7 @@ ${simulateArg} \
           };
 
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${rpc} \
+--rpc-url "${rpc}" \
 ${simulateArg} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
