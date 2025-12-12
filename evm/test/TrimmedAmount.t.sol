@@ -167,18 +167,27 @@ contract TrimmingTest is Test {
 
     // =============   FUZZ TESTS ================== //
 
-    function testFuzz_setDecimals(TrimmedAmount a, uint8 decimals) public {
+    function testFuzz_setDecimals(
+        TrimmedAmount a,
+        uint8 decimals
+    ) public {
         TrimmedAmount b = a.setDecimals(decimals);
         assertEq(b.getDecimals(), decimals);
     }
 
-    function test_packUnpack(uint64 amount, uint8 decimals) public {
+    function test_packUnpack(
+        uint64 amount,
+        uint8 decimals
+    ) public {
         TrimmedAmount trimmed = packTrimmedAmount(amount, decimals);
         assertEq(trimmed.getAmount(), amount);
         assertEq(trimmed.getDecimals(), decimals);
     }
 
-    function testFuzz_AddOperatorOverload(TrimmedAmount a, TrimmedAmount b) public {
+    function testFuzz_AddOperatorOverload(
+        TrimmedAmount a,
+        TrimmedAmount b
+    ) public {
         a = a.setDecimals(b.getDecimals());
 
         // check if the add operation reverts on an overflow.
@@ -194,7 +203,10 @@ contract TrimmingTest is Test {
         assertEq(expectedSum.getDecimals(), sum.getDecimals());
     }
 
-    function testFuzz_SubOperatorOverload(TrimmedAmount a, TrimmedAmount b) public {
+    function testFuzz_SubOperatorOverload(
+        TrimmedAmount a,
+        TrimmedAmount b
+    ) public {
         a = a.setDecimals(b.getDecimals());
         vm.assume(a.getAmount() >= b.getAmount());
 
@@ -205,14 +217,20 @@ contract TrimmingTest is Test {
         assertEq(expectedSub.getDecimals(), subAmt.getDecimals());
     }
 
-    function testFuzz_EqOperatorOverload(TrimmedAmount a, TrimmedAmount b) public {
+    function testFuzz_EqOperatorOverload(
+        TrimmedAmount a,
+        TrimmedAmount b
+    ) public {
         bool isEqual = a == b;
         bool expectedIsEqual = eq(a, b);
 
         assertEq(expectedIsEqual, isEqual);
     }
 
-    function testFuzz_GtOperatorOverload(TrimmedAmount a, TrimmedAmount b) public {
+    function testFuzz_GtOperatorOverload(
+        TrimmedAmount a,
+        TrimmedAmount b
+    ) public {
         a = a.setDecimals(b.getDecimals());
         bool isGt = a > b;
         bool expectedIsGt = gt(a, b);
@@ -220,7 +238,10 @@ contract TrimmingTest is Test {
         assertEq(expectedIsGt, isGt);
     }
 
-    function testFuzz_LtOperatorOverload(TrimmedAmount a, TrimmedAmount b) public {
+    function testFuzz_LtOperatorOverload(
+        TrimmedAmount a,
+        TrimmedAmount b
+    ) public {
         a = a.setDecimals(b.getDecimals());
         bool isLt = a > b;
         bool expectedIsLt = gt(a, b);
@@ -230,7 +251,10 @@ contract TrimmingTest is Test {
 
     // invariant: forall (TrimmedAmount a, TrimmedAmount b)
     //            a.saturatingAdd(b).amount <= type(uint64).max
-    function testFuzz_saturatingAddDoesNotOverflow(TrimmedAmount a, TrimmedAmount b) public {
+    function testFuzz_saturatingAddDoesNotOverflow(
+        TrimmedAmount a,
+        TrimmedAmount b
+    ) public {
         a = a.setDecimals(b.getDecimals());
 
         TrimmedAmount c = a.saturatingAdd(b);
@@ -247,7 +271,10 @@ contract TrimmingTest is Test {
     // NOTE: above the TRIMMED_DECIMALS threshold will always get trimmed to TRIMMED_DECIMALS
     // or trimmed to the number of decimals on the recipient chain.
     // this tests for inputs with decimals > TRIMMED_DECIMALS
-    function testFuzz_SubOperatorZeroAboveThreshold(uint256 amt, uint8 decimals) public {
+    function testFuzz_SubOperatorZeroAboveThreshold(
+        uint256 amt,
+        uint8 decimals
+    ) public {
         decimals = uint8(bound(decimals, 8, 18));
         uint256 maxAmt = (type(uint64).max) / (10 ** decimals);
         vm.assume(amt < maxAmt);
@@ -288,7 +315,10 @@ contract TrimmingTest is Test {
     // NOTE: above the TRIMMED_DECIMALS threshold will always get trimmed to TRIMMED_DECIMALS
     // or trimmed to the number of decimals on the recipient chain.
     // this tests for inputs with decimals > TRIMMED_DECIMALS
-    function testFuzz_AddOperatorZeroAboveThreshold(uint256 amt, uint8 decimals) public {
+    function testFuzz_AddOperatorZeroAboveThreshold(
+        uint256 amt,
+        uint8 decimals
+    ) public {
         decimals = uint8(bound(decimals, 8, 18));
         uint256 maxAmt = (type(uint64).max) / (10 ** decimals);
         vm.assume(amt < maxAmt);

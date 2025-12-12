@@ -47,12 +47,12 @@ contract TestTransceiverStructs is Test {
 
     function test_serialize_TransceiverRegistration() public {
         bytes4 wh_prefix = 0x18fc67c2;
-        TransceiverStructs.TransceiverRegistration memory tr = TransceiverStructs
-            .TransceiverRegistration({
-            transceiverIdentifier: wh_prefix,
-            transceiverChainId: 23,
-            transceiverAddress: hex"BABABAFEFE"
-        });
+        TransceiverStructs.TransceiverRegistration memory tr =
+            TransceiverStructs.TransceiverRegistration({
+                transceiverIdentifier: wh_prefix,
+                transceiverChainId: 23,
+                transceiverAddress: hex"BABABAFEFE"
+            });
 
         bytes memory encodedTransceiverRegistration =
             TransceiverStructs.encodeTransceiverRegistration(tr);
@@ -140,8 +140,9 @@ contract TestTransceiverStructs is Test {
         bytes4 wh_prefix = 0x9945FF10;
 
         // this message can't be generated but does technically adhere to the spec
-        bytes memory encodedExpected =
-            vm.parseBytes(vm.readLine("./test/payloads/transceiver_message_with_empty_payload.txt"));
+        bytes memory encodedExpected = vm.parseBytes(
+            vm.readLine("./test/payloads/transceiver_message_with_empty_payload.txt")
+        );
 
         TransceiverStructs.TransceiverMessage memory emParsed =
             TransceiverStructs.parseTransceiverMessage(wh_prefix, encodedExpected);

@@ -676,8 +676,10 @@ contract TestEndToEndNoRateLimiting is Test {
             IWormholeTransceiver.WormholeTransceiverInstruction(relayer_off);
         bytes memory encodedInstructionWormhole =
             wormholeTransceiverChain1.encodeWormholeTransceiverInstruction(instruction);
-        TransceiverStructs.TransceiverInstruction memory TransceiverInstruction = TransceiverStructs
-            .TransceiverInstruction({index: 0, payload: encodedInstructionWormhole});
+        TransceiverStructs.TransceiverInstruction memory TransceiverInstruction =
+            TransceiverStructs.TransceiverInstruction({
+                index: 0, payload: encodedInstructionWormhole
+            });
         TransceiverStructs.TransceiverInstruction[] memory TransceiverInstructions =
             new TransceiverStructs.TransceiverInstruction[](1);
         TransceiverInstructions[0] = TransceiverInstruction;
@@ -695,9 +697,13 @@ contract TestEndToEndNoRateLimiting is Test {
             wormholeTransceiverChain1.encodeWormholeTransceiverInstruction(instruction);
 
         TransceiverStructs.TransceiverInstruction memory TransceiverInstruction1 =
-        TransceiverStructs.TransceiverInstruction({index: 0, payload: encodedInstructionWormhole});
+            TransceiverStructs.TransceiverInstruction({
+                index: 0, payload: encodedInstructionWormhole
+            });
         TransceiverStructs.TransceiverInstruction memory TransceiverInstruction2 =
-        TransceiverStructs.TransceiverInstruction({index: 1, payload: encodedInstructionWormhole});
+            TransceiverStructs.TransceiverInstruction({
+                index: 1, payload: encodedInstructionWormhole
+            });
 
         TransceiverStructs.TransceiverInstruction[] memory TransceiverInstructions =
             new TransceiverStructs.TransceiverInstruction[](2);
