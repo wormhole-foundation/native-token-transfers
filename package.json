@@ -4,35 +4,44 @@
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "rebuild": "npm run rebuild --workspaces --if-present",
-    "build:solana": "npm run build --workspace=sdk/definitions --workspace=solana",
-    "build:evm": "npm run build --workspace=sdk/definitions --workspace=sdk/evm",
-    "build:sui": "npm run build --workspace=sdk/definitions --workspace=sui/ts",
-    "typecheck:cli": "npm run typecheck --workspace=cli",
-    "generate": "npm run generate --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "build": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '*' build",
+    "rebuild": "bun run --filter '*' rebuild",
+    "build:solana": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '@wormhole-foundation/sdk-solana-ntt' build",
+    "build:evm": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '@wormhole-foundation/sdk-evm-ntt' build",
+    "build:sui": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '@wormhole-foundation/sdk-sui-ntt' build",
+    "typecheck:cli": "bun run --filter '@wormhole-foundation/ntt-cli' typecheck",
+    "generate": "bun run --filter '*' generate",
+    "test": "bun --workspaces --if-present run test",
     "test:ci": "CI=true jest --config ./jest.config.ts",
     "test:local": "jest --config ./jest.config.ts",
-    "generate:test": "npm run generate:test --workspaces --if-present",
-    "build:deps": "npm run build:contracts --workspaces --if-present && npm run generate",
-    "prettier": "npm run prettier --workspaces --if-present",
+    "generate:test": "bun run --filter '*' generate:test",
+    "build:deps": "bun run --filter '*' build:contracts && bun run generate",
+    "prettier": "bun run --filter '*' prettier",
     "version": "tsx setSdkVersion.ts"
   },
   "devDependencies": {
     "@mysten/sui": "1.37.2",
     "@solana/spl-token": "0.3.9",
-    "@solana/spl-token-metadata": "^0.1.6",
-    "@solana/web3.js": "^1.95.8",
-    "@types/jest": "^29.5.12",
-    "@types/node": "^20.12.2",
-    "@wormhole-foundation/sdk": "^4.4.0",
-    "@wormhole-foundation/wormchain-sdk": "^0.0.1",
-    "ethers": "^6.5.1",
-    "prettier": "^3.6.2",
-    "ts-jest": "^29.1.2",
-    "tsx": "^4.7.2",
-    "typescript": "^5.1.1"
+    "@solana/spl-token-metadata": "0.1.6",
+    "@solana/web3.js": "1.98.4",
+    "@types/jest": "29.5.14",
+    "@types/node": "20.19.15",
+    "@wormhole-foundation/sdk": "4.4.0",
+    "@wormhole-foundation/sdk-base": "4.4.0",
+    "@wormhole-foundation/sdk-connect": "4.4.0",
+    "@wormhole-foundation/sdk-definitions": "4.4.0",
+    "@wormhole-foundation/sdk-evm": "4.4.0",
+    "@wormhole-foundation/sdk-evm-core": "4.4.0",
+    "@wormhole-foundation/sdk-solana": "4.4.0",
+    "@wormhole-foundation/sdk-solana-core": "4.4.0",
+    "@wormhole-foundation/sdk-sui": "4.4.0",
+    "@wormhole-foundation/sdk-sui-core": "4.4.0",
+    "@wormhole-foundation/wormchain-sdk": "0.0.1",
+    "ethers": "6.15.0",
+    "prettier": "3.6.2",
+    "ts-jest": "29.4.2",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
   },
   "workspaces": [
     "sdk/definitions",
@@ -44,8 +53,6 @@
     "cli"
   ],
   "overrides": {
-    "ts-jest": {
-      "@types/jest": "^29.5.12"
-    }
+    "@types/jest": "29.5.14"
   }
 }

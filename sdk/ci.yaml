@@ -13,7 +13,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - 'npm run test:ci && echo "done!" && touch /success'
+            - 'bun run test:ci && echo "done!" && touch /success'
           readinessProbe:
             exec:
               command:
