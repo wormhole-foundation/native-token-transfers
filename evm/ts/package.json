@@ -68,9 +68,9 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.4.0",
-    "@wormhole-foundation/sdk-definitions": "^4.4.0",
-    "@wormhole-foundation/sdk-evm": "^4.4.0",
-    "@wormhole-foundation/sdk-evm-core": "^4.4.0"
+    "@wormhole-foundation/sdk-base": "^4.7.0",
+    "@wormhole-foundation/sdk-definitions": "^4.7.0",
+    "@wormhole-foundation/sdk-evm": "^4.7.0",
+    "@wormhole-foundation/sdk-evm-core": "^4.7.0"
   }
 }
