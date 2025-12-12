@@ -264,5 +264,8 @@ interface INttManager is IManagerBase {
     /// @param limit The new limit. This is formatted in the normal
     ///              token representation. e.g. a limit of 100 for a token with 6 decimals = 100_000_000
     /// @param chainId The Wormhole chain ID to set the limit for.
-    function setInboundLimit(uint256 limit, uint16 chainId) external;
+    function setInboundLimit(
+        uint256 limit,
+        uint16 chainId
+    ) external;
 }

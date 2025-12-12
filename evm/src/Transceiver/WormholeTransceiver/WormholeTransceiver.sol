@@ -26,11 +26,7 @@ import "./WormholeTransceiverState.sol";
 ///
 /// @dev Once a message is received, it is delivered to its corresponding
 ///      NttManager contract.
-contract WormholeTransceiver is
-    IWormholeTransceiver,
-    IWormholeReceiver,
-    WormholeTransceiverState
-{
+contract WormholeTransceiver is IWormholeTransceiver, IWormholeReceiver, WormholeTransceiverState {
     using BytesParsing for bytes;
 
     string public constant WORMHOLE_TRANSCEIVER_VERSION = "1.3.1";
@@ -70,8 +66,10 @@ contract WormholeTransceiver is
         // parse the encoded Transceiver payload
         TransceiverStructs.TransceiverMessage memory parsedTransceiverMessage;
         TransceiverStructs.NttManagerMessage memory parsedNttManagerMessage;
-        (parsedTransceiverMessage, parsedNttManagerMessage) = TransceiverStructs
-            .parseTransceiverAndNttManagerMessage(WH_TRANSCEIVER_PAYLOAD_PREFIX, payload);
+        (parsedTransceiverMessage, parsedNttManagerMessage) =
+            TransceiverStructs.parseTransceiverAndNttManagerMessage(
+                WH_TRANSCEIVER_PAYLOAD_PREFIX, payload
+            );
 
         _deliverToNttManager(
             sourceChainId,
@@ -113,8 +111,10 @@ contract WormholeTransceiver is
         // parse the encoded Transceiver payload
         TransceiverStructs.TransceiverMessage memory parsedTransceiverMessage;
         TransceiverStructs.NttManagerMessage memory parsedNttManagerMessage;
-        (parsedTransceiverMessage, parsedNttManagerMessage) = TransceiverStructs
-            .parseTransceiverAndNttManagerMessage(WH_TRANSCEIVER_PAYLOAD_PREFIX, payload);
+        (parsedTransceiverMessage, parsedNttManagerMessage) =
+            TransceiverStructs.parseTransceiverAndNttManagerMessage(
+                WH_TRANSCEIVER_PAYLOAD_PREFIX, payload
+            );
 
         _deliverToNttManager(
             sourceChain,
