@@ -21,7 +21,7 @@ cluster = "localnet"
 wallet = "keys/test.json"
 
 [scripts]
-test = "npm run test:ci"
+test = "bun run test:ci"
 
 [test]
 startup_wait = 5000

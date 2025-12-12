@@ -34,16 +34,16 @@
   "scripts": {
     "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "npm run build:esm && npm run build:cjs",
-    "rebuild": "npm run clean && npm run build",
+    "build": "bun run build:esm && bun run build:cjs",
+    "rebuild": "bun run clean && bun run build",
     "test": "jest --config ./jest.config.ts",
     "clean": "rm -rf ./dist",
     "prettier": "prettier --write ./src ./__tests__"
   },
   "devDependencies": {
-    "nock": "^13.3.3",
-    "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2"
+    "nock": "13.5.6",
+    "ts-jest": "29.4.2",
+    "ts-node": "10.9.2"
   },
   "dependencies": {
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
@@ -51,8 +51,8 @@
     "@wormhole-foundation/sdk-solana-ntt": "1.0.0"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-connect": "^4.4.0",
-    "axios": "^1.9.0"
+    "@wormhole-foundation/sdk-connect": "4.4.0",
+    "axios": "1.12.2"
   },
   "type": "module",
   "exports": {

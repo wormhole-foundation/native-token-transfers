@@ -6,7 +6,7 @@ import { Ctx, setMessageFee, testHub } from "./utils.js";
 import { ethers } from "ethers";
 
 // Note: Currently, in order for this to run, the evm bindings with extra contracts must be build
-// To do that, at the root, run `npm run generate:test`
+// To do that, at the root, run `bun run generate:test`
 
 // https://github.com/wormhole-foundation/wormhole/blob/347357b251e850a51eca351943cf71423c4f0bc3/scripts/devnet-consts.json#L257
 const ETH_PRIVATE_KEY =
