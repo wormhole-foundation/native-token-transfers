@@ -10,8 +10,9 @@ import "../src/interfaces/IOwnableUpgradeable.sol";
 
 import {ParseNttConfig} from "./helpers/ParseNttConfig.sol";
 import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
-import {WormholeTransceiverState} from
-    "../src/Transceiver/WormholeTransceiver/WormholeTransceiverState.sol";
+import {
+    WormholeTransceiverState
+} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiverState.sol";
 
 contract ConfigureWormholeNtt is ParseNttConfig {
     using stdJson for string;

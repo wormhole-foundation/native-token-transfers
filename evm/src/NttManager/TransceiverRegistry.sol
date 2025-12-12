@@ -159,9 +159,7 @@ abstract contract TransceiverRegistry {
             }
 
             transceiverInfos[transceiver] = TransceiverInfo({
-                registered: true,
-                enabled: true,
-                index: _numTransceivers.registered
+                registered: true, enabled: true, index: _numTransceivers.registered
             });
             _numTransceivers.registered++;
             _getRegisteredTransceiversStorage().push(transceiver);

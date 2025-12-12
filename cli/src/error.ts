@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { colors } from "./colors.js";
 import type { Chain, Network } from "@wormhole-foundation/sdk";
 import { chainToPlatform } from "@wormhole-foundation/sdk-base";
 
@@ -55,7 +55,7 @@ function handleSuiDeploymentError(error: any, rpc: string): boolean {
     return false;
   }
   
-  console.error(chalk.red("\nSui deployment failed\n"));
+  console.error(colors.red("\nSui deployment failed\n"));
   
   let errorMessage = "";
   
@@ -82,7 +82,7 @@ function handleSuiDeploymentError(error: any, rpc: string): boolean {
     errorMessage = error.message;
   }
   
-  console.error(chalk.red(errorMessage || "Unknown deployment error"));
+  console.error(colors.red(errorMessage || "Unknown deployment error"));
   
   return true;
 }
@@ -106,27 +106,27 @@ function handleRpcConnectionError(
 
   const errorMessage = error?.message || String(error);
 
-  console.error(chalk.red(`RPC connection error for ${chain} on ${network}\n`));
-  console.error(chalk.yellow("RPC endpoint:"), chalk.white(rpc));
-  console.error(chalk.yellow("Error:"), errorMessage);
+  console.error(colors.red(`RPC connection error for ${chain} on ${network}\n`));
+  console.error(colors.yellow("RPC endpoint:"), colors.white(rpc));
+  console.error(colors.yellow("Error:"), errorMessage);
   console.error();
   console.error(
-    chalk.yellow(
+    colors.yellow(
       "This error usually means the RPC endpoint is missing, invalid, or unreachable."
     )
   );
   console.error(
-    chalk.yellow(
+    colors.yellow(
       "You can specify a private RPC endpoint by creating an overrides.json file.\n"
     )
   );
   console.error(
-    chalk.cyan("Create a file named ") +
-      chalk.white("overrides.json") +
-      chalk.cyan(" in your project root:")
+    colors.cyan("Create a file named ") +
+      colors.white("overrides.json") +
+      colors.cyan(" in your project root:")
   );
   console.error(
-    chalk.white(`
+    colors.white(`
 {
   "chains": {
     "${chain}": {
@@ -142,7 +142,7 @@ function handleRpcConnectionError(
     const platform = chainToPlatform(chain as any);
     if (platform === "Evm") {
       console.error(
-        chalk.cyan(`Find RPC endpoints for ${chain}: https://chainlist.org`)
+        colors.cyan(`Find RPC endpoints for ${chain}: https://chainlist.org`)
       );
     }
   } catch (e) {
@@ -150,7 +150,7 @@ function handleRpcConnectionError(
   }
 
   console.error(
-    chalk.cyan(
+    colors.cyan(
       `For more information about overrides.json:\n` +
         `  • https://wormhole.com/docs/products/token-transfers/native-token-transfers/faqs/#how-can-i-specify-a-custom-rpc-for-ntt`
     )
@@ -163,30 +163,30 @@ function handleRpcConnectionError(
  * @param error - The error that occurred
  */
 function handleGenericError(error: any): never {
-  console.error(chalk.red("\nDeployment failed\n"));
+  console.error(colors.red("\nDeployment failed\n"));
   
   const errorMessage = error?.message || String(error);
   
   // Show stdout if available
   if (error.stdout) {
-    console.error(chalk.yellow("Output:"));
+    console.error(colors.yellow("Output:"));
     console.error(error.stdout.toString());
   }
   
   // Show stderr if available
   if (error.stderr) {
-    console.error(chalk.yellow("\nError output:"));
+    console.error(colors.yellow("\nError output:"));
     console.error(error.stderr.toString());
   }
   
   // Show message if no stdout/stderr
   if (!error.stdout && !error.stderr) {
-    console.error(chalk.yellow("Error:"), errorMessage);
+    console.error(colors.yellow("Error:"), errorMessage);
     
     // Show stack trace for debugging if available
     if (error.stack) {
-      console.error(chalk.dim("\nStack trace:"));
-      console.error(chalk.dim(error.stack));
+      console.error(colors.dim("\nStack trace:"));
+      console.error(colors.dim(error.stack));
     }
   }
   
@@ -223,6 +223,6 @@ export function logRpcError(
     return;
   }
   const message = error instanceof Error ? error.message : String(error);
-  console.error(chalk.red(`RPC error for ${chain} on ${network}`));
+  console.error(colors.red(`RPC error for ${chain} on ${network}`));
   console.error(message);
 }
