@@ -53,14 +53,14 @@ idl: anchor-build
 
 sdk: anchor-build
 	@echo "Building SDK"
-	cd .. && npm ci && npm run build:solana
+	cd .. && bun ci && bun run build:solana
 
 clean:
 	anchor clean
 	rm -rf .anchor node_modules
 
 node_modules:
-	npm install
+	bun install
 
 
 #######################

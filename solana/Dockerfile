@@ -57,23 +57,25 @@ COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.c
 COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl
 COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types
 
-FROM node:lts-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS governance
+FROM oven/bun:1.3.4-alpine@sha256:1d653098bf847813e26adb2435f932b7cfa3c132a7e25dd5216dbb1f67dbd118 AS governance
 
 WORKDIR /app
 
-# RUN apk add python3
-RUN apk add --no-cache make python3 gcc g++
+RUN apk add --no-cache make python3 gcc g++ jq
 
 COPY tsconfig.json tsconfig.json
 COPY tsconfig.cjs.json tsconfig.cjs.json
 COPY tsconfig.esm.json tsconfig.esm.json
-COPY package.json package.json
-COPY package-lock.json package-lock.json
+# Strip workspaces from package.json (bun is strict about missing workspace dirs, npm wasn't)
+COPY package.json /tmp/package.json
+RUN jq 'del(.workspaces)' /tmp/package.json > package.json
+COPY bun.lock bun.lock
+COPY bunfig.toml bunfig.toml
 COPY sdk sdk
-RUN npm ci
-RUN npm run build
+RUN bun ci
+RUN bun run build
 
 WORKDIR /app/solana
 COPY solana/ts ts
 
-ENTRYPOINT [ "npx", "tsx" ]
+ENTRYPOINT [ "bunx", "tsx" ]

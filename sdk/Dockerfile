@@ -1,4 +1,6 @@
-FROM node:20.11.1-alpine@sha256:f4c96a28c0b2d8981664e03f461c2677152cd9a756012ffa8e2c6727427c2bda
+FROM oven/bun:1.3.4-alpine@sha256:1d653098bf847813e26adb2435f932b7cfa3c132a7e25dd5216dbb1f67dbd118 AS base
+
+RUN apk add --no-cache make python3 gcc g++ jq
 
 WORKDIR /usr/src/
 
@@ -14,12 +16,13 @@ COPY --from=ntt-evm-contract . evm/out
 
 RUN rm -rf evm/out/ts
 
+COPY . ./
+# Strip workspaces from package.json (bun is strict about missing workspace dirs, npm wasn't)
+RUN jq 'del(.workspaces)' package.json > /tmp/package.json && mv /tmp/package.json package.json
+RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.bun \
+  bun ci
 
-COPY . ./ 
-RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.npm \
-  npm ci
-
-RUN npm run build
-RUN npm run generate:test
+RUN bun run build
+RUN bun run generate:test
 
 WORKDIR /usr/src/sdk

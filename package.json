@@ -4,19 +4,19 @@
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "rebuild": "npm run rebuild --workspaces --if-present",
-    "build:solana": "npm run build --workspace=sdk/definitions --workspace=solana",
-    "build:evm": "npm run build --workspace=sdk/definitions --workspace=sdk/evm",
-    "build:sui": "npm run build --workspace=sdk/definitions --workspace=sui/ts",
-    "typecheck:cli": "npm run typecheck --workspace=cli",
-    "generate": "npm run generate --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "build": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '*' build",
+    "rebuild": "bun run --filter '*' rebuild",
+    "build:solana": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '@wormhole-foundation/sdk-solana-ntt' build",
+    "build:evm": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '@wormhole-foundation/sdk-evm-ntt' build",
+    "build:sui": "bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build && bun run --filter '@wormhole-foundation/sdk-sui-ntt' build",
+    "typecheck:cli": "bun run --filter '@wormhole-foundation/ntt-cli' typecheck",
+    "generate": "bun run --filter '*' generate",
+    "test": "bun --workspaces --if-present run test",
     "test:ci": "CI=true jest --config ./jest.config.ts",
     "test:local": "jest --config ./jest.config.ts",
-    "generate:test": "npm run generate:test --workspaces --if-present",
-    "build:deps": "npm run build:contracts --workspaces --if-present && npm run generate",
-    "prettier": "prettier --write .",
+    "generate:test": "bun run --filter '*' generate:test",
+    "build:deps": "bun run --filter '*' build:contracts && bun run generate",
+    "prettier": "bun run --filter '*' prettier",
     "prettier:check": "prettier --check .",
     "version": "tsx setSdkVersion.ts"
   },
@@ -45,8 +45,6 @@
     "cli"
   ],
   "overrides": {
-    "ts-jest": {
-      "@types/jest": "^29.5.12"
-    }
+    "@types/jest": "^29.5.12"
   }
 }
