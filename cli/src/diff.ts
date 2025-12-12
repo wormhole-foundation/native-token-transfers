@@ -105,7 +105,9 @@ export function colorizeDiff(diff: any, indent = 2): string {
       trimmedLine.startsWith('"push"') ||
       trimmedLine.startsWith('"pull"')
     ) {
-      const color = trimmedLine.startsWith('"push"') ? colors.green : colors.red;
+      const color = trimmedLine.startsWith('"push"')
+        ? colors.green
+        : colors.red;
       result += line.replace(trimmedLine, color(trimmedLine)) + "\n";
     } else {
       result += line + "\n";
