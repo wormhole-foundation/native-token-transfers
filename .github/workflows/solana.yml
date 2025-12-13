@@ -33,7 +33,7 @@ jobs:
           echo "::set-output name=version::${SOLANA_VERSION}"
 
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
           toolchain: ${{ steps.toolchain.outputs.version }}
           components: "clippy,rustfmt"
