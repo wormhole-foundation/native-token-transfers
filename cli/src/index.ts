@@ -1444,7 +1444,7 @@ yargs(hideBin(process.argv))
           assertChain(chain);
           const platform = chainToPlatform(chain);
           if (platform === "Evm" && !hasExecutorDeployed(network, chain as EvmChains)) {
-              console.log(chalk.yellow(`On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`));
+              console.log(colors.yellow(`On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`));
           }
       }
       if (fixable > 0) {
@@ -3313,9 +3313,9 @@ ${simulateArg} \
     // Extract error lines from output to show the actual failure reason
     const errorLine = logs.find((l) => l.startsWith("Error:"));
     if (errorLine) {
-      console.error(chalk.red(`\nDeployment failed: ${errorLine}`));
+      console.error(colors.red(`\nDeployment failed: ${errorLine}`));
     } else {
-      console.error(chalk.red("Manager not found in deployment output"));
+      console.error(colors.red("Manager not found in deployment output"));
     }
     process.exit(1);
   }
