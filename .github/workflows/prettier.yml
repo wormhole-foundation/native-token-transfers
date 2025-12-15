@@ -27,4 +27,16 @@ jobs:
       - name: Run Prettier check
         run: npm run prettier:check
 
+      - name: How to fix formatting failures
+        if: failure()
+        run: |
+          echo "::group::Prettier formatting instructions"
+          echo "Prettier found code style issues."
+          echo ""
+          echo "To fix locally, from the repo root run:"
+          echo "  npm run prettier"
+          echo ""
+          echo "Then commit the changes and push to rerun this check."
+          echo "::endgroup::"
+
 
