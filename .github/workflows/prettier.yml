@@ -24,7 +24,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Prettier check 
+      - name: Verify Prettier version
+        run: |
+          echo "Prettier version in CI:"
+          npx prettier --version
+          echo "Expected: 3.6.2 (from package.json)"
+
+      - name: Run Prettier check
         run: |
           npm run prettier:check || {
             echo "Prettier found code style issues."
