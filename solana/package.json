@@ -71,9 +71,9 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.4.0",
-    "@wormhole-foundation/sdk-definitions": "^4.4.0",
-    "@wormhole-foundation/sdk-solana": "^4.4.0",
-    "@wormhole-foundation/sdk-solana-core": "^4.4.0"
+    "@wormhole-foundation/sdk-base": "^4.7.0",
+    "@wormhole-foundation/sdk-definitions": "^4.7.0",
+    "@wormhole-foundation/sdk-solana": "^4.7.0",
+    "@wormhole-foundation/sdk-solana-core": "^4.7.0"
   }
 }
