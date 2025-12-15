@@ -43,10 +43,10 @@ import {
   fetchSignedQuote,
   fetchStatus,
   isRelayStatusFailed,
+  getNativeRecipientAddress,
 } from "./utils.js";
 import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
-  AccountAddress,
   isNative,
   relayInstructionsLayout,
   signedQuoteLayout,
@@ -579,49 +579,11 @@ export class NttExecutorRoute<N extends Network>
     }
 
     const toChain = this.wh.getChain(receipt.to);
-    let recipient: AccountAddress<Chain> | undefined;
 
-    // When redeeming on Stacks, we need to get the pre-hashed recipient address
-    // from the StacksNttReceiveInstruction in case it needs to be registered.
-    if (receipt.to === "Stacks") {
-      const [txStatus] = await fetchStatus(
-        this.wh.network,
-        receipt.originTxs.at(-1)!.txid,
-        receipt.from
-      );
-
-      if (!txStatus) {
-        throw new Error("Failed to fetch transaction status");
-      }
-
-      const { relayInstructionsBytes } = txStatus.requestForExecution;
-
-      const relayInstructionsDecoded = encoding.hex.decode(
-        relayInstructionsBytes
-      );
-
-      const relayInstructions = deserializeLayout(
-        relayInstructionsLayout,
-        relayInstructionsDecoded
-      );
-
-      const stacksInstruction = relayInstructions.requests.find(
-        ({ request }) => request.type === "StacksNttReceiveInstruction"
-      );
-
-      if (
-        !stacksInstruction ||
-        stacksInstruction.request.type !== "StacksNttReceiveInstruction"
-      ) {
-        throw new Error(
-          "No StacksNttReceiveInstruction found in relay instructions"
-        );
-      }
-
-      const recipientBytes = stacksInstruction.request.recipient;
-      const recipientAddress = encoding.bytes.decode(recipientBytes);
-      recipient = Wormhole.parseAddress(receipt.to, recipientAddress);
-    }
+    const recipientAddress = await getNativeRecipientAddress(
+      this.wh.network,
+      receipt
+    );
 
     const ntt = await toChain.getProtocol("Ntt", {
       ntt: receipt.params.normalizedParams.destinationContracts,
@@ -630,7 +592,7 @@ export class NttExecutorRoute<N extends Network>
     const completeXfer = ntt.redeem(
       [receipt.attestation.attestation],
       sender,
-      recipient
+      recipientAddress
     );
 
     const txids = await signSendWait(toChain, completeXfer, signer);

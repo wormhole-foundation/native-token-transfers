@@ -41,10 +41,10 @@
       "@wormhole-foundation/sdk-solana-core": "^4.7.0"
     },
     "@wormhole-foundation/sdk-stacks-ntt": {
-      "@wormhole-foundation/sdk-base": "^4.4.0",
-      "@wormhole-foundation/sdk-definitions": "^4.4.0",
-      "@wormhole-foundation/sdk-stacks": "^4.4.0",
-      "@wormhole-foundation/sdk-stacks-core": "^4.4.0"
+      "@wormhole-foundation/sdk-base": "^4.7.0",
+      "@wormhole-foundation/sdk-definitions": "^4.7.0",
+      "@wormhole-foundation/sdk-stacks": "^4.7.0",
+      "@wormhole-foundation/sdk-stacks-core": "^4.7.0"
     },
     "@wormhole-foundation/sdk-sui-ntt": {
       "@wormhole-foundation/sdk-base": "^4.7.0",
