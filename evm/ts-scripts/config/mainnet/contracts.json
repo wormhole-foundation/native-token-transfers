@@ -175,6 +175,10 @@
     {
       "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
       "chainId": 57
+    },
+    {
+      "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
+      "chainId": 64
     }
   ]
 }

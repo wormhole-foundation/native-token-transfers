@@ -42,6 +42,12 @@
       "evmNetworkId": 1440000,
       "chainId": 57,
       "rpc": "https://rpc.xrplevm.org"
+    },
+    {
+      "description": "MegaETH",
+      "evmNetworkId": 4326,
+      "chainId": 64,
+      "rpc": "http://localhost:50444"
     }
   ]
 }
