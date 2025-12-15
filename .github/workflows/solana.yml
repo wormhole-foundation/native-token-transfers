@@ -1,11 +1,11 @@
 name: Solana CI
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Prettier
-    types:
-      - completed
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
 
 defaults:
   run:
@@ -13,7 +13,6 @@ defaults:
 
 jobs:
   solana-sbf:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     name: Solana Cargo SBF
     runs-on: tilt-kube-public
     env:
@@ -87,7 +86,6 @@ jobs:
           cargo test --features "mainnet"
 
   check-version:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     name: Check version
     runs-on: ubuntu-latest
     steps:
@@ -97,7 +95,6 @@ jobs:
         shell: bash
 
   anchor-test:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     name: Anchor Test
     runs-on: ubuntu-latest
     env:

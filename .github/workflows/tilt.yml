@@ -2,15 +2,13 @@ name: Tilt CI
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Prettier
-    types:
-      - completed
+  pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
   tilt:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: tilt-kube-public
 
     # Cancel previous builds on the same branch/ref. Full runs are expensive

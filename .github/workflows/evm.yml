@@ -2,11 +2,10 @@ name: EVM CI
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Prettier
-    types:
-      - completed
+  pull_request:
+  push:
+    branches:
+      - main
 
 env:
   FOUNDRY_PROFILE: ci
@@ -17,7 +16,6 @@ defaults:
 
 jobs:
   check:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     strategy:
       fail-fast: true
 
@@ -53,7 +51,6 @@ jobs:
           make size-test
 
   echidna:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     name: echidna
     runs-on: ubuntu-latest
     steps:

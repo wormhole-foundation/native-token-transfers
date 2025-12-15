@@ -2,22 +2,19 @@ name: CLI
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Prettier
-    types:
-      - completed
+  pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
   test-evm:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - run: docker build -f Dockerfile.cli --target cli-local-test . --progress=plain
 
   test-solana:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: tilt-kube-public
     steps:
       - uses: actions/checkout@v5
