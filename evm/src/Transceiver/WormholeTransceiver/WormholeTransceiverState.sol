@@ -6,10 +6,12 @@ import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 
 import "../../libraries/TransceiverHelpers.sol";
 import "../../libraries/TransceiverStructs.sol";
+import "../../libraries/ConfigMakers.sol";
 
 import "../../interfaces/IWormholeTransceiver.sol";
 import "../../interfaces/IWormholeTransceiverState.sol";
 import "../../interfaces/INttManager.sol";
+import "../../interfaces/ICustomConsistencyLevel.sol";
 
 import "../Transceiver.sol";
 
@@ -18,6 +20,9 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
 
     // ==================== Immutables ===============================================
     uint8 public immutable consistencyLevel;
+    uint8 public immutable customConsistencyLevel;
+    uint16 public immutable addtlBlocks;
+    address public immutable customConsistencyLevelAddress;
     IWormhole public immutable wormhole;
     /// @dev We don't check this in `_checkImmutables` since it's set at construction
     ///      through `block.chainid`.
@@ -45,11 +50,17 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         address nttManager,
         address wormholeCoreBridge,
         uint8 _consistencyLevel,
+        uint8 _customConsistencyLevel,
+        uint16 _addtlBlocks,
+        address _customConsistencyLevelAddress,
         uint256 _gasLimit
     ) Transceiver(nttManager) {
         wormhole = IWormhole(wormholeCoreBridge);
         wormholeTransceiver_evmChainId = block.chainid;
         consistencyLevel = _consistencyLevel;
+        customConsistencyLevel = _customConsistencyLevel;
+        addtlBlocks = _addtlBlocks;
+        customConsistencyLevelAddress = _customConsistencyLevelAddress;
         gasLimit = _gasLimit;
     }
 
@@ -70,6 +81,14 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
             tokenAddress: toWormholeFormat(nttManagerToken),
             tokenDecimals: INttManager(nttManager).tokenDecimals()
         });
+
+        // Configure CustomConsistencyLevel if consistency level is 203
+        if (consistencyLevel == 203) {
+            bytes32 config =
+                ConfigMakers.makeAdditionalBlocksConfig(customConsistencyLevel, addtlBlocks);
+            ICustomConsistencyLevel(customConsistencyLevelAddress).configure(config);
+        }
+
         wormhole.publishMessage{value: msg.value}(
             0, TransceiverStructs.encodeTransceiverInit(init), consistencyLevel
         );

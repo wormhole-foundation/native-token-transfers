@@ -6,9 +6,11 @@ import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 
 import "../../libraries/TransceiverHelpers.sol";
 import "../../libraries/TransceiverStructs.sol";
+import "../../libraries/ConfigMakers.sol";
 
 import "../../interfaces/IWormholeTransceiver.sol";
 import "../../interfaces/INttManager.sol";
+import "../../interfaces/ICustomConsistencyLevel.sol";
 
 import "./WormholeTransceiverState.sol";
 
@@ -33,8 +35,21 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
         address nttManager,
         address wormholeCoreBridge,
         uint8 _consistencyLevel,
+        uint8 _customConsistencyLevel,
+        uint16 _addtlBlocks,
+        address _customConsistencyLevelAddress,
         uint256 _gasLimit
-    ) WormholeTransceiverState(nttManager, wormholeCoreBridge, _consistencyLevel, _gasLimit) {}
+    )
+        WormholeTransceiverState(
+            nttManager,
+            wormholeCoreBridge,
+            _consistencyLevel,
+            _customConsistencyLevel,
+            _addtlBlocks,
+            _customConsistencyLevelAddress,
+            _gasLimit
+        )
+    {}
 
     // ==================== External Interface ===============================================
 

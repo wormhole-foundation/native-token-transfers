@@ -78,6 +78,11 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             shouldSkipRatelimiter: false,
             wormholeCoreBridge: wormhole,
             consistencyLevel: uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL")),
+            customConsistencyLevel: uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0))),
+            addtlBlocks: uint16(vm.envOr("RELEASE_ADDTL_BLOCKS", uint256(0))),
+            customConsistencyLevelAddress: vm.envOr(
+                "RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0)
+            ),
             gasLimit: vm.envUint("RELEASE_GAS_LIMIT"),
             outboundLimit: uint256(type(uint64).max) * scale
         });
