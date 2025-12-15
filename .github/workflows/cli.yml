@@ -2,32 +2,22 @@ name: CLI
 
 on:
   workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - Prettier
+    types:
+      - completed
 
 jobs:
-  prettier:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run prettier:check
-
   test-evm:
-    needs: prettier
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - run: docker build -f Dockerfile.cli --target cli-local-test . --progress=plain
 
   test-solana:
-    needs: prettier
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: tilt-kube-public
     steps:
       - uses: actions/checkout@v5

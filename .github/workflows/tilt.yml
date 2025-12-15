@@ -2,25 +2,15 @@ name: Tilt CI
 
 on:
   workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - Prettier
+    types:
+      - completed
 
 jobs:
-  prettier:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run prettier:check
-
   tilt:
-    needs: prettier
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: tilt-kube-public
 
     # Cancel previous builds on the same branch/ref. Full runs are expensive
