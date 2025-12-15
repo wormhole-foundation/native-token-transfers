@@ -98,9 +98,7 @@ import type {
   EvmNttWormholeTranceiver,
 } from "@wormhole-foundation/sdk-evm-ntt";
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
-import type {
-  EvmChains,
-} from "@wormhole-foundation/sdk-evm";
+import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
 import { createTokenTransferCommand } from "./tokenTransfer";
@@ -1448,11 +1446,18 @@ yargs(hideBin(process.argv))
 
       // Check executor availability for EVM chains
       for (const [chain, deployment] of Object.entries(deps)) {
-          assertChain(chain);
-          const platform = chainToPlatform(chain);
-          if (platform === "Evm" && !hasExecutorDeployed(network, chain as EvmChains)) {
-              console.log(colors.yellow(`On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`));
-          }
+        assertChain(chain);
+        const platform = chainToPlatform(chain);
+        if (
+          platform === "Evm" &&
+          !hasExecutorDeployed(network, chain as EvmChains)
+        ) {
+          console.log(
+            colors.yellow(
+              `On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`
+            )
+          );
+        }
       }
       if (fixable > 0) {
         console.error(

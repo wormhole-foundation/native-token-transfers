@@ -272,6 +272,9 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
  * @param chain - The EVM chain (e.g., 'Arbitrum', 'ArbitrumSepolia')
  * @returns true if an executor address exists for this network/chain combination
  */
-export function hasExecutorDeployed(network: Network, chain: EvmChains): boolean {
+export function hasExecutorDeployed(
+  network: Network,
+  chain: EvmChains
+): boolean {
   return nttManagerWithExecutorAddresses[network]?.[chain] !== undefined;
 }
