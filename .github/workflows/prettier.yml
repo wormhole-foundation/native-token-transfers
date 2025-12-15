@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Prettier check
+      - name: Run Prettier check 
         run: |
           npm run prettier:check || {
             echo "Prettier found code style issues."
