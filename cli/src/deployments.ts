@@ -12,7 +12,7 @@ export type ChainConfig = {
   token: string;
   transceivers: {
     threshold: number;
-    wormhole: { address: string; pauser?: string };
+    wormhole: { address: string; pauser?: string};
   };
   limits: {
     outbound: string;
