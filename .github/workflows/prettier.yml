@@ -18,8 +18,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -27,15 +27,11 @@ jobs:
       - name: Run Prettier check
         run: |
           npm run prettier:check || {
-            echo "::group::Prettier formatting instructions"
             echo "Prettier found code style issues."
-            echo ""
+            echo
             echo "To fix locally, from the repo root run:"
             echo "  npm run prettier"
-            echo ""
+            echo
             echo "Then commit the changes and push to rerun this check."
-            echo "::endgroup::"
             exit 1
           }
-
-

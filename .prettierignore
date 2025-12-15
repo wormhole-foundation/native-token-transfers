@@ -3,6 +3,9 @@ solana/ts/idl/**
 solana/tilt/**
 solana/keys/**
 
+# generated typechain contracts
+evm/ts/src/ethers-contracts/**
+
 sdk/examples/tsconfig.json
 
 solana/tsconfig*.json
