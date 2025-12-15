@@ -8,7 +8,19 @@ on:
       - main
 
 jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run prettier:check
+
   tilt:
+    needs: prettier
     runs-on: tilt-kube-public
 
     # Cancel previous builds on the same branch/ref. Full runs are expensive

@@ -15,7 +15,19 @@ defaults:
     working-directory: ./evm
 
 jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run prettier:check
+
   check:
+    needs: prettier
     strategy:
       fail-fast: true
 
@@ -51,6 +63,7 @@ jobs:
           make size-test
 
   echidna:
+    needs: prettier
     name: echidna
     runs-on: ubuntu-latest
     steps:

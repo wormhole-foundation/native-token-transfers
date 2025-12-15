@@ -8,13 +8,26 @@ on:
       - main
 
 jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run prettier:check
+
   test-evm:
+    needs: prettier
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - run: docker build -f Dockerfile.cli --target cli-local-test . --progress=plain
 
   test-solana:
+    needs: prettier
     runs-on: tilt-kube-public
     steps:
       - uses: actions/checkout@v5

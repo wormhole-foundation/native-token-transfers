@@ -12,7 +12,19 @@ defaults:
     working-directory: ./solana
 
 jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run prettier:check
+
   solana-sbf:
+    needs: prettier
     name: Solana Cargo SBF
     runs-on: tilt-kube-public
     env:
@@ -86,6 +98,7 @@ jobs:
           cargo test --features "mainnet"
 
   check-version:
+    needs: prettier
     name: Check version
     runs-on: ubuntu-latest
     steps:
@@ -95,6 +108,7 @@ jobs:
         shell: bash
 
   anchor-test:
+    needs: prettier
     name: Anchor Test
     runs-on: ubuntu-latest
     env:

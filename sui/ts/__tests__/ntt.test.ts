@@ -561,9 +561,8 @@ describe("SuiNtt", () => {
           .mockReturnValue(mockTxGenerator as any);
 
         const txGenerator = suiNtt.setTransceiverPeer(0, peerAddress);
-        const { value: unsignedTx } = await txGenerator[
-          Symbol.asyncIterator
-        ]().next();
+        const { value: unsignedTx } =
+          await txGenerator[Symbol.asyncIterator]().next();
 
         expect(unsignedTx).toBeDefined();
         expect(unsignedTx.description).toBe("Set Transceiver Peer");
@@ -685,9 +684,8 @@ describe("SuiNtt", () => {
             .mockReturnValue(mockTxGenerator as any);
 
           const txGenerator = transceiver.setPeer(peerAddress);
-          const { value: unsignedTx } = await txGenerator[
-            Symbol.asyncIterator
-          ]().next();
+          const { value: unsignedTx } =
+            await txGenerator[Symbol.asyncIterator]().next();
 
           expect(unsignedTx).toBeDefined();
           expect(unsignedTx.description).toBe("Set Transceiver Peer");

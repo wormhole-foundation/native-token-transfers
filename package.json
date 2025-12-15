@@ -17,6 +17,7 @@
     "generate:test": "npm run generate:test --workspaces --if-present",
     "build:deps": "npm run build:contracts --workspaces --if-present && npm run generate",
     "prettier": "npm run prettier --workspaces --if-present",
+    "prettier:check": "prettier --check .",
     "version": "tsx setSdkVersion.ts"
   },
   "devDependencies": {
