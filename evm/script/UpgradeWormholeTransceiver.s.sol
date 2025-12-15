@@ -17,6 +17,9 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
         uint16 wormholeChainId;
         address wormholeCoreBridge;
         uint8 consistencyLevel;
+        uint8 customConsistencyLevel;
+        uint16 addtlBlocks;
+        address customConsistencyLevelAddress;
         uint256 gasLimit;
         uint256 outboundLimit;
     }
@@ -34,9 +37,10 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
         WormholeTransceiver implementation = new WormholeTransceiver(
             nttManager,
             params.wormholeCoreBridge,
-            address(0),
-            address(0),
             params.consistencyLevel,
+            params.customConsistencyLevel,
+            params.addtlBlocks,
+            params.customConsistencyLevelAddress,
             params.gasLimit
         );
 
@@ -55,8 +59,13 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
         params.wormholeCoreBridge = vm.envAddress("RELEASE_CORE_BRIDGE_ADDRESS");
         require(params.wormholeCoreBridge != address(0), "Invalid wormhole core bridge address");
 
-        // Consistency level.
+        // Consistency level and CCL parameters.
         params.consistencyLevel = uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL"));
+        params.customConsistencyLevel =
+            uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0)));
+        params.addtlBlocks = uint16(vm.envOr("RELEASE_ADDTL_BLOCKS", uint256(0)));
+        params.customConsistencyLevelAddress =
+            vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
 
         params.gasLimit = vm.envUint("RELEASE_GAS_LIMIT");
         require(params.gasLimit >= MIN_WORMHOLE_GAS_LIMIT, "Invalid gas limit");

@@ -14,12 +14,14 @@ import {
     WormholeTransceiver
 } from "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-
-interface IWormhole {
-    function messageFee() external view returns (uint256);
-}
+import {IWormhole} from "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 
 contract DeployWormholeNttBase is ParseNttConfig {
+    /// @notice Parameters for deploying NTT contracts
+    /// @dev Custom Consistency Level (CCL) is enabled when consistencyLevel=203.
+    ///      CCL parameters: customConsistencyLevel (200/201/202), addtlBlocks, customConsistencyLevelAddress
+    ///      Example: consistencyLevel=203, customConsistencyLevel=200, addtlBlocks=3
+    ///               → Wait 3 blocks after instant finality
     struct DeploymentParams {
         address token;
         IManagerBase.Mode mode;
@@ -27,7 +29,10 @@ contract DeployWormholeNttBase is ParseNttConfig {
         uint64 rateLimitDuration;
         bool shouldSkipRatelimiter;
         address wormholeCoreBridge;
-        uint8 consistencyLevel;
+        uint8 consistencyLevel; // Set to 203 to enable CCL
+        uint8 customConsistencyLevel; // CCL only: finality level to start counting (200/201/202)
+        uint16 addtlBlocks; // CCL only: additional blocks to wait
+        address customConsistencyLevelAddress; // CCL only: CCL contract address
         uint256 gasLimit;
         uint256 outboundLimit;
     }
@@ -97,9 +102,10 @@ contract DeployWormholeNttBase is ParseNttConfig {
         WormholeTransceiver implementation = new WormholeTransceiver(
             nttManager,
             params.wormholeCoreBridge,
-            address(0),
-            address(0),
             params.consistencyLevel,
+            params.customConsistencyLevel,
+            params.addtlBlocks,
+            params.customConsistencyLevelAddress,
             params.gasLimit
         );
 
@@ -162,8 +168,11 @@ contract DeployWormholeNttBase is ParseNttConfig {
         params.wormholeCoreBridge = vm.envAddress("RELEASE_CORE_BRIDGE_ADDRESS");
         require(params.wormholeCoreBridge != address(0), "Invalid wormhole core bridge address");
 
-        // Consistency level.
+        // Consistency level and custom consistency level parameters.
         params.consistencyLevel = uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL"));
+        params.customConsistencyLevel = uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0)));
+        params.addtlBlocks = uint16(vm.envOr("RELEASE_ADDTL_BLOCKS", uint256(0)));
+        params.customConsistencyLevelAddress = vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
 
         params.gasLimit = vm.envUint("RELEASE_GAS_LIMIT");
         require(params.gasLimit >= MIN_WORMHOLE_GAS_LIMIT, "Invalid gas limit");
