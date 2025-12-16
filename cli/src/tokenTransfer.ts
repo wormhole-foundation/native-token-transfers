@@ -35,7 +35,10 @@ import {
   NttRoute,
   nttExecutorRoute,
 } from "@wormhole-foundation/sdk-route-ntt";
-import type { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
+import type {
+  Ntt,
+  NttWithExecutor,
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-sui-ntt";
@@ -103,8 +106,7 @@ export function createTokenTransferCommand(
           demandOption: true,
         })
         .option("destination-address", {
-          describe:
-            "Destination wallet address in canonical format.",
+          describe: "Destination wallet address in canonical format.",
           type: "string",
           demandOption: true,
         })
@@ -299,7 +301,9 @@ async function executeTokenTransfer(
   const configuredChainEntries = Object.entries(deployments.chains).filter(
     (entry): entry is [string, ChainConfig] => entry[1] !== undefined
   );
-  const configuredChains = configuredChainEntries.map(([chain]) => chain as Chain);
+  const configuredChains = configuredChainEntries.map(
+    ([chain]) => chain as Chain
+  );
 
   if (configuredChains.length === 0) {
     throw new TokenTransferError(
@@ -392,12 +396,7 @@ async function executeTokenTransfer(
     destinationAddressInput
   );
 
-  const decimals = await resolveTokenDecimals(
-    wh,
-    tokenId,
-    sourceCtx,
-    network
-  );
+  const decimals = await resolveTokenDecimals(wh, tokenId, sourceCtx, network);
 
   let transferAmount: bigint;
   try {
@@ -448,12 +447,12 @@ async function executeTokenTransfer(
 
   let contractsByChain: Map<Chain, Ntt.Contracts>;
   try {
-    contractsByChain = buildContractsByChain(deployments.chains, deploymentPath);
-  } catch (error) {
-    fail(
-      error instanceof Error ? error.message : String(error),
-      error
+    contractsByChain = buildContractsByChain(
+      deployments.chains,
+      deploymentPath
     );
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error), error);
   }
 
   getContractsForChain(contractsByChain, sourceChainInput, deploymentPath);
@@ -500,15 +499,11 @@ async function executeTokenTransfer(
         : "Unknown validation error";
     throw new TokenTransferError(`Transfer validation failed: ${reason}`);
   }
-  const validatedParams =
-    validation.params as NttExecutorRoute.ValidatedParams;
+  const validatedParams = validation.params as NttExecutorRoute.ValidatedParams;
 
   let quoteResult;
   try {
-    quoteResult = await routeInstance.quote(
-      transferRequest,
-      validatedParams
-    );
+    quoteResult = await routeInstance.quote(transferRequest, validatedParams);
   } catch (error) {
     fail(
       `Failed to fetch execution quote between ${sourceChainInput} and ${destinationChainInput}`,
@@ -552,23 +547,16 @@ async function executeTokenTransfer(
   console.log(
     `Source address: ${colors.cyan(sourceSigner.address.address.toString())}`
   );
-  const destinationAddressDisplay = Wormhole.canonicalAddress(
-    destinationAddress
-  );
-  console.log(
-    `Destination address: ${colors.cyan(destinationAddressDisplay)}`
-  );
+  const destinationAddressDisplay =
+    Wormhole.canonicalAddress(destinationAddress);
+  console.log(`Destination address: ${colors.cyan(destinationAddressDisplay)}`);
   console.log(
     `Source token: ${colors.cyan(
       sourceDeployment.token
     )} (decimals: ${decimals.toString()})`
   );
-  console.log(
-    `Destination token: ${colors.cyan(destinationDeployment.token)}`
-  );
-  console.log(
-    `Estimated destination amount: ${estimatedDestinationAmount}`
-  );
+  console.log(`Destination token: ${colors.cyan(destinationDeployment.token)}`);
+  console.log(`Estimated destination amount: ${estimatedDestinationAmount}`);
   if (quoteResult.relayFee) {
     console.log(
       `Estimated relay fee (${quoteResult.relayFee.token.chain} native): ${amount.display(
@@ -637,10 +625,7 @@ async function executeTokenTransfer(
       destinationAddress
     )) as NttExecutorRoute.TransferReceipt;
   } catch (error) {
-    if (
-      sourcePlatform === "Sui" &&
-      isUnsupportedSuiDestinationError(error)
-    ) {
+    if (sourcePlatform === "Sui" && isUnsupportedSuiDestinationError(error)) {
       throw new TokenTransferError(
         `Sui transfers on Testnet are currently limited to Solana and Avalanche destinations. ${destinationChainInput} is not yet supported.`
       );
@@ -660,9 +645,7 @@ async function executeTokenTransfer(
   if (originTxs.length > 0) {
     originTxs.forEach((tx: TransactionId, index: number) => {
       const label =
-        index === 0
-          ? "Source transaction"
-          : `Source transaction #${index + 1}`;
+        index === 0 ? "Source transaction" : `Source transaction #${index + 1}`;
       console.log(`${label}: ${colors.cyan(tx.txid.toString())}`);
     });
   }
@@ -673,11 +656,9 @@ async function executeTokenTransfer(
       `Waiting for attestation (timeout ${Math.floor(timeoutMs / 1000)} seconds)...`
     );
     try {
-    const vaa = await withRetryStatus(
-      /Retrying Wormholescan/i,
-      async () =>
+      const vaa = await withRetryStatus(/Retrying Wormholescan/i, async () =>
         wh.getVaa(sourceTxId, "Ntt:WormholeTransfer", timeoutMs)
-    );
+      );
       if (vaa) {
         console.log(
           `Attestation sequence: ${colors.cyan(vaa.sequence.toString())}`
@@ -826,9 +807,8 @@ function applyMsgValueOverride(
   } else if (!config.referrerFee.perTokenOverrides) {
     config.referrerFee.perTokenOverrides = {};
   }
-  const perTokenOverrides =
-    (config.referrerFee.perTokenOverrides ??=
-      {} as NonNullable<ReferrerFeeConfig["perTokenOverrides"]>);
+  const perTokenOverrides = (config.referrerFee.perTokenOverrides ??=
+    {} as NonNullable<ReferrerFeeConfig["perTokenOverrides"]>);
   const canonicalToken = canonicalAddress(token);
   const chainOverrides = (perTokenOverrides[token.chain] ??=
     {} as PerTokenOverrides);
@@ -849,8 +829,7 @@ async function confirmMainnetTransfer(
     input: process.stdin,
     output: process.stdout,
   });
-  const unitDescriptor =
-    platform === "Solana" ? "lamports" : "base units";
+  const unitDescriptor = platform === "Solana" ? "lamports" : "base units";
   const prompt = [
     "",
     colors.yellow(
@@ -859,7 +838,7 @@ async function confirmMainnetTransfer(
     colors.yellow(
       `Confirm this amount is expressed in human-readable units (not ${unitDescriptor}).`
     ),
-    "Type \"yes\" (or \"y\") to continue: ",
+    'Type "yes" (or "y") to continue: ',
   ].join("\n");
   return new Promise((resolve) => {
     let settled = false;
@@ -909,9 +888,7 @@ function formatQuoteWarning(warning: QuoteWarning): string {
 /**
  * Runtime type guard ensuring quote details include executor fee fields.
  */
-function isExecutorQuote(
-  value: unknown
-): value is NttWithExecutor.Quote {
+function isExecutorQuote(value: unknown): value is NttWithExecutor.Quote {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -1141,8 +1118,10 @@ function applyRpcOverrides<N extends Network>(
     },
   };
   type ChainOverrideEntry = Record<string, unknown> & { rpc?: string };
-  const chainsOverrides =
-    (cloned.chains ?? (cloned.chains = {})) as Record<Chain, ChainOverrideEntry>;
+  const chainsOverrides = (cloned.chains ?? (cloned.chains = {})) as Record<
+    Chain,
+    ChainOverrideEntry
+  >;
 
   for (const arg of rpcArgs) {
     if (typeof arg !== "string") {

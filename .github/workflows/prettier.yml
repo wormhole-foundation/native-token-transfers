@@ -1,0 +1,50 @@
+name: Prettier
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Prettier version
+        run: |
+          EXPECTED_VERSION=$(node -p "require('./package.json').devDependencies.prettier")
+          ACTUAL_VERSION=$(npx prettier --version)
+          echo "Expected Prettier version (from package.json): $EXPECTED_VERSION"
+          echo "Actual Prettier version: $ACTUAL_VERSION"
+          if [ "$EXPECTED_VERSION" != "$ACTUAL_VERSION" ]; then
+            echo "Error: Prettier version mismatch!"
+            echo "This usually means package-lock.json is out of sync with package.json - try running 'npm install' locally and committing the updated package-lock.json"
+            exit 1
+          fi
+          echo "✓ Prettier version matches"
+
+      - name: Run Prettier check
+        run: |
+          npm run prettier:check || {
+            echo "Prettier found code style issues."
+            echo
+            echo "To fix locally, from the repo root run:"
+            echo "  npm run prettier"
+            echo
+            echo "Then commit the changes and push to rerun this check."
+            exit 1
+          }

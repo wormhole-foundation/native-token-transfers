@@ -130,7 +130,7 @@
 - **Description**: Allows immediate halt of operations if vulnerabilities are discovered
 - **Enforcement**: Pause state with operation blocking modifiers/constraints
 - **Error Codes**: `Paused` (Solana), **MISSING** (Sui)
-- **Code Reference**: 
+- **Code Reference**:
   - `whenNotPaused` modifier (EVM)
   - `NotPausedConfig` constraint (Solana)
   - `paused` field in `State` struct (Sui)
@@ -141,9 +141,9 @@
 - **Description**: Prevents unauthorized disruption of service
 - **Enforcement**: Access control on pause actions
 - **Error Codes**: `NotPaused` (Solana), `EPaused` (Sui)
-- **Code Reference**: 
+- **Code Reference**:
   - `onlyOwnerOrPauser` (EVM) -- supports pausing by both Owner and Pauser roles
-  - owner constraint (Solana), 
+  - owner constraint (Solana),
   - `AdminCap` (Sui)
 
 ## Upgrade Safety

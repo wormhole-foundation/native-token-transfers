@@ -47,7 +47,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Seievm: "0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445",
     CreditCoin: "0x5454b995719626256C96fb57454b044ffb3Da2F9",
     Monad: "0xc3F3dDa544815a440633176c7598f5B97500793e",
-    MegaETH: "0x3EFEc0c7Ee79135330DD03e995872f84b1AD49b6"
+    MegaETH: "0x3EFEc0c7Ee79135330DD03e995872f84b1AD49b6",
   },
   Testnet: {
     ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
@@ -79,6 +79,7 @@ const gasLimitOverrides: Partial<
     Arbitrum: 800_000n,
     CreditCoin: 1_500_000n,
     Monad: 1_000_000n,
+    MegaETH: 1_000_000n,
   },
   Testnet: {
     ArbitrumSepolia: 800_000n,
@@ -263,4 +264,17 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     const gasLimit = gasLimitOverrides[this.network]?.[this.chain] ?? 500_000n;
     return { msgValue: 0n, gasLimit };
   }
+}
+
+/**
+ * Check if an executor (NttWithExecutor) is deployed for a given network and chain combination
+ * @param network - The network (e.g., 'Mainnet', 'Testnet')
+ * @param chain - The EVM chain (e.g., 'Arbitrum', 'ArbitrumSepolia')
+ * @returns true if an executor address exists for this network/chain combination
+ */
+export function hasExecutorDeployed(
+  network: Network,
+  chain: EvmChains
+): boolean {
+  return nttManagerWithExecutorAddresses[network]?.[chain] !== undefined;
 }

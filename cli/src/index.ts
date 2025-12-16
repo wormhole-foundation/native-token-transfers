@@ -59,6 +59,7 @@ import type {
   Ntt,
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
+import { hasExecutorDeployed } from "@wormhole-foundation/sdk-evm-ntt";
 
 import {
   type SolanaChains,
@@ -76,10 +77,7 @@ export type { Deployment } from "./validation";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
-const EXCLUDED_DIFF_PATHS = [
-  "transceivers.wormhole.executor",
-  "managerVariant",
-];
+const EXCLUDED_DIFF_PATHS = ["managerVariant"];
 
 // Helper functions for nested object access
 function getNestedValue(obj: any, path: string[]): any {
@@ -101,16 +99,12 @@ import type {
   EvmNttWormholeTranceiver,
 } from "@wormhole-foundation/sdk-evm-ntt";
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
-import type {
-  EvmChains,
-  EvmNativeSigner,
-  EvmUnsignedTransaction,
-} from "@wormhole-foundation/sdk-evm";
+import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
 import { createTokenTransferCommand } from "./tokenTransfer";
-import { AbiCoder, ethers, Interface } from "ethers";
-import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
+import { ethers, Interface } from "ethers";
+import { newSignSendWaiter } from "./signSendWait.js";
 import {
   collectMissingConfigs,
   printMissingConfigReport,
@@ -118,10 +112,6 @@ import {
   validatePayerOption,
 } from "./validation";
 import type { Deployment } from "./validation";
-
-// TODO: contract upgrades on solana
-// TODO: set special relaying?
-// TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
@@ -401,7 +391,7 @@ async function withDeploymentScript<A>(
       // - --strip-components=2 removes both "evm/" and "script/" path prefixes
       execSync(
         `git archive 3f56da6541eb9d09f84cc676391e6fbc5b687dd7 evm/script | tar -x -C "${absoluteTempDir}" --strip-components=2`,
-        { cwd: process.cwd(), stdio: 'pipe' }
+        { cwd: process.cwd(), stdio: "pipe" }
       );
 
       // Replace the script directory with the extracted version
@@ -444,7 +434,9 @@ function detectDeployScriptVersion(pwd: string): number {
   const scriptContent = fs.readFileSync(scriptPath, "utf8");
 
   // Look for DEPLOY_SCRIPT_VERSION comment
-  const versionMatch = scriptContent.match(/\/\/\s*DEPLOY_SCRIPT_VERSION:\s*(\d+)/);
+  const versionMatch = scriptContent.match(
+    /\/\/\s*DEPLOY_SCRIPT_VERSION:\s*(\d+)/
+  );
 
   if (versionMatch) {
     return parseInt(versionMatch[1], 10);
@@ -640,11 +632,6 @@ yargs(hideBin(process.argv))
         .option("local", options.local)
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
-        .option("executor", {
-          describe: "Use executor mode",
-          type: "boolean",
-          default: true,
-        })
         .option("manager-variant", {
           describe: "NttManager variant to deploy (EVM only)",
           type: "string",
@@ -662,10 +649,6 @@ yargs(hideBin(process.argv))
         .example(
           "$0 add-chain Avalanche --token 0xabcd... --mode burning --local",
           "Add Avalanche chain using the local contract version"
-        )
-        .example(
-          "$0 add-chain Base --token 0xdef... --mode burning --executor",
-          "Add Base chain with executor mode enabled"
         )
         .example(
           "$0 add-chain Sui --token 0x123::mycoin::MYCOIN --mode burning --sui-treasury-cap 0xabc123... --latest",
@@ -773,7 +756,6 @@ yargs(hideBin(process.argv))
         signerType,
         !argv["skip-verify"],
         argv["yes"],
-        argv["executor"],
         argv["manager-variant"],
         payerPath,
         argv["program-key"],
@@ -794,12 +776,10 @@ yargs(hideBin(process.argv))
 
       console.log("token decimals:", colors.yellow(decimals));
 
-      config.transceivers.wormhole.executor = argv["executor"];
-
       // Add manager variant to config for EVM chains
       const platform = chainToPlatform(chain);
       if (platform === "Evm" && argv["manager-variant"]) {
-        (config as any).managerVariant = argv["manager-variant"];
+        config.managerVariant = argv["manager-variant"];
       }
 
       deployments.chains[chain] = config;
@@ -838,7 +818,8 @@ yargs(hideBin(process.argv))
         })
         .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
         .option("manager-variant", {
-          describe: "NttManager variant to upgrade to (EVM only). If not specified, preserves the existing variant from deployment config.",
+          describe:
+            "NttManager variant to upgrade to (EVM only). If not specified, preserves the existing variant from deployment config.",
           type: "string",
           choices: ["standard", "noRateLimiting", "wethUnwrap"],
         })
@@ -916,9 +897,8 @@ yargs(hideBin(process.argv))
       );
 
       // Determine manager variant: use flag if provided, otherwise use config value, default to "standard"
-      const managerVariant = argv["manager-variant"]
-        ?? chainConfig.managerVariant
-        ?? "standard";
+      const managerVariant =
+        argv["manager-variant"] ?? chainConfig.managerVariant ?? "standard";
 
       await upgrade(
         currentVersion,
@@ -1106,7 +1086,11 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
-      console.log(colors.green(`${path} created — this file stores your NTT deployment configuration`));
+      console.log(
+        colors.green(
+          `${path} created — this file stores your NTT deployment configuration`
+        )
+      );
       console.log(
         colors.cyan(
           `\nTip: To use custom RPC endpoints, rename example-overrides.json to overrides.json and edit as needed.`
@@ -1158,7 +1142,7 @@ yargs(hideBin(process.argv))
               pathParts
             );
             if (localValue !== undefined) {
-              setNestedValue(preservedConfig, pathParts, localValue);
+              setNestedValue(preservedConfig, [...pathParts], localValue);
             }
           }
           deployments.chains[chain] = preservedConfig;
@@ -1191,7 +1175,8 @@ yargs(hideBin(process.argv))
         .option("only-chain", options.onlyChain)
         .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
         .option("dangerously-transfer-ownership-in-one-step", {
-          describe: "Use 1-step ownership transfer for Solana (DANGEROUS - skips claim step)",
+          describe:
+            "Use 1-step ownership transfer for Solana (DANGEROUS - skips claim step)",
           type: "boolean",
           default: false,
         })
@@ -1332,33 +1317,6 @@ yargs(hideBin(process.argv))
             transceiver,
             signer.address.address
           );
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const evmChain of missingConfig.evmChains) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsEvmChain(evmChain, true);
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const [relayingTarget, value] of missingConfig.standardRelaying) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsWormholeRelayingEnabled(relayingTarget, value);
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const [relayingTarget, value] of missingConfig.specialRelaying) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsSpecialRelayingEnabled(relayingTarget, value);
           await signSendWaitFunc(ctx, tx, signer.signer);
         }
         if (missingConfig.solanaWormholeTransceiver) {
@@ -2211,7 +2169,8 @@ yargs(hideBin(process.argv))
               type: "string",
             })
             .option("binary", {
-              describe: "Path to existing program binary (.so file) - if provided, only validates the binary",
+              describe:
+                "Path to existing program binary (.so file) - if provided, only validates the binary",
               type: "string",
             })
             .option("ver", options.version)
@@ -2280,10 +2239,10 @@ yargs(hideBin(process.argv))
 
           console.log(`Building SVM program for ${chain} on ${network}...`);
           if (version) {
-            console.log(chalk.blue(`Using version: ${version}`));
-            console.log(chalk.blue(`Worktree: ${worktree}`));
+            console.log(colors.blue(`Using version: ${version}`));
+            console.log(colors.blue(`Worktree: ${worktree}`));
           } else {
-            console.log(chalk.blue(`Using local source`));
+            console.log(colors.blue(`Using local source`));
           }
 
           const buildResult = await buildSvm(
@@ -2622,7 +2581,9 @@ yargs(hideBin(process.argv))
                 signer.address.address.toString()
               )}`
             );
-            console.log("\n" + colors.blue("Executing transfer transaction..."));
+            console.log(
+              "\n" + colors.blue("Executing transfer transaction...")
+            );
 
             // Call transfer on the NTT instance (it returns an AsyncGenerator)
             const transferTxs = ntt.transfer(
@@ -2860,14 +2821,14 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
     if (!supportsManagerVariants(pwd)) {
       console.error(
         `Manager variant '${variant}' is not supported in this version. ` +
-        `The NttManagerNoRateLimiting.sol contract does not exist.`
+          `The NttManagerNoRateLimiting.sol contract does not exist.`
       );
       process.exit(1);
     }
     if (scriptVersion < 2) {
       console.error(
         `Manager variant selection requires deploy script version 2+, but found version ${scriptVersion}. ` +
-        `Please upgrade to a newer version that supports manager variants.`
+          `Please upgrade to a newer version that supports manager variants.`
       );
       process.exit(1);
     }
@@ -2881,10 +2842,8 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
   const useBundledV1 = scriptVersion === 1;
 
   await withDeploymentScript(pwd, useBundledV1, async () => {
-
-    // Set MANAGER_VARIANT env var (old scripts will ignore it)
     const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${ctx.config.rpc} \
+--rpc-url "${ctx.config.rpc}" \
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
@@ -3126,7 +3085,6 @@ async function deploy<N extends Network, C extends Chain>(
   signerType: SignerType,
   evmVerify: boolean,
   yes: boolean,
-  executor: boolean,
   managerVariant?: string,
   solanaPayer?: string,
   solanaProgramKeyPath?: string,
@@ -3152,7 +3110,6 @@ async function deploy<N extends Network, C extends Chain>(
         token,
         signerType,
         evmVerify,
-        executor,
         managerVariant || "standard",
         gasEstimateMultiplier
       );
@@ -3202,7 +3159,6 @@ async function deployEvm<N extends Network, C extends Chain>(
   token: string,
   signerType: SignerType,
   verify: boolean,
-  executor: boolean,
   managerVariant: string,
   gasEstimateMultiplier?: number
 ): Promise<ChainAddress<C>> {
@@ -3213,26 +3169,8 @@ async function deployEvm<N extends Network, C extends Chain>(
     console.error("Core bridge not found");
     process.exit(1);
   }
-  const relayer = ch.config.contracts.relayer;
-  if (!relayer && !executor) {
-    console.error(
-      "Standard Relayer not found. If you want to use the Executor, pass the --executor flag to add-chain"
-    );
-    process.exit(1);
-  }
 
   const rpc = ch.config.rpc;
-
-  // TODO: how to make specialRelayer configurable??
-  let specialRelayer: string;
-  if (ch.chain === "Avalanche") {
-    specialRelayer = "0x1a19d8a194630642f750376Ae72b4eDF5aDFd25F";
-  } else if (ch.chain === "Bsc") {
-    specialRelayer = "0x8C56eE9cd232d23541a697C0eBd3cA597DE3c88D";
-  } else {
-    specialRelayer = "0x63BE47835c7D66c4aA5B2C688Dc6ed9771c94C74";
-  }
-
   let provider: ethers.JsonRpcProvider;
   let decimals: number;
 
@@ -3269,14 +3207,14 @@ async function deployEvm<N extends Network, C extends Chain>(
     if (!supportsManagerVariants(pwd)) {
       console.error(
         `Manager variant '${managerVariant}' is not supported in this version. ` +
-        `The NttManagerNoRateLimiting.sol contract does not exist.`
+          `The NttManagerNoRateLimiting.sol contract does not exist.`
       );
       process.exit(1);
     }
     if (scriptVersion < 2) {
       console.error(
         `Manager variant selection requires deploy script version 2+, but found version ${scriptVersion}. ` +
-        `Please upgrade to a newer version that supports manager variants.`
+          `Please upgrade to a newer version that supports manager variants.`
       );
       process.exit(1);
     }
@@ -3287,25 +3225,24 @@ async function deployEvm<N extends Network, C extends Chain>(
     const simulateArg = simulate ? "" : "--skip-simulation";
     const slowFlag = getSlowFlag(ch.chain);
     const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-    const effectiveRelayer =
-      relayer || "0x0000000000000000000000000000000000000000";
 
     // Use bundled v1 scripts if version 1 detected
     const useBundledV1 = scriptVersion === 1;
 
     await withDeploymentScript(pwd, useBundledV1, async () => {
-
       try {
         let command: string;
         let env: NodeJS.ProcessEnv = { ...process.env };
 
         if (scriptVersion === 1) {
-          // Version 1: Use explicit signature with parameters
+          // Version 1: Use explicit signature with parameters (6 params including relayers)
+          // The bundled v1 scripts expect relayer addresses, use zero addresses as defaults
+          const zeroAddress = "0x0000000000000000000000000000000000000000";
           const sig = "run(address,address,address,address,uint8,uint8)";
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${rpc} \
+--rpc-url "${rpc}" \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
+--sig "${sig}" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
           )} ${signerArgs} 2>&1 | tee last-run.stdout`;
@@ -3317,15 +3254,13 @@ ${simulateArg} \
             RELEASE_TOKEN_ADDRESS: token,
             RELEASE_DECIMALS: decimals.toString(),
             RELEASE_MODE: modeUint.toString(),
-            RELEASE_WORMHOLE_RELAYER_ADDRESS: effectiveRelayer,
-            RELEASE_SPECIAL_RELAYER_ADDRESS: specialRelayer,
             RELEASE_CONSISTENCY_LEVEL: "202",
             RELEASE_GAS_LIMIT: "500000",
             MANAGER_VARIANT: managerVariant,
           };
 
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${rpc} \
+--rpc-url "${rpc}" \
 ${simulateArg} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
@@ -3379,7 +3314,13 @@ ${simulateArg} \
     .filter((l) => l.length > 0);
   const manager = logs.find((l) => l.includes("NttManager: 0x"))?.split(" ")[1];
   if (!manager) {
-    console.error("Manager not found");
+    // Extract error lines from output to show the actual failure reason
+    const errorLine = logs.find((l) => l.startsWith("Error:"));
+    if (errorLine) {
+      console.error(colors.red(`\nDeployment failed: ${errorLine}`));
+    } else {
+      console.error(colors.red("Manager not found in deployment output"));
+    }
     process.exit(1);
   }
   const universalManager = toUniversal(ch.chain, manager);
@@ -3397,9 +3338,9 @@ function hasBridgeAddressFromEnvFeature(pwd: string): boolean {
     if (!fs.existsSync(cargoTomlPath)) {
       return false;
     }
-    const cargoToml = fs.readFileSync(cargoTomlPath, 'utf8');
+    const cargoToml = fs.readFileSync(cargoTomlPath, "utf8");
     // Check if bridge-address-from-env feature is defined
-    return cargoToml.includes('bridge-address-from-env');
+    return cargoToml.includes("bridge-address-from-env");
   } catch (error) {
     return false;
   }
@@ -3419,7 +3360,7 @@ async function runAnchorBuild(
   pwd: string,
   network: Network,
   chain: Chain,
-  wormhole: string,
+  wormhole: string
 ): Promise<number> {
   checkAnchorVersion(pwd);
 
@@ -3430,7 +3371,9 @@ async function runAnchorBuild(
 
   if (useBridgeFromEnv) {
     // New method: use bridge-address-from-env feature with BRIDGE_ADDRESS env var
-    console.log(`Building with bridge-address-from-env feature (BRIDGE_ADDRESS=${wormhole})...`);
+    console.log(
+      `Building with bridge-address-from-env feature (BRIDGE_ADDRESS=${wormhole})...`
+    );
     buildArgs = [
       "anchor",
       "build",
@@ -3439,11 +3382,11 @@ async function runAnchorBuild(
       "--",
       "--no-default-features",
       "--features",
-      "bridge-address-from-env"
+      "bridge-address-from-env",
     ];
     buildEnv = {
       ...process.env,
-      BRIDGE_ADDRESS: wormhole
+      BRIDGE_ADDRESS: wormhole,
     };
   } else {
     // Old method: use network-specific feature (mainnet, solana-devnet, tilt-devnet)
@@ -3457,14 +3400,14 @@ async function runAnchorBuild(
       "--",
       "--no-default-features",
       "--features",
-      networkFeature
+      networkFeature,
     ];
     buildEnv = process.env;
   }
 
   const proc = Bun.spawn(buildArgs, {
     cwd: `${pwd}/solana`,
-    env: buildEnv
+    env: buildEnv,
   });
 
   await proc.exited;
@@ -3513,7 +3456,7 @@ async function buildSvm(
   version: string | null,
   programKeyPath?: string,
   binaryPath?: string
-): Promise<{ binary: string, programId: string, programKeypairPath: string }> {
+): Promise<{ binary: string; programId: string; programKeypairPath: string }> {
   ensureNttRoot(pwd);
   checkSolanaVersion(pwd);
 
@@ -3648,8 +3591,20 @@ async function deploySvm<N extends Network, C extends SolanaChains>(
   }
 
   // Build the Solana program (or use provided binary)
-  const buildResult = await buildSvm(pwd, ch.network, ch.chain, wormhole, version, managerKeyPath, binaryPath);
-  const { binary, programId: providedProgramId, programKeypairPath } = buildResult;
+  const buildResult = await buildSvm(
+    pwd,
+    ch.network,
+    ch.chain,
+    wormhole,
+    version,
+    managerKeyPath,
+    binaryPath
+  );
+  const {
+    binary,
+    programId: providedProgramId,
+    programKeypairPath,
+  } = buildResult;
 
   // First we check that the provided mint's mint authority is the program's token authority PDA when in burning mode.
   // This is checked in the program initialiser anyway, but we can save some
@@ -4520,7 +4475,10 @@ async function pushDeployment<C extends Chain>(
       );
       // For Solana, we need to use the low-level transfer ownership instructions
       if (chainToPlatform(deployment.manager.chain) === "Solana") {
-        const solanaNtt = deployment.ntt as SolanaNtt<typeof deployment.ctx.config.network, SolanaChains>;
+        const solanaNtt = deployment.ntt as SolanaNtt<
+          typeof deployment.ctx.config.network,
+          SolanaChains
+        >;
         const owner = new SolanaAddress(signer.address.address).unwrap();
         const newOwner = new SolanaAddress(address).unwrap();
 
@@ -4530,16 +4488,16 @@ async function pushDeployment<C extends Chain>(
               solanaNtt.program,
               { owner, newOwner }
             )
-          : await NTT.createTransferOwnershipInstruction(
-              solanaNtt.program,
-              { owner, newOwner }
-            );
+          : await NTT.createTransferOwnershipInstruction(solanaNtt.program, {
+              owner,
+              newOwner,
+            });
 
         const tx = new solanaWeb3.Transaction();
         tx.add(ix);
         tx.feePayer = owner;
         // Convert to AsyncGenerator format expected by updateOwner
-        updateOwner = (async function*() {
+        updateOwner = (async function* () {
           yield solanaNtt.createUnsignedTx(
             { transaction: tx },
             dangerouslyTransferOwnershipInOneStep
@@ -4793,8 +4751,6 @@ async function getImmutables<N extends Network, C extends Chain>(
     0
   )) as EvmNttWormholeTranceiver<N, EvmChains>;
   const consistencyLevel = await transceiver.transceiver.consistencyLevel();
-  const wormholeRelayer = await transceiver.transceiver.wormholeRelayer();
-  const specialRelayer = await transceiver.transceiver.specialRelayer();
   const gasLimit = await transceiver.transceiver.gasLimit();
 
   const token = await evmNtt.manager.token();
@@ -4802,8 +4758,6 @@ async function getImmutables<N extends Network, C extends Chain>(
 
   const whTransceiverImmutables = {
     consistencyLevel,
-    wormholeRelayer,
-    specialRelayer,
     gasLimit,
   };
   return {
