@@ -26,9 +26,16 @@ jobs:
 
       - name: Verify Prettier version
         run: |
-          echo "Prettier version in CI:"
-          npx prettier --version
-          echo "Expected: 3.6.2 (from package.json)"
+          EXPECTED_VERSION=$(node -p "require('./package.json').devDependencies.prettier")
+          ACTUAL_VERSION=$(npx prettier --version)
+          echo "Expected Prettier version (from package.json): $EXPECTED_VERSION"
+          echo "Actual Prettier version: $ACTUAL_VERSION"
+          if [ "$EXPECTED_VERSION" != "$ACTUAL_VERSION" ]; then
+            echo "Error: Prettier version mismatch!"
+            echo "This usually means package-lock.json is out of sync with package.json - try running 'npm install' locally and committing the updated package-lock.json"
+            exit 1
+          fi
+          echo "✓ Prettier version matches"
 
       - name: Run Prettier check
         run: |
