@@ -181,8 +181,8 @@ export class StacksNttWithExecutor<N extends Network, C extends StacksChains>
       throw new Error("No ntt-manager argument found in transaction");
     }
 
-    // For some reason, the value comes with extra single quotes, so we need to remove them
-    const managerAddress = nttManagerArg.repr.replace(/'/g, "");
+    // The value comes with a leading quote, because it's a trait_reference type
+    const managerAddress = nttManagerArg.value.replace(/^'/, "");
 
     return { chain: "Stacks", address: new StacksAddress(managerAddress) };
   }
