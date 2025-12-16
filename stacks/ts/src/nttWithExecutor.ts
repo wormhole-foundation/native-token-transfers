@@ -182,7 +182,7 @@ export class StacksNttWithExecutor<N extends Network, C extends StacksChains>
     }
 
     // The value comes with a leading quote, because it's a trait_reference type
-    const managerAddress = nttManagerArg.value.replace(/^'/, "");
+    const managerAddress = nttManagerArg.repr.replace(/^'/, "");
 
     return { chain: "Stacks", address: new StacksAddress(managerAddress) };
   }
