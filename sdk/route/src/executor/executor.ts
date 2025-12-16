@@ -42,10 +42,11 @@ import {
   fetchCapabilities,
   fetchSignedQuote,
   fetchStatus,
-  isRelayStatusFailed,
   getNativeRecipientAddress,
+  isRelayStatusFailed,
 } from "./utils.js";
 import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
+import { StacksNttWithExecutor } from "@wormhole-foundation/sdk-stacks-ntt";
 import {
   isNative,
   relayInstructionsLayout,
@@ -404,7 +405,6 @@ export class NttExecutorRoute<N extends Network>
         request: {
           type: "StacksNttReceiveInstruction" as const,
           nttManager: Buffer.from(
-            // TODO: is using Buffer correct?
             params.normalizedParams.destinationContracts.manager
           ),
           recipient: recipient
@@ -617,50 +617,26 @@ export class NttExecutorRoute<N extends Network>
     const { recipientChain, trimmedAmount } =
       vaa.payload["nttManagerPayload"].payload;
 
-    let token: string, manager: string, whTransceiver: string;
-    let dstInfo: Ntt.Contracts;
-
-    if (chainToPlatform(vaa.emitterChain) === "Stacks") {
-      const { stacksConfig, dstInfo: stacksDstInfo } =
-        NttRoute.resolveDestinationNttContractsStacksEmitter(
-          this.staticConfig.ntt,
-          vaa.emitterAddress,
-          recipientChain
-        );
-
-      token = stacksConfig.token;
-      manager = stacksConfig.manager;
-      whTransceiver = stacksConfig.transceiver.find(
-        (t) => t.type === "wormhole"
-      )!.address;
-
-      dstInfo = stacksDstInfo;
-    } else {
-      token = canonicalAddress({
-        chain: vaa.emitterChain,
-        address: vaa.payload["nttManagerPayload"].payload.sourceToken,
-      });
-      manager = canonicalAddress({
+    const srcManagerAddress = await (async () => {
+      if (chainToPlatform(tx.chain) === "Stacks") {
+        // We can't use the manager address from the VAA payload for Stacks
+        // since it's the hashed address. Instead, we need to fetch it from the transaction.
+        const stacks = this.wh.getChain("Stacks");
+        const rpc = await stacks.getRpc();
+        return StacksNttWithExecutor.getManagerAddressFromTx(rpc, tx.txid);
+      }
+      return {
         chain: vaa.emitterChain,
         address: vaa.payload["sourceNttManager"],
-      });
-      whTransceiver =
-        chainToPlatform(vaa.emitterChain) === "Solana"
-          ? manager
-          : canonicalAddress({
-              chain: vaa.emitterChain,
-              address: vaa.emitterAddress,
-            });
+      };
+    })();
 
-      dstInfo = NttRoute.resolveDestinationNttContracts(
+    const { srcContracts, dstContracts } =
+      NttRoute.resolveDestinationNttContracts(
         this.staticConfig.ntt,
-        {
-          chain: vaa.emitterChain,
-          address: vaa.payload["sourceNttManager"],
-        },
+        srcManagerAddress,
         recipientChain
       );
-    }
 
     const amt = amount.fromBaseUnits(
       trimmedAmount.amount,
@@ -681,20 +657,8 @@ export class NttExecutorRoute<N extends Network>
         options: {},
         normalizedParams: {
           amount: amt,
-          sourceContracts: {
-            token,
-            manager,
-            transceiver: {
-              wormhole: whTransceiver,
-            },
-          },
-          destinationContracts: {
-            token: dstInfo.token,
-            manager: dstInfo.manager,
-            transceiver: {
-              wormhole: dstInfo.transceiver["wormhole"]!,
-            },
-          },
+          sourceContracts: srcContracts,
+          destinationContracts: dstContracts,
           referrerFeeDbps: 0n,
         },
       },

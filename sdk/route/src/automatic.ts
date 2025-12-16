@@ -283,7 +283,7 @@ export class NttAutomaticRoute<N extends Network>
             address: vaa.emitterAddress,
           });
 
-    const dstInfo = NttRoute.resolveDestinationNttContracts(
+    const { dstContracts: dstInfo } = NttRoute.resolveDestinationNttContracts(
       this.staticConfig,
       {
         chain: vaa.emitterChain,

@@ -264,7 +264,7 @@ export interface Ntt<N extends Network, C extends Chain> {
    * redeem redeems a set of Attestations to the corresponding transceivers on the destination chain
    * @param attestations The attestations to redeem, the length should be equal to the number of transceivers
    * @param payer The account that will pay for the transaction
-   * @param recipient The recipient address (only used for Stacks, can be undefined for other platforms)
+   * @param recipient The recipient address
    *
    * TODO: replace with Map<transceiver type, Attestation>
    */

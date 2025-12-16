@@ -9,6 +9,7 @@ import {
 } from "@wormhole-foundation/sdk-definitions";
 import { NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
+  StacksAddress,
   StacksChains,
   StacksPlatform,
   StacksUnsignedTransaction,
@@ -23,6 +24,7 @@ import {
   standardPrincipalCV,
   uintCV,
 } from "@stacks/transactions";
+import axios from "axios";
 import { StacksNtt, StacksNttContracts } from "./ntt.js";
 
 const nttManagerWithExecutorAddresses: Partial<
@@ -115,7 +117,6 @@ export class StacksNttWithExecutor<N extends Network, C extends StacksChains>
 
     const referrerAddress = quote.referrer.address.toString();
 
-    // TODO: ContractCallOptions should be the UnisgnedTransactionType
     const tx: ContractCallOptions = {
       contractName: executorContractName,
       contractAddress: executorDeployer,
@@ -156,5 +157,33 @@ export class StacksNttWithExecutor<N extends Network, C extends StacksChains>
     const gasLimit = 0n;
 
     return { msgValue, gasLimit };
+  }
+
+  static async getManagerAddressFromTx(
+    connection: StacksNetwork,
+    txHash: string
+  ): Promise<ChainAddress<"Stacks">> {
+    const url = `${connection.client.baseUrl}/extended/v1/tx/${txHash}`;
+
+    const response = await axios.get(url);
+    const data = response.data;
+
+    if (!data.contract_call?.function_args) {
+      throw new Error("No contract call function args found in transaction");
+    }
+
+    const functionArgs = data.contract_call.function_args;
+    const nttManagerArg = functionArgs.find(
+      (arg: any) => arg.name === "ntt-manager"
+    );
+
+    if (!nttManagerArg) {
+      throw new Error("No ntt-manager argument found in transaction");
+    }
+
+    // For some reason, the value comes with extra single quotes, so we need to remove them
+    const managerAddress = nttManagerArg.repr.replace(/'/g, "");
+
+    return { chain: "Stacks", address: new StacksAddress(managerAddress) };
   }
 }
