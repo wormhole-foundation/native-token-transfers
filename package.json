@@ -31,6 +31,7 @@
     "@wormhole-foundation/sdk": "^4.7.0",
     "@wormhole-foundation/wormchain-sdk": "^0.0.1",
     "ethers": "^6.5.1",
+    "jest": "^30.2.0",
     "prettier": "3.6.2",
     "ts-jest": "^29.1.2",
     "tsx": "^4.7.2",
