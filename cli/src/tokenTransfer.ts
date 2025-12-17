@@ -2,7 +2,6 @@
 // https://github.com/wormhole-foundation/wormhole-sdk-ts
 
 import { colors } from "./colors.js";
-import chalk from "chalk";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
@@ -249,7 +248,7 @@ async function executeTokenTransfer(
     argv["payer"],
     sourceChainInput,
     (message) => new TokenTransferError(message),
-    (message) => console.warn(chalk.yellow(message))
+    (message) => console.warn(colors.yellow(message))
   );
 
   const destinationAddressRaw = argv["destination-address"];

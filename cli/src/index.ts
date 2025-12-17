@@ -74,7 +74,6 @@ import { handleDeploymentError } from "./error";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 export type { ChainConfig, Config } from "./deployments";
 export type { Deployment } from "./validation";
-import chalk from "chalk";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
@@ -663,7 +662,7 @@ yargs(hideBin(process.argv))
         argv["payer"],
         chain,
         (message) => new Error(message),
-        (message) => console.warn(chalk.yellow(message))
+        (message) => console.warn(colors.yellow(message))
       );
       const version = resolveVersion(
         argv["latest"],
@@ -844,7 +843,7 @@ yargs(hideBin(process.argv))
         argv["payer"],
         chain,
         (message) => new Error(message),
-        (message) => console.warn(chalk.yellow(message))
+        (message) => console.warn(colors.yellow(message))
       );
       const signerType = argv["signer-type"] as SignerType;
       const network = deployments.network as Network;
@@ -1215,7 +1214,7 @@ yargs(hideBin(process.argv))
         argv["payer"],
         payerValidationChain ?? ("Solana" as Chain),
         (message) => new Error(message),
-        (message) => console.warn(chalk.yellow(message))
+        (message) => console.warn(colors.yellow(message))
       );
       const gasEstimateMultiplier = argv["gas-estimate-multiplier"];
       const skipChains = (argv["skip-chain"] as string[]) || [];
@@ -1530,7 +1529,7 @@ yargs(hideBin(process.argv))
         argv["payer"],
         chain,
         (message) => new Error(message),
-        (message) => console.warn(chalk.yellow(message))
+        (message) => console.warn(colors.yellow(message))
       );
 
       // Check that the platform is SVM (Solana)
@@ -2061,7 +2060,7 @@ yargs(hideBin(process.argv))
             argv["payer"],
             chain,
             (message) => new Error(message),
-            (message) => console.warn(chalk.yellow(message))
+            (message) => console.warn(colors.yellow(message))
           );
 
           if (!payerPath || !fs.existsSync(payerPath)) {
