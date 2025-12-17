@@ -1170,6 +1170,7 @@ async function withRetryStatus<T>(
 ): Promise<T> {
   const originalLog = console.log;
   let lastMessage = "";
+  const isTty = Boolean(process.stdout.isTTY);
 
   const matchesNeedle = (message: string): boolean => {
     if (typeof needle === "string") {
@@ -1186,26 +1187,33 @@ async function withRetryStatus<T>(
   console.log = (...args: Parameters<typeof console.log>) => {
     const message = args.map(String).join(" ");
     if (matchesNeedle(message)) {
-      // Show retry status inline (overwrite previous line if TTY)
-      if (process.stdout.isTTY && lastMessage) {
-        process.stdout.write(`\r${message}`.padEnd(lastMessage.length + 1));
-      } else if (!lastMessage) {
+      if (isTty) {
+        // Keep a single in-place "status line" for retries.
+        // \r returns to the start of the line; \x1b[2K clears the whole line.
+        process.stdout.write(`\r\x1b[2K${message}`);
+      } else {
         originalLog(message);
       }
       lastMessage = message;
       return;
     }
-    if (lastMessage && process.stdout.isTTY) {
-      process.stdout.write("\n");
-      lastMessage = "";
+
+    // If we're showing an in-place retry status, clear it before printing other logs,
+    // then restore it afterward so the status line continues updating in one place.
+    if (lastMessage && isTty) {
+      process.stdout.write("\r\x1b[2K");
     }
     originalLog(...args);
+    if (lastMessage && isTty) {
+      process.stdout.write(`\r\x1b[2K${lastMessage}`);
+    }
   };
 
   try {
     return await fn();
   } finally {
-    if (lastMessage && process.stdout.isTTY) {
+    if (lastMessage && isTty) {
+      process.stdout.write("\r\x1b[2K");
       process.stdout.write("\n");
     }
     console.log = originalLog;
