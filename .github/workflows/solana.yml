@@ -2,19 +2,33 @@ name: Solana CI
 on:
   workflow_dispatch:
   pull_request:
+    paths:
+      - "solana/**"
+      - ".github/workflows/solana.yml"
+      - ".github/actions/setup-anchor/**"
   push:
     branches:
       - main
       - dev
+    paths:
+      - "solana/**"
+      - ".github/workflows/solana.yml"
+      - ".github/actions/setup-anchor/**"
+
+# Cancel in-progress runs on new commits to same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
     working-directory: ./solana
 
 jobs:
-  solana-sbf:
-    name: Solana Cargo SBF
-    runs-on: tilt-kube-public
+  # Linting runs on standard ubuntu runner (no need for tilt-kube-public)
+  lint:
+    name: Solana Lint
+    runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -Dwarnings
     steps:
@@ -24,13 +38,7 @@ jobs:
         id: toolchain
         run: |
           RUST_VERSION="$(awk '/channel =/ { print substr($3, 2, length($3)-2) }' rust-toolchain)"
-          echo "::set-output name=version::${RUST_VERSION}"
-
-      - name: Get solana version
-        id: solana
-        run: |
-          SOLANA_VERSION="$(awk '/solana-program =/ { print substr($3, 3, length($3)-3) }' Cargo.toml)"
-          echo "::set-output name=version::${SOLANA_VERSION}"
+          echo "version=${RUST_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb
@@ -52,9 +60,41 @@ jobs:
       - name: Run `cargo clippy`
         run: cargo clippy --workspace --tests --manifest-path Cargo.toml --features mainnet -- -Dclippy::cast_possible_truncation
 
+  # SBF build and tests require Solana tools
+  # Note: This doesn't need tilt-kube-public - standard ubuntu runner works fine
+  solana-sbf:
+    name: Solana Cargo SBF
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Get rust toolchain version
+        id: toolchain
+        run: |
+          RUST_VERSION="$(awk '/channel =/ { print substr($3, 2, length($3)-2) }' rust-toolchain)"
+          echo "version=${RUST_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Get solana version
+        id: solana
+        run: |
+          SOLANA_VERSION="$(awk '/solana-program =/ { print substr($3, 3, length($3)-3) }' Cargo.toml)"
+          echo "version=${SOLANA_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb
+        with:
+          toolchain: ${{ steps.toolchain.outputs.version }}
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "solana"
+
       - name: Cache solana tools
         id: cache-solana
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         env:
           cache-name: solana-tools
         with:
@@ -71,19 +111,34 @@ jobs:
           sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
           ~/.local/share/solana/install/active_release/bin/sdk/sbf/scripts/install.sh
 
-      - name: cargo build-sbf && cargo test-sbf && cargo test
+      - name: Build SBF programs
+        env:
+          RUST_BACKTRACE: "1"
+        run: |
+          export BPF_OUT_DIR="$(pwd)/target/deploy"
+          export PATH="${HOME}/.local/share/solana/install/active_release/bin:${PATH}"
+          mkdir -p "${BPF_OUT_DIR}"
+          cargo build-sbf --features "mainnet"
+
+      - name: Run tests in parallel
         env:
           RUST_BACKTRACE: "1"
         run: |
           export BPF_OUT_DIR="$(pwd)/target/deploy"
           export PATH="${HOME}/.local/share/solana/install/active_release/bin:${PATH}"
 
-          mkdir -p "${BPF_OUT_DIR}"
+          # Run test-sbf for both packages in parallel, plus native tests
+          cargo test-sbf -p "example-native-token-transfers" --features "mainnet" &
+          pid1=$!
+          cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing" &
+          pid2=$!
+          cargo test --features "mainnet" &
+          pid3=$!
 
-          cargo build-sbf --features "mainnet"
-          cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
-          cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
-          cargo test --features "mainnet"
+          # Wait for all and capture exit codes
+          wait $pid1 || exit 1
+          wait $pid2 || exit 1
+          wait $pid3 || exit 1
 
   check-version:
     name: Check version
@@ -111,7 +166,7 @@ jobs:
           node-version: ${{ env.node-version }}
 
       - name: Cache node_modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ./solana/node_modules/
           key: node-modules-${{ runner.os }}-build-${{ env.node-version }}
