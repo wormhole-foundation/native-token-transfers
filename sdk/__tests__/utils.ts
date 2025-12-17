@@ -285,7 +285,8 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
 async function waitForRelay(
   msgId: WormholeMessageId,
   dst: Ctx,
-  retryTime: number = 2000
+  retryTime: number = 2000,
+  maxRetries: number = 60 // 2 minutes with default retryTime
 ) {
   const vaa = await wh.getVaa(msgId, "Uint8Array");
   const deliveryHash = keccak256(vaa!.hash);
@@ -296,16 +297,32 @@ async function waitForRelay(
   );
 
   let success = false;
-  while (!success) {
+  let attempts = 0;
+  while (!success && attempts < maxRetries) {
+    attempts++;
     try {
       const successBlock =
         await wormholeRelayer.deliverySuccessBlock(deliveryHash);
       if (successBlock > 0) success = true;
-      console.log("Relayer delivery: ", success);
+      console.log(
+        `Relayer delivery (attempt ${attempts}/${maxRetries}): `,
+        success
+      );
     } catch (e) {
-      console.error(e);
+      console.error(
+        `Relayer check error (attempt ${attempts}/${maxRetries}):`,
+        e
+      );
     }
-    await new Promise((resolve) => setTimeout(resolve, retryTime));
+    if (!success) {
+      await new Promise((resolve) => setTimeout(resolve, retryTime));
+    }
+  }
+
+  if (!success) {
+    throw new Error(
+      `Relay delivery failed after ${maxRetries} attempts (${(maxRetries * retryTime) / 1000}s)`
+    );
   }
 }
 
