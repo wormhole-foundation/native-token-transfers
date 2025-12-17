@@ -82,6 +82,13 @@ jobs:
           SOLANA_VERSION="$(awk '/solana-program =/ { print substr($3, 3, length($3)-3) }' Cargo.toml)"
           echo "version=${SOLANA_VERSION}" >> $GITHUB_OUTPUT
 
+      - name: Restore cached SBF artifacts
+        id: cache-sbf
+        uses: actions/cache@v4
+        with:
+          path: solana/target/deploy
+          key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
+
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb
         with:
@@ -103,8 +110,8 @@ jobs:
             ~/.cache/solana/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.solana.outputs.version }}
 
-      - if: ${{ steps.cache-solana.outputs.cache-hit != 'true' }}
-        name: Install solana tools
+      - name: Install solana tools
+        if: steps.cache-solana.outputs.cache-hit != 'true'
         env:
           SOLANA_VERSION: ${{ steps.solana.outputs.version }}
         run: |
@@ -112,6 +119,7 @@ jobs:
           ~/.local/share/solana/install/active_release/bin/sdk/sbf/scripts/install.sh
 
       - name: Build SBF programs
+        if: steps.cache-sbf.outputs.cache-hit != 'true'
         env:
           RUST_BACKTRACE: "1"
         run: |
