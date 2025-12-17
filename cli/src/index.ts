@@ -74,6 +74,7 @@ import { handleDeploymentError } from "./error";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 export type { ChainConfig, Config } from "./deployments";
 export type { Deployment } from "./validation";
+import chalk from "chalk";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
@@ -1207,10 +1208,9 @@ yargs(hideBin(process.argv))
       const needsSolanaPayer = depsChains.some(
         (c) => chainToPlatform(c) === "Solana"
       );
-      const payerValidationChain =
-        (needsSolanaPayer
-          ? "Solana"
-          : depsChains[0]) as Chain | undefined;
+      const payerValidationChain = (
+        needsSolanaPayer ? "Solana" : depsChains[0]
+      ) as Chain | undefined;
       const payerPath = validatePayerOption(
         argv["payer"],
         payerValidationChain ?? ("Solana" as Chain),
@@ -1448,6 +1448,22 @@ yargs(hideBin(process.argv))
       const hasMissingConfigs = printMissingConfigReport(missing);
       if (hasMissingConfigs) {
         fixable++;
+      }
+
+      // Check executor availability for EVM chains
+      for (const [chain, deployment] of Object.entries(deps)) {
+        assertChain(chain);
+        const platform = chainToPlatform(chain);
+        if (
+          platform === "Evm" &&
+          !hasExecutorDeployed(network, chain as EvmChains)
+        ) {
+          console.log(
+            colors.yellow(
+              `On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`
+            )
+          );
+        }
       }
 
       if (fixable > 0) {
@@ -2043,9 +2059,7 @@ yargs(hideBin(process.argv))
             process.exit(1);
           }
           const payerKeypair = Keypair.fromSecretKey(
-            new Uint8Array(
-              JSON.parse(fs.readFileSync(payerPath).toString())
-            )
+            new Uint8Array(JSON.parse(fs.readFileSync(payerPath).toString()))
           );
 
           if (!token !== !manager) {
@@ -3367,7 +3381,7 @@ async function runAnchorBuild(
   const useBridgeFromEnv = hasBridgeAddressFromEnvFeature(pwd);
 
   let buildArgs: string[];
-  let buildEnv: Record<string, string>;
+  let buildEnv: NodeJS.ProcessEnv;
 
   if (useBridgeFromEnv) {
     // New method: use bridge-address-from-env feature with BRIDGE_ADDRESS env var

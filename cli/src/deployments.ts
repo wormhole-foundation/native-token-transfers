@@ -9,7 +9,6 @@ export type ChainConfig = {
   owner: string;
   pauser?: string;
   manager: string;
-  managerVariant?: "standard" | "noRateLimiting" | "wethUnwrap";
   token: string;
   transceivers: {
     threshold: number;

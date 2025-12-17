@@ -1,4 +1,3 @@
-import chalk from "chalk";
 import { PublicKey } from "@solana/web3.js";
 import {
   assertChain,
@@ -9,8 +8,6 @@ import {
   type Network,
   type Platform,
 } from "@wormhole-foundation/sdk";
-import type { EvmNttWormholeTranceiver } from "@wormhole-foundation/sdk-evm-ntt";
-import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import type {
   Ntt,
   NttTransceiver,
@@ -45,9 +42,6 @@ export type Deployment<C extends Chain> = {
 export type MissingImplicitConfig = {
   managerPeers: Ntt.Peer<Chain>[];
   transceiverPeers: ChainAddress<Chain>[];
-  evmChains: Chain[];
-  standardRelaying: [Chain, boolean][];
-  specialRelaying: [Chain, boolean][];
   solanaWormholeTransceiver: boolean;
   solanaUpdateLUT: boolean;
 };
@@ -75,13 +69,14 @@ export function validatePayerOption(
   if (Array.isArray(rawPayer)) {
     throw errorFactory("--payer may only be specified once");
   }
-  const payerPath =
-    typeof rawPayer === "string" ? rawPayer.trim() : undefined;
+  const payerPath = typeof rawPayer === "string" ? rawPayer.trim() : undefined;
   if (rawPayer !== undefined && (!payerPath || payerPath.length === 0)) {
     throw errorFactory("--payer must be a path to a Solana keypair JSON file");
   }
   if (payerPath && chainToPlatform(sourceChain) !== "Solana") {
-    warn("--payer is only used when the source chain is Solana. Ignoring provided path.");
+    warn(
+      "--payer is only used when the source chain is Solana. Ignoring provided path."
+    );
     return undefined;
   }
   return payerPath;
@@ -120,7 +115,11 @@ export function validateTimeout(
   if (!wasProvided) {
     return undefined;
   }
-  if (rawTimeout === undefined || rawTimeout === null || Array.isArray(rawTimeout)) {
+  if (
+    rawTimeout === undefined ||
+    rawTimeout === null ||
+    Array.isArray(rawTimeout)
+  ) {
     throw errorFactory(
       "--timeout expects a numeric value in seconds. Remove the flag or provide a valid number."
     );
@@ -151,39 +150,6 @@ export function printMissingConfigReport(
     for (const transceiver of missingConfig.transceiverPeers) {
       console.error(`  Missing transceiver peer: ${transceiver.chain}`);
     }
-    for (const evmChain of missingConfig.evmChains) {
-      console.error(`  ${evmChain} needs to be configured as an EVM chain`);
-    }
-    for (const [relayingTarget, shouldBeSet] of missingConfig.standardRelaying) {
-      if (shouldBeSet) {
-        console.warn(
-          chalk.yellow(
-            `  Standard relaying not configured for ${relayingTarget}`
-          )
-        );
-      } else {
-        console.warn(
-          chalk.yellow(
-            `  Standard relaying configured for ${relayingTarget}, but should not be`
-          )
-        );
-      }
-    }
-    for (const [relayingTarget, shouldBeSet] of missingConfig.specialRelaying) {
-      if (shouldBeSet) {
-        console.warn(
-          chalk.yellow(
-            `  Special relaying not configured for ${relayingTarget}`
-          )
-        );
-      } else {
-        console.warn(
-          chalk.yellow(
-            `  Special relaying configured for ${relayingTarget}, but should not be`
-          )
-        );
-      }
-    }
     if (missingConfig.solanaWormholeTransceiver) {
       console.error("  Missing Solana wormhole transceiver");
     }
@@ -211,9 +177,6 @@ export async function collectMissingConfigs(
     let missing: MissingImplicitConfig = {
       managerPeers: [],
       transceiverPeers: [],
-      evmChains: [],
-      standardRelaying: [],
-      specialRelaying: [],
       solanaWormholeTransceiver: false,
       solanaUpdateLUT: false,
     };
@@ -288,42 +251,6 @@ export async function collectMissingConfigs(
           console.error(
             `Peer decimals mismatch for ${fromChain} -> ${toChain}`
           );
-        }
-      }
-
-      if (chainToPlatform(fromChain) === "Evm") {
-        const toIsEvm = chainToPlatform(toChain) === "Evm";
-        const toIsSolana = chainToPlatform(toChain) === "Solana";
-        const whTransceiver = (await from.ntt.getTransceiver(
-          0
-        )) as EvmNttWormholeTranceiver<Network, EvmChains>;
-
-        if (toIsEvm) {
-          const remoteToEvm = await whTransceiver.isEvmChain(toChain);
-          if (!remoteToEvm) {
-            count++;
-            missing.evmChains.push(toChain);
-          }
-
-          const standardRelaying =
-            await whTransceiver.isWormholeRelayingEnabled(toChain);
-          const desiredStandardRelaying = !(
-            from.config.local?.transceivers.wormhole.executor ?? false
-          );
-          if (standardRelaying !== desiredStandardRelaying) {
-            count++;
-            missing.standardRelaying.push([toChain, desiredStandardRelaying]);
-          }
-        } else if (toIsSolana) {
-          const specialRelaying =
-            await whTransceiver.isSpecialRelayingEnabled(toChain);
-          const desiredSpecialRelaying = !(
-            from.config.local?.transceivers.wormhole.executor ?? false
-          );
-          if (specialRelaying !== desiredSpecialRelaying) {
-            count++;
-            missing.specialRelaying.push([toChain, desiredSpecialRelaying]);
-          }
         }
       }
 

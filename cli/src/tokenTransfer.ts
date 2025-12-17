@@ -2,6 +2,7 @@
 // https://github.com/wormhole-foundation/wormhole-sdk-ts
 
 import { colors } from "./colors.js";
+import chalk from "chalk";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
