@@ -1276,18 +1276,28 @@ yargs(hideBin(process.argv))
                 "supportsInterface",
                 ["0x43412b75"]
               );
-              const supports = await provider.call({
-                to: contractOwner.toString(),
-                data: callData,
-              });
-              const supportsInt = parseInt(supports);
-              if (supportsInt !== 1) {
+              try {
+                const supports = await provider.call({
+                  to: contractOwner.toString(),
+                  data: callData,
+                });
+                const supportsInt = parseInt(supports);
+                if (supportsInt !== 1) {
+                  console.error(
+                    `cannot update ${chain} because the owning contract does not implement INttOwner`
+                  );
+                  process.exit(1);
+                }
+                nttOwnerForChain[chain] = contractOwner.toString();
+              } catch (error: any) {
+                // This catch is primarily for reverts
                 console.error(
-                  `cannot update ${chain} because the owning contract does not implement INttOwner`
+                  colors.red(
+                    `Cannot update ${chain}: You do not own the NTT manager contract. Owner is ${contractOwner.address}.`
+                  )
                 );
                 process.exit(1);
               }
-              nttOwnerForChain[chain] = contractOwner.toString();
             }
           }
         }
