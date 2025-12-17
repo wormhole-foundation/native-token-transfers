@@ -26,6 +26,7 @@ import {
 } from "@stacks/transactions";
 import axios from "axios";
 import { StacksNtt, StacksNttContracts } from "./ntt.js";
+import { amount } from "@wormhole-foundation/sdk-base";
 
 const nttManagerWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<StacksChains, string>>>
@@ -150,11 +151,10 @@ export class StacksNttWithExecutor<N extends Network, C extends StacksChains>
   async estimateMsgValueAndGasLimit(
     _recipient: ChainAddress | undefined
   ): Promise<{ msgValue: bigint; gasLimit: bigint }> {
-    // TODO: Implement actual estimation logic for Stacks
-    // For now, return default values
     const msgValue = 0n;
-    // const gasLimit = 500_000n;
-    const gasLimit = 0n;
+
+    // TODO: tweak this value for mainnet if needed
+    const gasLimit = amount.units(amount.parse("0.1", 6)); // 0.1 STX
 
     return { msgValue, gasLimit };
   }
