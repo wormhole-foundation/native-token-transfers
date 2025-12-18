@@ -662,10 +662,12 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
     chainToPlatform(target.chain) === "Evm" &&
     chainToPlatform(peer.chain) === "Evm"
   ) {
+    // Use the NonceManager (from unwrap()) directly, NOT the inner .signer
+    // Using .signer bypasses nonce management and causes "nonce already used" errors
     const nativeSigner = (signer as NativeSigner).unwrap();
     const xcvr = WormholeTransceiver__factory.connect(
       targetCtx.contracts!.transceiver["wormhole"]!,
-      nativeSigner.signer
+      nativeSigner
     );
     const peerChainId = toChainId(peer.chain);
 
