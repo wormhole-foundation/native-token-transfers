@@ -10,13 +10,14 @@ load(".wormhole/Tiltfile", "namespace", "k8s_yaml_with_ns")
 REGISTRY = "ghcr.io/wormhole-foundation/native-token-transfers"
 
 # Solana deploy - uses cache_from for faster CI builds
-# Target 'export' stage which is a minimal scratch image with just the .so files (~50MB vs ~2GB)
+# Note: Must use 'builder' target (not 'export') because Dockerfile.test-validator
+# copies from ntt-solana-contract and needs the full builder filesystem
 docker_build(
     ref = "ntt-solana-contract",
     context = "./",
     only = ["./sdk", "./solana"],
     ignore=["./sdk/__tests__", "./sdk/Dockerfile", "./sdk/ci.yaml", "./sdk/**/dist", "./sdk/node_modules", "./sdk/**/node_modules"],
-    target = "export",
+    target = "builder",
     dockerfile = "./solana/Dockerfile",
     cache_from = [REGISTRY + "/ntt-solana-contract:latest"],
 )

@@ -79,10 +79,10 @@ jobs:
         with:
           context: .
           file: solana/Dockerfile
-          target: export
+          target: builder
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          # Cache builder stage layers in separate registry image (not the tiny export image)
+          # Use registry-based caching for builder layers
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/ntt-solana-contract:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/ntt-solana-contract:buildcache,mode=max
 
