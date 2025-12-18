@@ -1984,7 +1984,7 @@ yargs(hideBin(process.argv))
       )
       .command(
         "ata <mint> <owner> <tokenProgram>",
-        "print the token authority address for a given program ID",
+        "print the associated token account address for a given mint and owner",
         (yargs) =>
           yargs
             .positional("mint", {
