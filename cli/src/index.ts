@@ -1541,7 +1541,7 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
 
-      if (!payerPath || !fs.existsSync(payerPath)) {
+      if (!payerPath) {
         console.error("Payer not found. Specify with --payer");
         process.exit(1);
       }
@@ -2063,7 +2063,7 @@ yargs(hideBin(process.argv))
             (message) => console.warn(colors.yellow(message))
           );
 
-          if (!payerPath || !fs.existsSync(payerPath)) {
+          if (!payerPath) {
             console.error("Payer not found. Specify with --payer");
             process.exit(1);
           }

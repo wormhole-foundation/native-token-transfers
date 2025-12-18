@@ -1,4 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
+import fs from "fs";
 import {
   assertChain,
   chainToPlatform,
@@ -78,6 +79,9 @@ export function validatePayerOption(
       "--payer is only used when the source chain is Solana. Ignoring provided path."
     );
     return undefined;
+  }
+  if (payerPath && !fs.existsSync(payerPath)) {
+    throw errorFactory(`--payer path not found: ${payerPath}`);
   }
   return payerPath;
 }
