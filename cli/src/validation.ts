@@ -239,10 +239,8 @@ export async function collectMissingConfigs(
         });
       } else {
         if (
-          // @ts-ignore TODO
-          !Buffer.from(peer.address.address.address).equals(
-            // @ts-ignore TODO
-            Buffer.from(to.manager.address.address)
+          !Buffer.from(peer.address.address.address.toString()).equals(
+            Buffer.from(to.manager.address.address.toString())
           )
         ) {
           console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
@@ -265,10 +263,8 @@ export async function collectMissingConfigs(
         missing.transceiverPeers.push(transceiverAddress);
       } else {
         if (
-          // @ts-ignore TODO
-          !Buffer.from(transceiverPeer.address.address).equals(
-            // @ts-ignore TODO
-            Buffer.from(transceiverAddress.address.address)
+          !Buffer.from(transceiverPeer.address.address.toString()).equals(
+            Buffer.from(transceiverAddress.address.address.toString())
           )
         ) {
           console.error(
