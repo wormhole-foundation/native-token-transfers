@@ -3,22 +3,47 @@ name: EVM CI
 on:
   workflow_dispatch:
   pull_request:
+    paths:
+      - "evm/**"
+      - ".github/workflows/evm.yml"
   push:
     branches:
       - main
+    paths:
+      - "evm/**"
+      - ".github/workflows/evm.yml"
 
 env:
   FOUNDRY_PROFILE: ci
+
+# Cancel in-progress runs on new commits to same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
     working-directory: ./evm
 
 jobs:
-  check:
-    strategy:
-      fail-fast: true
+  # Fast lint check - no build needed, runs in parallel with other jobs
+  lint:
+    name: forge fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.0
+
+      - name: Run Forge fmt
+        run: make lint
+        working-directory: ./evm
+
+  # Build and test
+  test:
     name: forge test
     runs-on: ubuntu-latest
     steps:
@@ -32,23 +57,13 @@ jobs:
           version: v1.5.0
 
       - name: Run Forge build
-        run: |
-          make push0-test
-        id: build
+        run: make push0-test
 
       - name: Run Forge tests
-        run: |
-          make forge-test
-        id: test
-
-      - name: Run Forge fmt
-        run: |
-          make lint
-        id: check
+        run: make forge-test
 
       - name: Run size test
-        run: |
-          make size-test
+        run: make size-test
 
   echidna:
     name: echidna
@@ -64,9 +79,7 @@ jobs:
           version: v1.5.0
 
       - name: Run Forge build
-        run: |
-          make build
-        id: build
+        run: make build
 
       - name: Install Echidna
         run: |
@@ -76,5 +89,4 @@ jobs:
           pip install crytic-compile
 
       - name: Run Echidna
-        run: |
-          echidna-bin/echidna ./echidna --config echidna.yaml
+        run: echidna-bin/echidna ./echidna --config echidna.yaml
