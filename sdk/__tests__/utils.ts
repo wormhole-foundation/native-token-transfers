@@ -142,32 +142,34 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
   const registrations: [string, string, VAA<"Ntt:TransceiverRegistration">][] =
     [];
 
-  // Register peers sequentially to avoid nonce collisions.
-  // EVM chains may share a signer, and concurrent transactions cause
-  // "nonce already used" errors when transactions race.
-  for (const targetInfo of chainInfos) {
-    const toRegister = chainInfos.filter(
-      (peerInfo) => peerInfo.context.chain !== targetInfo.context.chain
-    );
+  // register each chain in parallel
+  await Promise.all(
+    chainInfos.map((targetInfo) =>
+      (async () => {
+        const toRegister = chainInfos.filter(
+          (peerInfo) => peerInfo.context.chain !== targetInfo.context.chain
+        );
 
-    console.log(
-      "Registering peers for ",
-      targetInfo.context.chain,
-      ": ",
-      toRegister.map((x) => x.context.chain)
-    );
+        console.log(
+          "Registering peers for ",
+          targetInfo.context.chain,
+          ": ",
+          toRegister.map((x) => x.context.chain)
+        );
 
-    for (const peerInfo of toRegister) {
-      const vaa = await setupPeer(targetInfo, peerInfo);
-      if (!vaa) throw new Error("No VAA found");
-      // Add to registrations by PEER chain so we can register hub first
-      registrations.push([
-        targetInfo.context.chain,
-        peerInfo.context.chain,
-        vaa,
-      ]);
-    }
-  }
+        for (const peerInfo of toRegister) {
+          const vaa = await setupPeer(targetInfo, peerInfo);
+          if (!vaa) throw new Error("No VAA found");
+          // Add to registrations by PEER chain so we can register hub first
+          registrations.push([
+            targetInfo.context.chain,
+            peerInfo.context.chain,
+            vaa,
+          ]);
+        }
+      })()
+    )
+  );
 
   // Push Hub to Spoke registrations
   const hubToSpokeRegistrations = registrations.filter(
@@ -662,12 +664,10 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
     chainToPlatform(target.chain) === "Evm" &&
     chainToPlatform(peer.chain) === "Evm"
   ) {
-    // Use the NonceManager (from unwrap()) directly, NOT the inner .signer
-    // Using .signer bypasses nonce management and causes "nonce already used" errors
     const nativeSigner = (signer as NativeSigner).unwrap();
     const xcvr = WormholeTransceiver__factory.connect(
       targetCtx.contracts!.transceiver["wormhole"]!,
-      nativeSigner
+      nativeSigner.signer
     );
     const peerChainId = toChainId(peer.chain);
 

@@ -121,27 +121,26 @@ jobs:
           cache-from: type=gha,scope=cli-test-evm
           cache-to: type=gha,mode=max,scope=cli-test-evm
 
-  # Build Solana v1.0.0 contracts (runs in parallel with v2)
+  # Build Solana contracts (v1.0.0 and v2.0.0 in parallel via matrix)
   # Artifacts are cached based on version tag + build script hash
-  build-solana-v1:
+  build-solana:
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: read
-    outputs:
-      cache-hit: ${{ steps.cache.outputs.cache-hit }}
+    strategy:
+      matrix:
+        version: ["1.0.0", "2.0.0"]
     steps:
       - uses: actions/checkout@v5
 
-      - name: Restore cached v1.0.0 artifacts
+      - name: Restore cached v${{ matrix.version }} artifacts
         id: cache
         uses: actions/cache@v4
         with:
-          path: /tmp/solana-artifacts/v1.0.0
-          # Cache key includes all files that affect the build output:
-          # - build script, Dockerfiles (build environment), Anchor.toml (anchor version)
-          key: solana-v1.0.0-${{ hashFiles('cli/test/build-solana-v1.sh', 'Dockerfile.cli', 'Dockerfile.anchor-base', 'solana/Anchor.toml') }}
+          path: /tmp/solana-artifacts/v${{ matrix.version }}
+          key: solana-v${{ matrix.version }}-${{ hashFiles('cli/test/build-solana.sh', 'Dockerfile.cli', 'Dockerfile.anchor-base', 'solana/Anchor.toml') }}
 
       - name: Log in to Container Registry
         if: steps.cache.outputs.cache-hit != 'true'
@@ -151,7 +150,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Solana v1.0.0
+      - name: Build Solana v${{ matrix.version }}
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           docker run --rm \
@@ -161,67 +160,18 @@ jobs:
             -e HOME=/root \
             -w /workspace \
             ${{ needs.build.outputs.image }} \
-            bash -c "./cli/test/build-solana-v1.sh"
+            bash -c "./cli/test/build-solana.sh ${{ matrix.version }}"
 
-      - name: Upload v1 artifacts
+      - name: Upload v${{ matrix.version }} artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: solana-v1-artifacts
-          path: /tmp/solana-artifacts/v1.0.0
-          retention-days: 1
-
-  # Build Solana v2.0.0 contracts (runs in parallel with v1)
-  # Artifacts are cached based on version tag + build script hash
-  build-solana-v2:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    outputs:
-      cache-hit: ${{ steps.cache.outputs.cache-hit }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Restore cached v2.0.0 artifacts
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/solana-artifacts/v2.0.0
-          # Cache key includes all files that affect the build output:
-          # - build script, Dockerfiles (build environment), Anchor.toml (anchor version)
-          key: solana-v2.0.0-${{ hashFiles('cli/test/build-solana-v2.sh', 'Dockerfile.cli', 'Dockerfile.anchor-base', 'solana/Anchor.toml') }}
-
-      - name: Log in to Container Registry
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Solana v2.0.0
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/workspace" \
-            -v "/tmp/solana-artifacts:/tmp/solana-artifacts" \
-            -e OUTPUT_DIR=/tmp/solana-artifacts \
-            -e HOME=/root \
-            -w /workspace \
-            ${{ needs.build.outputs.image }} \
-            bash -c "./cli/test/build-solana-v2.sh"
-
-      - name: Upload v2 artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: solana-v2-artifacts
-          path: /tmp/solana-artifacts/v2.0.0
+          name: solana-v${{ matrix.version }}-artifacts
+          path: /tmp/solana-artifacts/v${{ matrix.version }}
           retention-days: 1
 
   # Run Solana tests using pre-built artifacts
   test-solana:
-    needs: [build, build-solana-v1, build-solana-v2]
+    needs: [build, build-solana]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -241,13 +191,13 @@ jobs:
       - name: Download v1 artifacts
         uses: actions/download-artifact@v4
         with:
-          name: solana-v1-artifacts
+          name: solana-v1.0.0-artifacts
           path: /tmp/solana-artifacts/v1.0.0
 
       - name: Download v2 artifacts
         uses: actions/download-artifact@v4
         with:
-          name: solana-v2-artifacts
+          name: solana-v2.0.0-artifacts
           path: /tmp/solana-artifacts/v2.0.0
 
       - name: List artifacts

@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 
-# Build Solana NTT contracts v1.0.0
-# This script pre-compiles the v1.0.0 contracts with a fixed test program ID.
-# Run in parallel with build-solana-v2.sh to speed up CI.
+# Build Solana NTT contracts for a given version
+# Usage: build-solana.sh <version>
+# Example: build-solana.sh 1.0.0
 
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="${1:-}"
+if [[ -z "$VERSION" ]]; then
+  echo "Usage: $0 <version>"
+  echo "Example: $0 1.0.0"
+  exit 1
+fi
+
 TAG="v${VERSION}+solana"
 OUTPUT_DIR="${OUTPUT_DIR:-/tmp/solana-artifacts}"
 
