@@ -84,10 +84,22 @@ jobs:
 
       - name: Restore cached SBF artifacts
         id: cache-sbf
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: solana/target/deploy
           key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
+
+      - name: Verify cache contains .so files
+        id: verify-cache
+        run: |
+          if [ -d "target/deploy" ] && ls target/deploy/*.so 1>/dev/null 2>&1; then
+            echo "Cache contains valid .so files"
+            ls -la target/deploy/*.so
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "Cache is empty or missing .so files, will rebuild"
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb
@@ -119,7 +131,7 @@ jobs:
           ~/.local/share/solana/install/active_release/bin/sdk/sbf/scripts/install.sh
 
       - name: Build SBF programs
-        if: steps.cache-sbf.outputs.cache-hit != 'true'
+        if: steps.verify-cache.outputs.valid != 'true'
         env:
           RUST_BACKTRACE: "1"
         run: |
@@ -127,6 +139,13 @@ jobs:
           export PATH="${HOME}/.local/share/solana/install/active_release/bin:${PATH}"
           mkdir -p "${BPF_OUT_DIR}"
           cargo build-sbf --features "mainnet"
+
+      - name: Save SBF artifacts to cache
+        if: steps.verify-cache.outputs.valid != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: solana/target/deploy
+          key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
 
       - name: Run tests in parallel
         env:
