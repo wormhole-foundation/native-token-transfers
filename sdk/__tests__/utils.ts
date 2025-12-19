@@ -41,7 +41,7 @@ import { Ntt } from "../definitions/src/index.js";
 import { submitAccountantVAAs } from "./accountant.js";
 
 // Note: Currently, in order for this to run, the evm bindings with extra contracts must be build
-// To do that, at the root, run `npm run generate:test`
+// To do that, at the root, run `bun run generate:test`
 
 export const NETWORK: "Devnet" = "Devnet";
 

@@ -35,27 +35,27 @@
   "scripts": {
     "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "npm run build:esm && npm run build:cjs",
-    "rebuild": "npm run clean && npm run build",
+    "build": "bun run build:esm && bun run build:cjs",
+    "rebuild": "bun run clean && bun run build",
     "clean": "rm -rf ./dist",
     "test:ci": "jest --config ./jest.config.ts",
     "build:contracts": "make build",
     "prettier": "prettier --write ./tests ./ts"
   },
   "devDependencies": {
-    "@types/bn.js": "^5.1.5",
-    "nock": "^13.3.3",
-    "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.7.2"
+    "@types/bn.js": "5.2.0",
+    "nock": "13.5.6",
+    "ts-jest": "29.4.2",
+    "ts-node": "10.9.2",
+    "tsx": "4.20.5"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.29.0",
     "@coral-xyz/borsh": "0.29.0",
     "@solana/spl-token": "0.4.0",
-    "@solana/web3.js": "^1.95.8",
+    "@solana/web3.js": "1.98.4",
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
-    "bn.js": "5.2.1"
+    "bn.js": "5.2.2"
   },
   "type": "module",
   "exports": {
@@ -71,9 +71,9 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.7.0",
-    "@wormhole-foundation/sdk-definitions": "^4.7.0",
-    "@wormhole-foundation/sdk-solana": "^4.7.0",
-    "@wormhole-foundation/sdk-solana-core": "^4.7.0"
+    "@wormhole-foundation/sdk-base": "4.7.0",
+    "@wormhole-foundation/sdk-definitions": "4.7.0",
+    "@wormhole-foundation/sdk-solana": "4.7.0",
+    "@wormhole-foundation/sdk-solana-core": "4.7.0"
   }
 }

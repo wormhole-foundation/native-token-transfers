@@ -17,7 +17,7 @@ RUN apt install -y git
 RUN apt install -y curl
 RUN apt install -y unzip
 
-RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.2.23"
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.4"
 
 RUN curl -L https://foundry.paradigm.xyz | bash
 RUN bash -ci "foundryup --install v1.3.6"
@@ -54,7 +54,8 @@ COPY tsconfig.json tsconfig.json
 COPY tsconfig.esm.json tsconfig.esm.json
 COPY tsconfig.cjs.json tsconfig.cjs.json
 COPY package.json package.json
-COPY package-lock.json package-lock.json
+COPY bun.lock bun.lock
+COPY bunfig.toml bunfig.toml
 COPY sdk sdk
 COPY solana/package.json solana/package.json
 COPY solana/ts solana/ts
@@ -62,7 +63,6 @@ COPY evm/ts evm/ts
 COPY solana/tsconfig.*.json solana/
 COPY sui/ts sui/ts
 COPY cli/package.json cli/package.json
-COPY cli/package-lock.json cli/package-lock.json
 COPY cli/src cli/src
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
