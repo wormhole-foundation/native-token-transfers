@@ -143,10 +143,14 @@ function install_cli {
 
   export PATH="$tmpdir:$PATH"
 
-  # swallow the output of the first build
-  # TODO: figure out why it fails the first time.
-  bun --bun run --filter '*' build > /dev/null 2>&1 || true
-  bun --bun run --filter '*' build
+  # Build in dependency order:
+  # 1. definitions has no internal deps
+  # 2. platform-specific packages depend on definitions
+  # 3. route depends on platform-specific packages
+  # 4. cli depends on route
+  bun --bun run --filter '@wormhole-foundation/sdk-definitions-ntt' build
+  bun --bun run --filter '@wormhole-foundation/sdk-evm-ntt' --filter '@wormhole-foundation/sdk-solana-ntt' --filter '@wormhole-foundation/sdk-stacks-ntt' --filter '@wormhole-foundation/sdk-sui-ntt' build
+  bun --bun run --filter '@wormhole-foundation/sdk-route-ntt' build
 
   # remove the temporary directory
 

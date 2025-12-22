@@ -1,5 +1,5 @@
 {
-  "name": "@wormhole-foundation/sdk-route-ntt",
+  "name": "@wormhole-foundation/sdk-stacks-ntt",
   "version": "1.0.0",
   "repository": {
     "type": "git",
@@ -8,7 +8,6 @@
   "bugs": {
     "url": "https://github.com/wormhole-foundation/native-token-transfers"
   },
-  "homepage": "https://github.com/wormhole-foundation/native-token-transfers#readme",
   "directories": {
     "test": "__tests__"
   },
@@ -16,7 +15,7 @@
   "main": "./dist/cjs/index.js",
   "types": "./dist/cjs/index.d.ts",
   "module": "./dist/esm/index.js",
-  "description": "Implementation of a Route usable by the Wormhole SDK",
+  "description": "NTT SDK for Stacks chain",
   "files": [
     "dist/esm",
     "dist/cjs"
@@ -25,7 +24,8 @@
     "wormhole",
     "sdk",
     "typescript",
-    "ntt"
+    "ntt",
+    "stacks"
   ],
   "engines": {
     "node": ">=16"
@@ -36,24 +36,16 @@
     "build:esm": "tsc -p ./tsconfig.esm.json",
     "build": "npm run build:esm && npm run build:cjs",
     "rebuild": "npm run clean && npm run build",
-    "test": "jest --config ./jest.config.ts",
     "clean": "rm -rf ./dist",
-    "prettier": "prettier --write ./src ./__tests__"
-  },
-  "devDependencies": {
-    "nock": "^13.3.3",
-    "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2"
+    "build:contracts": "cd ../.. && make build"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
-    "@wormhole-foundation/sdk-evm-ntt": "1.0.0",
-    "@wormhole-foundation/sdk-solana-ntt": "1.0.0",
-    "@wormhole-foundation/sdk-stacks-ntt": "1.0.0"
+    "@stacks/network": "^7.2.0",
+    "@stacks/transactions": "^7.2.0",
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0"
   },
-  "peerDependencies": {
-    "@wormhole-foundation/sdk-connect": "^4.7.0",
-    "axios": "^1.9.0"
+  "devDependencies": {
+    "tsx": "^4.7.2"
   },
   "type": "module",
   "exports": {
@@ -67,5 +59,11 @@
         "default": "./dist/cjs/index.js"
       }
     }
+  },
+  "peerDependencies": {
+    "@wormhole-foundation/sdk-base": "^4.7.0",
+    "@wormhole-foundation/sdk-definitions": "^4.7.0",
+    "@wormhole-foundation/sdk-stacks": "^4.7.0",
+    "@wormhole-foundation/sdk-stacks-core": "^4.7.0"
   }
 }
