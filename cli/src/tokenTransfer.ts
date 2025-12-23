@@ -45,6 +45,12 @@ import "@wormhole-foundation/sdk-sui-ntt";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 import fs from "fs";
 import readline from "readline";
+import {
+  ensurePlatformSupported,
+  normalizeRpcArgs,
+  validatePayerOption,
+  validateTimeout,
+} from "./validation";
 
 type TokenTransferArgs = {
   network: string;
@@ -68,15 +74,6 @@ class TokenTransferError extends Error {
     this.cause = options?.cause;
   }
 }
-
-/**
- * Platforms that currently have stable NTT support through the CLI.
- */
-const SUPPORTED_PLATFORMS: ReadonlySet<Platform> = new Set([
-  "Evm",
-  "Solana",
-  "Sui",
-]);
 
 const DEFAULT_SOLANA_MSG_VALUE = 11_500_000n; // lamports
 
@@ -194,8 +191,14 @@ async function executeTokenTransfer(
   const destinationChainInput = argv["destination-chain"];
   assertChain(destinationChainInput);
 
-  ensurePlatformSupported(sourceChainInput);
-  ensurePlatformSupported(destinationChainInput);
+  ensurePlatformSupported(
+    sourceChainInput,
+    (message) => new TokenTransferError(message)
+  );
+  ensurePlatformSupported(
+    destinationChainInput,
+    (message) => new TokenTransferError(message)
+  );
   const sourcePlatform = chainToPlatform(sourceChainInput);
   const destinationPlatform = chainToPlatform(destinationChainInput);
 
@@ -241,16 +244,12 @@ async function executeTokenTransfer(
     }
   }
 
-  const payerRaw = argv["payer"];
-  if (Array.isArray(payerRaw)) {
-    throw new TokenTransferError("--payer may only be specified once");
-  }
-  const payerPath = typeof payerRaw === "string" ? payerRaw.trim() : undefined;
-  if (payerRaw !== undefined && (!payerPath || payerPath.length === 0)) {
-    throw new TokenTransferError(
-      "--payer must be a path to a Solana keypair JSON file"
-    );
-  }
+  const payerPath = validatePayerOption(
+    argv["payer"],
+    sourceChainInput,
+    (message) => new TokenTransferError(message),
+    (message) => console.warn(colors.yellow(message))
+  );
 
   const destinationAddressRaw = argv["destination-address"];
   if (Array.isArray(destinationAddressRaw)) {
@@ -274,56 +273,17 @@ async function executeTokenTransfer(
     );
   }
 
-  if (payerPath && chainToPlatform(sourceChainInput) !== "Solana") {
-    console.warn(
-      colors.yellow(
-        "--payer is only used when the source chain is Solana. Ignoring provided path."
-      )
-    );
-  }
+  const rpcArgs = normalizeRpcArgs(
+    argv["rpc"],
+    (message) => new TokenTransferError(message)
+  );
 
-  const rpcRaw = argv["rpc"];
-  const rpcArgs = Array.isArray(rpcRaw)
-    ? rpcRaw
-    : rpcRaw
-      ? [rpcRaw]
-      : undefined;
-
-  // Reject empty override slots such as `--rpc` or `--rpc ""`
-  if (
-    rpcArgs &&
-    (rpcArgs.length === 0 ||
-      rpcArgs.some(
-        (value) => typeof value !== "string" || value.trim().length === 0
-      ))
-  ) {
-    throw new TokenTransferError(
-      "--rpc expects values in the form Chain=URL. Remove the flag or provide a valid endpoint."
-    );
-  }
-
-  // Users sometimes repeat flags; yargs returns an array in that case. Treat it as invalid.
-  if (
-    Object.prototype.hasOwnProperty.call(argv, "timeout") &&
-    (argv.timeout === undefined ||
-      argv.timeout === null ||
-      Array.isArray(argv.timeout))
-  ) {
-    throw new TokenTransferError(
-      "--timeout expects a numeric value in seconds. Remove the flag or provide a valid number."
-    );
-  }
-
-  if (
-    typeof argv.timeout === "number" &&
-    (Number.isNaN(argv.timeout) || argv.timeout <= 0)
-  ) {
-    throw new TokenTransferError(
-      "--timeout must be a positive number of seconds."
-    );
-  }
-
-  const timeoutSeconds = argv.timeout ?? 1200;
+  const timeoutSeconds =
+    validateTimeout(
+      argv.timeout,
+      Object.prototype.hasOwnProperty.call(argv, "timeout"),
+      (message) => new TokenTransferError(message)
+    ) ?? 1200;
   const timeoutMs = Math.max(1, Math.floor(timeoutSeconds)) * 1000;
 
   const deploymentPathArg = argv["deployment-path"];
@@ -948,18 +908,6 @@ function isExecutorQuote(value: unknown): value is NttWithExecutor.Quote {
  * Validate the CLI supports the platform hosting the given chain.
  * Exits early with a helpful message if not.
  */
-function ensurePlatformSupported(chain: Chain): void {
-  const platform = chainToPlatform(chain);
-  if (!SUPPORTED_PLATFORMS.has(platform)) {
-    throw new TokenTransferError(
-      `Chain ${chain} (platform ${platform}) is not supported by token-transfer`
-    );
-  }
-}
-
-/**
- * Determine the decimals for the token we are about to move.
- */
 async function resolveTokenDecimals(
   wh: Wormhole<Network>,
   token: TokenId,
@@ -1222,6 +1170,7 @@ async function withRetryStatus<T>(
 ): Promise<T> {
   const originalLog = console.log;
   let lastMessage = "";
+  const isTty = Boolean(process.stdout.isTTY);
 
   const matchesNeedle = (message: string): boolean => {
     if (typeof needle === "string") {
@@ -1238,26 +1187,33 @@ async function withRetryStatus<T>(
   console.log = (...args: Parameters<typeof console.log>) => {
     const message = args.map(String).join(" ");
     if (matchesNeedle(message)) {
-      // Show retry status inline (overwrite previous line if TTY)
-      if (process.stdout.isTTY && lastMessage) {
-        process.stdout.write(`\r${message}`.padEnd(lastMessage.length + 1));
-      } else if (!lastMessage) {
+      if (isTty) {
+        // Keep a single in-place "status line" for retries.
+        // \r returns to the start of the line; \x1b[2K clears the whole line.
+        process.stdout.write(`\r\x1b[2K${message}`);
+      } else {
         originalLog(message);
       }
       lastMessage = message;
       return;
     }
-    if (lastMessage && process.stdout.isTTY) {
-      process.stdout.write("\n");
-      lastMessage = "";
+
+    // If we're showing an in-place retry status, clear it before printing other logs,
+    // then restore it afterward so the status line continues updating in one place.
+    if (lastMessage && isTty) {
+      process.stdout.write("\r\x1b[2K");
     }
     originalLog(...args);
+    if (lastMessage && isTty) {
+      process.stdout.write(`\r\x1b[2K${lastMessage}`);
+    }
   };
 
   try {
     return await fn();
   } finally {
-    if (lastMessage && process.stdout.isTTY) {
+    if (lastMessage && isTty) {
+      process.stdout.write("\r\x1b[2K");
       process.stdout.write("\n");
     }
     console.log = originalLog;
