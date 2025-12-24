@@ -27,7 +27,6 @@ import { ethers } from "ethers";
 import { DummyTokenMintAndBurn__factory } from "../../evm/ts/ethers-ci-contracts/factories/DummyToken.sol/DummyTokenMintAndBurn__factory.js";
 import { DummyToken__factory } from "../../evm/ts/ethers-ci-contracts/factories/DummyToken.sol/DummyToken__factory.js";
 import { ERC1967Proxy__factory } from "../../evm/ts/ethers-ci-contracts/factories/ERC1967Proxy__factory.js";
-import { IWormholeRelayer__factory } from "../../evm/ts/ethers-ci-contracts/factories/IWormholeRelayer.sol/IWormholeRelayer__factory.js";
 import { NttManager__factory } from "../../evm/ts/ethers-ci-contracts/factories/NttManager__factory.js";
 import { TransceiverStructs__factory } from "../../evm/ts/ethers-ci-contracts/factories/TransceiverStructs__factory.js";
 import { TrimmedAmountLib__factory } from "../../evm/ts/ethers-ci-contracts/factories/TrimmedAmount.sol/TrimmedAmountLib__factory.js";
@@ -69,20 +68,7 @@ export interface Ctx extends StartingCtx {
 
 export const wh = new Wormhole(NETWORK, [evm.Platform, solana.Platform], {
   ...(process.env["CI"]
-    ? {
-        chains: {
-          Ethereum: {
-            contracts: {
-              relayer: "0xcC680D088586c09c3E0E099a676FA4b6e42467b4",
-            },
-          },
-          Bsc: {
-            contracts: {
-              relayer: "0xcC680D088586c09c3E0E099a676FA4b6e42467b4",
-            },
-          },
-        },
-      }
+    ? {}
     : {
         api: "http://localhost:7071",
         chains: {
@@ -241,16 +227,17 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
     dstSigner.address()
   );
 
-  const useRelayer =
-    chainToPlatform(sourceCtx.context.chain) === "Evm" &&
-    chainToPlatform(destinationCtx.context.chain) === "Evm";
+  // NOTE: Relayer support was removed, always use manual transfers
+  // const useRelayer =
+  //   chainToPlatform(sourceCtx.context.chain) === "Evm" &&
+  //   chainToPlatform(destinationCtx.context.chain) === "Evm";
 
   console.log("Calling transfer on: ", sourceCtx.context.chain);
   const srcNtt = await getNtt(sourceCtx);
 
   const transferTxs = srcNtt.transfer(sender.address, srcAmt, receiver, {
     queue: false,
-    automatic: useRelayer,
+    automatic: false, // Relayer support removed
   });
   const txids = await signSendWait(sourceCtx.context, transferTxs, srcSigner);
 
@@ -259,8 +246,10 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
     await srcCore.parseTransaction(txids[txids.length - 1]!.txid)
   )[0]!;
 
-  if (!useRelayer) await receive(msgId, destinationCtx);
-  else await waitForRelay(msgId, destinationCtx);
+  // NOTE: Relayer support was removed, always use manual receive
+  // if (!useRelayer) await receive(msgId, destinationCtx);
+  // else await waitForRelay(msgId, destinationCtx);
+  await receive(msgId, destinationCtx);
 
   const [managerBalanceAfterSend, userBalanceAfterSend] =
     await getManagerAndUserBalance(sourceCtx);
@@ -282,49 +271,50 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
   );
 }
 
-async function waitForRelay(
-  msgId: WormholeMessageId,
-  dst: Ctx,
-  retryTime: number = 2000,
-  maxRetries: number = 60 // 2 minutes with default retryTime
-) {
-  const vaa = await wh.getVaa(msgId, "Uint8Array");
-  const deliveryHash = keccak256(vaa!.hash);
-
-  const wormholeRelayer = IWormholeRelayer__factory.connect(
-    dst.context.config.contracts.relayer!,
-    await dst.context.getRpc()
-  );
-
-  let success = false;
-  let attempts = 0;
-  while (!success && attempts < maxRetries) {
-    attempts++;
-    try {
-      const successBlock =
-        await wormholeRelayer.deliverySuccessBlock(deliveryHash);
-      if (successBlock > 0) success = true;
-      console.log(
-        `Relayer delivery (attempt ${attempts}/${maxRetries}): `,
-        success
-      );
-    } catch (e) {
-      console.error(
-        `Relayer check error (attempt ${attempts}/${maxRetries}):`,
-        e
-      );
-    }
-    if (!success) {
-      await new Promise((resolve) => setTimeout(resolve, retryTime));
-    }
-  }
-
-  if (!success) {
-    throw new Error(
-      `Relay delivery failed after ${maxRetries} attempts (${(maxRetries * retryTime) / 1000}s)`
-    );
-  }
-}
+// NOTE: waitForRelay is disabled because relayer support was removed
+// async function waitForRelay(
+//   msgId: WormholeMessageId,
+//   dst: Ctx,
+//   retryTime: number = 2000,
+//   maxRetries: number = 60 // 2 minutes with default retryTime
+// ) {
+//   const vaa = await wh.getVaa(msgId, "Uint8Array");
+//   const deliveryHash = keccak256(vaa!.hash);
+//
+//   const wormholeRelayer = IWormholeRelayer__factory.connect(
+//     dst.context.config.contracts.relayer!,
+//     await dst.context.getRpc()
+//   );
+//
+//   let success = false;
+//   let attempts = 0;
+//   while (!success && attempts < maxRetries) {
+//     attempts++;
+//     try {
+//       const successBlock =
+//         await wormholeRelayer.deliverySuccessBlock(deliveryHash);
+//       if (successBlock > 0) success = true;
+//       console.log(
+//         `Relayer delivery (attempt ${attempts}/${maxRetries}): `,
+//         success
+//       );
+//     } catch (e) {
+//       console.error(
+//         `Relayer check error (attempt ${attempts}/${maxRetries}):`,
+//         e
+//       );
+//     }
+//     if (!success) {
+//       await new Promise((resolve) => setTimeout(resolve, retryTime));
+//     }
+//   }
+//
+//   if (!success) {
+//     throw new Error(
+//       `Relay delivery failed after ${maxRetries} attempts (${(maxRetries * retryTime) / 1000}s)`
+//     );
+//   }
+// }
 
 // Wrap signSendWait from sdk to provide full error message
 async function signSendWait(
@@ -456,9 +446,10 @@ async function deployEvm(ctx: Ctx): Promise<Ctx> {
     // List of useful wormhole contracts - https://github.com/wormhole-foundation/wormhole/blob/00f504ef452ae2d94fa0024c026be2d8cf903ad5/ethereum/ts-scripts/relayer/config/ci/contracts.json
     await manager.getAddress(),
     ctx.context.config.contracts.coreBridge!, // Core wormhole contract - https://docs.wormhole.com/wormhole/blockchain-environments/evm#local-network-contract -- may need to be changed to support other chains
-    ctx.context.config.contracts.relayer!, // Relayer contract -- double check these...https://github.com/wormhole-foundation/wormhole/blob/main/sdk/js/src/relayer/__tests__/wormhole_relayer.ts
-    "0x0000000000000000000000000000000000000000", // TODO - Specialized relayer??????
-    200, // Consistency level
+    201, // Consistency level (201 = finalized)
+    0, // customConsistencyLevel (0 = not using CCL)
+    0, // addtlBlocks (0 = no additional blocks)
+    "0x0000000000000000000000000000000000000000", // customConsistencyLevelAddress (zero address = not using CCL)
     500000n // Gas limit
   );
   await WormholeTransceiverAddress.deploymentTransaction()?.wait(1);
@@ -660,27 +651,8 @@ async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
   const [whm] = await target.parseTransaction(xcvrPeerTxids[0]!.txid);
   console.log("Set peers for: ", target.chain, peer.chain);
 
-  if (
-    chainToPlatform(target.chain) === "Evm" &&
-    chainToPlatform(peer.chain) === "Evm"
-  ) {
-    const nativeSigner = (signer as NativeSigner).unwrap();
-    const xcvr = WormholeTransceiver__factory.connect(
-      targetCtx.contracts!.transceiver["wormhole"]!,
-      nativeSigner.signer
-    );
-    const peerChainId = toChainId(peer.chain);
-
-    console.log("Setting isEvmChain for: ", peer.chain);
-    await tryAndWaitThrice(() =>
-      xcvr.setIsWormholeEvmChain.send(peerChainId, true)
-    );
-
-    console.log("Setting wormhole relaying for: ", peer.chain);
-    await tryAndWaitThrice(() =>
-      xcvr.setIsWormholeRelayingEnabled.send(peerChainId, true)
-    );
-  }
+  // NOTE: setIsWormholeEvmChain and setIsWormholeRelayingEnabled were removed with SR removal
+  // Peer configuration is now complete with just setPeer and setTransceiverPeer
 
   return await wh.getVaa(whm!, "Ntt:TransceiverRegistration");
 }

@@ -6,6 +6,9 @@ solana/keys/**
 # generated typechain contracts
 evm/ts/src/ethers-contracts/**
 
+# dist directories (build output)
+**/dist/**
+
 sdk/examples/tsconfig.json
 
 solana/tsconfig*.json
