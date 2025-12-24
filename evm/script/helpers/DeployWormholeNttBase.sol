@@ -170,9 +170,11 @@ contract DeployWormholeNttBase is ParseNttConfig {
 
         // Consistency level and custom consistency level parameters.
         params.consistencyLevel = uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL"));
-        params.customConsistencyLevel = uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0)));
+        params.customConsistencyLevel =
+            uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0)));
         params.addtlBlocks = uint16(vm.envOr("RELEASE_ADDTL_BLOCKS", uint256(0)));
-        params.customConsistencyLevelAddress = vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
+        params.customConsistencyLevelAddress =
+            vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
 
         params.gasLimit = vm.envUint("RELEASE_GAS_LIMIT");
         require(params.gasLimit >= MIN_WORMHOLE_GAS_LIMIT, "Invalid gas limit");
