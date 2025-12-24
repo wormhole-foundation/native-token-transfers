@@ -1,31 +1,29 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/WormholeRelayerSDK.sol";
 import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
 import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 
 import "../../libraries/TransceiverHelpers.sol";
-import "../../libraries/BooleanFlag.sol";
 import "../../libraries/TransceiverStructs.sol";
+import "../../libraries/ConfigMakers.sol";
 
 import "../../interfaces/IWormholeTransceiver.sol";
 import "../../interfaces/IWormholeTransceiverState.sol";
-import "../../interfaces/ISpecialRelayer.sol";
 import "../../interfaces/INttManager.sol";
+import "../../interfaces/ICustomConsistencyLevel.sol";
 
 import "../Transceiver.sol";
 
 abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transceiver {
     using BytesParsing for bytes;
-    using BooleanFlagLib for bool;
-    using BooleanFlagLib for BooleanFlag;
 
     // ==================== Immutables ===============================================
     uint8 public immutable consistencyLevel;
+    uint8 public immutable customConsistencyLevel;
+    uint16 public immutable addtlBlocks;
+    address public immutable customConsistencyLevelAddress;
     IWormhole public immutable wormhole;
-    IWormholeRelayer public immutable wormholeRelayer;
-    ISpecialRelayer public immutable specialRelayer;
     /// @dev We don't check this in `_checkImmutables` since it's set at construction
     ///      through `block.chainid`.
     uint256 immutable wormholeTransceiver_evmChainId;
@@ -51,22 +49,22 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     constructor(
         address nttManager,
         address wormholeCoreBridge,
-        address wormholeRelayerAddr,
-        address specialRelayerAddr,
         uint8 _consistencyLevel,
+        uint8 _customConsistencyLevel,
+        uint16 _addtlBlocks,
+        address _customConsistencyLevelAddress,
         uint256 _gasLimit
     ) Transceiver(nttManager) {
         wormhole = IWormhole(wormholeCoreBridge);
-        wormholeRelayer = IWormholeRelayer(wormholeRelayerAddr);
-        specialRelayer = ISpecialRelayer(specialRelayerAddr);
         wormholeTransceiver_evmChainId = block.chainid;
         consistencyLevel = _consistencyLevel;
+        customConsistencyLevel = _customConsistencyLevel;
+        addtlBlocks = _addtlBlocks;
+        customConsistencyLevelAddress = _customConsistencyLevelAddress;
         gasLimit = _gasLimit;
     }
 
     enum RelayingType {
-        Standard,
-        Special,
         Manual
     }
 
@@ -83,6 +81,14 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
             tokenAddress: toWormholeFormat(nttManagerToken),
             tokenDecimals: INttManager(nttManager).tokenDecimals()
         });
+
+        // Configure CustomConsistencyLevel if consistency level is 203
+        if (consistencyLevel == 203) {
+            bytes32 config =
+                ConfigMakers.makeAdditionalBlocksConfig(customConsistencyLevel, addtlBlocks);
+            ICustomConsistencyLevel(customConsistencyLevelAddress).configure(config);
+        }
+
         wormhole.publishMessage{value: msg.value}(
             0, TransceiverStructs.encodeTransceiverInit(init), consistencyLevel
         );
@@ -91,8 +97,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     function _checkImmutables() internal view override {
         super._checkImmutables();
         assert(this.wormhole() == wormhole);
-        assert(this.wormholeRelayer() == wormholeRelayer);
-        assert(this.specialRelayer() == specialRelayer);
         assert(this.consistencyLevel() == consistencyLevel);
     }
 
@@ -103,15 +107,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
 
     bytes32 private constant WORMHOLE_PEERS_SLOT =
         bytes32(uint256(keccak256("whTransceiver.peers")) - 1);
-
-    bytes32 private constant WORMHOLE_RELAYING_ENABLED_CHAINS_SLOT =
-        bytes32(uint256(keccak256("whTransceiver.relayingEnabledChains")) - 1);
-
-    bytes32 private constant SPECIAL_RELAYING_ENABLED_CHAINS_SLOT =
-        bytes32(uint256(keccak256("whTransceiver.specialRelayingEnabledChains")) - 1);
-
-    bytes32 private constant WORMHOLE_EVM_CHAIN_IDS =
-        bytes32(uint256(keccak256("whTransceiver.evmChainIds")) - 1);
 
     // =============== Storage Setters/Getters ========================================
 
@@ -137,39 +132,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         }
     }
 
-    function _getWormholeRelayingEnabledChainsStorage()
-        internal
-        pure
-        returns (mapping(uint16 => BooleanFlag) storage $)
-    {
-        uint256 slot = uint256(WORMHOLE_RELAYING_ENABLED_CHAINS_SLOT);
-        assembly ("memory-safe") {
-            $.slot := slot
-        }
-    }
-
-    function _getSpecialRelayingEnabledChainsStorage()
-        internal
-        pure
-        returns (mapping(uint16 => BooleanFlag) storage $)
-    {
-        uint256 slot = uint256(SPECIAL_RELAYING_ENABLED_CHAINS_SLOT);
-        assembly ("memory-safe") {
-            $.slot := slot
-        }
-    }
-
-    function _getWormholeEvmChainIdsStorage()
-        internal
-        pure
-        returns (mapping(uint16 => BooleanFlag) storage $)
-    {
-        uint256 slot = uint256(WORMHOLE_EVM_CHAIN_IDS);
-        assembly ("memory-safe") {
-            $.slot := slot
-        }
-    }
-
     // =============== Public Getters ======================================================
 
     /// @inheritdoc IWormholeTransceiverState
@@ -184,27 +146,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         uint16 chainId
     ) public view returns (bytes32) {
         return _getWormholePeersStorage()[chainId];
-    }
-
-    /// @inheritdoc IWormholeTransceiverState
-    function isWormholeRelayingEnabled(
-        uint16 chainId
-    ) public view returns (bool) {
-        return _getWormholeRelayingEnabledChainsStorage()[chainId].toBool();
-    }
-
-    /// @inheritdoc IWormholeTransceiverState
-    function isSpecialRelayingEnabled(
-        uint16 chainId
-    ) public view returns (bool) {
-        return _getSpecialRelayingEnabledChainsStorage()[chainId].toBool();
-    }
-
-    /// @inheritdoc IWormholeTransceiverState
-    function isWormholeEvmChain(
-        uint16 chainId
-    ) public view returns (bool) {
-        return _getWormholeEvmChainIdsStorage()[chainId].toBool();
     }
 
     // =============== Admin ===============================================================
@@ -246,71 +187,11 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         emit SetWormholePeer(peerChainId, peerContract);
     }
 
-    /// @inheritdoc IWormholeTransceiverState
-    function setIsWormholeEvmChain(
-        uint16 chainId,
-        bool isEvm
-    ) external onlyOwner {
-        if (chainId == 0) {
-            revert InvalidWormholeChainIdZero();
-        }
-        _getWormholeEvmChainIdsStorage()[chainId] = isEvm.toWord();
-
-        emit SetIsWormholeEvmChain(chainId, isEvm);
-    }
-
-    /// @inheritdoc IWormholeTransceiverState
-    function setIsWormholeRelayingEnabled(
-        uint16 chainId,
-        bool isEnabled
-    ) external onlyOwner {
-        if (chainId == 0) {
-            revert InvalidWormholeChainIdZero();
-        }
-        _getWormholeRelayingEnabledChainsStorage()[chainId] = isEnabled.toWord();
-
-        emit SetIsWormholeRelayingEnabled(chainId, isEnabled);
-    }
-
-    /// @inheritdoc IWormholeTransceiverState
-    function setIsSpecialRelayingEnabled(
-        uint16 chainId,
-        bool isEnabled
-    ) external onlyOwner {
-        if (chainId == 0) {
-            revert InvalidWormholeChainIdZero();
-        }
-        _getSpecialRelayingEnabledChainsStorage()[chainId] = isEnabled.toWord();
-
-        emit SetIsSpecialRelayingEnabled(chainId, isEnabled);
-    }
-
     // ============= Internal ===============================================================
-
-    function _checkInvalidRelayingConfig(
-        uint16 chainId
-    ) internal view returns (bool) {
-        return isWormholeRelayingEnabled(chainId) && !isWormholeEvmChain(chainId);
-    }
-
-    function _shouldRelayViaStandardRelaying(
-        uint16 chainId
-    ) internal view returns (bool) {
-        return isWormholeRelayingEnabled(chainId) && isWormholeEvmChain(chainId);
-    }
 
     function _setVAAConsumed(
         bytes32 hash
     ) internal {
         _getWormholeConsumedVAAsStorage()[hash] = true;
-    }
-
-    // =============== MODIFIERS ===============================================
-
-    modifier onlyRelayer() {
-        if (msg.sender != address(wormholeRelayer)) {
-            revert CallerNotRelayer(msg.sender);
-        }
-        _;
     }
 }

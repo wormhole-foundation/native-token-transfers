@@ -51,7 +51,6 @@ contract TestEndToEndNoRateLimiting is Test {
     address userC = address(0x789);
     address userD = address(0xABC);
 
-    address relayer = address(0x28D8F1Be96f97C1387e94A53e00eCcFb4E75175a);
     IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
 
     function setUp() public {
@@ -73,12 +72,7 @@ contract TestEndToEndNoRateLimiting is Test {
         nttManagerChain1.initialize();
 
         WormholeTransceiver wormholeTransceiverChain1Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain1 = MockWormholeTransceiverContract(
             address(new ERC1967Proxy(address(wormholeTransceiverChain1Implementation), ""))
@@ -111,12 +105,7 @@ contract TestEndToEndNoRateLimiting is Test {
         nttManagerChain2.initialize();
 
         WormholeTransceiver wormholeTransceiverChain2Implementation = new MockWormholeTransceiverContract(
-            address(nttManagerChain2),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain2), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
         wormholeTransceiverChain2 = MockWormholeTransceiverContract(
             address(new ERC1967Proxy(address(wormholeTransceiverChain2Implementation), ""))
@@ -486,12 +475,7 @@ contract TestEndToEndNoRateLimiting is Test {
 
         // Dual transceiver setup
         WormholeTransceiver wormholeTransceiverChain1_2 = new MockWormholeTransceiverContract(
-            address(nttManagerChain1),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain1), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
 
         wormholeTransceiverChain1_2 = MockWormholeTransceiverContract(
@@ -504,12 +488,7 @@ contract TestEndToEndNoRateLimiting is Test {
 
         // Dual transceiver setup
         WormholeTransceiver wormholeTransceiverChain2_2 = new MockWormholeTransceiverContract(
-            address(nttManagerChain2),
-            address(wormhole),
-            address(relayer),
-            address(0x0),
-            FAST_CONSISTENCY_LEVEL,
-            GAS_LIMIT
+            address(nttManagerChain2), address(wormhole), FAST_CONSISTENCY_LEVEL, GAS_LIMIT
         );
 
         wormholeTransceiverChain2_2 = MockWormholeTransceiverContract(
