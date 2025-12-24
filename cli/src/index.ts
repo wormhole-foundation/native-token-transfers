@@ -1255,18 +1255,28 @@ yargs(hideBin(process.argv))
                 "supportsInterface",
                 ["0x43412b75"]
               );
-              const supports = await provider.call({
-                to: contractOwner.toString(),
-                data: callData,
-              });
-              const supportsInt = parseInt(supports);
-              if (supportsInt !== 1) {
+              try {
+                const supports = await provider.call({
+                  to: contractOwner.toString(),
+                  data: callData,
+                });
+                const supportsInt = parseInt(supports);
+                if (supportsInt !== 1) {
+                  console.error(
+                    `cannot update ${chain} because the owning contract does not implement INttOwner`
+                  );
+                  process.exit(1);
+                }
+                nttOwnerForChain[chain] = contractOwner.toString();
+              } catch (error: any) {
+                // This catch is primarily for reverts
                 console.error(
-                  `cannot update ${chain} because the owning contract does not implement INttOwner`
+                  colors.red(
+                    `Cannot update ${chain}: You do not own the NTT manager contract. Owner is ${contractOwner.address}.`
+                  )
                 );
                 process.exit(1);
               }
-              nttOwnerForChain[chain] = contractOwner.toString();
             }
           }
         }
@@ -1962,7 +1972,7 @@ yargs(hideBin(process.argv))
       )
       .command(
         "ata <mint> <owner> <tokenProgram>",
-        "print the token authority address for a given program ID",
+        "print the associated token account address for a given mint and owner",
         (yargs) =>
           yargs
             .positional("mint", {
@@ -2236,10 +2246,10 @@ yargs(hideBin(process.argv))
 
           console.log(`Building SVM program for ${chain} on ${network}...`);
           if (version) {
-            console.log(chalk.blue(`Using version: ${version}`));
-            console.log(chalk.blue(`Worktree: ${worktree}`));
+            console.log(colors.blue(`Using version: ${version}`));
+            console.log(colors.blue(`Worktree: ${worktree}`));
           } else {
-            console.log(chalk.blue(`Using local source`));
+            console.log(colors.blue(`Using local source`));
           }
 
           const buildResult = await buildSvm(
@@ -2850,9 +2860,8 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
   const useBundledV1 = scriptVersion === 1;
 
   await withDeploymentScript(pwd, useBundledV1, async () => {
-    // Set MANAGER_VARIANT env var (old scripts will ignore it)
     const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${ctx.config.rpc} \
+--rpc-url "${ctx.config.rpc}" \
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
@@ -3249,7 +3258,7 @@ async function deployEvm<N extends Network, C extends Chain>(
           const zeroAddress = "0x0000000000000000000000000000000000000000";
           const sig = "run(address,address,address,address,uint8,uint8)";
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${rpc} \
+--rpc-url "${rpc}" \
 ${simulateArg} \
 --sig "${sig}" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
@@ -3269,7 +3278,7 @@ ${simulateArg} \
           };
 
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${rpc} \
+--rpc-url "${rpc}" \
 ${simulateArg} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
