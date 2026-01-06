@@ -1192,13 +1192,14 @@ yargs(hideBin(process.argv))
 
       // discover peers
       let count = 0;
-      const total = chains.length - 1;
-      for (const c of chains) {
+      const peerChains = chains.filter((c) => c !== chain);
+      const total = peerChains.length;
+      for (const c of peerChains) {
+        count++;
         updateStatusLine(
           `[${count}/${total}] Fetching peer config for ${c}`
         );
         await new Promise((resolve) => setTimeout(resolve, 100));
-        count++;
 
         let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
         try {
@@ -1230,6 +1231,11 @@ yargs(hideBin(process.argv))
         }
       }
       finishStatusLine();
+      console.log(
+        `Attempted fetching peer config for ${total} chain${
+          total === 1 ? "" : "s"
+        }.`
+      );
 
       // sort chains by name
       const sorted = Object.fromEntries(
