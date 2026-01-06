@@ -3,31 +3,31 @@ name: Tilt CI
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "sdk/**"
-      - "evm/**"
-      - "solana/**"
-      - "sui/**"
-      - "cli/**"
-      - "Tiltfile"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/tilt.yml"
-      - ".github/workflows/tilt-images.yml"
+    # paths:
+    #   - "sdk/**"
+    #   - "evm/**"
+    #   - "solana/**"
+    #   - "sui/**"
+    #   - "cli/**"
+    #   - "Tiltfile"
+    #   - "package.json"
+    #   - "package-lock.json"
+    #   - ".github/workflows/tilt.yml"
+    #   - ".github/workflows/tilt-images.yml"
   push:
     branches:
       - main
-    paths:
-      - "sdk/**"
-      - "evm/**"
-      - "solana/**"
-      - "sui/**"
-      - "cli/**"
-      - "Tiltfile"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/tilt.yml"
-      - ".github/workflows/tilt-images.yml"
+    # paths:
+    #   - "sdk/**"
+    #   - "evm/**"
+    #   - "solana/**"
+    #   - "sui/**"
+    #   - "cli/**"
+    #   - "Tiltfile"
+    #   - "package.json"
+    #   - "package-lock.json"
+    #   - ".github/workflows/tilt.yml"
+    #   - ".github/workflows/tilt-images.yml"
 
 env:
   REGISTRY: ghcr.io

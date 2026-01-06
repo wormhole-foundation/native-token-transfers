@@ -16,15 +16,15 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "solana/**"
-      - "evm/**"
-      - ".github/workflows/tilt-images.yml"
+    # paths:
+    #   - "solana/**"
+    #   - "evm/**"
+    #   - ".github/workflows/tilt-images.yml"
   pull_request:
-    paths:
-      - "solana/**"
-      - "evm/**"
-      - ".github/workflows/tilt-images.yml"
+    # paths:
+    #   - "solana/**"
+    #   - "evm/**"
+    #   - ".github/workflows/tilt-images.yml"
 
 env:
   REGISTRY: ghcr.io

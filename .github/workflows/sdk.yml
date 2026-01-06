@@ -2,27 +2,27 @@ name: TS SDK CI
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "sdk/**"
-      - "evm/ts/**"
-      - "solana/ts/**"
-      - "sui/ts/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig*.json"
-      - ".github/workflows/sdk.yml"
+    # paths:
+    #   - "sdk/**"
+    #   - "evm/ts/**"
+    #   - "solana/ts/**"
+    #   - "sui/ts/**"
+    #   - "package.json"
+    #   - "package-lock.json"
+    #   - "tsconfig*.json"
+    #   - ".github/workflows/sdk.yml"
   push:
     branches:
       - main
-    paths:
-      - "sdk/**"
-      - "evm/ts/**"
-      - "solana/ts/**"
-      - "sui/ts/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig*.json"
-      - ".github/workflows/sdk.yml"
+    # paths:
+    #   - "sdk/**"
+    #   - "evm/ts/**"
+    #   - "solana/ts/**"
+    #   - "sui/ts/**"
+    #   - "package.json"
+    #   - "package-lock.json"
+    #   - "tsconfig*.json"
+    #   - ".github/workflows/sdk.yml"
 
 # Cancel in-progress runs on new commits to same PR/branch
 concurrency:
