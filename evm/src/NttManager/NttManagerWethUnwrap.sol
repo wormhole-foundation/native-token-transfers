@@ -26,10 +26,16 @@ contract NttManagerWethUnwrap is NttManager {
 
     // ==================== Overridden NttManager Implementations =================================
 
-    function _unlockTokens(address recipient, uint256 untrimmedAmount) internal override {
+    function _unlockTokens(
+        address recipient,
+        uint256 untrimmedAmount
+    ) internal override {
         // withdraw weth and send to the recipient
         weth.withdraw(untrimmedAmount);
         (bool success,) = payable(recipient).call{value: untrimmedAmount}("");
         require(success, "Failed to transfer to recipient");
     }
+
+    /// @notice Allow the contract to receive ETH from WETH withdrawals
+    receive() external payable {}
 }

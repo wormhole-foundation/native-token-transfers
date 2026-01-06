@@ -49,12 +49,6 @@
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
     "ethers": "^6.5.1"
   },
-  "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^3.10.0",
-    "@wormhole-foundation/sdk-definitions": "^3.10.0",
-    "@wormhole-foundation/sdk-evm": "^3.10.0",
-    "@wormhole-foundation/sdk-evm-core": "^3.10.0"
-  },
   "devDependencies": {
     "@typechain/ethers-v6": "^0.5.1",
     "tsx": "^4.7.2",
@@ -72,5 +66,11 @@
         "default": "./dist/cjs/index.js"
       }
     }
+  },
+  "peerDependencies": {
+    "@wormhole-foundation/sdk-base": "^4.7.0",
+    "@wormhole-foundation/sdk-definitions": "^4.7.0",
+    "@wormhole-foundation/sdk-evm": "^4.7.0",
+    "@wormhole-foundation/sdk-evm-core": "^4.7.0"
   }
 }

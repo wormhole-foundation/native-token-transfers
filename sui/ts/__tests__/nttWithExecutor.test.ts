@@ -317,9 +317,8 @@ describe("SuiNttWithExecutor", () => {
 
   describe("estimateMsgValueAndGasLimit", () => {
     it("should estimate costs for transfer", async () => {
-      const estimate = await suiNttWithExecutor.estimateMsgValueAndGasLimit(
-        undefined
-      );
+      const estimate =
+        await suiNttWithExecutor.estimateMsgValueAndGasLimit(undefined);
 
       expect(typeof estimate.gasLimit).toBe("bigint");
       expect(typeof estimate.msgValue).toBe("bigint");

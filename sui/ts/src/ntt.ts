@@ -825,9 +825,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     }
 
     // Get transceiver package ID
-    const transceiverPackageId = await this.getPackageIdFromObject(
-      transceiverStateId
-    );
+    const transceiverPackageId =
+      await this.getPackageIdFromObject(transceiverStateId);
 
     // Create transceiver message
     const [transceiverMessage] = txb.moveCall({

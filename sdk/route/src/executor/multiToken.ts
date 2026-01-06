@@ -593,7 +593,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
   async resume(tx: TransactionId): Promise<R> {
     // This will throw if executor is not tracking the transfer
     // (possibly because it was a manual transfer)
-    await fetchStatus(this.wh.network, tx.txid, tx.chain)
+    await fetchStatus(this.wh.network, tx.txid, tx.chain);
 
     return await MultiTokenNttRoute.resume<N, R>(
       tx,

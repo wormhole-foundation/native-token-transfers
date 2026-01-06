@@ -41,7 +41,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     using TrimmedAmountLib for uint256;
     using TrimmedAmountLib for TrimmedAmount;
 
-    string public constant NTT_MANAGER_VERSION = "1.1.0";
+    string public constant NTT_MANAGER_VERSION = "1.3.1";
 
     // =============== Setup =================================================================
 
@@ -142,7 +142,10 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     }
 
     /// @inheritdoc INttManager
-    function setInboundLimit(uint256 limit, uint16 chainId_) external onlyOwner {
+    function setInboundLimit(
+        uint256 limit,
+        uint16 chainId_
+    ) external onlyOwner {
         uint8 toDecimals = tokenDecimals();
         _setInboundLimit(limit.trim(toDecimals, toDecimals), chainId_);
     }
@@ -579,9 +582,9 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
             seq
         );
 
-        emit TransferSent(
-            TransceiverStructs._nttManagerMessageDigest(chainId, encodedNttManagerPayload)
-        );
+        emit TransferSent(TransceiverStructs._nttManagerMessageDigest(
+                chainId, encodedNttManagerPayload
+            ));
 
         // return the sequence number
         return seq;
@@ -640,7 +643,10 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         }
     }
 
-    function _unlockTokens(address recipient, uint256 untrimmedAmount) internal virtual {
+    function _unlockTokens(
+        address recipient,
+        uint256 untrimmedAmount
+    ) internal virtual {
         IERC20(token).safeTransfer(recipient, untrimmedAmount);
     }
 
@@ -658,7 +664,10 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     // ==================== Internal Helpers ===============================================
 
     /// @dev Verify that the peer address saved for `sourceChainId` matches the `peerAddress`.
-    function _verifyPeer(uint16 sourceChainId, bytes32 peerAddress) internal view {
+    function _verifyPeer(
+        uint16 sourceChainId,
+        bytes32 peerAddress
+    ) internal view {
         if (_getPeersStorage()[sourceChainId].peerAddress != peerAddress) {
             revert InvalidPeer(sourceChainId, peerAddress);
         }

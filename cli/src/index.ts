@@ -12,11 +12,7 @@ import {
 import { execSync } from "child_process";
 import * as myEvmSigner from "./evmsigner.js";
 
-import evmDeployFile from "../../evm/script/DeployWormholeNtt.s.sol" with { type: "file" };
-
-import evmDeployFileHelper from "../../evm/script/helpers/DeployWormholeNttBase.sol" with { type: "file" };
-
-import chalk from "chalk";
+import { colors } from "./colors.js";
 import yargs from "yargs";
 import { $ } from "bun";
 import { hideBin } from "yargs/helpers";
@@ -29,6 +25,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
+import * as solanaWeb3 from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs from "fs";
 import path from "path";
@@ -62,6 +59,7 @@ import type {
   Ntt,
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
+import { hasExecutorDeployed } from "@wormhole-foundation/sdk-evm-ntt";
 
 import {
   type SolanaChains,
@@ -73,10 +71,12 @@ import { registerSolanaTransceiver } from "./solanaHelpers";
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 import { handleDeploymentError } from "./error";
+import { loadConfig, type ChainConfig, type Config } from "./deployments";
+export type { ChainConfig, Config } from "./deployments";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
-const EXCLUDED_DIFF_PATHS = ["transceivers.wormhole.executor"];
+const EXCLUDED_DIFF_PATHS = ["managerVariant"];
 
 // Helper functions for nested object access
 function getNestedValue(obj: any, path: string[]): any {
@@ -98,26 +98,19 @@ import type {
   EvmNttWormholeTranceiver,
 } from "@wormhole-foundation/sdk-evm-ntt";
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
-import type {
-  EvmChains,
-  EvmNativeSigner,
-  EvmUnsignedTransaction,
-} from "@wormhole-foundation/sdk-evm";
+import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
 import * as configuration from "./configuration";
-import { AbiCoder, ethers, Interface } from "ethers";
-import { newSignSendWaiter, signSendWaitWithOverride } from "./signSendWait.js";
-
-// TODO: contract upgrades on solana
-// TODO: set special relaying?
-// TODO: currently, we just default all evm chains to standard relaying. should we not do that? what's a good way to configure this?
+import { createTokenTransferCommand } from "./tokenTransfer";
+import { ethers, Interface } from "ethers";
+import { newSignSendWaiter } from "./signSendWait.js";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
 const overrides: WormholeConfigOverrides<Network> = (function () {
   // read overrides.json file if exists
   if (fs.existsSync("overrides.json")) {
-    console.error(chalk.yellow("Using overrides.json"));
+    console.error(colors.yellow("Using overrides.json"));
     return JSON.parse(fs.readFileSync("overrides.json").toString());
   } else {
     return {};
@@ -262,35 +255,6 @@ export type SuiDeploymentResult<C extends Chain> = ChainAddress<C> & {
   };
 };
 
-// TODO: rename
-export type ChainConfig = {
-  version: string;
-  mode: Ntt.Mode;
-  paused: boolean;
-  owner: string;
-  pauser?: string;
-  manager: string;
-  token: string;
-  transceivers: {
-    threshold: number;
-    wormhole: { address: string; pauser?: string; executor?: boolean };
-  };
-  limits: {
-    outbound: string;
-    inbound: Partial<{ [C in Chain]: string }>;
-  };
-};
-
-export type Config = {
-  network: Network;
-  chains: Partial<{
-    [C in Chain]: ChainConfig;
-  }>;
-  defaultLimits?: {
-    outbound: string;
-  };
-};
-
 const options = {
   network: {
     alias: "n",
@@ -365,7 +329,7 @@ const options = {
     type: "number",
   },
   payer: {
-    describe: "Path to the payer json file (Solana)",
+    describe: "Path to the payer json file (SVM)",
     type: "string",
   },
   skipChain: {
@@ -380,39 +344,118 @@ const options = {
   },
 } as const;
 
-// TODO: this is a temporary hack to allow deploying from main (as we only need
-// the changes to the evm script)
-async function withCustomEvmDeployerScript<A>(
+/**
+ * Executes a callback with deployment scripts, optionally overriding them with version 1 scripts.
+ *
+ * Version 1 Script Override:
+ * --------------------------
+ * For version 1 deployments (scripts without DEPLOY_SCRIPT_VERSION comment), we extract the
+ * scripts from commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7. This commit contains the last
+ * known-good version 1 scripts that are compatible with all old NTT versions.
+ *
+ * Why override version 1 scripts?
+ * - Version 1 scripts in old worktrees don't all work
+ * - The scripts at commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7 is known to work for all old versions
+ * - This ensures consistent behaviour across all version 1 deployments
+ *
+ * Starting from version 2, scripts in the worktree are reliable and can be used as-is.
+ * Version 2+ scripts include the DEPLOY_SCRIPT_VERSION comment and use environment variables.
+ */
+async function withDeploymentScript<A>(
   pwd: string,
+  useBundledV1Scripts: boolean,
   then: () => Promise<A>
 ): Promise<A> {
   ensureNttRoot(pwd);
-  const overrides = [
-    { path: `${pwd}/evm/script/DeployWormholeNtt.s.sol`, with: evmDeployFile },
-    {
-      path: `${pwd}/evm/script/helpers/DeployWormholeNttBase.sol`,
-      with: evmDeployFileHelper,
-    },
-  ];
-  for (const { path, with: withFile } of overrides) {
-    const old = `${path}.old`;
-    if (fs.existsSync(path)) {
-      fs.copyFileSync(path, old);
+
+  const scriptDir = `${pwd}/evm/script`;
+  const backupDir = `${pwd}/evm/script.backup`;
+
+  // Override with v1 scripts from git commit if needed
+  if (useBundledV1Scripts && pwd !== ".") {
+    // Remove any existing backup
+    if (fs.existsSync(backupDir)) {
+      fs.rmSync(backupDir, { recursive: true, force: true });
     }
-    fs.copyFileSync(withFile, path);
-  }
-  try {
-    return await then();
-  } finally {
-    // restore old files
-    for (const { path } of overrides) {
-      const old = `${path}.old`;
-      if (fs.existsSync(old)) {
-        fs.copyFileSync(old, path);
-        fs.unlinkSync(old);
+
+    // Backup original worktree scripts
+    if (fs.existsSync(scriptDir)) {
+      fs.cpSync(scriptDir, backupDir, { recursive: true });
+    }
+
+    // Extract v1 scripts from the specific git commit
+    const tempDir = `${pwd}/evm/script.temp`;
+    const absoluteTempDir = path.resolve(tempDir);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    try {
+      // Use git archive to extract evm/script from commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7
+      // - git archive must run from repository root (process.cwd())
+      // - Extract to absolute path to handle worktree locations correctly
+      // - --strip-components=2 removes both "evm/" and "script/" path prefixes
+      execSync(
+        `git archive 3f56da6541eb9d09f84cc676391e6fbc5b687dd7 evm/script | tar -x -C "${absoluteTempDir}" --strip-components=2`,
+        { cwd: process.cwd(), stdio: "pipe" }
+      );
+
+      // Replace the script directory with the extracted version
+      fs.rmSync(scriptDir, { recursive: true, force: true });
+      fs.cpSync(tempDir, scriptDir, { recursive: true });
+    } finally {
+      // Clean up temp directory
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }
   }
+
+  try {
+    return await then();
+  } finally {
+    // Restore original scripts if we overrode them
+    if (useBundledV1Scripts && pwd !== ".") {
+      fs.rmSync(scriptDir, { recursive: true, force: true });
+      if (fs.existsSync(backupDir)) {
+        fs.cpSync(backupDir, scriptDir, { recursive: true });
+        fs.rmSync(backupDir, { recursive: true, force: true });
+      }
+    }
+  }
+}
+
+/**
+ * Detects the deploy script version by checking for DEPLOY_SCRIPT_VERSION comment
+ * Version 1: Scripts with run() method that takes explicit parameters
+ * Version 2+: Scripts with run() method that reads from environment variables
+ */
+function detectDeployScriptVersion(pwd: string): number {
+  const scriptPath = `${pwd}/evm/script/DeployWormholeNtt.s.sol`;
+
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Deploy script not found: ${scriptPath}`);
+  }
+
+  const scriptContent = fs.readFileSync(scriptPath, "utf8");
+
+  // Look for DEPLOY_SCRIPT_VERSION comment
+  const versionMatch = scriptContent.match(
+    /\/\/\s*DEPLOY_SCRIPT_VERSION:\s*(\d+)/
+  );
+
+  if (versionMatch) {
+    return parseInt(versionMatch[1], 10);
+  }
+
+  // Default to version 1 if no version comment found
+  return 1;
+}
+
+/**
+ * Checks if manager variants are supported by checking if NttManagerNoRateLimiting.sol exists
+ */
+function supportsManagerVariants(pwd: string): boolean {
+  const noRateLimitingPath = `${pwd}/evm/src/NttManager/NttManagerNoRateLimiting.sol`;
+  return fs.existsSync(noRateLimitingPath);
 }
 
 yargs(hideBin(process.argv))
@@ -539,15 +582,15 @@ yargs(hideBin(process.argv))
         //     type: "string",
         // })
         .option("program-key", {
-          describe: "Path to program key json (Solana)",
+          describe: "Path to program key json (SVM)",
           type: "string",
         })
         .option("payer", {
-          describe: "Path to payer key json (Solana)",
+          describe: "Path to payer key json (SVM)",
           type: "string",
         })
         .option("binary", {
-          describe: "Path to program binary (.so file -- Solana)",
+          describe: "Path to program binary (.so file -- SVM)",
           type: "string",
         })
         .option("token", {
@@ -561,7 +604,7 @@ yargs(hideBin(process.argv))
           choices: ["locking", "burning"],
         })
         .option("solana-priority-fee", {
-          describe: "Priority fee for Solana deployment (in microlamports)",
+          describe: "Priority fee for SVM deployment (in microlamports)",
           type: "number",
           default: 50000,
         })
@@ -593,10 +636,11 @@ yargs(hideBin(process.argv))
         .option("local", options.local)
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
-        .option("executor", {
-          describe: "Use executor mode",
-          type: "boolean",
-          default: true,
+        .option("manager-variant", {
+          describe: "NttManager variant to deploy (EVM only)",
+          type: "string",
+          choices: ["standard", "noRateLimiting", "wethUnwrap"],
+          default: "standard",
         })
         .example(
           "$0 add-chain Ethereum --token 0x1234... --mode burning --latest",
@@ -609,10 +653,6 @@ yargs(hideBin(process.argv))
         .example(
           "$0 add-chain Avalanche --token 0xabcd... --mode burning --local",
           "Add Avalanche chain using the local contract version"
-        )
-        .example(
-          "$0 add-chain Base --token 0xdef... --mode burning --executor",
-          "Add Base chain with executor mode enabled"
         )
         .example(
           "$0 add-chain Sui --token 0x123::mycoin::MYCOIN --mode burning --sui-treasury-cap 0xabc123... --latest",
@@ -664,31 +704,31 @@ yargs(hideBin(process.argv))
 
       // HyperEVM confirmation
       if (chain === "HyperEVM" && !argv["yes"]) {
-        console.log(chalk.yellow("⚠️  HyperEVM Deployment Requirements:"));
+        console.log(colors.yellow("⚠️  HyperEVM Deployment Requirements:"));
         console.log(
-          chalk.yellow(
+          colors.yellow(
             "Before proceeding with the HyperEVM deployment, please ensure:"
           )
         );
         console.log(
-          chalk.yellow(
+          colors.yellow(
             "1. You have created a verified account by depositing into Hyperliquid from the deployer wallet"
           )
         );
         console.log(
-          chalk.white("Hyperliquid app: https://app.hyperliquid.xyz/")
+          colors.white("Hyperliquid app: https://app.hyperliquid.xyz/")
         );
         console.log(
-          chalk.yellow(
+          colors.yellow(
             "2. You have enabled larger blocks to be used for the deployment"
           )
         );
         console.log(
-          chalk.white(
+          colors.white(
             "Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture"
           )
         );
-        console.log(chalk.yellow(""));
+        console.log(colors.yellow(""));
 
         await askForConfirmation(
           "Did you make sure to do steps 1 & 2 mentioned above?"
@@ -714,7 +754,7 @@ yargs(hideBin(process.argv))
         signerType,
         !argv["skip-verify"],
         argv["yes"],
-        argv["executor"],
+        argv["manager-variant"],
         argv["payer"],
         argv["program-key"],
         argv["binary"],
@@ -732,9 +772,13 @@ yargs(hideBin(process.argv))
         overrides
       );
 
-      console.log("token decimals:", chalk.yellow(decimals));
+      console.log("token decimals:", colors.yellow(decimals));
 
-      config.transceivers.wormhole.executor = argv["executor"];
+      // Add manager variant to config for EVM chains
+      const platform = chainToPlatform(chain);
+      if (platform === "Evm" && argv["manager-variant"]) {
+        config.managerVariant = argv["manager-variant"];
+      }
 
       deployments.chains[chain] = config;
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
@@ -759,18 +803,24 @@ yargs(hideBin(process.argv))
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
         .option("payer", {
-          describe: "Path to payer key json (Solana)",
+          describe: "Path to payer key json (SVM)",
           type: "string",
         })
         .option("program-key", {
-          describe: "Path to program key json (Solana)",
+          describe: "Path to program key json (SVM)",
           type: "string",
         })
         .option("binary", {
-          describe: "Path to program binary (.so file -- Solana)",
+          describe: "Path to program binary (.so file -- SVM)",
           type: "string",
         })
         .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
+        .option("manager-variant", {
+          describe:
+            "NttManager variant to upgrade to (EVM only). If not specified, preserves the existing variant from deployment config.",
+          type: "string",
+          choices: ["standard", "noRateLimiting", "wethUnwrap"],
+        })
         .example(
           "$0 upgrade Ethereum --latest",
           "Upgrade the Ethereum contract to the latest version"
@@ -838,6 +888,10 @@ yargs(hideBin(process.argv))
         overrides
       );
 
+      // Determine manager variant: use flag if provided, otherwise use config value, default to "standard"
+      const managerVariant =
+        argv["manager-variant"] ?? chainConfig.managerVariant ?? "standard";
+
       await upgrade(
         currentVersion,
         toVersion,
@@ -845,6 +899,7 @@ yargs(hideBin(process.argv))
         ctx,
         signerType,
         !argv["skip-verify"],
+        managerVariant,
         argv["payer"],
         argv["program-key"],
         argv["binary"],
@@ -1023,6 +1078,16 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
+      console.log(
+        colors.green(
+          `${path} created — this file stores your NTT deployment configuration`
+        )
+      );
+      console.log(
+        colors.cyan(
+          `\nTip: To use custom RPC endpoints, rename example-overrides.json to overrides.json and edit as needed.`
+        )
+      );
     }
   )
   .command(
@@ -1058,7 +1123,7 @@ yargs(hideBin(process.argv))
           EXCLUDED_DIFF_PATHS
         );
         if (Object.keys(diff).length !== 0) {
-          console.error(chalk.reset(colorizeDiff({ [chain]: diff })));
+          console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           changed = true;
           // Preserve excluded fields from local config when pulling
           const preservedConfig = { ...deployment.config.remote! };
@@ -1069,7 +1134,7 @@ yargs(hideBin(process.argv))
               pathParts
             );
             if (localValue !== undefined) {
-              setNestedValue(preservedConfig, pathParts, localValue);
+              setNestedValue(preservedConfig, [...pathParts], localValue);
             }
           }
           deployments.chains[chain] = preservedConfig;
@@ -1101,6 +1166,12 @@ yargs(hideBin(process.argv))
         .option("skip-chain", options.skipChain)
         .option("only-chain", options.onlyChain)
         .option("gas-estimate-multiplier", options.gasEstimateMultiplier)
+        .option("dangerously-transfer-ownership-in-one-step", {
+          describe:
+            "Use 1-step ownership transfer for Solana (DANGEROUS - skips claim step)",
+          type: "boolean",
+          default: false,
+        })
         .example(
           "$0 push",
           "Push local configuration changes to the blockchain"
@@ -1115,7 +1186,7 @@ yargs(hideBin(process.argv))
         )
         .example(
           "$0 push --payer <SOLANA_KEYPAIR_PATH>",
-          "Path to the payer json file (Solana), instead of setting SOLANA_PRIVATE_KEY env variable"
+          "Path to the payer json file (SVM), instead of setting SOLANA_PRIVATE_KEY env variable"
         ),
     async (argv) => {
       const deployments: Config = loadConfig(argv["path"]);
@@ -1184,18 +1255,28 @@ yargs(hideBin(process.argv))
                 "supportsInterface",
                 ["0x43412b75"]
               );
-              const supports = await provider.call({
-                to: contractOwner.toString(),
-                data: callData,
-              });
-              const supportsInt = parseInt(supports);
-              if (supportsInt !== 1) {
+              try {
+                const supports = await provider.call({
+                  to: contractOwner.toString(),
+                  data: callData,
+                });
+                const supportsInt = parseInt(supports);
+                if (supportsInt !== 1) {
+                  console.error(
+                    `cannot update ${chain} because the owning contract does not implement INttOwner`
+                  );
+                  process.exit(1);
+                }
+                nttOwnerForChain[chain] = contractOwner.toString();
+              } catch (error: any) {
+                // This catch is primarily for reverts
                 console.error(
-                  `cannot update ${chain} because the owning contract does not implement INttOwner`
+                  colors.red(
+                    `Cannot update ${chain}: You do not own the NTT manager contract. Owner is ${contractOwner.address}.`
+                  )
                 );
                 process.exit(1);
               }
-              nttOwnerForChain[chain] = contractOwner.toString();
             }
           }
         }
@@ -1225,33 +1306,6 @@ yargs(hideBin(process.argv))
             transceiver,
             signer.address.address
           );
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const evmChain of missingConfig.evmChains) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsEvmChain(evmChain, true);
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const [relayingTarget, value] of missingConfig.standardRelaying) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsWormholeRelayingEnabled(relayingTarget, value);
-          await signSendWaitFunc(ctx, tx, signer.signer);
-        }
-        for (const [relayingTarget, value] of missingConfig.specialRelaying) {
-          const tx = (
-            (await ntt.getTransceiver(0)) as EvmNttWormholeTranceiver<
-              Network,
-              EvmChains
-            >
-          ).setIsSpecialRelayingEnabled(relayingTarget, value);
           await signSendWaitFunc(ctx, tx, signer.signer);
         }
         if (missingConfig.solanaWormholeTransceiver) {
@@ -1306,7 +1360,8 @@ yargs(hideBin(process.argv))
           !argv["skip-verify"],
           argv["yes"],
           payerPath,
-          gasEstimateMultiplier
+          gasEstimateMultiplier,
+          argv["dangerously-transfer-ownership-in-one-step"]
         );
       }
     }
@@ -1356,7 +1411,7 @@ yargs(hideBin(process.argv))
 
         const diff = diffObjects(local!, remote!, EXCLUDED_DIFF_PATHS);
         if (Object.keys(diff).length !== 0) {
-          console.error(chalk.reset(colorizeDiff({ [chain]: diff })));
+          console.error(colors.reset(colorizeDiff({ [chain]: diff })));
           fixable++;
         }
 
@@ -1373,7 +1428,7 @@ yargs(hideBin(process.argv))
       }
 
       if (Object.keys(extraInfo).length > 0) {
-        console.log(chalk.yellow(JSON.stringify(extraInfo, null, 2)));
+        console.log(colors.yellow(JSON.stringify(extraInfo, null, 2)));
       }
 
       // verify peers
@@ -1391,45 +1446,6 @@ yargs(hideBin(process.argv))
         for (const transceiver of missingConfig.transceiverPeers) {
           console.error(`  Missing transceiver peer: ${transceiver.chain}`);
         }
-        for (const evmChain of missingConfig.evmChains) {
-          console.error(`  ${evmChain} needs to be configured as an EVM chain`);
-        }
-        for (const [
-          relayingTarget,
-          shouldBeSet,
-        ] of missingConfig.standardRelaying) {
-          if (shouldBeSet) {
-            console.warn(
-              chalk.yellow(
-                `  Standard relaying not configured for ${relayingTarget}`
-              )
-            );
-          } else {
-            console.warn(
-              chalk.yellow(
-                `  Standard relaying configured for ${relayingTarget}, but should not be`
-              )
-            );
-          }
-        }
-        for (const [
-          relayingTarget,
-          shouldBeSet,
-        ] of missingConfig.specialRelaying) {
-          if (shouldBeSet) {
-            console.warn(
-              chalk.yellow(
-                `  Special relaying not configured for ${relayingTarget}`
-              )
-            );
-          } else {
-            console.warn(
-              chalk.yellow(
-                `  Special relaying configured for ${relayingTarget}, but should not be`
-              )
-            );
-          }
-        }
         if (missingConfig.solanaWormholeTransceiver) {
           console.error("  Missing Solana wormhole transceiver");
         }
@@ -1438,6 +1454,21 @@ yargs(hideBin(process.argv))
         }
       }
 
+      // Check executor availability for EVM chains
+      for (const [chain, deployment] of Object.entries(deps)) {
+        assertChain(chain);
+        const platform = chainToPlatform(chain);
+        if (
+          platform === "Evm" &&
+          !hasExecutorDeployed(network, chain as EvmChains)
+        ) {
+          console.log(
+            colors.yellow(
+              `On ${chain} ${network} no executor is deployed. Please check with the Wormhole team for availability.`
+            )
+          );
+        }
+      }
       if (fixable > 0) {
         console.error(
           "Run `ntt pull` to pull the remote configuration (overwriting the local one)"
@@ -1606,12 +1637,12 @@ yargs(hideBin(process.argv))
         if (major === -1) {
           if (!argv["yes"]) {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
               )
             );
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "Ensure the program version you wish to deploy supports SPL Multisig token mint authority"
               )
             );
@@ -1903,7 +1934,8 @@ yargs(hideBin(process.argv))
       }
     }
   )
-  .command("solana", "Solana commands", (yargs) => {
+  .command(createTokenTransferCommand(overrides))
+  .command(["solana", "svm"], "svm commands", (yargs) => {
     yargs
       .command(
         "key-base58 <keypair>",
@@ -1940,7 +1972,7 @@ yargs(hideBin(process.argv))
       )
       .command(
         "ata <mint> <owner> <tokenProgram>",
-        "print the token authority address for a given program ID",
+        "print the associated token account address for a given mint and owner",
         (yargs) =>
           yargs
             .positional("mint", {
@@ -1998,11 +2030,11 @@ yargs(hideBin(process.argv))
             .option("yes", options.yes)
             .option("payer", { ...options.payer, demandOption: true })
             .example(
-              "$0 solana create-spl-multisig Sol1234... --token Sol3456... --manager Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
+              "$0 svm create-spl-multisig Sol1234... --token Sol3456... --manager Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
               "Create multisig with Sol1234... having independent mint privilege alongside NTT token-authority for undeployed program"
             )
             .example(
-              "$0 solana create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
+              "$0 svm create-spl-multisig Sol1234... Sol3456... Sol5678... --payer <SOLANA_KEYPAIR_PATH>",
               "Create multisig with Sol1234..., Sol3456..., and Sol5678... having mint privileges alongside NTT token-authority for deployed program"
             ),
         async (argv) => {
@@ -2087,12 +2119,12 @@ yargs(hideBin(process.argv))
           // undeployed -- assume version compatible via warning
           if (major === -1 && !argv["yes"]) {
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
               )
             );
             console.warn(
-              chalk.yellow(
+              colors.yellow(
                 "Ensure the program version you wish to deploy supports SPL Multisig token mint authority"
               )
             );
@@ -2131,6 +2163,108 @@ yargs(hideBin(process.argv))
               console.error(error.logs);
             }
           }
+        }
+      )
+      .command(
+        "build <chain>",
+        "build the SVM program binary without deploying",
+        (yargs) =>
+          yargs
+            .positional("chain", options.chain)
+            .option("program-key", {
+              describe: "Path to program key json",
+              type: "string",
+            })
+            .option("binary", {
+              describe:
+                "Path to existing program binary (.so file) - if provided, only validates the binary",
+              type: "string",
+            })
+            .option("ver", options.version)
+            .option("latest", options.latest)
+            .option("local", options.local)
+            .option("path", options.deploymentPath)
+            .example(
+              "$0 svm build Solana --latest",
+              "Build the SVM program binary using the latest version"
+            )
+            .example(
+              "$0 svm build Solana --ver 1.0.0",
+              "Build using a specific version"
+            )
+            .example(
+              "$0 svm build Solana --local --program-key my-program-keypair.json",
+              "Build from local source with a specific program keypair"
+            )
+            .example(
+              "$0 svm build Solana --latest --binary target/deploy/example_native_token_transfers.so",
+              "Validate an existing binary against the latest version"
+            ),
+        async (argv) => {
+          const path = argv["path"];
+          const deployments: Config = loadConfig(path);
+          const chain: Chain = argv["chain"];
+          const network = deployments.network as Network;
+
+          // Check that the platform is Solana
+          const platform = chainToPlatform(chain);
+          if (platform !== "Solana") {
+            console.error(
+              `build command is only supported for Solana chains. Got platform: ${platform}`
+            );
+            process.exit(1);
+          }
+
+          validateChain(network, chain);
+
+          // Resolve version (--latest, --ver, or --local)
+          const version = resolveVersion(
+            argv["latest"],
+            argv["ver"],
+            argv["local"],
+            platform
+          );
+
+          // Create worktree if version is specified, otherwise use current directory
+          const worktree = version ? createWorkTree(platform, version) : ".";
+
+          // Get wormhole core bridge address for verification
+          const wh = new Wormhole(
+            network,
+            [solana.Platform, evm.Platform, sui.Platform],
+            overrides
+          );
+          const ch = wh.getChain(chain);
+          const wormhole = ch.config.contracts.coreBridge;
+          if (!wormhole) {
+            console.error("Core bridge not found");
+            process.exit(1);
+          }
+
+          const programKeyPath = argv["program-key"];
+          const binaryPath = argv["binary"];
+
+          console.log(`Building SVM program for ${chain} on ${network}...`);
+          if (version) {
+            console.log(colors.blue(`Using version: ${version}`));
+            console.log(colors.blue(`Worktree: ${worktree}`));
+          } else {
+            console.log(colors.blue(`Using local source`));
+          }
+
+          const buildResult = await buildSvm(
+            worktree,
+            network,
+            chain,
+            wormhole,
+            version,
+            programKeyPath,
+            binaryPath
+          );
+
+          console.log(`Program ID: ${buildResult.programId}`);
+          console.log(`Binary: ${buildResult.binary}`);
+          console.log(`Keypair: ${buildResult.programKeypairPath}`);
         }
       )
       .demandCommand();
@@ -2202,13 +2336,13 @@ yargs(hideBin(process.argv))
             process.exit(1);
           }
 
-          console.log(chalk.blue("🔗 Manual setPeer Operation"));
-          console.log(`Source Chain: ${chalk.yellow(sourceChain)}`);
-          console.log(`Peer Chain: ${chalk.yellow(peerChain)}`);
-          console.log(`Peer Address: ${chalk.yellow(peerAddress)}`);
-          console.log(`Token Decimals: ${chalk.yellow(tokenDecimals)}`);
+          console.log(colors.blue("🔗 Manual setPeer Operation"));
+          console.log(`Source Chain: ${colors.yellow(sourceChain)}`);
+          console.log(`Peer Chain: ${colors.yellow(peerChain)}`);
+          console.log(`Peer Address: ${colors.yellow(peerAddress)}`);
+          console.log(`Token Decimals: ${colors.yellow(tokenDecimals)}`);
           console.log(
-            `Inbound Limit: ${chalk.yellow(inboundLimit.toString())}`
+            `Inbound Limit: ${colors.yellow(inboundLimit.toString())}`
           );
 
           try {
@@ -2224,7 +2358,7 @@ yargs(hideBin(process.argv))
             );
 
             console.log(
-              `\nSource NTT Manager: ${chalk.yellow(sourceConfig.manager)}`
+              `\nSource NTT Manager: ${colors.yellow(sourceConfig.manager)}`
             );
 
             // Create peer address object
@@ -2237,11 +2371,11 @@ yargs(hideBin(process.argv))
             const signer = await getSigner(ctx, signerType);
 
             console.log(
-              `Signer Address: ${chalk.yellow(
+              `Signer Address: ${colors.yellow(
                 signer.address.address.toString()
               )}`
             );
-            console.log("\n" + chalk.blue("Executing setPeer transaction..."));
+            console.log("\n" + colors.blue("Executing setPeer transaction..."));
 
             // Call setPeer on the NTT instance (it returns an AsyncGenerator)
             const setPeerTxs = ntt.setPeer(
@@ -2264,7 +2398,7 @@ yargs(hideBin(process.argv))
 
               // Display transaction results
               console.log(
-                `Transaction Hash: ${chalk.green(
+                `Transaction Hash: ${colors.green(
                   results[0]?.txid || results[0] || "Transaction completed"
                 )}`
               );
@@ -2298,13 +2432,13 @@ yargs(hideBin(process.argv))
             }
 
             console.log(
-              chalk.green("\n✅ setPeer operation completed successfully!")
+              colors.green("\n✅ setPeer operation completed successfully!")
             );
             console.log(
               `Peer relationship established: ${sourceChain} ↔ ${peerChain}`
             );
           } catch (error) {
-            console.error(chalk.red("\n❌ setPeer operation failed:"));
+            console.error(colors.red("\n❌ setPeer operation failed:"));
             console.error(
               "ERROR: Main error message:",
               error instanceof Error ? error.message : String(error)
@@ -2413,15 +2547,15 @@ yargs(hideBin(process.argv))
             process.exit(1);
           }
 
-          console.log(chalk.blue("💰 Manual Transfer Operation"));
-          console.log(`Source Chain: ${chalk.yellow(sourceChain)}`);
-          console.log(`Destination Chain: ${chalk.yellow(destinationChain)}`);
+          console.log(colors.blue("💰 Manual Transfer Operation"));
+          console.log(`Source Chain: ${colors.yellow(sourceChain)}`);
+          console.log(`Destination Chain: ${colors.yellow(destinationChain)}`);
           console.log(
-            `Destination Address: ${chalk.yellow(destinationAddress)}`
+            `Destination Address: ${colors.yellow(destinationAddress)}`
           );
-          console.log(`Amount: ${chalk.yellow(amount.toString())}`);
+          console.log(`Amount: ${colors.yellow(amount.toString())}`);
           console.log(
-            `Queue if rate limited: ${chalk.yellow(queue.toString())}`
+            `Queue if rate limited: ${colors.yellow(queue.toString())}`
           );
 
           try {
@@ -2437,7 +2571,7 @@ yargs(hideBin(process.argv))
             );
 
             console.log(
-              `\nSource NTT Manager: ${chalk.yellow(sourceConfig.manager)}`
+              `\nSource NTT Manager: ${colors.yellow(sourceConfig.manager)}`
             );
 
             // Create destination address object
@@ -2450,11 +2584,13 @@ yargs(hideBin(process.argv))
             const signer = await getSigner(ctx, signerType);
 
             console.log(
-              `Signer Address: ${chalk.yellow(
+              `Signer Address: ${colors.yellow(
                 signer.address.address.toString()
               )}`
             );
-            console.log("\n" + chalk.blue("Executing transfer transaction..."));
+            console.log(
+              "\n" + colors.blue("Executing transfer transaction...")
+            );
 
             // Call transfer on the NTT instance (it returns an AsyncGenerator)
             const transferTxs = ntt.transfer(
@@ -2478,7 +2614,7 @@ yargs(hideBin(process.argv))
 
               // Display transaction results
               console.log(
-                `Transaction Hash: ${chalk.green(
+                `Transaction Hash: ${colors.green(
                   results[0]?.txid || results[0] || "Transaction completed"
                 )}`
               );
@@ -2500,12 +2636,12 @@ yargs(hideBin(process.argv))
             }
 
             console.log(
-              chalk.green("\n✅ Transfer operation completed successfully!")
+              colors.green("\n✅ Transfer operation completed successfully!")
             );
             console.log(`Transfer sent: ${sourceChain} → ${destinationChain}`);
             console.log(`Amount: ${amount.toString()} tokens`);
           } catch (error) {
-            console.error(chalk.red("\n❌ Transfer operation failed:"));
+            console.error(colors.red("\n❌ Transfer operation failed:"));
             console.error(
               "ERROR: Main error message:",
               error instanceof Error ? error.message : String(error)
@@ -2531,14 +2667,9 @@ yargs(hideBin(process.argv))
 // implicit in the sense that they don't need to be explicitly set in the
 // deployment file.
 // For example, all managers and transceivers need to be registered with each other.
-// Additionally, the EVM chains need to be registered as such, and the standard relaying
-// needs to be enabled for all chains where this is supported.
 type MissingImplicitConfig = {
   managerPeers: Ntt.Peer<Chain>[];
   transceiverPeers: ChainAddress<Chain>[];
-  evmChains: Chain[];
-  standardRelaying: [Chain, boolean][];
-  specialRelaying: [Chain, boolean][];
   solanaWormholeTransceiver: boolean;
   solanaUpdateLUT: boolean;
 };
@@ -2557,7 +2688,7 @@ function checkConfigErrors(
       fatal++;
     }
     if (config.limits.outbound === formatNumber(0n, deployment.decimals)) {
-      console.warn(chalk.yellow(`${chain} has an outbound limit of 0`));
+      console.warn(colors.yellow(`${chain} has an outbound limit of 0`));
     }
     for (const [c, limit] of Object.entries(config.limits.inbound)) {
       if (!checkNumberFormatting(limit, deployment.decimals)) {
@@ -2568,7 +2699,7 @@ function checkConfigErrors(
       }
       if (limit === formatNumber(0n, deployment.decimals)) {
         console.warn(
-          chalk.yellow(`${chain} has an inbound limit of 0 from ${c}`)
+          colors.yellow(`${chain} has an inbound limit of 0 from ${c}`)
         );
       }
     }
@@ -2587,7 +2718,7 @@ function createWorkTree(platform: Platform, version: string): string {
 
   if (fs.existsSync(worktreeName)) {
     console.log(
-      chalk.yellow(
+      colors.yellow(
         `Worktree already exists at ${worktreeName}. Resetting to ${tag}`
       )
     );
@@ -2611,7 +2742,7 @@ function createWorkTree(platform: Platform, version: string): string {
   );
 
   console.log(
-    chalk.green(`Created worktree at ${worktreeName} from tag ${tag}`)
+    colors.green(`Created worktree at ${worktreeName} from tag ${tag}`)
   );
   return worktreeName;
 }
@@ -2623,6 +2754,7 @@ async function upgrade<N extends Network, C extends Chain>(
   ctx: ChainContext<N, C>,
   signerType: SignerType,
   evmVerify: boolean,
+  managerVariant?: string,
   solanaPayer?: string,
   solanaProgramKeyPath?: string,
   solanaBinaryPath?: string,
@@ -2641,6 +2773,7 @@ async function upgrade<N extends Network, C extends Chain>(
         evmCtx,
         signerType,
         evmVerify,
+        managerVariant,
         gasEstimateMultiplier
       );
     case "Solana":
@@ -2674,6 +2807,7 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
   ctx: ChainContext<N, C>,
   signerType: SignerType,
   evmVerify: boolean,
+  managerVariant?: string,
   gasEstimateMultiplier?: number
 ): Promise<void> {
   ensureNttRoot(pwd);
@@ -2695,23 +2829,53 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
     verifyArgs = verifyArgsArray.join(" ");
   }
 
+  // Detect script version to determine upgrade strategy
+  const scriptVersion = detectDeployScriptVersion(pwd);
+  console.log(`Detected deploy script version: ${scriptVersion}`);
+
+  // Validate manager variant support for upgrades
+  const variant = managerVariant || "standard";
+  if (variant !== "standard") {
+    if (!supportsManagerVariants(pwd)) {
+      console.error(
+        `Manager variant '${variant}' is not supported in this version. ` +
+          `The NttManagerNoRateLimiting.sol contract does not exist.`
+      );
+      process.exit(1);
+    }
+    if (scriptVersion < 2) {
+      console.error(
+        `Manager variant selection requires deploy script version 2+, but found version ${scriptVersion}. ` +
+          `Please upgrade to a newer version that supports manager variants.`
+      );
+      process.exit(1);
+    }
+  }
+
   console.log("Upgrading manager...");
   const slowFlag = getSlowFlag(ctx.chain);
   const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-  await withCustomEvmDeployerScript(pwd, async () => {
-    execSync(
-      `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${ctx.config.rpc} \
+
+  // Use bundled v1 scripts if version 1 detected
+  const useBundledV1 = scriptVersion === 1;
+
+  await withDeploymentScript(pwd, useBundledV1, async () => {
+    const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
+--rpc-url "${ctx.config.rpc}" \
 --sig "upgrade(address)" \
 ${ntt.managerAddress} \
 ${signerArgs} \
 --broadcast ${slowFlag} ${gasMultiplier} \
-${verifyArgs} | tee last-run.stdout`,
-      {
-        cwd: `${pwd}/evm`,
-        stdio: "inherit",
-      }
-    );
+${verifyArgs} | tee last-run.stdout`;
+
+    execSync(command, {
+      cwd: `${pwd}/evm`,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        MANAGER_VARIANT: variant,
+      },
+    });
   });
 }
 
@@ -2728,7 +2892,7 @@ async function upgradeSolana<N extends Network, C extends SolanaChains>(
     throw new Error("Cannot upgrade Solana to local version"); // TODO: this is not hard to enabled
   }
   const mint = (await ntt.getConfig()).mint;
-  await deploySolana(
+  await deploySvm(
     pwd,
     version,
     await ntt.getMode(),
@@ -2939,7 +3103,7 @@ async function deploy<N extends Network, C extends Chain>(
   signerType: SignerType,
   evmVerify: boolean,
   yes: boolean,
-  executor: boolean,
+  managerVariant?: string,
   solanaPayer?: string,
   solanaProgramKeyPath?: string,
   solanaBinaryPath?: string,
@@ -2964,7 +3128,7 @@ async function deploy<N extends Network, C extends Chain>(
         token,
         signerType,
         evmVerify,
-        executor,
+        managerVariant || "standard",
         gasEstimateMultiplier
       );
     case "Solana":
@@ -2973,7 +3137,7 @@ async function deploy<N extends Network, C extends Chain>(
         process.exit(1);
       }
       const solanaCtx = ch as ChainContext<N, SolanaChains>;
-      return (await deploySolana(
+      return (await deploySvm(
         worktree,
         version,
         mode,
@@ -3013,7 +3177,7 @@ async function deployEvm<N extends Network, C extends Chain>(
   token: string,
   signerType: SignerType,
   verify: boolean,
-  executor: boolean,
+  managerVariant: string,
   gasEstimateMultiplier?: number
 ): Promise<ChainAddress<C>> {
   ensureNttRoot(pwd);
@@ -3023,26 +3187,8 @@ async function deployEvm<N extends Network, C extends Chain>(
     console.error("Core bridge not found");
     process.exit(1);
   }
-  const relayer = ch.config.contracts.relayer;
-  if (!relayer && !executor) {
-    console.error(
-      "Standard Relayer not found. If you want to use the Executor, pass the --executor flag to add-chain"
-    );
-    process.exit(1);
-  }
 
   const rpc = ch.config.rpc;
-
-  // TODO: how to make specialRelayer configurable??
-  let specialRelayer: string;
-  if (ch.chain === "Avalanche") {
-    specialRelayer = "0x1a19d8a194630642f750376Ae72b4eDF5aDFd25F";
-  } else if (ch.chain === "Bsc") {
-    specialRelayer = "0x8C56eE9cd232d23541a697C0eBd3cA597DE3c88D";
-  } else {
-    specialRelayer = "0x63BE47835c7D66c4aA5B2C688Dc6ed9771c94C74";
-  }
-
   let provider: ethers.JsonRpcProvider;
   let decimals: number;
 
@@ -3055,8 +3201,6 @@ async function deployEvm<N extends Network, C extends Chain>(
     handleDeploymentError(error, ch.chain, ch.network, rpc);
   }
 
-  // TODO: should actually make these ENV variables.
-  const sig = "run(address,address,address,address,uint8,uint8)";
   const modeUint = mode === "locking" ? 0 : 1;
   const signer = await getSigner(ch, signerType);
   const signerArgs = forgeSignerArgs(signer.source);
@@ -3072,30 +3216,81 @@ async function deployEvm<N extends Network, C extends Chain>(
     stdio: "pipe",
   });
 
+  // Detect script version to determine deployment strategy
+  const scriptVersion = detectDeployScriptVersion(pwd);
+  console.log(`Detected deploy script version: ${scriptVersion}`);
+
+  // Validate manager variant support
+  if (managerVariant !== "standard") {
+    if (!supportsManagerVariants(pwd)) {
+      console.error(
+        `Manager variant '${managerVariant}' is not supported in this version. ` +
+          `The NttManagerNoRateLimiting.sol contract does not exist.`
+      );
+      process.exit(1);
+    }
+    if (scriptVersion < 2) {
+      console.error(
+        `Manager variant selection requires deploy script version 2+, but found version ${scriptVersion}. ` +
+          `Please upgrade to a newer version that supports manager variants.`
+      );
+      process.exit(1);
+    }
+  }
+
   console.log("Deploying manager...");
   const deploy = async (simulate: boolean): Promise<string> => {
     const simulateArg = simulate ? "" : "--skip-simulation";
     const slowFlag = getSlowFlag(ch.chain);
     const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-    const effectiveRelayer =
-      relayer || "0x0000000000000000000000000000000000000000";
-    await withCustomEvmDeployerScript(pwd, async () => {
+
+    // Use bundled v1 scripts if version 1 detected
+    const useBundledV1 = scriptVersion === 1;
+
+    await withDeploymentScript(pwd, useBundledV1, async () => {
       try {
-        execSync(
-          `
-forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url ${rpc} \
+        let command: string;
+        let env: NodeJS.ProcessEnv = { ...process.env };
+
+        if (scriptVersion === 1) {
+          // Version 1: Use explicit signature with parameters (6 params including relayers)
+          // The bundled v1 scripts expect relayer addresses, use zero addresses as defaults
+          const zeroAddress = "0x0000000000000000000000000000000000000000";
+          const sig = "run(address,address,address,address,uint8,uint8)";
+          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
+--rpc-url "${rpc}" \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${effectiveRelayer} ${specialRelayer} ${decimals} ${modeUint} \
+--sig "${sig}" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint} \
 --broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
             " "
-          )} ${signerArgs} 2>&1 | tee last-run.stdout`,
-          {
-            cwd: `${pwd}/evm`,
-            encoding: "utf8",
-            stdio: "inherit",
-          }
-        );
+          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
+        } else {
+          // Version 2+: Use environment variables
+          env = {
+            ...env,
+            RELEASE_CORE_BRIDGE_ADDRESS: wormhole,
+            RELEASE_TOKEN_ADDRESS: token,
+            RELEASE_DECIMALS: decimals.toString(),
+            RELEASE_MODE: modeUint.toString(),
+            RELEASE_CONSISTENCY_LEVEL: "202",
+            RELEASE_GAS_LIMIT: "500000",
+            MANAGER_VARIANT: managerVariant,
+          };
+
+          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
+--rpc-url "${rpc}" \
+${simulateArg} \
+--broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
+            " "
+          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
+        }
+
+        execSync(command, {
+          cwd: `${pwd}/evm`,
+          encoding: "utf8",
+          stdio: "inherit",
+          env,
+        });
       } catch (error) {
         console.error("Failed to deploy manager");
         // NOTE: we don't exit here. instead, we check if the manager was
@@ -3137,41 +3332,153 @@ ${simulateArg} \
     .filter((l) => l.length > 0);
   const manager = logs.find((l) => l.includes("NttManager: 0x"))?.split(" ")[1];
   if (!manager) {
-    console.error("Manager not found");
+    // Extract error lines from output to show the actual failure reason
+    const errorLine = logs.find((l) => l.startsWith("Error:"));
+    if (errorLine) {
+      console.error(colors.red(`\nDeployment failed: ${errorLine}`));
+    } else {
+      console.error(colors.red("Manager not found in deployment output"));
+    }
     process.exit(1);
   }
   const universalManager = toUniversal(ch.chain, manager);
   return { chain: ch.chain, address: universalManager };
 }
 
-async function deploySolana<N extends Network, C extends SolanaChains>(
+/**
+ * Check if the Solana program supports the bridge-address-from-env feature
+ * @param pwd - Project root directory
+ * @returns true if the feature exists in Cargo.toml
+ */
+function hasBridgeAddressFromEnvFeature(pwd: string): boolean {
+  try {
+    const cargoTomlPath = `${pwd}/solana/programs/example-native-token-transfers/Cargo.toml`;
+    if (!fs.existsSync(cargoTomlPath)) {
+      return false;
+    }
+    const cargoToml = fs.readFileSync(cargoTomlPath, "utf8");
+    // Check if bridge-address-from-env feature is defined
+    return cargoToml.includes("bridge-address-from-env");
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Build the Solana NTT program using anchor build.
+ * Uses bridge-address-from-env feature if available, otherwise uses network-specific features.
+ * For legacy builds on non-Solana chains, patches the binary after building.
+ * @param pwd - Project root directory
+ * @param network - Network to build for
+ * @param chain - Target chain (used to determine if patching is needed)
+ * @param wormhole - Wormhole core bridge address
+ * @returns Exit code from anchor build
+ */
+async function runAnchorBuild(
   pwd: string,
-  version: string | null,
-  mode: Ntt.Mode,
-  ch: ChainContext<N, C>,
-  token: string,
-  payer: string,
-  initialize: boolean,
-  managerKeyPath?: string,
-  binaryPath?: string,
-  priorityFee?: number
-): Promise<ChainAddress<C>> {
-  ensureNttRoot(pwd);
+  network: Network,
+  chain: Chain,
+  wormhole: string
+): Promise<number> {
+  checkAnchorVersion(pwd);
 
-  checkSolanaVersion(pwd);
+  const useBridgeFromEnv = hasBridgeAddressFromEnvFeature(pwd);
 
-  // TODO: if the binary is provided, we should not check addresses in the source tree. (so we should move around the control flow a bit)
-  // TODO: factor out some of this into separate functions to help readability of this function (maybe even move to a different file)
+  let buildArgs: string[];
+  let buildEnv: Record<string, string>;
 
-  const wormhole = ch.config.contracts.coreBridge;
-  if (!wormhole) {
-    console.error("Core bridge not found");
-    process.exit(1);
+  if (useBridgeFromEnv) {
+    // New method: use bridge-address-from-env feature with BRIDGE_ADDRESS env var
+    console.log(
+      `Building with bridge-address-from-env feature (BRIDGE_ADDRESS=${wormhole})...`
+    );
+    buildArgs = [
+      "anchor",
+      "build",
+      "-p",
+      "example_native_token_transfers",
+      "--",
+      "--no-default-features",
+      "--features",
+      "bridge-address-from-env",
+    ];
+    buildEnv = {
+      ...process.env,
+      BRIDGE_ADDRESS: wormhole,
+    };
+  } else {
+    // Old method: use network-specific feature (mainnet, solana-devnet, tilt-devnet)
+    const networkFeature = cargoNetworkFeature(network);
+    console.log(`Building with ${networkFeature} feature (legacy method)...`);
+    buildArgs = [
+      "anchor",
+      "build",
+      "-p",
+      "example_native_token_transfers",
+      "--",
+      "--no-default-features",
+      "--features",
+      networkFeature,
+    ];
+    buildEnv = process.env;
   }
 
-  // grep example_native_token_transfers = ".*"
-  // in solana/Anchor.toml
-  // TODO: what if they rename the program?
+  const proc = Bun.spawn(buildArgs, {
+    cwd: `${pwd}/solana`,
+    env: buildEnv,
+  });
+
+  await proc.exited;
+  const exitCode = proc.exitCode ?? 1;
+
+  if (exitCode !== 0) {
+    return exitCode;
+  }
+
+  // For legacy builds on non-Solana chains, patch the binary
+  if (!useBridgeFromEnv && chain !== "Solana") {
+    const binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
+
+    // Get Solana mainnet address for patching
+    const wh = new Wormhole(network, [solana.Platform], overrides);
+    const sol = wh.getChain("Solana");
+    const solanaAddress = sol.config.contracts.coreBridge;
+    if (!solanaAddress) {
+      console.error("Core bridge address not found in Solana config");
+      return 1;
+    }
+
+    console.log(`Patching binary for ${chain}...`);
+    await patchSolanaBinary(binary, wormhole, solanaAddress);
+  }
+
+  return exitCode;
+}
+
+/**
+ * Build the Solana NTT program binary
+ * @param pwd - Project root directory
+ * @param network - Network to build for (affects cargo features)
+ * @param chain - Target chain (for patching non-Solana chains)
+ * @param wormhole - Wormhole core bridge address for verification
+ * @param version - Version string for verification (optional)
+ * @param programKeyPath - Optional path to program keypair (if not provided, will look for {programId}.json)
+ * @param binaryPath - Optional path to pre-built binary (if provided, building is skipped)
+ * @returns Object containing binary path, program ID, and program keypair path
+ */
+async function buildSvm(
+  pwd: string,
+  network: Network,
+  chain: Chain,
+  wormhole: string,
+  version: string | null,
+  programKeyPath?: string,
+  binaryPath?: string
+): Promise<{ binary: string; programId: string; programKeypairPath: string }> {
+  ensureNttRoot(pwd);
+  checkSolanaVersion(pwd);
+
+  // If binary is provided, still need to get program ID
   const existingProgramId = fs
     .readFileSync(`${pwd}/solana/Anchor.toml`)
     .toString()
@@ -3183,17 +3490,17 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     process.exit(1);
   }
 
-  let programKeypairPath;
-  let programKeypair;
+  let programKeypairPath: string;
+  let programKeypair: Keypair;
 
-  if (managerKeyPath) {
-    if (!fs.existsSync(managerKeyPath)) {
-      console.error(`Program keypair not found: ${managerKeyPath}`);
+  if (programKeyPath) {
+    if (!fs.existsSync(programKeyPath)) {
+      console.error(`Program keypair not found: ${programKeyPath}`);
       process.exit(1);
     }
-    programKeypairPath = managerKeyPath;
+    programKeypairPath = programKeyPath;
     programKeypair = Keypair.fromSecretKey(
-      new Uint8Array(JSON.parse(fs.readFileSync(managerKeyPath).toString()))
+      new Uint8Array(JSON.parse(fs.readFileSync(programKeyPath).toString()))
     );
   } else {
     const programKeyJson = `${existingProgramId}.json`;
@@ -3248,6 +3555,74 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
     const newLibRs = libRs.replace(existingProgramId, providedProgramId);
     fs.writeFileSync(libRsPath, newLibRs);
   }
+
+  let binary: string;
+
+  if (binaryPath) {
+    console.log(`Using provided binary: ${binaryPath}`);
+    binary = binaryPath;
+  } else {
+    // build the program
+    console.log(`Building SVM program for ${network}...`);
+    const exitCode = await runAnchorBuild(pwd, network, chain, wormhole);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+
+    binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
+    console.log(`Build complete: ${binary}`);
+  }
+
+  // Verify the binary contains expected addresses and version
+  console.log(`Verifying binary...`);
+  await checkSvmBinary(
+    binary,
+    wormhole,
+    providedProgramId,
+    version ?? undefined
+  );
+  console.log(`✓ Binary verification passed`);
+
+  return {
+    binary,
+    programId: providedProgramId,
+    programKeypairPath,
+  };
+}
+
+async function deploySvm<N extends Network, C extends SolanaChains>(
+  pwd: string,
+  version: string | null,
+  mode: Ntt.Mode,
+  ch: ChainContext<N, C>,
+  token: string,
+  payer: string,
+  initialize: boolean,
+  managerKeyPath?: string,
+  binaryPath?: string,
+  priorityFee?: number
+): Promise<ChainAddress<C>> {
+  const wormhole = ch.config.contracts.coreBridge;
+  if (!wormhole) {
+    console.error("Core bridge not found");
+    process.exit(1);
+  }
+
+  // Build the Solana program (or use provided binary)
+  const buildResult = await buildSvm(
+    pwd,
+    ch.network,
+    ch.chain,
+    wormhole,
+    version,
+    managerKeyPath,
+    binaryPath
+  );
+  const {
+    binary,
+    programId: providedProgramId,
+    programKeypairPath,
+  } = buildResult;
 
   // First we check that the provided mint's mint authority is the program's token authority PDA when in burning mode.
   // This is checked in the program initialiser anyway, but we can save some
@@ -3323,68 +3698,17 @@ async function deploySolana<N extends Network, C extends SolanaChains>(
           `Set the mint authority to the program's token authority PDA with e.g.:`
         );
         console.error(
-          `ntt solana set-mint-authority --token ${token} --manager ${providedProgramId}`
+          `ntt set-mint-authority --token ${token} --manager ${providedProgramId} --chain Solana`
         );
         process.exit(1);
       }
     }
   }
 
-  let binary: string;
-
+  // Deploy the binary (patching was already done during build for legacy builds on non-Solana chains)
   const skipDeploy = false;
 
   if (!skipDeploy) {
-    if (binaryPath) {
-      binary = binaryPath;
-    } else {
-      // build the program
-      // TODO: build with docker
-      checkAnchorVersion(pwd);
-      const proc = Bun.spawn(
-        [
-          "anchor",
-          "build",
-          "-p",
-          "example_native_token_transfers",
-          "--",
-          "--no-default-features",
-          "--features",
-          cargoNetworkFeature(ch.network),
-        ],
-        {
-          cwd: `${pwd}/solana`,
-        }
-      );
-
-      // const _out = await new Response(proc.stdout).text();
-
-      await proc.exited;
-      if (proc.exitCode !== 0) {
-        process.exit(proc.exitCode ?? 1);
-      }
-
-      binary = `${pwd}/solana/target/deploy/example_native_token_transfers.so`;
-    }
-
-    const wh = new Wormhole(ch.network, [solana.Platform], overrides);
-    const sol = wh.getChain("Solana");
-    const solanaAddress = sol.config.contracts.coreBridge;
-    if (!solanaAddress) {
-      console.error("Core bridge address not found in Solana config");
-      process.exit(1);
-    }
-
-    if (ch.chain !== "Solana") {
-      await patchSolanaBinary(binary, wormhole, solanaAddress);
-    }
-    await checkSolanaBinary(
-      binary,
-      wormhole,
-      providedProgramId,
-      version ?? undefined
-    );
-
     // if buffer.json doesn't exist, create it
     if (!fs.existsSync(`buffer.json`)) {
       execSync(`solana-keygen new -o buffer.json --no-bip39-passphrase`);
@@ -4080,7 +4404,7 @@ async function deploySui<N extends Network, C extends Chain>(
         );
       }
 
-      console.log(chalk.green("Sui NTT deployment completed successfully!"));
+      console.log(colors.green("Sui NTT deployment completed successfully!"));
       console.log(`NTT Package ID: ${nttPackageId}`);
       console.log(`NTT State ID: ${nttStateId}`);
       console.log(`Wormhole Transceiver Package ID: ${whTransceiverPackageId}`);
@@ -4135,9 +4459,6 @@ async function missingConfigs(
     let missing: MissingImplicitConfig = {
       managerPeers: [],
       transceiverPeers: [],
-      evmChains: [],
-      standardRelaying: [],
-      specialRelaying: [],
       solanaWormholeTransceiver: false,
       solanaUpdateLUT: false,
     };
@@ -4217,42 +4538,6 @@ async function missingConfigs(
         }
       }
 
-      if (chainToPlatform(fromChain) === "Evm") {
-        const toIsEvm = chainToPlatform(toChain) === "Evm";
-        const toIsSolana = chainToPlatform(toChain) === "Solana";
-        const whTransceiver = (await from.ntt.getTransceiver(
-          0
-        )) as EvmNttWormholeTranceiver<Network, EvmChains>;
-
-        if (toIsEvm) {
-          const remoteToEvm = await whTransceiver.isEvmChain(toChain);
-          if (!remoteToEvm) {
-            count++;
-            missing.evmChains.push(toChain);
-          }
-
-          const standardRelaying =
-            await whTransceiver.isWormholeRelayingEnabled(toChain);
-          const desiredStandardRelaying = !(
-            from.config.local?.transceivers.wormhole.executor ?? false
-          );
-          if (standardRelaying !== desiredStandardRelaying) {
-            count++;
-            missing.standardRelaying.push([toChain, desiredStandardRelaying]);
-          }
-        } else if (toIsSolana) {
-          const specialRelaying =
-            await whTransceiver.isSpecialRelayingEnabled(toChain);
-          const desiredSpecialRelaying = !(
-            from.config.local?.transceivers.wormhole.executor ?? false
-          );
-          if (specialRelaying !== desiredSpecialRelaying) {
-            count++;
-            missing.specialRelaying.push([toChain, desiredSpecialRelaying]);
-          }
-        }
-      }
-
       const transceiverPeer = await retryWithExponentialBackoff(
         () => from.whTransceiver.getPeer(toChain),
         5,
@@ -4290,7 +4575,8 @@ async function pushDeployment<C extends Chain>(
   evmVerify: boolean,
   yes: boolean,
   filePath?: string,
-  gasEstimateMultiplier?: number
+  gasEstimateMultiplier?: number,
+  dangerouslyTransferOwnershipInOneStep?: boolean
 ): Promise<void> {
   const diff = diffObjects(
     deployment.config.local!,
@@ -4304,7 +4590,7 @@ async function pushDeployment<C extends Chain>(
   const canonical = canonicalAddress(deployment.manager);
   console.log(`Pushing changes to ${deployment.manager.chain} (${canonical})`);
 
-  console.log(chalk.reset(colorizeDiff(diff)));
+  console.log(colors.reset(colorizeDiff(diff)));
   if (!yes) {
     await askForConfirmation();
   }
@@ -4327,7 +4613,41 @@ async function pushDeployment<C extends Chain>(
         deployment.manager.chain,
         diff[k]?.push!
       );
-      updateOwner = deployment.ntt.setOwner(address, signer.address.address);
+      // For Solana, we need to use the low-level transfer ownership instructions
+      if (chainToPlatform(deployment.manager.chain) === "Solana") {
+        const solanaNtt = deployment.ntt as SolanaNtt<
+          typeof deployment.ctx.config.network,
+          SolanaChains
+        >;
+        const owner = new SolanaAddress(signer.address.address).unwrap();
+        const newOwner = new SolanaAddress(address).unwrap();
+
+        // Use one-step or two-step based on flag
+        const ix = dangerouslyTransferOwnershipInOneStep
+          ? await NTT.createTransferOwnershipOneStepUncheckedInstruction(
+              solanaNtt.program,
+              { owner, newOwner }
+            )
+          : await NTT.createTransferOwnershipInstruction(solanaNtt.program, {
+              owner,
+              newOwner,
+            });
+
+        const tx = new solanaWeb3.Transaction();
+        tx.add(ix);
+        tx.feePayer = owner;
+        // Convert to AsyncGenerator format expected by updateOwner
+        updateOwner = (async function* () {
+          yield solanaNtt.createUnsignedTx(
+            { transaction: tx },
+            dangerouslyTransferOwnershipInOneStep
+              ? "Transfer ownership (1-step)"
+              : "Propose ownership transfer (2-step)"
+          ) as UnsignedTransaction<any, any>;
+        })();
+      } else {
+        updateOwner = deployment.ntt.setOwner(address, signer.address.address);
+      }
     } else if (k === "pauser") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
@@ -4570,8 +4890,6 @@ async function getImmutables<N extends Network, C extends Chain>(
     0
   )) as EvmNttWormholeTranceiver<N, EvmChains>;
   const consistencyLevel = await transceiver.transceiver.consistencyLevel();
-  const wormholeRelayer = await transceiver.transceiver.wormholeRelayer();
-  const specialRelayer = await transceiver.transceiver.specialRelayer();
   const gasLimit = await transceiver.transceiver.gasLimit();
 
   const token = await evmNtt.manager.token();
@@ -4579,8 +4897,6 @@ async function getImmutables<N extends Network, C extends Chain>(
 
   const whTransceiverImmutables = {
     consistencyLevel,
-    wormholeRelayer,
-    specialRelayer,
     gasLimit,
   };
   return {
@@ -4805,7 +5121,7 @@ async function patchSolanaBinary(
   }
 }
 
-async function checkSolanaBinary(
+async function checkSvmBinary(
   binary: string,
   wormhole: string,
   providedProgramId: string,
@@ -4884,7 +5200,7 @@ function checkSolanaVersion(pwd: string): void {
 
     if (!versionMatch) {
       console.warn(
-        chalk.yellow("Warning: Could not find solana_version in Anchor.toml")
+        colors.yellow("Warning: Could not find solana_version in Anchor.toml")
       );
       return;
     }
@@ -4901,7 +5217,7 @@ function checkSolanaVersion(pwd: string): void {
       });
       const versionMatch = output.match(/solana-cli (\d+\.\d+\.\d+)/);
       if (!versionMatch) {
-        console.error(chalk.red("Error: Could not parse solana CLI version"));
+        console.error(colors.red("Error: Could not parse solana CLI version"));
         process.exit(1);
       }
       currentVersion = versionMatch[1];
@@ -4917,12 +5233,12 @@ function checkSolanaVersion(pwd: string): void {
       }
     } catch (error) {
       console.error(
-        chalk.red(
+        colors.red(
           "Error: solana CLI not found. Please install the Solana toolchain."
         )
       );
       console.error(
-        chalk.yellow(
+        colors.yellow(
           'Install with: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"'
         )
       );
@@ -4930,12 +5246,12 @@ function checkSolanaVersion(pwd: string): void {
     }
 
     if (currentVersion !== requiredVersion) {
-      console.log(chalk.yellow(`Solana version mismatch detected:`));
+      console.log(colors.yellow(`Solana version mismatch detected:`));
       console.log(
-        chalk.yellow(`  Required: ${requiredVersion} (from Anchor.toml)`)
+        colors.yellow(`  Required: ${requiredVersion} (from Anchor.toml)`)
       );
-      console.log(chalk.yellow(`  Current:  ${currentVersion}`));
-      console.log(chalk.yellow(`\nSwitching to required version...`));
+      console.log(colors.yellow(`  Current:  ${currentVersion}`));
+      console.log(colors.yellow(`\nSwitching to required version...`));
 
       // Run the appropriate version switch command
       const installCommand =
@@ -4946,24 +5262,24 @@ function checkSolanaVersion(pwd: string): void {
       try {
         execSync(installCommand, { stdio: "inherit" });
         console.log(
-          chalk.green(
+          colors.green(
             `Successfully switched to Solana version ${requiredVersion}`
           )
         );
       } catch (error) {
         console.error(
-          chalk.red(`Failed to switch Solana version using ${installCommand}`)
+          colors.red(`Failed to switch Solana version using ${installCommand}`)
         );
-        console.error(chalk.red(`Please run manually: ${installCommand}`));
+        console.error(colors.red(`Please run manually: ${installCommand}`));
         process.exit(1);
       }
     }
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      console.warn(chalk.yellow("Warning: Could not read Anchor.toml file"));
+      console.warn(colors.yellow("Warning: Could not read Anchor.toml file"));
     } else {
       console.warn(
-        chalk.yellow(
+        colors.yellow(
           `Warning: Failed to check Solana version: ${
             error instanceof Error ? error.message : error
           }`
@@ -4981,7 +5297,7 @@ function checkAnchorVersion(pwd: string) {
 
     if (!versionMatch) {
       console.error(
-        chalk.red("Error: Could not find anchor_version in Anchor.toml")
+        colors.red("Error: Could not find anchor_version in Anchor.toml")
       );
       process.exit(1);
     }
@@ -5003,38 +5319,28 @@ function checkAnchorVersion(pwd: string) {
     // version looks like "anchor-cli 0.14.0"
     const [_, v] = version.split(" ");
     if (v !== expected) {
-      console.error(chalk.red(`Anchor CLI version mismatch!`));
-      console.error(chalk.red(`  Required: ${expected} (from Anchor.toml)`));
-      console.error(chalk.red(`  Current:  ${v}`));
+      console.error(colors.red(`Anchor CLI version mismatch!`));
+      console.error(colors.red(`  Required: ${expected} (from Anchor.toml)`));
+      console.error(colors.red(`  Current:  ${v}`));
       console.error(
-        chalk.yellow(`\nTo fix this, install the correct version of Anchor`)
+        colors.yellow(`\nTo fix this, install the correct version of Anchor`)
       );
       console.error(
-        chalk.gray("See https://www.anchor-lang.com/docs/installation")
+        colors.gray("See https://www.anchor-lang.com/docs/installation")
       );
       process.exit(1);
     }
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      console.error(chalk.red("Error: Could not read Anchor.toml file"));
+      console.error(colors.red("Error: Could not read Anchor.toml file"));
       console.error(
-        chalk.yellow(`Expected file at: ${pwd}/solana/Anchor.toml`)
+        colors.yellow(`Expected file at: ${pwd}/solana/Anchor.toml`)
       );
       process.exit(1);
     } else {
       throw error;
     }
   }
-}
-
-function loadConfig(path: string): Config {
-  if (!fs.existsSync(path)) {
-    console.error(`File not found: ${path}`);
-    console.error(`Create with 'ntt init' or specify another file with --path`);
-    process.exit(1);
-  }
-  const deployments: Config = JSON.parse(fs.readFileSync(path).toString());
-  return deployments;
 }
 
 function resolveVersion(
@@ -5065,17 +5371,17 @@ function resolveVersion(
 function warnLocalDeployment(yes: boolean): Promise<void> {
   if (!yes) {
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         "WARNING: You are deploying from your local working directory."
       )
     );
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         "This bypasses version control and may deploy untested changes."
       )
     );
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         "Ensure your local changes are thoroughly tested and compatible."
       )
     );

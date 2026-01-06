@@ -255,10 +255,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // difference in limits + remaining capacity after t1 + the amount that's refreshed (based on the old rps)
         assertEq(
             outboundLimitParams.currentCapacity.getAmount(),
-            (
-                (1 * 10 ** decimals) + (1 * 10 ** decimals)
-                    + (outboundLimit * (6 hours)) / nttManager.rateLimitDuration()
-            ).trim(decimals, decimals).getAmount()
+            ((1 * 10 ** decimals) + (1 * 10 ** decimals) + (outboundLimit * (6 hours))
+                        / nttManager.rateLimitDuration()).trim(decimals, decimals).getAmount()
         );
     }
 
@@ -361,10 +359,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // remaining capacity after t1 - difference in limits + the amount that's refreshed (based on the old rps)
         assertEq(
             outboundLimitParams.currentCapacity.getAmount(),
-            (
-                (3 * 10 ** decimals) - (1 * 10 ** decimals)
-                    + (outboundLimit * (6 hours)) / nttManager.rateLimitDuration()
-            ).trim(decimals, decimals).getAmount()
+            ((3 * 10 ** decimals) - (1 * 10 ** decimals) + (outboundLimit * (6 hours))
+                        / nttManager.rateLimitDuration()).trim(decimals, decimals).getAmount()
         );
     }
 
@@ -844,7 +840,10 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     // send tokens from user_A to user_B
     // this should consume capacity on the outbound side
     // and backfill the inbound side
-    function testFuzz_CircularFlowBackFilling(uint256 mintAmt, uint256 transferAmt) public {
+    function testFuzz_CircularFlowBackFilling(
+        uint256 mintAmt,
+        uint256 transferAmt
+    ) public {
         mintAmt = bound(mintAmt, 1, type(uint256).max);
         // enforces transferAmt <= mintAmt
         transferAmt = bound(transferAmt, 0, mintAmt);
@@ -990,7 +989,10 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         }
     }
 
-    function testFuzz_outboundRateLimitShouldQueue(uint256 limitAmt, uint256 transferAmt) public {
+    function testFuzz_outboundRateLimitShouldQueue(
+        uint256 limitAmt,
+        uint256 transferAmt
+    ) public {
         // setup
         address user_A = address(0x123);
         address user_B = address(0x456);
@@ -1062,7 +1064,10 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.completeOutboundQueuedTransfer(0);
     }
 
-    function testFuzz_inboundRateLimitShouldQueue(uint256 inboundLimitAmt, uint256 amount) public {
+    function testFuzz_inboundRateLimitShouldQueue(
+        uint256 inboundLimitAmt,
+        uint256 amount
+    ) public {
         amount = bound(amount, 1, type(uint64).max);
         inboundLimitAmt = bound(amount, 0, amount - 1);
 
