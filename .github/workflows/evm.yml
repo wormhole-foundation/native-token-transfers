@@ -3,15 +3,9 @@ name: EVM CI
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "evm/**"
-      - ".github/workflows/evm.yml"
   push:
     branches:
       - main
-    paths:
-      - "evm/**"
-      - ".github/workflows/evm.yml"
 
 env:
   FOUNDRY_PROFILE: ci

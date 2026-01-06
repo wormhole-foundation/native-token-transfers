@@ -3,33 +3,9 @@ name: CLI
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "cli/**"
-      - "sdk/**"
-      - "evm/**"
-      - "solana/**"
-      - "sui/ts/**"
-      - "Dockerfile.cli"
-      - "Dockerfile.cli-test-evm"
-      - "Dockerfile.cli-test-solana"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/cli.yml"
   push:
     branches:
       - main
-    paths:
-      - "cli/**"
-      - "sdk/**"
-      - "evm/**"
-      - "solana/**"
-      - "sui/ts/**"
-      - "Dockerfile.cli"
-      - "Dockerfile.cli-test-evm"
-      - "Dockerfile.cli-test-solana"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/cli.yml"
 
 # Cancel in-progress runs on new commits to same PR/branch
 concurrency:

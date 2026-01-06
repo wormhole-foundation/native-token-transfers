@@ -20,15 +20,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "solana/Anchor.toml"
-      - "Dockerfile.anchor-base"
-      - ".github/workflows/anchor-base.yml"
   pull_request:
-    paths:
-      - "solana/Anchor.toml"
-      - "Dockerfile.anchor-base"
-      - ".github/workflows/anchor-base.yml"
 
 # Note: No concurrency block here - when called as reusable workflow,
 # github.workflow refers to the CALLER, which would conflict.
