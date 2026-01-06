@@ -2,32 +2,10 @@ name: Prettier
 
 on:
   pull_request:
-    paths:
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.js"
-      - "**/*.jsx"
-      - "**/*.json"
-      - "**/*.md"
-      - "**/*.yml"
-      - "**/*.yaml"
-      - ".prettierrc*"
-      - ".github/workflows/prettier.yml"
   push:
     branches:
       - main
       - dev
-    paths:
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.js"
-      - "**/*.jsx"
-      - "**/*.json"
-      - "**/*.md"
-      - "**/*.yml"
-      - "**/*.yaml"
-      - ".prettierrc*"
-      - ".github/workflows/prettier.yml"
 
 # Cancel in-progress runs on new commits to same PR/branch
 concurrency:
