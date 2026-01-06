@@ -1171,22 +1171,46 @@ yargs(hideBin(process.argv))
         [chain]: config,
       };
 
+      const peerErrors: {
+        chain: Chain;
+        stage: "peer" | "config";
+        error: unknown;
+      }[] = [];
+      let lastStatusLineLength = 0;
+      const updateStatusLine = (message: string) => {
+        const padded = message.padEnd(lastStatusLineLength, " ");
+        process.stdout.write(`\r${padded}`);
+        lastStatusLineLength = Math.max(lastStatusLineLength, message.length);
+      };
+      const finishStatusLine = () => {
+        if (lastStatusLineLength > 0) {
+          process.stdout.write("\n");
+        }
+      };
+      const formatError = (error: unknown) =>
+        error instanceof Error ? error.message : String(error);
+
       // discover peers
       let count = 0;
+      const total = chains.length - 1;
       for (const c of chains) {
-        process.stdout.write(
-          `[${count}/${chains.length - 1}] Fetching peer config for ${c}`
+        updateStatusLine(
+          `[${count}/${total}] Fetching peer config for ${c}`
         );
         await new Promise((resolve) => setTimeout(resolve, 100));
         count++;
 
-        const peer = await retryWithExponentialBackoff(
-          () => ntt.getPeer(c),
-          5,
-          5000
-        );
-
-        process.stdout.write(`\n`);
+        let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
+        try {
+          peer = await retryWithExponentialBackoff(
+            () => ntt.getPeer(c),
+            5,
+            5000
+          );
+        } catch (e) {
+          peerErrors.push({ chain: c, stage: "peer", error: e });
+          continue;
+        }
         if (peer === null) {
           continue;
         }
@@ -1201,10 +1225,11 @@ yargs(hideBin(process.argv))
           ntts[c] = peerNtt as any;
           configs[c] = peerConfig;
         } catch (e) {
-          console.error(`Failed to pull config for ${c}:`, e);
+          peerErrors.push({ chain: c, stage: "config", error: e });
           continue;
         }
       }
+      finishStatusLine();
 
       // sort chains by name
       const sorted = Object.fromEntries(
@@ -1225,6 +1250,24 @@ yargs(hideBin(process.argv))
         chains: sorted,
       };
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
+
+      if (peerErrors.length > 0) {
+        const chainsWithErrors = Array.from(
+          new Set(peerErrors.map((entry) => entry.chain))
+        ).sort((a, b) => a.localeCompare(b));
+        console.warn(
+          `Completed with errors for ${chainsWithErrors.length} chain(s): ${chainsWithErrors.join(", ")}`
+        );
+        if (verbose) {
+          for (const { chain: errorChain, stage, error } of peerErrors) {
+            console.warn(
+              `  - ${errorChain} (${stage}): ${formatError(error)}`
+            );
+          }
+        } else {
+          console.warn("Run with --verbose to see error details.");
+        }
+      }
     }
   )
   .command(
