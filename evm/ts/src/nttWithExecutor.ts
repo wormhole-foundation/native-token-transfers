@@ -47,6 +47,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Seievm: "0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445",
     CreditCoin: "0x5454b995719626256C96fb57454b044ffb3Da2F9",
     Monad: "0xc3F3dDa544815a440633176c7598f5B97500793e",
+    Moca: "0xE612837749a0690BA2BCe490D6eFb5F8Fc347df3",
     MegaETH: "0x3EFEc0c7Ee79135330DD03e995872f84b1AD49b6",
   },
   Testnet: {
@@ -66,6 +67,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Unichain: "0x607723D6353Dae3ef62B7B277Cfabd0F4bc6CB4C",
     XRPLEVM: "0xcDD9d7C759b29680f7a516d0058de8293b2AC7b1",
     Mezo: "0x484b5593BbB90383f94FB299470F09427cf6cfE2",
+    Moca: "0x47f26bF9253Eb398fBAf825D7565FE975D839a71",
   },
 };
 
