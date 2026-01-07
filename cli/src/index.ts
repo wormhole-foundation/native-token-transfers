@@ -73,6 +73,7 @@ import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 import { handleDeploymentError } from "./error";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 export type { ChainConfig, Config } from "./deployments";
+export type { Deployment } from "./validation";
 
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
@@ -104,6 +105,13 @@ import * as configuration from "./configuration";
 import { createTokenTransferCommand } from "./tokenTransfer";
 import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
+import {
+  collectMissingConfigs,
+  printMissingConfigReport,
+  retryWithExponentialBackoff,
+  validatePayerOption,
+} from "./validation";
+import type { Deployment } from "./validation";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
@@ -227,18 +235,6 @@ active_address: ~
     console.log("Sui environment cleaned up");
   }
 }
-
-export type Deployment<C extends Chain> = {
-  ctx: ChainContext<Network, C>;
-  ntt: Ntt<Network, C>;
-  whTransceiver: NttTransceiver<Network, C, Ntt.Attestation>;
-  decimals: number;
-  manager: ChainAddress<C>;
-  config: {
-    remote?: ChainConfig;
-    local?: ChainConfig;
-  };
-};
 
 // Extended ChainAddress type for Sui deployments that includes additional metadata
 export type SuiDeploymentResult<C extends Chain> = ChainAddress<C> & {
@@ -662,6 +658,12 @@ yargs(hideBin(process.argv))
       const path = argv["path"];
       const deployments: Config = loadConfig(path);
       const chain: Chain = argv["chain"];
+      const payerPath = validatePayerOption(
+        argv["payer"],
+        chain,
+        (message) => new Error(message),
+        (message) => console.warn(colors.yellow(message))
+      );
       const version = resolveVersion(
         argv["latest"],
         argv["ver"],
@@ -755,7 +757,7 @@ yargs(hideBin(process.argv))
         !argv["skip-verify"],
         argv["yes"],
         argv["manager-variant"],
-        argv["payer"],
+        payerPath,
         argv["program-key"],
         argv["binary"],
         argv["solana-priority-fee"],
@@ -837,6 +839,12 @@ yargs(hideBin(process.argv))
       const path = argv["path"];
       const deployments: Config = loadConfig(path);
       const chain: Chain = argv["chain"];
+      const payerPath = validatePayerOption(
+        argv["payer"],
+        chain,
+        (message) => new Error(message),
+        (message) => console.warn(colors.yellow(message))
+      );
       const signerType = argv["signer-type"] as SignerType;
       const network = deployments.network as Network;
 
@@ -900,7 +908,7 @@ yargs(hideBin(process.argv))
         signerType,
         !argv["skip-verify"],
         managerVariant,
-        argv["payer"],
+        payerPath,
         argv["program-key"],
         argv["binary"],
         argv["gas-estimate-multiplier"]
@@ -1195,7 +1203,19 @@ yargs(hideBin(process.argv))
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose);
       const signerType = argv["signer-type"] as SignerType;
-      const payerPath = argv["payer"];
+      const depsChains = Object.keys(deps) as Chain[];
+      const needsSolanaPayer = depsChains.some(
+        (c) => chainToPlatform(c) === "Solana"
+      );
+      const payerValidationChain = (
+        needsSolanaPayer ? "Solana" : depsChains[0]
+      ) as Chain | undefined;
+      const payerPath = validatePayerOption(
+        argv["payer"],
+        payerValidationChain ?? ("Solana" as Chain),
+        (message) => new Error(message),
+        (message) => console.warn(colors.yellow(message))
+      );
       const gasEstimateMultiplier = argv["gas-estimate-multiplier"];
       const skipChains = (argv["skip-chain"] as string[]) || [];
       const onlyChains = (argv["only-chain"] as string[]) || [];
@@ -1210,7 +1230,7 @@ yargs(hideBin(process.argv))
         }
         return false;
       };
-      const missing = await missingConfigs(deps, verbose);
+      const missing = await collectMissingConfigs(deps, verbose);
 
       if (checkConfigErrors(deps)) {
         console.error(
@@ -1432,26 +1452,11 @@ yargs(hideBin(process.argv))
       }
 
       // verify peers
-      const missing = await missingConfigs(deps, verbose);
+      const missing = await collectMissingConfigs(deps, verbose);
 
-      if (Object.keys(missing).length > 0) {
+      const hasMissingConfigs = printMissingConfigReport(missing);
+      if (hasMissingConfigs) {
         fixable++;
-      }
-
-      for (const [chain, missingConfig] of Object.entries(missing)) {
-        console.error(`${chain} status:`);
-        for (const manager of missingConfig.managerPeers) {
-          console.error(`  Missing manager peer: ${manager.address.chain}`);
-        }
-        for (const transceiver of missingConfig.transceiverPeers) {
-          console.error(`  Missing transceiver peer: ${transceiver.chain}`);
-        }
-        if (missingConfig.solanaWormholeTransceiver) {
-          console.error("  Missing Solana wormhole transceiver");
-        }
-        if (missingConfig.solanaUpdateLUT) {
-          console.error("  Missing or outdated LUT");
-        }
       }
 
       // Check executor availability for EVM chains
@@ -1469,6 +1474,7 @@ yargs(hideBin(process.argv))
           );
         }
       }
+
       if (fixable > 0) {
         console.error(
           "Run `ntt pull` to pull the remote configuration (overwriting the local one)"
@@ -1519,6 +1525,12 @@ yargs(hideBin(process.argv))
       const manager = argv["manager"];
       const token = argv["token"];
       const network = deployments.network as Network;
+      const payerPath = validatePayerOption(
+        argv["payer"],
+        chain,
+        (message) => new Error(message),
+        (message) => console.warn(colors.yellow(message))
+      );
 
       // Check that the platform is SVM (Solana)
       const platform = chainToPlatform(chain);
@@ -1529,12 +1541,12 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
 
-      if (!fs.existsSync(argv["payer"])) {
+      if (!payerPath) {
         console.error("Payer not found. Specify with --payer");
         process.exit(1);
       }
       const payerKeypair = Keypair.fromSecretKey(
-        new Uint8Array(JSON.parse(fs.readFileSync(argv["payer"]).toString()))
+        new Uint8Array(JSON.parse(fs.readFileSync(payerPath).toString()))
       );
 
       if (!token !== !manager) {
@@ -2044,15 +2056,19 @@ yargs(hideBin(process.argv))
           const manager = argv["manager"];
           const token = argv["token"];
           const network = deployments.network as Network;
+          const payerPath = validatePayerOption(
+            argv["payer"],
+            chain,
+            (message) => new Error(message),
+            (message) => console.warn(colors.yellow(message))
+          );
 
-          if (!fs.existsSync(argv["payer"])) {
+          if (!payerPath) {
             console.error("Payer not found. Specify with --payer");
             process.exit(1);
           }
           const payerKeypair = Keypair.fromSecretKey(
-            new Uint8Array(
-              JSON.parse(fs.readFileSync(argv["payer"]).toString())
-            )
+            new Uint8Array(JSON.parse(fs.readFileSync(payerPath).toString()))
           );
 
           if (!token !== !manager) {
@@ -2488,17 +2504,6 @@ yargs(hideBin(process.argv))
   .strict()
   .demandCommand()
   .parse();
-
-// Implicit configuration that's missing from a contract deployment. These are
-// implicit in the sense that they don't need to be explicitly set in the
-// deployment file.
-// For example, all managers and transceivers need to be registered with each other.
-type MissingImplicitConfig = {
-  managerPeers: Ntt.Peer<Chain>[];
-  transceiverPeers: ChainAddress<Chain>[];
-  solanaWormholeTransceiver: boolean;
-  solanaUpdateLUT: boolean;
-};
 
 function checkConfigErrors(
   deps: Partial<{ [C in Chain]: Deployment<Chain> }>
@@ -3211,7 +3216,7 @@ async function runAnchorBuild(
   const useBridgeFromEnv = hasBridgeAddressFromEnvFeature(pwd);
 
   let buildArgs: string[];
-  let buildEnv: Record<string, string>;
+  let buildEnv: NodeJS.ProcessEnv;
 
   if (useBridgeFromEnv) {
     // New method: use bridge-address-from-env feature with BRIDGE_ADDRESS env var
@@ -4272,128 +4277,6 @@ async function deploySui<N extends Network, C extends Chain>(
   });
 }
 
-async function missingConfigs(
-  deps: Partial<{ [C in Chain]: Deployment<Chain> }>,
-  verbose: boolean
-): Promise<Partial<{ [C in Chain]: MissingImplicitConfig }>> {
-  const missingConfigs: Partial<{ [C in Chain]: MissingImplicitConfig }> = {};
-
-  for (const [fromChain, from] of Object.entries(deps)) {
-    let count = 0;
-    assertChain(fromChain);
-
-    let missing: MissingImplicitConfig = {
-      managerPeers: [],
-      transceiverPeers: [],
-      solanaWormholeTransceiver: false,
-      solanaUpdateLUT: false,
-    };
-
-    if (chainToPlatform(fromChain) === "Solana") {
-      const solanaNtt = from.ntt as SolanaNtt<Network, SolanaChains>;
-      const selfWormholeTransceiver = solanaNtt.pdas
-        .registeredTransceiver(new PublicKey(solanaNtt.contracts.ntt!.manager))
-        .toBase58();
-      const registeredSelfTransceiver = await retryWithExponentialBackoff(
-        () =>
-          solanaNtt.connection.getAccountInfo(
-            new PublicKey(selfWormholeTransceiver)
-          ),
-        5,
-        5000
-      );
-      if (registeredSelfTransceiver === null) {
-        count++;
-        missing.solanaWormholeTransceiver = true;
-      }
-
-      // here we just check if the LUT update function returns an instruction.
-      // if it does, it means the LUT is missing or outdated.  notice that
-      // we're not actually updating the LUT here, just checking if it's
-      // missing, so it's ok to use the 0 pubkey as the payer.
-      const updateLUT = solanaNtt.initializeOrUpdateLUT({
-        payer: new PublicKey(0),
-        owner: new PublicKey(0),
-      });
-      // check if async generator is non-empty
-      if (!(await updateLUT.next()).done) {
-        count++;
-        missing.solanaUpdateLUT = true;
-      }
-    }
-
-    for (const [toChain, to] of Object.entries(deps)) {
-      assertChain(toChain);
-      if (fromChain === toChain) {
-        continue;
-      }
-      if (verbose) {
-        process.stdout.write(
-          `Verifying registration for ${fromChain} -> ${toChain}......\n`
-        );
-      }
-      const peer = await retryWithExponentialBackoff(
-        () => from.ntt.getPeer(toChain),
-        5,
-        5000
-      );
-      if (peer === null) {
-        const configLimit = from.config.local?.limits?.inbound?.[
-          toChain
-        ]?.replace(".", "");
-        count++;
-        missing.managerPeers.push({
-          address: to.manager,
-          tokenDecimals: to.decimals,
-          inboundLimit: BigInt(configLimit ?? 0),
-        });
-      } else {
-        if (
-          // @ts-ignore TODO
-          !Buffer.from(peer.address.address.address).equals(
-            // @ts-ignore TODO
-            Buffer.from(to.manager.address.address)
-          )
-        ) {
-          console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
-        }
-        if (peer.tokenDecimals !== to.decimals) {
-          console.error(
-            `Peer decimals mismatch for ${fromChain} -> ${toChain}`
-          );
-        }
-      }
-
-      const transceiverPeer = await retryWithExponentialBackoff(
-        () => from.whTransceiver.getPeer(toChain),
-        5,
-        5000
-      );
-      const transceiverAddress = await to.whTransceiver.getAddress();
-      if (transceiverPeer === null) {
-        count++;
-        missing.transceiverPeers.push(transceiverAddress);
-      } else {
-        if (
-          // @ts-ignore TODO
-          !Buffer.from(transceiverPeer.address.address).equals(
-            // @ts-ignore TODO
-            Buffer.from(transceiverAddress.address.address)
-          )
-        ) {
-          console.error(
-            `Transceiver peer address mismatch for ${fromChain} -> ${toChain}`
-          );
-        }
-      }
-    }
-    if (count > 0) {
-      missingConfigs[fromChain] = missing;
-    }
-  }
-  return missingConfigs;
-}
-
 async function pushDeployment<C extends Chain>(
   deployment: Deployment<C>,
   signSendWaitFunc: ReturnType<typeof newSignSendWaiter>,
@@ -4567,6 +4450,7 @@ async function pushDeployment<C extends Chain>(
       ctx,
       signerType,
       evmVerify,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -5237,28 +5121,6 @@ function validateChain<N extends Network, C extends Chain>(
       process.exit(1);
     }
   }
-}
-
-function retryWithExponentialBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries: number,
-  delay: number
-): Promise<T> {
-  const backoff = (retry: number) =>
-    Math.min(2 ** retry * delay, 10000) + Math.random() * 1000;
-  const attempt = async (retry: number): Promise<T> => {
-    try {
-      return await fn();
-    } catch (e) {
-      if (retry >= maxRetries) {
-        throw e;
-      }
-      const time = backoff(retry);
-      await new Promise((resolve) => setTimeout(resolve, backoff(time)));
-      return await attempt(retry + 1);
-    }
-  };
-  return attempt(0);
 }
 
 function buildVerifierArgs(chain: Chain): string[] {
