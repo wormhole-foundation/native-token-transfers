@@ -1150,6 +1150,10 @@ yargs(hideBin(process.argv))
         } else {
           console.warn("Run with --verbose to see details.");
         }
+      } else {
+        console.log(
+          colors.green(`Deployment file created successfully: ${path}`)
+        );
       }
     }
   )
