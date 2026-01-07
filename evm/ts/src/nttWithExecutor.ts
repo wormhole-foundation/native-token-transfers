@@ -67,6 +67,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Unichain: "0x607723D6353Dae3ef62B7B277Cfabd0F4bc6CB4C",
     XRPLEVM: "0xcDD9d7C759b29680f7a516d0058de8293b2AC7b1",
     Mezo: "0x484b5593BbB90383f94FB299470F09427cf6cfE2",
+    Moca: "0x47f26bF9253Eb398fBAf825D7565FE975D839a71",
   },
 };
 
