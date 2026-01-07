@@ -1171,11 +1171,6 @@ yargs(hideBin(process.argv))
         [chain]: config,
       };
 
-      const peerErrors: {
-        chain: Chain;
-        stage: "peer" | "config";
-        error: unknown;
-      }[] = [];
       let lastStatusLineLength = 0;
       const updateStatusLine = (message: string) => {
         const padded = message.padEnd(lastStatusLineLength, " ");
@@ -1189,18 +1184,66 @@ yargs(hideBin(process.argv))
       };
       const formatError = (error: unknown) =>
         error instanceof Error ? error.message : String(error);
+      const formatConsoleArg = (arg: unknown) => {
+        if (typeof arg === "string") {
+          return arg;
+        }
+        if (arg instanceof Error) {
+          return arg.message;
+        }
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return String(arg);
+        }
+      };
+      const suppressedConsoleErrors: string[] = [];
+      const originalConsoleError = console.error;
+      const suppressConsoleErrors = () => {
+        console.error = (...args: unknown[]) => {
+          suppressedConsoleErrors.push(
+            args.map((arg) => formatConsoleArg(arg)).join(" ")
+          );
+        };
+      };
+      const restoreConsoleErrors = () => {
+        console.error = originalConsoleError;
+      };
+      const managerByAddress = new Map<string, Chain>();
+      const recordManagerAddress = (c: Chain, addressValue: string) => {
+        const matches = addressValue.match(/0x[a-fA-F0-9]{40}|0x[a-fA-F0-9]{64}/g);
+        if (!matches) {
+          return;
+        }
+        for (const match of matches) {
+          managerByAddress.set(match.toLowerCase(), c);
+        }
+      };
+      recordManagerAddress(chain, manager);
+      recordManagerAddress(
+        chain,
+        canonicalAddress({ chain, address: universalManager })
+      );
 
       // discover peers
-      let count = 0;
+      type PeerResult =
+        | {
+            chain: Chain;
+            status: "ok";
+            config: ChainConfig;
+            ntt: Ntt<Network, Chain>;
+          }
+        | { chain: Chain; status: "none" }
+        | {
+            chain: Chain;
+            status: "error";
+            stage: "peer" | "config";
+            error: unknown;
+          };
       const peerChains = chains.filter((c) => c !== chain);
       const total = peerChains.length;
-      for (const c of peerChains) {
-        count++;
-        updateStatusLine(
-          `[${count}/${total}] Fetching peer config for ${c}`
-        );
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
+      const maxConcurrent = 6;
+      const fetchPeerConfig = async (c: Chain): Promise<PeerResult> => {
         let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
         try {
           peer = await retryWithExponentialBackoff(
@@ -1209,33 +1252,95 @@ yargs(hideBin(process.argv))
             5000
           );
         } catch (e) {
-          peerErrors.push({ chain: c, stage: "peer", error: e });
-          continue;
+          return { chain: c, status: "error", stage: "peer", error: e };
         }
         if (peer === null) {
-          continue;
+          return { chain: c, status: "none" };
         }
         const address: UniversalAddress =
           peer.address.address.toUniversalAddress();
+        recordManagerAddress(c, address.toString());
+        recordManagerAddress(c, canonicalAddress({ chain: c, address }));
         try {
           const [peerConfig, _ctx, peerNtt] = await pullChainConfig(
             network,
             { chain: c, address },
             overrides
           );
-          ntts[c] = peerNtt as any;
-          configs[c] = peerConfig;
+          return {
+            chain: c,
+            status: "ok",
+            config: peerConfig,
+            ntt: peerNtt as any,
+          };
         } catch (e) {
-          peerErrors.push({ chain: c, stage: "config", error: e });
-          continue;
+          return { chain: c, status: "error", stage: "config", error: e };
         }
+      };
+      const peerResults: PeerResult[] = [];
+      let completed = 0;
+      let nextIndex = 0;
+      type InFlightResult = {
+        chain: Chain;
+        result: PeerResult;
+        task: Promise<InFlightResult>;
+      };
+      const inFlight = new Set<Promise<InFlightResult>>();
+      const enqueue = () => {
+        if (nextIndex >= peerChains.length) {
+          return;
+        }
+        const c = peerChains[nextIndex++]!;
+        let task: Promise<InFlightResult>;
+        task = fetchPeerConfig(c).then((result) => ({
+          chain: c,
+          result,
+          task,
+        }));
+        inFlight.add(task);
+      };
+      const workerCount = Math.min(maxConcurrent, peerChains.length);
+      suppressConsoleErrors();
+      try {
+        for (let i = 0; i < workerCount; i++) {
+          enqueue();
+        }
+        while (inFlight.size > 0) {
+          const settled = await Promise.race(inFlight);
+          inFlight.delete(settled.task);
+          peerResults.push(settled.result);
+          completed++;
+          updateStatusLine(
+            `[${completed}/${total}] Fetching peer config for ${settled.chain}`
+          );
+          enqueue();
+        }
+      } finally {
+        restoreConsoleErrors();
       }
-      finishStatusLine();
-      console.log(
-        `Attempted fetching peer config for ${total} chain${
+      updateStatusLine(
+        `[${total}/${total}] Completed attempt fetching peer config for ${total} chain${
           total === 1 ? "" : "s"
         }.`
       );
+      finishStatusLine();
+      const peerErrors: {
+        chain: Chain;
+        stage: "peer" | "config";
+        error: unknown;
+      }[] = [];
+      for (const result of peerResults) {
+        if (result.status === "ok") {
+          ntts[result.chain] = result.ntt as any;
+          configs[result.chain] = result.config;
+        } else if (result.status === "error") {
+          peerErrors.push({
+            chain: result.chain,
+            stage: result.stage,
+            error: result.error,
+          });
+        }
+      }
 
       // sort chains by name
       const sorted = Object.fromEntries(
@@ -1257,11 +1362,30 @@ yargs(hideBin(process.argv))
       };
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
 
-      if (peerErrors.length > 0) {
-        const chainsWithErrors = Array.from(
-          new Set(peerErrors.map((entry) => entry.chain))
-        ).sort((a, b) => a.localeCompare(b));
-        console.warn(
+      const uniqueSuppressed = Array.from(
+        new Set(suppressedConsoleErrors)
+      );
+      const suppressedWithChains = uniqueSuppressed.map((message) => {
+        const match = message.match(/0x[a-fA-F0-9]{40}/);
+        const chainMatch = match
+          ? managerByAddress.get(match[0].toLowerCase())
+          : undefined;
+        return { message, chain: chainMatch };
+      });
+      const chainsWithErrorsSet = new Set<Chain>(
+        peerErrors.map((entry) => entry.chain)
+      );
+      for (const entry of suppressedWithChains) {
+        if (entry.chain) {
+          chainsWithErrorsSet.add(entry.chain);
+        }
+      }
+      const chainsWithErrors = Array.from(chainsWithErrorsSet).sort((a, b) =>
+        a.localeCompare(b)
+      );
+      let needsVerboseHint = false;
+      if (chainsWithErrors.length > 0) {
+        console.error(
           `Completed with errors for ${chainsWithErrors.length} chain(s): ${chainsWithErrors.join(", ")}`
         );
         if (verbose) {
@@ -1271,8 +1395,24 @@ yargs(hideBin(process.argv))
             );
           }
         } else {
-          console.warn("Run with --verbose to see error details.");
+          needsVerboseHint = true;
         }
+      }
+      if (uniqueSuppressed.length > 0) {
+        if (verbose) {
+          if (chainsWithErrors.length === 0) {
+            console.warn("Peer discovery logs:");
+          }
+          for (const entry of suppressedWithChains) {
+            const chainLabel = entry.chain ?? "unknown";
+            console.warn(`  - ${chainLabel}: ${entry.message}`);
+          }
+        } else {
+          needsVerboseHint = true;
+        }
+      }
+      if (!verbose && needsVerboseHint) {
+        console.warn("Run with --verbose to see details.");
       }
     }
   )
