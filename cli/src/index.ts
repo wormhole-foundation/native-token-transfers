@@ -1259,9 +1259,7 @@ yargs(hideBin(process.argv))
           }
         };
         const workerCount = Math.min(concurrency, items.length);
-        await Promise.all(
-          Array.from({ length: workerCount }, () => worker())
-        );
+        await Promise.all(Array.from({ length: workerCount }, () => worker()));
       };
       await runPool(peerChains, maxConcurrent, fetchPeerConfig);
       updateStatusLine(
@@ -1317,9 +1315,7 @@ yargs(hideBin(process.argv))
         );
         if (verbose) {
           for (const { chain: errorChain, stage, error } of peerErrors) {
-            console.warn(
-              `  - ${errorChain} (${stage}): ${formatError(error)}`
-            );
+            console.warn(`  - ${errorChain} (${stage}): ${formatError(error)}`);
           }
         } else {
           console.warn("Run with --verbose to see details.");
