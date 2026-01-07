@@ -1121,21 +1121,16 @@ yargs(hideBin(process.argv))
       type InFlightResult = {
         chain: Chain;
         result: PeerResult;
-        task: Promise<InFlightResult>;
+        promise: Promise<PeerResult>;
       };
-      const inFlight = new Set<Promise<InFlightResult>>();
+      const inFlight = new Map<Promise<PeerResult>, Chain>();
       const enqueue = () => {
         if (nextIndex >= peerChains.length) {
           return;
         }
         const c = peerChains[nextIndex++]!;
-        let task: Promise<InFlightResult>;
-        task = fetchPeerConfig(c).then((result) => ({
-          chain: c,
-          result,
-          task,
-        }));
-        inFlight.add(task);
+        const promise = fetchPeerConfig(c);
+        inFlight.set(promise, c);
       };
       const workerCount = Math.min(maxConcurrent, peerChains.length);
       suppressConsoleErrors();
@@ -1143,16 +1138,20 @@ yargs(hideBin(process.argv))
         for (let i = 0; i < workerCount; i++) {
           enqueue();
         }
-        while (inFlight.size > 0) {
-          const settled = await Promise.race(inFlight);
-          inFlight.delete(settled.task);
-          peerResults.push(settled.result);
-          completed++;
-          updateStatusLine(
-            `[${completed}/${total}] Fetching peer config for ${settled.chain}`
-          );
-          enqueue();
-        }
+      while (inFlight.size > 0) {
+        const settled = await Promise.race(
+          Array.from(inFlight.entries(), ([promise, chain]) =>
+            promise.then((result) => ({ chain, result, promise }))
+          )
+        );
+        inFlight.delete(settled.promise);
+        peerResults.push(settled.result);
+        completed++;
+        updateStatusLine(
+          `[${completed}/${total}] Fetching peer config for ${settled.chain}`
+        );
+        enqueue();
+      }
       } finally {
         restoreConsoleErrors();
       }
