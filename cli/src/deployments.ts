@@ -12,12 +12,14 @@ export type ChainConfig = {
   token: string;
   transceivers: {
     threshold: number;
-    wormhole: { address: string; pauser?: string; executor?: boolean };
+    wormhole: { address: string; pauser?: string };
   };
   limits: {
     outbound: string;
     inbound: Partial<{ [C in Chain]: string }>;
   };
+  // Local-only config (not pushed to chain)
+  managerVariant?: string;
 };
 
 export type Config = {

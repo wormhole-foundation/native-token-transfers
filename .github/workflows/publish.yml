@@ -12,11 +12,11 @@ jobs:
   publish-ts-sdk:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write  # Required for OIDC authentication with npm
+      id-token: write # Required for OIDC authentication with npm
       contents: read
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24.11.0

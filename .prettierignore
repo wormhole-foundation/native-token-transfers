@@ -1,0 +1,15 @@
+# Generated / tooling-heavy files we don't strictly enforce
+solana/ts/idl/**
+solana/tilt/**
+solana/keys/**
+
+# generated typechain contracts
+evm/ts/src/ethers-contracts/**
+
+sdk/examples/tsconfig.json
+
+solana/tsconfig*.json
+sui/ts/tsconfig*.json
+tsconfig.*.json
+
+

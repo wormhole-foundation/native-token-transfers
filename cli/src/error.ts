@@ -17,9 +17,10 @@ const RPC_ERROR_KEYWORDS = [
   "connect to",
 ] as const;
 
-function extractErrorDetails(
-  error: unknown
-): { message: string; stack: string } {
+function extractErrorDetails(error: unknown): {
+  message: string;
+  stack: string;
+} {
   if (error instanceof Error) {
     return {
       message: error.message ?? "",
@@ -28,9 +29,13 @@ function extractErrorDetails(
   }
   if (typeof error === "object" && error !== null) {
     const message =
-      "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+      "message" in error
+        ? String((error as { message?: unknown }).message ?? "")
+        : "";
     const stack =
-      "stack" in error ? String((error as { stack?: unknown }).stack ?? "") : "";
+      "stack" in error
+        ? String((error as { stack?: unknown }).stack ?? "")
+        : "";
     return { message, stack };
   }
   return { message: String(error ?? ""), stack: "" };
@@ -54,36 +59,36 @@ function handleSuiDeploymentError(error: any, rpc: string): boolean {
   if (!error.stdout && !error.stderr && !error.output) {
     return false;
   }
-  
+
   console.error(colors.red("\nSui deployment failed\n"));
-  
+
   let errorMessage = "";
-  
+
   // Check stdout first (where sui client publish errors often appear)
   if (error.stdout) {
     const stdout = error.stdout.toString().trim();
-    if (stdout && !stdout.startsWith('{')) {
+    if (stdout && !stdout.startsWith("{")) {
       errorMessage = stdout;
     }
   }
-  
+
   // Check error.output array [stdin, stdout, stderr]
   if (!errorMessage && error.output && Array.isArray(error.output)) {
     if (error.output[1]) {
       const stdout = error.output[1].toString().trim();
-      if (stdout && !stdout.startsWith('{')) {
+      if (stdout && !stdout.startsWith("{")) {
         errorMessage = stdout;
       }
     }
   }
-  
+
   // Fallback to error.message
   if (!errorMessage && error.message) {
     errorMessage = error.message;
   }
-  
+
   console.error(colors.red(errorMessage || "Unknown deployment error"));
-  
+
   return true;
 }
 
@@ -106,7 +111,9 @@ function handleRpcConnectionError(
 
   const errorMessage = error?.message || String(error);
 
-  console.error(colors.red(`RPC connection error for ${chain} on ${network}\n`));
+  console.error(
+    colors.red(`RPC connection error for ${chain} on ${network}\n`)
+  );
   console.error(colors.yellow("RPC endpoint:"), colors.white(rpc));
   console.error(colors.yellow("Error:"), errorMessage);
   console.error();
@@ -164,32 +171,32 @@ function handleRpcConnectionError(
  */
 function handleGenericError(error: any): never {
   console.error(colors.red("\nDeployment failed\n"));
-  
+
   const errorMessage = error?.message || String(error);
-  
+
   // Show stdout if available
   if (error.stdout) {
     console.error(colors.yellow("Output:"));
     console.error(error.stdout.toString());
   }
-  
+
   // Show stderr if available
   if (error.stderr) {
     console.error(colors.yellow("\nError output:"));
     console.error(error.stderr.toString());
   }
-  
+
   // Show message if no stdout/stderr
   if (!error.stdout && !error.stderr) {
     console.error(colors.yellow("Error:"), errorMessage);
-    
+
     // Show stack trace for debugging if available
     if (error.stack) {
       console.error(colors.dim("\nStack trace:"));
       console.error(colors.dim(error.stack));
     }
   }
-  
+
   process.exit(1);
 }
 
@@ -202,11 +209,11 @@ export function handleDeploymentError(
   if (chain === "Sui" && handleSuiDeploymentError(error, rpc)) {
     process.exit(1);
   }
-  
+
   if (handleRpcConnectionError(error, chain, network, rpc)) {
     process.exit(1);
   }
-  
+
   handleGenericError(error);
 }
 
