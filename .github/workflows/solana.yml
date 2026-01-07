@@ -24,7 +24,7 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Get rust toolchain version
         id: toolchain
@@ -60,7 +60,7 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Get rust toolchain version
         id: toolchain
@@ -163,7 +163,7 @@ jobs:
     name: Check version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - run: ./scripts/sync-versions --check
         shell: bash
@@ -176,7 +176,7 @@ jobs:
       solana-cli-version: "1.18.26"
       anchor-version: "0.29.0"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-anchor
         with:
