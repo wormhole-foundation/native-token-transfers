@@ -1076,38 +1076,32 @@ yargs(hideBin(process.argv))
       const peerResults: PeerResult[] = [];
       let completed = 0;
       let nextIndex = 0;
-      type InFlightResult = {
-        chain: Chain;
-        result: PeerResult;
-        promise: Promise<PeerResult>;
-      };
-      const inFlight = new Map<Promise<PeerResult>, Chain>();
-      const enqueue = () => {
-        if (nextIndex >= peerChains.length) {
-          return;
-        }
-        const c = peerChains[nextIndex++]!;
-        const promise = fetchPeerConfig(c);
-        inFlight.set(promise, c);
-      };
-      const workerCount = Math.min(maxConcurrent, peerChains.length);
-      for (let i = 0; i < workerCount; i++) {
-        enqueue();
-      }
-      while (inFlight.size > 0) {
-        const settled = await Promise.race(
-          Array.from(inFlight.entries(), ([promise, chain]) =>
-            promise.then((result) => ({ chain, result, promise }))
-          )
+      const runPool = async <T>(
+        items: T[],
+        concurrency: number,
+        task: (item: T) => Promise<PeerResult>
+      ) => {
+        const worker = async () => {
+          while (true) {
+            const index = nextIndex++;
+            if (index >= items.length) {
+              return;
+            }
+            const item = items[index]!;
+            const result = await task(item);
+            peerResults.push(result);
+            completed++;
+            updateStatusLine(
+              `[${completed}/${total}] Fetching peer config for ${item}`
+            );
+          }
+        };
+        const workerCount = Math.min(concurrency, items.length);
+        await Promise.all(
+          Array.from({ length: workerCount }, () => worker())
         );
-        inFlight.delete(settled.promise);
-        peerResults.push(settled.result);
-        completed++;
-        updateStatusLine(
-          `[${completed}/${total}] Fetching peer config for ${settled.chain}`
-        );
-        enqueue();
-      }
+      };
+      await runPool(peerChains, maxConcurrent, fetchPeerConfig);
       updateStatusLine(
         `[${total}/${total}] Completed attempt fetching peer config for ${total} chain${
           total === 1 ? "" : "s"
