@@ -105,7 +105,7 @@ jobs:
 
       - name: Cache solana tools
         id: cache-solana
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         env:
           cache-name: solana-tools
         with:
@@ -185,7 +185,7 @@ jobs:
           node-version: ${{ env.node-version }}
 
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ./solana/node_modules/
           key: node-modules-${{ runner.os }}-build-${{ env.node-version }}
