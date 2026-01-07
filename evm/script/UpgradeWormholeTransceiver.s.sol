@@ -16,8 +16,6 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
     struct DeploymentParams {
         uint16 wormholeChainId;
         address wormholeCoreBridge;
-        address wormholeRelayerAddr;
-        address specialRelayerAddr;
         uint8 consistencyLevel;
         uint256 gasLimit;
         uint256 outboundLimit;
@@ -36,8 +34,8 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
         WormholeTransceiver implementation = new WormholeTransceiver(
             nttManager,
             params.wormholeCoreBridge,
-            params.wormholeRelayerAddr,
-            params.specialRelayerAddr,
+            address(0),
+            address(0),
             params.consistencyLevel,
             params.gasLimit
         );
@@ -57,9 +55,7 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
         params.wormholeCoreBridge = vm.envAddress("RELEASE_CORE_BRIDGE_ADDRESS");
         require(params.wormholeCoreBridge != address(0), "Invalid wormhole core bridge address");
 
-        // Wormhole relayer, special relayer, consistency level.
-        params.wormholeRelayerAddr = vm.envAddress("RELEASE_WORMHOLE_RELAYER_ADDRESS");
-        params.specialRelayerAddr = vm.envAddress("RELEASE_SPECIAL_RELAYER_ADDRESS");
+        // Consistency level.
         params.consistencyLevel = uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL"));
 
         params.gasLimit = vm.envUint("RELEASE_GAS_LIMIT");

@@ -1,0 +1,91 @@
+name: Anchor Base Image
+
+# Build the anchor-base image when Anchor version changes
+# This image pre-compiles Anchor to avoid 6+ minute compile times in CLI builds
+#
+# Handles three cases:
+# 1. Bootstrap: No image exists -> builds and pushes
+# 2. Update: Anchor version changed -> builds and pushes
+# 3. No-op: Image already exists with correct version -> skips build
+#
+# Can be called directly or as a reusable workflow from cli.yml
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      image:
+        description: "The full image reference to use"
+        value: ${{ jobs.build.outputs.image }}
+  push:
+    branches:
+      - main
+  pull_request:
+
+# Note: No concurrency block here - when called as reusable workflow,
+# github.workflow refers to the CALLER, which would conflict.
+# The caller (cli.yml) handles its own concurrency.
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/anchor-base
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.result.outputs.image }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Extract Anchor version from Anchor.toml
+        id: anchor
+        run: |
+          ANCHOR_VERSION=$(grep 'anchor_version' solana/Anchor.toml | sed 's/.*"\(.*\)"/\1/')
+          echo "version=${ANCHOR_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Check if anchor-base image exists
+        id: check
+        run: |
+          if docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.anchor.outputs.version }} > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.anchor.outputs.version }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Image not found, will build"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.exists == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: steps.check.outputs.exists == 'false'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push anchor-base image
+        if: steps.check.outputs.exists == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.anchor-base
+          build-args: |
+            ANCHOR_VERSION=${{ steps.anchor.outputs.version }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.anchor.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha,scope=anchor-base
+          cache-to: type=gha,mode=max,scope=anchor-base
+
+      - name: Output image reference
+        id: result
+        run: |
+          echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.anchor.outputs.version }}" >> $GITHUB_OUTPUT

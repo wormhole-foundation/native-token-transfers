@@ -42,7 +42,11 @@ abstract contract ManagerBase is
 
     // =============== Setup =================================================================
 
-    constructor(address _token, Mode _mode, uint16 _chainId) {
+    constructor(
+        address _token,
+        Mode _mode,
+        uint16 _chainId
+    ) {
         token = _token;
         mode = _mode;
         chainId = _chainId;
@@ -102,8 +106,10 @@ abstract contract ManagerBase is
     ) public view returns (uint256[] memory, uint256) {
         address[] memory enabledTransceivers = _getEnabledTransceiversStorage();
 
-        TransceiverStructs.TransceiverInstruction[] memory instructions = TransceiverStructs
-            .parseTransceiverInstructions(transceiverInstructions, enabledTransceivers.length);
+        TransceiverStructs.TransceiverInstruction[] memory instructions =
+            TransceiverStructs.parseTransceiverInstructions(
+                transceiverInstructions, enabledTransceivers.length
+            );
 
         return _quoteDeliveryPrice(recipientChain, instructions, enabledTransceivers);
     }
@@ -123,9 +129,10 @@ abstract contract ManagerBase is
         for (uint256 i = 0; i < numEnabledTransceivers; i++) {
             address transceiverAddr = enabledTransceivers[i];
             uint8 registeredTransceiverIndex = transceiverInfos[transceiverAddr].index;
-            uint256 transceiverPriceQuote = ITransceiver(transceiverAddr).quoteDeliveryPrice(
-                recipientChain, transceiverInstructions[registeredTransceiverIndex]
-            );
+            uint256 transceiverPriceQuote = ITransceiver(transceiverAddr)
+                .quoteDeliveryPrice(
+                    recipientChain, transceiverInstructions[registeredTransceiverIndex]
+                );
             priceQuotes[i] = transceiverPriceQuote;
             totalPriceQuote += transceiverPriceQuote;
         }
@@ -143,11 +150,9 @@ abstract contract ManagerBase is
         // NOTE: Attestation is idempotent (bitwise or 1), but we revert
         // anyway to ensure that the client does not continue to initiate calls
         // to receive the same message through the same transceiver.
-        if (
-            transceiverAttestedToMessage(
+        if (transceiverAttestedToMessage(
                 nttManagerMessageHash, _getTransceiverInfosStorage()[msg.sender].index
-            )
-        ) {
+            )) {
             revert TransceiverAlreadyAttestedToMessage(nttManagerMessageHash);
         }
         _setTransceiverAttestedToMessage(nttManagerMessageHash, msg.sender);
@@ -305,7 +310,10 @@ abstract contract ManagerBase is
     }
 
     /// @inheritdoc IManagerBase
-    function transceiverAttestedToMessage(bytes32 digest, uint8 index) public view returns (bool) {
+    function transceiverAttestedToMessage(
+        bytes32 digest,
+        uint8 index
+    ) public view returns (bool) {
         return
             _getMessageAttestationsStorage()[digest].attestedTransceivers & uint64(1 << index) > 0;
     }
@@ -415,11 +423,17 @@ abstract contract ManagerBase is
 
     // =============== Internal ==============================================================
 
-    function _setTransceiverAttestedToMessage(bytes32 digest, uint8 index) internal {
+    function _setTransceiverAttestedToMessage(
+        bytes32 digest,
+        uint8 index
+    ) internal {
         _getMessageAttestationsStorage()[digest].attestedTransceivers |= uint64(1 << index);
     }
 
-    function _setTransceiverAttestedToMessage(bytes32 digest, address transceiver) internal {
+    function _setTransceiverAttestedToMessage(
+        bytes32 digest,
+        address transceiver
+    ) internal {
         _setTransceiverAttestedToMessage(digest, _getTransceiverInfosStorage()[transceiver].index);
 
         emit MessageAttestedTo(

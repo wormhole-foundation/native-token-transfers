@@ -2,7 +2,7 @@ import { assertChain, chains, type Chain } from "@wormhole-foundation/sdk";
 import * as yargs from "yargs";
 import fs from "fs";
 import { ensureNttRoot } from ".";
-import chalk from "chalk";
+import { colors } from "./colors.js";
 
 // We support project-local and global configuration.
 // The configuration is stored in JSON files in $HOME/.ntt-cli/config.json (global) and .ntt-cli/config.json (local).
@@ -189,13 +189,13 @@ export function get(
   const varName = envVarName(chain, key);
   const env = process.env[varName];
   if (env) {
-    console.info(chalk.yellow(`Using ${varName} for ${chain} ${key}`));
+    console.info(colors.yellow(`Using ${varName} for ${chain} ${key}`));
     return env;
   }
   const local = getChainConfig("local", chain, key);
   if (local) {
     console.info(
-      chalk.yellow(
+      colors.yellow(
         `Using local configuration for ${chain} ${key} (in .ntt-cli/config.json)`
       )
     );
@@ -204,7 +204,7 @@ export function get(
   const global = getChainConfig("global", chain, key);
   if (global) {
     console.info(
-      chalk.yellow(
+      colors.yellow(
         `Using global configuration for ${chain} ${key} (in $HOME/.ntt-cli/config.json)`
       )
     );

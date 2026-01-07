@@ -12,6 +12,11 @@
 
 set -euo pipefail
 
+# Share cargo target directory across builds to speed up compilation
+# This allows v1.0.0 and v2.0.0 builds to reuse compiled dependencies
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/solana-test-target}"
+mkdir -p "$CARGO_TARGET_DIR"
+
 # Default values
 PORT=6000
 FAUCET_PORT=6100
@@ -178,9 +183,19 @@ solana airdrop 1 98evdAiWr7ey9MAQzoQQMwFQkTsSR6KkWQuFqKrgwNwb -u "$NETWORK" --ke
 token=$(spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb -u "$NETWORK" | grep "Address:" | awk '{print $2}')
 echo "Token: $token"
 
-ntt_keypair=$(solana-keygen grind --starts-with ntt:1 --ignore-case | grep 'Wrote keypair' | awk '{print $4}')
-ntt_keypair_without_json=${ntt_keypair%.json}
-ntt_keypair=$(realpath "$ntt_keypair")
+# Use pre-built program keypair if available, otherwise generate a new one
+if [ -n "${SOLANA_ARTIFACTS_DIR:-}" ] && [ -f "$SOLANA_ARTIFACTS_DIR/v1.0.0/program-keypair.json" ]; then
+    echo "Using pre-built program keypair from artifacts"
+    cp "$SOLANA_ARTIFACTS_DIR/v1.0.0/program-keypair.json" ./program-keypair.json
+    ntt_keypair=$(realpath ./program-keypair.json)
+    ntt_keypair_without_json=$(solana-keygen pubkey "$ntt_keypair")
+else
+    ntt_keypair=$(solana-keygen grind --starts-with ntt:1 --ignore-case | grep 'Wrote keypair' | awk '{print $4}')
+    ntt_keypair_without_json=${ntt_keypair%.json}
+    ntt_keypair=$(realpath "$ntt_keypair")
+fi
+echo "Program keypair: $ntt_keypair"
+echo "Program ID: $ntt_keypair_without_json"
 popd || exit
 
 # Set token authority
@@ -189,13 +204,36 @@ echo "Authority: $authority"
 spl-token authorize "$token" mint "$authority" -u "$NETWORK"
 
 # Add chain and upgrade
-ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair"
+# Use pre-built artifacts if available (from CI parallel build jobs)
+V1_BINARY=""
+V2_BINARY=""
+if [ -n "${SOLANA_ARTIFACTS_DIR:-}" ]; then
+    if [ -f "$SOLANA_ARTIFACTS_DIR/v1.0.0/example_native_token_transfers.so" ]; then
+        V1_BINARY="$SOLANA_ARTIFACTS_DIR/v1.0.0/example_native_token_transfers.so"
+        echo "Using pre-built v1.0.0 binary: $V1_BINARY"
+    fi
+    if [ -f "$SOLANA_ARTIFACTS_DIR/v2.0.0/example_native_token_transfers.so" ]; then
+        V2_BINARY="$SOLANA_ARTIFACTS_DIR/v2.0.0/example_native_token_transfers.so"
+        echo "Using pre-built v2.0.0 binary: $V2_BINARY"
+    fi
+fi
+
+if [ -n "$V1_BINARY" ]; then
+    ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair" --binary "$V1_BINARY"
+else
+    ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair"
+fi
 
 echo "Getting status"
 ntt status || true
 
 solana program extend "$ntt_keypair_without_json" 100000 -u "$NETWORK"
-ntt upgrade Solana --ver 2.0.0 --payer "$keypair" --program-key "$ntt_keypair" --yes
+
+if [ -n "$V2_BINARY" ]; then
+    ntt upgrade Solana --ver 2.0.0 --payer "$keypair" --program-key "$ntt_keypair" --yes --binary "$V2_BINARY"
+else
+    ntt upgrade Solana --ver 2.0.0 --payer "$keypair" --program-key "$ntt_keypair" --yes
+fi
 ntt status || true
 
 ntt push --payer "$keypair" --yes

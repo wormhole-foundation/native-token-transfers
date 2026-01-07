@@ -1,8 +1,7 @@
 // NOTE: We rely on the Wormhole TypeScript SDK for cross-chain execution logic:
 // https://github.com/wormhole-foundation/wormhole-sdk-ts
 
-import chalk from "chalk";
-import ora, { type Ora } from "ora";
+import { colors } from "./colors.js";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
@@ -36,13 +35,22 @@ import {
   NttRoute,
   nttExecutorRoute,
 } from "@wormhole-foundation/sdk-route-ntt";
-import type { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
+import type {
+  Ntt,
+  NttWithExecutor,
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-sui-ntt";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
 import fs from "fs";
 import readline from "readline";
+import {
+  ensurePlatformSupported,
+  normalizeRpcArgs,
+  validatePayerOption,
+  validateTimeout,
+} from "./validation";
 
 type TokenTransferArgs = {
   network: string;
@@ -66,15 +74,6 @@ class TokenTransferError extends Error {
     this.cause = options?.cause;
   }
 }
-
-/**
- * Platforms that currently have stable NTT support through the CLI.
- */
-const SUPPORTED_PLATFORMS: ReadonlySet<Platform> = new Set([
-  "Evm",
-  "Solana",
-  "Sui",
-]);
 
 const DEFAULT_SOLANA_MSG_VALUE = 11_500_000n; // lamports
 
@@ -107,8 +106,7 @@ export function createTokenTransferCommand(
           demandOption: true,
         })
         .option("destination-address", {
-          describe:
-            "Destination wallet address in canonical format.",
+          describe: "Destination wallet address in canonical format.",
           type: "string",
           demandOption: true,
         })
@@ -193,8 +191,14 @@ async function executeTokenTransfer(
   const destinationChainInput = argv["destination-chain"];
   assertChain(destinationChainInput);
 
-  ensurePlatformSupported(sourceChainInput);
-  ensurePlatformSupported(destinationChainInput);
+  ensurePlatformSupported(
+    sourceChainInput,
+    (message) => new TokenTransferError(message)
+  );
+  ensurePlatformSupported(
+    destinationChainInput,
+    (message) => new TokenTransferError(message)
+  );
   const sourcePlatform = chainToPlatform(sourceChainInput);
   const destinationPlatform = chainToPlatform(destinationChainInput);
 
@@ -240,16 +244,12 @@ async function executeTokenTransfer(
     }
   }
 
-  const payerRaw = argv["payer"];
-  if (Array.isArray(payerRaw)) {
-    throw new TokenTransferError("--payer may only be specified once");
-  }
-  const payerPath = typeof payerRaw === "string" ? payerRaw.trim() : undefined;
-  if (payerRaw !== undefined && (!payerPath || payerPath.length === 0)) {
-    throw new TokenTransferError(
-      "--payer must be a path to a Solana keypair JSON file"
-    );
-  }
+  const payerPath = validatePayerOption(
+    argv["payer"],
+    sourceChainInput,
+    (message) => new TokenTransferError(message),
+    (message) => console.warn(colors.yellow(message))
+  );
 
   const destinationAddressRaw = argv["destination-address"];
   if (Array.isArray(destinationAddressRaw)) {
@@ -273,54 +273,17 @@ async function executeTokenTransfer(
     );
   }
 
-  if (payerPath && chainToPlatform(sourceChainInput) !== "Solana") {
-    console.warn(
-      chalk.yellow(
-        "--payer is only used when the source chain is Solana. Ignoring provided path."
-      )
-    );
-  }
+  const rpcArgs = normalizeRpcArgs(
+    argv["rpc"],
+    (message) => new TokenTransferError(message)
+  );
 
-  const rpcRaw = argv["rpc"];
-  const rpcArgs = Array.isArray(rpcRaw)
-    ? rpcRaw
-    : rpcRaw
-      ? [rpcRaw]
-      : undefined;
-
-  // Reject empty override slots such as `--rpc` or `--rpc ""`
-  if (
-    rpcArgs &&
-    (rpcArgs.length === 0 ||
-      rpcArgs.some(
-        (value) => typeof value !== "string" || value.trim().length === 0
-      ))
-  ) {
-    throw new TokenTransferError(
-      "--rpc expects values in the form Chain=URL. Remove the flag or provide a valid endpoint."
-    );
-  }
-
-  // Users sometimes repeat flags; yargs returns an array in that case. Treat it as invalid.
-  if (
-    Object.prototype.hasOwnProperty.call(argv, "timeout") &&
-    (argv.timeout === undefined ||
-      argv.timeout === null ||
-      Array.isArray(argv.timeout))
-  ) {
-    throw new TokenTransferError(
-      "--timeout expects a numeric value in seconds. Remove the flag or provide a valid number."
-    );
-  }
-
-  if (
-    typeof argv.timeout === "number" &&
-    (Number.isNaN(argv.timeout) || argv.timeout <= 0)
-  ) {
-    throw new TokenTransferError("--timeout must be a positive number of seconds.");
-  }
-
-  const timeoutSeconds = argv.timeout ?? 1200;
+  const timeoutSeconds =
+    validateTimeout(
+      argv.timeout,
+      Object.prototype.hasOwnProperty.call(argv, "timeout"),
+      (message) => new TokenTransferError(message)
+    ) ?? 1200;
   const timeoutMs = Math.max(1, Math.floor(timeoutSeconds)) * 1000;
 
   const deploymentPathArg = argv["deployment-path"];
@@ -338,7 +301,9 @@ async function executeTokenTransfer(
   const configuredChainEntries = Object.entries(deployments.chains).filter(
     (entry): entry is [string, ChainConfig] => entry[1] !== undefined
   );
-  const configuredChains = configuredChainEntries.map(([chain]) => chain as Chain);
+  const configuredChains = configuredChainEntries.map(
+    ([chain]) => chain as Chain
+  );
 
   if (configuredChains.length === 0) {
     throw new TokenTransferError(
@@ -431,12 +396,7 @@ async function executeTokenTransfer(
     destinationAddressInput
   );
 
-  const decimals = await resolveTokenDecimals(
-    wh,
-    tokenId,
-    sourceCtx,
-    network
-  );
+  const decimals = await resolveTokenDecimals(wh, tokenId, sourceCtx, network);
 
   let transferAmount: bigint;
   try {
@@ -487,12 +447,12 @@ async function executeTokenTransfer(
 
   let contractsByChain: Map<Chain, Ntt.Contracts>;
   try {
-    contractsByChain = buildContractsByChain(deployments.chains, deploymentPath);
-  } catch (error) {
-    fail(
-      error instanceof Error ? error.message : String(error),
-      error
+    contractsByChain = buildContractsByChain(
+      deployments.chains,
+      deploymentPath
     );
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error), error);
   }
 
   getContractsForChain(contractsByChain, sourceChainInput, deploymentPath);
@@ -505,7 +465,7 @@ async function executeTokenTransfer(
     applyMsgValueOverride(executorConfig, destinationTokenId, msgValueToUse);
     if (destinationMsgValueOverride === undefined) {
       console.warn(
-        chalk.yellow(
+        colors.yellow(
           `Destination ${destinationChainInput} requires msgValue funding for the Wormhole Executor. Using default ${msgValueToUse.toString()} lamports. Pass --destination-msg-value to override.`
         )
       );
@@ -516,7 +476,7 @@ async function executeTokenTransfer(
     }
   } else if (destinationMsgValueOverride !== undefined) {
     console.warn(
-      chalk.yellow(
+      colors.yellow(
         `--destination-msg-value is only required for SVM destinations. Ignoring override for ${destinationChainInput}.`
       )
     );
@@ -539,15 +499,11 @@ async function executeTokenTransfer(
         : "Unknown validation error";
     throw new TokenTransferError(`Transfer validation failed: ${reason}`);
   }
-  const validatedParams =
-    validation.params as NttExecutorRoute.ValidatedParams;
+  const validatedParams = validation.params as NttExecutorRoute.ValidatedParams;
 
   let quoteResult;
   try {
-    quoteResult = await routeInstance.quote(
-      transferRequest,
-      validatedParams
-    );
+    quoteResult = await routeInstance.quote(transferRequest, validatedParams);
   } catch (error) {
     fail(
       `Failed to fetch execution quote between ${sourceChainInput} and ${destinationChainInput}`,
@@ -577,7 +533,7 @@ async function executeTokenTransfer(
 
   if (quoteResult.warnings?.length) {
     for (const warning of quoteResult.warnings) {
-      console.warn(chalk.yellow(formatQuoteWarning(warning)));
+      console.warn(colors.yellow(formatQuoteWarning(warning)));
     }
   }
 
@@ -589,25 +545,18 @@ async function executeTokenTransfer(
     `Transferring ${formattedTransferAmount} tokens from ${sourceChainInput} to ${destinationChainInput} (${network})`
   );
   console.log(
-    `Source address: ${chalk.cyan(sourceSigner.address.address.toString())}`
+    `Source address: ${colors.cyan(sourceSigner.address.address.toString())}`
   );
-  const destinationAddressDisplay = Wormhole.canonicalAddress(
-    destinationAddress
-  );
+  const destinationAddressDisplay =
+    Wormhole.canonicalAddress(destinationAddress);
+  console.log(`Destination address: ${colors.cyan(destinationAddressDisplay)}`);
   console.log(
-    `Destination address: ${chalk.cyan(destinationAddressDisplay)}`
-  );
-  console.log(
-    `Source token: ${chalk.cyan(
+    `Source token: ${colors.cyan(
       sourceDeployment.token
     )} (decimals: ${decimals.toString()})`
   );
-  console.log(
-    `Destination token: ${chalk.cyan(destinationDeployment.token)}`
-  );
-  console.log(
-    `Estimated destination amount: ${estimatedDestinationAmount}`
-  );
+  console.log(`Destination token: ${colors.cyan(destinationDeployment.token)}`);
+  console.log(`Estimated destination amount: ${estimatedDestinationAmount}`);
   if (quoteResult.relayFee) {
     console.log(
       `Estimated relay fee (${quoteResult.relayFee.token.chain} native): ${amount.display(
@@ -676,10 +625,7 @@ async function executeTokenTransfer(
       destinationAddress
     )) as NttExecutorRoute.TransferReceipt;
   } catch (error) {
-    if (
-      sourcePlatform === "Sui" &&
-      isUnsupportedSuiDestinationError(error)
-    ) {
+    if (sourcePlatform === "Sui" && isUnsupportedSuiDestinationError(error)) {
       throw new TokenTransferError(
         `Sui transfers on Testnet are currently limited to Solana and Avalanche destinations. ${destinationChainInput} is not yet supported.`
       );
@@ -699,10 +645,8 @@ async function executeTokenTransfer(
   if (originTxs.length > 0) {
     originTxs.forEach((tx: TransactionId, index: number) => {
       const label =
-        index === 0
-          ? "Source transaction"
-          : `Source transaction #${index + 1}`;
-      console.log(`${label}: ${chalk.cyan(tx.txid.toString())}`);
+        index === 0 ? "Source transaction" : `Source transaction #${index + 1}`;
+      console.log(`${label}: ${colors.cyan(tx.txid.toString())}`);
     });
   }
 
@@ -712,14 +656,12 @@ async function executeTokenTransfer(
       `Waiting for attestation (timeout ${Math.floor(timeoutMs / 1000)} seconds)...`
     );
     try {
-    const vaa = await withRetryStatus(
-      /Retrying Wormholescan/i,
-      async () =>
+      const vaa = await withRetryStatus(/Retrying Wormholescan/i, async () =>
         wh.getVaa(sourceTxId, "Ntt:WormholeTransfer", timeoutMs)
-    );
+      );
       if (vaa) {
         console.log(
-          `Attestation sequence: ${chalk.cyan(vaa.sequence.toString())}`
+          `Attestation sequence: ${colors.cyan(vaa.sequence.toString())}`
         );
       }
     } catch (error) {
@@ -736,7 +678,7 @@ async function executeTokenTransfer(
   }
 
   console.log(
-    chalk.green(
+    colors.green(
       "Transfer submitted. The Wormhole Executor will relay the transfer automatically once finalized."
     )
   );
@@ -865,9 +807,8 @@ function applyMsgValueOverride(
   } else if (!config.referrerFee.perTokenOverrides) {
     config.referrerFee.perTokenOverrides = {};
   }
-  const perTokenOverrides =
-    (config.referrerFee.perTokenOverrides ??=
-      {} as NonNullable<ReferrerFeeConfig["perTokenOverrides"]>);
+  const perTokenOverrides = (config.referrerFee.perTokenOverrides ??=
+    {} as NonNullable<ReferrerFeeConfig["perTokenOverrides"]>);
   const canonicalToken = canonicalAddress(token);
   const chainOverrides = (perTokenOverrides[token.chain] ??=
     {} as PerTokenOverrides);
@@ -888,17 +829,16 @@ async function confirmMainnetTransfer(
     input: process.stdin,
     output: process.stdout,
   });
-  const unitDescriptor =
-    platform === "Solana" ? "lamports" : "base units";
+  const unitDescriptor = platform === "Solana" ? "lamports" : "base units";
   const prompt = [
     "",
-    chalk.yellow(
+    colors.yellow(
       `You are about to submit a Mainnet transfer of ${formattedAmount} tokens from ${sourceChain} to ${destinationChain}.`
     ),
-    chalk.yellow(
+    colors.yellow(
       `Confirm this amount is expressed in human-readable units (not ${unitDescriptor}).`
     ),
-    "Type \"yes\" (or \"y\") to continue: ",
+    'Type "yes" (or "y") to continue: ',
   ].join("\n");
   return new Promise((resolve) => {
     let settled = false;
@@ -948,9 +888,7 @@ function formatQuoteWarning(warning: QuoteWarning): string {
 /**
  * Runtime type guard ensuring quote details include executor fee fields.
  */
-function isExecutorQuote(
-  value: unknown
-): value is NttWithExecutor.Quote {
+function isExecutorQuote(value: unknown): value is NttWithExecutor.Quote {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -969,18 +907,6 @@ function isExecutorQuote(
 /**
  * Validate the CLI supports the platform hosting the given chain.
  * Exits early with a helpful message if not.
- */
-function ensurePlatformSupported(chain: Chain): void {
-  const platform = chainToPlatform(chain);
-  if (!SUPPORTED_PLATFORMS.has(platform)) {
-    throw new TokenTransferError(
-      `Chain ${chain} (platform ${platform}) is not supported by token-transfer`
-    );
-  }
-}
-
-/**
- * Determine the decimals for the token we are about to move.
  */
 async function resolveTokenDecimals(
   wh: Wormhole<Network>,
@@ -1061,13 +987,13 @@ function isUnsupportedSuiDestinationError(error: unknown): boolean {
  */
 function reportTokenTransferError(error: unknown): void {
   if (error instanceof TokenTransferError) {
-    console.error(chalk.red(error.message));
+    console.error(colors.red(error.message));
     if (error.cause) {
       console.error(stringifyError(error.cause));
     }
     return;
   }
-  console.error(chalk.red("Unexpected token-transfer error"));
+  console.error(colors.red("Unexpected token-transfer error"));
   console.error(stringifyError(error));
 }
 
@@ -1192,8 +1118,10 @@ function applyRpcOverrides<N extends Network>(
     },
   };
   type ChainOverrideEntry = Record<string, unknown> & { rpc?: string };
-  const chainsOverrides =
-    (cloned.chains ?? (cloned.chains = {})) as Record<Chain, ChainOverrideEntry>;
+  const chainsOverrides = (cloned.chains ?? (cloned.chains = {})) as Record<
+    Chain,
+    ChainOverrideEntry
+  >;
 
   for (const arg of rpcArgs) {
     if (typeof arg !== "string") {
@@ -1217,7 +1145,7 @@ function applyRpcOverrides<N extends Network>(
     const chain = chainName as Chain;
     if (!allowedChains.has(chain)) {
       console.warn(
-        chalk.yellow(
+        colors.yellow(
           `Warning: RPC override provided for ${chain}, which is not part of this transfer.`
         )
       );
@@ -1234,15 +1162,15 @@ function applyRpcOverrides<N extends Network>(
 }
 
 /**
- * Intercepts console output to show a spinner when a retriable log message appears.
+ * Intercepts console output to suppress retry messages while showing status.
  */
 async function withRetryStatus<T>(
   needle: string | RegExp,
   fn: () => Promise<T>
 ): Promise<T> {
   const originalLog = console.log;
-  let sawNeedle = false;
-  let spinner: Ora | null = null;
+  let lastMessage = "";
+  const isTty = Boolean(process.stdout.isTTY);
 
   const matchesNeedle = (message: string): boolean => {
     if (typeof needle === "string") {
@@ -1256,34 +1184,36 @@ async function withRetryStatus<T>(
     return result;
   };
 
-  const stopSpinner = (): void => {
-    if (!spinner) {
-      return;
-    }
-    spinner.stop();
-    spinner = null;
-  };
-
   console.log = (...args: Parameters<typeof console.log>) => {
     const message = args.map(String).join(" ");
     if (matchesNeedle(message)) {
-      sawNeedle = true;
-      if (!spinner) {
-        spinner = ora({ text: message }).start();
+      if (isTty) {
+        // Keep a single in-place "status line" for retries.
+        // \r returns to the start of the line; \x1b[2K clears the whole line.
+        process.stdout.write(`\r\x1b[2K${message}`);
       } else {
-        spinner.text = message;
+        originalLog(message);
       }
+      lastMessage = message;
       return;
     }
-    stopSpinner();
+
+    // If we're showing an in-place retry status, clear it before printing other logs,
+    // then restore it afterward so the status line continues updating in one place.
+    if (lastMessage && isTty) {
+      process.stdout.write("\r\x1b[2K");
+    }
     originalLog(...args);
+    if (lastMessage && isTty) {
+      process.stdout.write(`\r\x1b[2K${lastMessage}`);
+    }
   };
 
   try {
     return await fn();
   } finally {
-    stopSpinner();
-    if (sawNeedle && process.stdout.isTTY) {
+    if (lastMessage && isTty) {
+      process.stdout.write("\r\x1b[2K");
       process.stdout.write("\n");
     }
     console.log = originalLog;

@@ -76,14 +76,14 @@ contract GovernanceTest is Test {
         address governedContract,
         bytes memory callData
     ) public view returns (bytes memory) {
-        Governance.GeneralPurposeGovernanceMessage memory message = Governance
-            .GeneralPurposeGovernanceMessage({
-            action: action,
-            chain: chainId,
-            governanceContract: governanceContract,
-            governedContract: governedContract,
-            callData: callData
-        });
+        Governance.GeneralPurposeGovernanceMessage memory message =
+            Governance.GeneralPurposeGovernanceMessage({
+                action: action,
+                chain: chainId,
+                governanceContract: governanceContract,
+                governedContract: governedContract,
+                callData: callData
+            });
 
         IWormhole.VM memory vaa =
             buildVaa(governance.encodeGeneralPurposeGovernanceMessage(message));

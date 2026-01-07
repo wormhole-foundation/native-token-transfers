@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/ntt-cli",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -18,35 +18,33 @@
     "ntt": "src/index.ts"
   },
   "dependencies": {
-    "chalk": "^5.6.0",
-    "ora": "8.2.0",
     "yargs": "18.0.0"
   },
   "overrides": {
     "@wormhole-foundation/sdk-definitions-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.10.0",
-      "@wormhole-foundation/sdk-definitions": "^3.10.0"
+      "@wormhole-foundation/sdk-base": "^4.7.0",
+      "@wormhole-foundation/sdk-definitions": "^4.7.0"
     },
     "@wormhole-foundation/sdk-evm-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.10.0",
-      "@wormhole-foundation/sdk-definitions": "^3.10.0",
-      "@wormhole-foundation/sdk-evm": "^3.10.0",
-      "@wormhole-foundation/sdk-evm-core": "^3.10.0"
+      "@wormhole-foundation/sdk-base": "^4.7.0",
+      "@wormhole-foundation/sdk-definitions": "^4.7.0",
+      "@wormhole-foundation/sdk-evm": "^4.7.0",
+      "@wormhole-foundation/sdk-evm-core": "^4.7.0"
     },
     "@wormhole-foundation/sdk-route-ntt": {
-      "@wormhole-foundation/sdk-connect": "^3.10.0"
+      "@wormhole-foundation/sdk-connect": "^4.7.0"
     },
     "@wormhole-foundation/sdk-solana-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.10.0",
-      "@wormhole-foundation/sdk-definitions": "^3.10.0",
-      "@wormhole-foundation/sdk-solana": "^3.10.0",
-      "@wormhole-foundation/sdk-solana-core": "^3.10.0"
+      "@wormhole-foundation/sdk-base": "^4.7.0",
+      "@wormhole-foundation/sdk-definitions": "^4.7.0",
+      "@wormhole-foundation/sdk-solana": "^4.7.0",
+      "@wormhole-foundation/sdk-solana-core": "^4.7.0"
     },
     "@wormhole-foundation/sdk-sui-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.10.0",
-      "@wormhole-foundation/sdk-definitions": "^3.10.0",
-      "@wormhole-foundation/sdk-sui": "^3.10.0",
-      "@wormhole-foundation/sdk-sui-core": "^3.10.0"
+      "@wormhole-foundation/sdk-base": "^4.7.0",
+      "@wormhole-foundation/sdk-definitions": "^4.7.0",
+      "@wormhole-foundation/sdk-sui": "^4.7.0",
+      "@wormhole-foundation/sdk-sui-core": "^4.7.0"
     }
   }
 }

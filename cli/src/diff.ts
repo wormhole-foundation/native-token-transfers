@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { colors } from "./colors.js";
 
 export type Diff<T> = {
   push?: T;
@@ -94,9 +94,9 @@ export function colorizeDiff(diff: any, indent = 2): string {
         if (push !== undefined && pull !== undefined) {
           result += `${line}\n`;
         } else if (push !== undefined) {
-          result += line.replace(trimmedLine, chalk.red(trimmedLine)) + "\n";
+          result += line.replace(trimmedLine, colors.red(trimmedLine)) + "\n";
         } else if (pull !== undefined) {
-          result += line.replace(trimmedLine, chalk.green(trimmedLine)) + "\n";
+          result += line.replace(trimmedLine, colors.green(trimmedLine)) + "\n";
         }
       } else {
         result += line + "\n";
@@ -105,7 +105,9 @@ export function colorizeDiff(diff: any, indent = 2): string {
       trimmedLine.startsWith('"push"') ||
       trimmedLine.startsWith('"pull"')
     ) {
-      const color = trimmedLine.startsWith('"push"') ? chalk.green : chalk.red;
+      const color = trimmedLine.startsWith('"push"')
+        ? colors.green
+        : colors.red;
       result += line.replace(trimmedLine, color(trimmedLine)) + "\n";
     } else {
       result += line + "\n";

@@ -32,7 +32,7 @@ use test_utils::{
         },
     },
 };
-use wormhole_svm_definitions::{solana::Finality::Finalized, EncodeFinality};
+use wormhole_svm_definitions::{EncodeFinality, Finality::Finalized};
 
 #[tokio::test]
 pub async fn test_transfer_locking() {

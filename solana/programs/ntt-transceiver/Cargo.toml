@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "ntt_transceiver"
 
 [features]
-default = ["mainnet"]
+default = []
 no-entrypoint = ["example-native-token-transfers/no-entrypoint"]
 no-idl = []
 no-log-ix-name = []
@@ -18,7 +18,8 @@ idl-build = [
   "anchor-lang/idl-build",
   "anchor-spl/idl-build",
   "example-native-token-transfers/idl-build",
-  "wormhole-anchor-sdk/mainnet" # TODO: is this kosher? builds idl without passing on our feature flags
+  "wormhole-anchor-sdk/mainnet",
+  "wormhole-transceiver"
 ]
 wormhole-transceiver = ["example-native-token-transfers/cpi"]
 transceiver-type-from-env = []
@@ -27,11 +28,11 @@ test-sbf = []
 # only enable for tests
 testing = []
 # networks
-mainnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/mainnet", "example-native-token-transfers/mainnet" ]
-bridge-address-from-env = [ "wormhole-anchor-sdk/bridge-address-from-env", "wormhole-svm-definitions/from-env", "example-native-token-transfers/bridge-address-from-env" ]
-solana-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/testnet", "example-native-token-transfers/solana-devnet" ]
-tilt-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet" ]
-tilt-devnet2 = [ "wormhole-transceiver", "tilt-devnet", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet2" ]
+mainnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/mainnet", "wormhole-svm-definitions/solana", "example-native-token-transfers/mainnet" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/from-env", "wormhole-svm-definitions/from-env", "example-native-token-transfers/bridge-address-from-env" ]
+solana-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/solana-devnet", "wormhole-svm-definitions/solana", "wormhole-svm-definitions/testnet", "example-native-token-transfers/solana-devnet" ]
+tilt-devnet = [ "wormhole-transceiver", "wormhole-anchor-sdk/tilt-devnet", "wormhole-svm-definitions/solana", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet" ]
+tilt-devnet2 = [ "wormhole-transceiver", "tilt-devnet", "wormhole-svm-definitions/solana", "wormhole-svm-definitions/localnet", "example-native-token-transfers/tilt-devnet2" ]
 
 [lints]
 workspace = true
@@ -47,9 +48,9 @@ wormhole-sdk.workspace = true
 
 example-native-token-transfers = { path = "../example-native-token-transfers", default-features = false }
 ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
-wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
-wormhole-verify-vaa-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", branch = "svm/anchor-v0.29.0-shim-interface", features = ["no-entrypoint", "cpi"] }
-wormhole-svm-definitions = { git = "https://github.com/wormholelabs-xyz/wormhole", branch = "svm-shims-fr-env-addr" }
+wormhole-post-message-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef", features = ["no-entrypoint", "cpi"] }
+wormhole-verify-vaa-shim-interface = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef", features = ["no-entrypoint", "cpi"] }
+wormhole-svm-definitions = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef" }
 
 [dev-dependencies]
 solana-program-test.workspace = true
