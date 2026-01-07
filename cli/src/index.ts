@@ -1184,46 +1184,6 @@ yargs(hideBin(process.argv))
       };
       const formatError = (error: unknown) =>
         error instanceof Error ? error.message : String(error);
-      const formatConsoleArg = (arg: unknown) => {
-        if (typeof arg === "string") {
-          return arg;
-        }
-        if (arg instanceof Error) {
-          return arg.message;
-        }
-        try {
-          return JSON.stringify(arg);
-        } catch {
-          return String(arg);
-        }
-      };
-      const suppressedConsoleErrors: string[] = [];
-      const originalConsoleError = console.error;
-      const suppressConsoleErrors = () => {
-        console.error = (...args: unknown[]) => {
-          suppressedConsoleErrors.push(
-            args.map((arg) => formatConsoleArg(arg)).join(" ")
-          );
-        };
-      };
-      const restoreConsoleErrors = () => {
-        console.error = originalConsoleError;
-      };
-      const managerByAddress = new Map<string, Chain>();
-      const recordManagerAddress = (c: Chain, addressValue: string) => {
-        const matches = addressValue.match(/0x[a-fA-F0-9]{40}|0x[a-fA-F0-9]{64}/g);
-        if (!matches) {
-          return;
-        }
-        for (const match of matches) {
-          managerByAddress.set(match.toLowerCase(), c);
-        }
-      };
-      recordManagerAddress(chain, manager);
-      recordManagerAddress(
-        chain,
-        canonicalAddress({ chain, address: universalManager })
-      );
 
       // discover peers
       type PeerResult =
@@ -1259,8 +1219,6 @@ yargs(hideBin(process.argv))
         }
         const address: UniversalAddress =
           peer.address.address.toUniversalAddress();
-        recordManagerAddress(c, address.toString());
-        recordManagerAddress(c, canonicalAddress({ chain: c, address }));
         try {
           const [peerConfig, _ctx, peerNtt] = await pullChainConfig(
             network,
@@ -1295,11 +1253,9 @@ yargs(hideBin(process.argv))
         inFlight.set(promise, c);
       };
       const workerCount = Math.min(maxConcurrent, peerChains.length);
-      suppressConsoleErrors();
-      try {
-        for (let i = 0; i < workerCount; i++) {
-          enqueue();
-        }
+      for (let i = 0; i < workerCount; i++) {
+        enqueue();
+      }
       while (inFlight.size > 0) {
         const settled = await Promise.race(
           Array.from(inFlight.entries(), ([promise, chain]) =>
@@ -1313,9 +1269,6 @@ yargs(hideBin(process.argv))
           `[${completed}/${total}] Fetching peer config for ${settled.chain}`
         );
         enqueue();
-      }
-      } finally {
-        restoreConsoleErrors();
       }
       updateStatusLine(
         `[${total}/${total}] Completed attempt fetching peer config for ${total} chain${
@@ -1361,29 +1314,10 @@ yargs(hideBin(process.argv))
       };
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
 
-      const uniqueSuppressed = Array.from(
-        new Set(suppressedConsoleErrors)
-      );
-      const suppressedWithChains = uniqueSuppressed.map((message) => {
-        const match = message.match(/0x[a-fA-F0-9]{40}/);
-        const chainMatch = match
-          ? managerByAddress.get(match[0].toLowerCase())
-          : undefined;
-        return { message, chain: chainMatch };
-      });
-      const chainsWithErrorsSet = new Set<Chain>(
-        peerErrors.map((entry) => entry.chain)
-      );
-      for (const entry of suppressedWithChains) {
-        if (entry.chain) {
-          chainsWithErrorsSet.add(entry.chain);
-        }
-      }
-      const chainsWithErrors = Array.from(chainsWithErrorsSet).sort((a, b) =>
-        a.localeCompare(b)
-      );
-      let needsVerboseHint = false;
-      if (chainsWithErrors.length > 0) {
+      if (peerErrors.length > 0) {
+        const chainsWithErrors = Array.from(
+          new Set(peerErrors.map((entry) => entry.chain))
+        ).sort((a, b) => a.localeCompare(b));
         console.error(
           `Completed with errors for ${chainsWithErrors.length} chain(s): ${chainsWithErrors.join(", ")}`
         );
@@ -1394,24 +1328,8 @@ yargs(hideBin(process.argv))
             );
           }
         } else {
-          needsVerboseHint = true;
+          console.warn("Run with --verbose to see details.");
         }
-      }
-      if (uniqueSuppressed.length > 0) {
-        if (verbose) {
-          if (chainsWithErrors.length === 0) {
-            console.warn("Peer discovery logs:");
-          }
-          for (const entry of suppressedWithChains) {
-            const chainLabel = entry.chain ?? "unknown";
-            console.warn(`  - ${chainLabel}: ${entry.message}`);
-          }
-        } else {
-          needsVerboseHint = true;
-        }
-      }
-      if (!verbose && needsVerboseHint) {
-        console.warn("Run with --verbose to see details.");
       }
     }
   )
