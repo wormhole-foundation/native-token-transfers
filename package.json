@@ -16,7 +16,8 @@
     "test:local": "jest --config ./jest.config.ts",
     "generate:test": "npm run generate:test --workspaces --if-present",
     "build:deps": "npm run build:contracts --workspaces --if-present && npm run generate",
-    "prettier": "npm run prettier --workspaces --if-present",
+    "prettier": "prettier --write .",
+    "prettier:check": "prettier --check .",
     "version": "tsx setSdkVersion.ts"
   },
   "devDependencies": {
@@ -29,7 +30,7 @@
     "@wormhole-foundation/sdk": "^4.7.0",
     "@wormhole-foundation/wormchain-sdk": "^0.0.1",
     "ethers": "^6.5.1",
-    "prettier": "^3.6.2",
+    "prettier": "3.6.2",
     "ts-jest": "^29.1.2",
     "tsx": "^4.7.2",
     "typescript": "^5.1.1"

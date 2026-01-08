@@ -1,0 +1,8 @@
+# Test layer for EVM CLI tests
+# Expects cli-local image to be available (built separately or pulled from registry)
+ARG BASE_IMAGE=cli-local:latest
+FROM ${BASE_IMAGE}
+
+COPY cli/test cli/test
+COPY evm evm
+RUN bash -ci "./cli/test/sepolia-bsc.sh"

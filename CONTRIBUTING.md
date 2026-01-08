@@ -7,19 +7,20 @@
 
 ## Supply Chain Security
 
-
 ### Core Principles
+
 - **Pin as much as possible**: Versions, hashes, and dependencies
 - **Minimize attack surface**: Fewer dependencies = fewer risks
 - **Verify integrity**: Use lockfiles and checksums
 
 ### Working with Node dependencies
-Do not change the dependencies of the package.json by hand! 
+
+Do not change the dependencies of the package.json by hand!
 
 Instead:
 
-- When initially installing OR pulling what has been changed: `npm ci`. 
-If you do not do this, you may not get exactly what is specified in the file, inadvertently update dependencies, or even pull exploits down to your machine! **Never use `npm install` for this use case**.
+- When initially installing OR pulling what has been changed: `npm ci`.
+  If you do not do this, you may not get exactly what is specified in the file, inadvertently update dependencies, or even pull exploits down to your machine! **Never use `npm install` for this use case**.
 - When needing to add or update a package: `npm i <package>@<version>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.
 - When needing to remove a package: `npm r <package>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.
 
@@ -65,5 +66,6 @@ RUN npm install -g somepackage@1.2.3
 ```
 
 ### When to update packages
+
 Updating packages should not be done alongside other work. Instead, take the time to review dependency upgrades carefully,
 making a best effort to ensure that they are necessary and secure.

@@ -6,7 +6,12 @@ local(['sed','-i.bak','s/{chainId: vaa.ChainIDEthereum, addr: "00000000000000000
 
 load(".wormhole/Tiltfile", "namespace", "k8s_yaml_with_ns")
 
-# Solana deploy
+# Registry for pre-built images (speeds up CI builds via layer caching)
+REGISTRY = "ghcr.io/wormhole-foundation/native-token-transfers"
+
+# Solana deploy - uses cache_from for faster CI builds
+# Note: Must use 'builder' target (not 'export') because Dockerfile.test-validator
+# copies from ntt-solana-contract and needs the full builder filesystem
 docker_build(
     ref = "ntt-solana-contract",
     context = "./",
@@ -14,6 +19,7 @@ docker_build(
     ignore=["./sdk/__tests__", "./sdk/Dockerfile", "./sdk/ci.yaml", "./sdk/**/dist", "./sdk/node_modules", "./sdk/**/node_modules"],
     target = "builder",
     dockerfile = "./solana/Dockerfile",
+    cache_from = [REGISTRY + "/ntt-solana-contract:latest"],
 )
 docker_build(
     ref = "solana-test-validator",
@@ -30,11 +36,12 @@ k8s_resource(
     ],
 )
 
-# EVM build
+# EVM build - uses cache_from for faster CI builds
 docker_build(
     ref = "ntt-evm-contract",
     context = "./evm",
     dockerfile = "./evm/Dockerfile",
+    cache_from = [REGISTRY + "/ntt-evm-contract:latest"],
 )
 
 # CI tests

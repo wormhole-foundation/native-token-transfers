@@ -1,5 +1,9 @@
 import { colors } from "./colors.js";
-import { signSendWait, type AccountAddress, chainToPlatform } from "@wormhole-foundation/sdk";
+import {
+  signSendWait,
+  type AccountAddress,
+  chainToPlatform,
+} from "@wormhole-foundation/sdk";
 import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import type { SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 
