@@ -76,7 +76,7 @@ jobs:
 
       - name: Restore cached SBF artifacts
         id: cache-sbf
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: solana/target/deploy
           key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
@@ -134,7 +134,7 @@ jobs:
 
       - name: Save SBF artifacts to cache
         if: steps.verify-cache.outputs.valid != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: solana/target/deploy
           key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
