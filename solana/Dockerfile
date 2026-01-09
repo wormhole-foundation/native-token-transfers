@@ -66,12 +66,20 @@ RUN apk add --no-cache make python3 gcc g++ jq
 COPY tsconfig.json tsconfig.json
 COPY tsconfig.cjs.json tsconfig.cjs.json
 COPY tsconfig.esm.json tsconfig.esm.json
-# Strip workspaces from package.json (bun is strict about missing workspace dirs, npm wasn't)
-COPY package.json /tmp/package.json
-RUN jq 'del(.workspaces)' /tmp/package.json > package.json
+# Copy package files
+COPY package.json package.json
 COPY bun.lock bun.lock
 COPY bunfig.toml bunfig.toml
 COPY sdk sdk
+
+# Create dummy package.json for workspaces not in Docker context
+# This allows bun ci to work with frozen lockfile (no dependency drift)
+RUN mkdir -p cli sui/ts evm/ts solana && \
+    echo '{"name":"@wormhole-foundation/ntt-cli","version":"0.0.0"}' > cli/package.json && \
+    echo '{"name":"@wormhole-foundation/sdk-sui-ntt","version":"0.0.0"}' > sui/ts/package.json && \
+    echo '{"name":"@wormhole-foundation/sdk-evm-ntt","version":"0.0.0"}' > evm/ts/package.json && \
+    echo '{"name":"@wormhole-foundation/sdk-solana-ntt","version":"0.0.0"}' > solana/package.json
+
 RUN bun ci
 RUN bun run build
 

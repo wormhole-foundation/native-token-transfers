@@ -17,12 +17,21 @@ COPY --from=ntt-evm-contract . evm/out
 RUN rm -rf evm/out/ts
 
 COPY . ./
-# Strip workspaces from package.json (bun is strict about missing workspace dirs, npm wasn't)
-RUN jq 'del(.workspaces)' package.json > /tmp/package.json && mv /tmp/package.json package.json
+
+# Create dummy package.json for workspaces not in Docker context
+# This allows bun ci to work with frozen lockfile (no dependency drift)
+RUN mkdir -p cli sui/ts && \
+    echo '{"name":"@wormhole-foundation/ntt-cli","version":"0.0.0"}' > cli/package.json && \
+    echo '{"name":"@wormhole-foundation/sdk-sui-ntt","version":"0.0.0"}' > sui/ts/package.json
+
 RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.bun \
   bun ci
 
-RUN bun run build
-RUN bun run generate:test
+# Build packages directly (can't use --filter since workspaces are modified)
+RUN cd sdk/definitions && bun run build
+RUN cd evm/ts && bun run build
+RUN cd solana && bun run build
+RUN cd sdk/route && bun run build
+RUN cd evm/ts && bun run generate:test
 
 WORKDIR /usr/src/sdk
