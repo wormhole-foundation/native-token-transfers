@@ -45,9 +45,6 @@
       "@wormhole-foundation/sdk-definitions": "^4.7.3",
       "@wormhole-foundation/sdk-sui": "^4.7.3",
       "@wormhole-foundation/sdk-sui-core": "^4.7.3"
-    },
-    "string-width-cjs": "npm:string-width@4.2.3",
-    "strip-ansi-cjs": "npm:strip-ansi@6.0.1",
-    "wrap-ansi-cjs": "npm:wrap-ansi@7.0.0"
+    }
   }
 }

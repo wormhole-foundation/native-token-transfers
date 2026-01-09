@@ -47,6 +47,9 @@
   "overrides": {
     "ts-jest": {
       "@types/jest": "^29.5.12"
-    }
+    },
+    "string-width-cjs": "npm:string-width@4.2.3",
+    "strip-ansi-cjs": "npm:strip-ansi@6.0.1",
+    "wrap-ansi-cjs": "npm:wrap-ansi@7.0.0"
   }
 }
