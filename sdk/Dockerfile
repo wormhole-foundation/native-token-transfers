@@ -1,6 +1,7 @@
 FROM oven/bun:1.3.4-alpine@sha256:1d653098bf847813e26adb2435f932b7cfa3c132a7e25dd5216dbb1f67dbd118 AS base
 
-RUN apk add --no-cache make python3 gcc g++ jq
+# Install Node alongside Bun - Jest has compatibility issues with Bun's runtime
+RUN apk add --no-cache make python3 gcc g++ jq nodejs npm
 
 WORKDIR /usr/src/
 

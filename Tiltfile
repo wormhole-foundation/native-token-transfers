@@ -44,16 +44,19 @@ docker_build(
     cache_from = [REGISTRY + "/ntt-evm-contract:latest"],
 )
 
-# CI tests
+# CI tests - uses cache_from for faster CI builds
 docker_build(
     ref = "ntt-ci",
     context = "./",
     only=["./sdk", "./package.json", "./bun.lock", "./bunfig.toml", "jest.config.ts", "tsconfig.json", "tsconfig.esm.json", "tsconfig.cjs.json", "tsconfig.test.json"],
     dockerfile = "./sdk/Dockerfile",
+    cache_from = [REGISTRY + "/ntt-ci:latest"],
 )
 k8s_yaml_with_ns("./sdk/ci.yaml")
 k8s_resource(
     "ntt-ci-tests",
     labels = ["ntt"],
-    resource_deps = ["eth-devnet", "eth-devnet2", "solana-devnet", "guardian", "relayer-engine", "wormchain"],
+    # relayer-engine transitively depends on guardian, which depends on eth-devnet, eth-devnet2,
+    # solana-devnet, and wormchain. The init container in ci.yaml does the real health checks.
+    resource_deps = ["relayer-engine"],
 )
