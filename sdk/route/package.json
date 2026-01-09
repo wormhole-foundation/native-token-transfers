@@ -51,7 +51,7 @@
     "@wormhole-foundation/sdk-solana-ntt": "1.0.0"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-connect": "^4.7.0",
+    "@wormhole-foundation/sdk-connect": "^4.7.3",
     "axios": "^1.9.0"
   },
   "type": "module",
