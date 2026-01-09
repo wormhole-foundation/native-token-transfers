@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "@typechain/ethers-v6": "^0.5.1",
-    "tsx": "^4.7.2",
+    "tsx": "^4.7.3",
     "typechain": "^8.3.2"
   },
   "type": "module",
@@ -68,9 +68,9 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.7.2",
-    "@wormhole-foundation/sdk-definitions": "^4.7.2",
-    "@wormhole-foundation/sdk-evm": "^4.7.2",
-    "@wormhole-foundation/sdk-evm-core": "^4.7.2"
+    "@wormhole-foundation/sdk-base": "^4.7.3",
+    "@wormhole-foundation/sdk-definitions": "^4.7.3",
+    "@wormhole-foundation/sdk-evm": "^4.7.3",
+    "@wormhole-foundation/sdk-evm-core": "^4.7.3"
   }
 }

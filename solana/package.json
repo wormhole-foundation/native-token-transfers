@@ -47,7 +47,7 @@
     "nock": "^13.3.3",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
-    "tsx": "^4.7.2"
+    "tsx": "^4.7.3"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.29.0",
@@ -71,9 +71,9 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.7.2",
-    "@wormhole-foundation/sdk-definitions": "^4.7.2",
-    "@wormhole-foundation/sdk-solana": "^4.7.2",
-    "@wormhole-foundation/sdk-solana-core": "^4.7.2"
+    "@wormhole-foundation/sdk-base": "^4.7.3",
+    "@wormhole-foundation/sdk-definitions": "^4.7.3",
+    "@wormhole-foundation/sdk-solana": "^4.7.3",
+    "@wormhole-foundation/sdk-solana-core": "^4.7.3"
   }
 }

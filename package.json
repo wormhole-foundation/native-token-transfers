@@ -27,12 +27,12 @@
     "@solana/web3.js": "^1.95.8",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.2",
-    "@wormhole-foundation/sdk": "^4.7.2",
+    "@wormhole-foundation/sdk": "^4.7.3",
     "@wormhole-foundation/wormchain-sdk": "^0.0.1",
     "ethers": "^6.5.1",
     "prettier": "3.6.2",
     "ts-jest": "^29.1.2",
-    "tsx": "^4.7.2",
+    "tsx": "^4.7.3",
     "typescript": "^5.1.1"
   },
   "workspaces": [
