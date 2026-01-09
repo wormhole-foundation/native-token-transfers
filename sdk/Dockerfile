@@ -18,9 +18,10 @@ RUN rm -rf evm/out/ts
 
 COPY . ./
 # Strip workspaces from package.json (bun is strict about missing workspace dirs, npm wasn't)
+# Use bun install (not bun ci) since modified package.json won't match lockfile
 RUN jq 'del(.workspaces)' package.json > /tmp/package.json && mv /tmp/package.json package.json
 RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.bun \
-  bun ci
+  bun install
 
 RUN bun run build
 RUN bun run generate:test

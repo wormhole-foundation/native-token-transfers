@@ -67,12 +67,13 @@ COPY tsconfig.json tsconfig.json
 COPY tsconfig.cjs.json tsconfig.cjs.json
 COPY tsconfig.esm.json tsconfig.esm.json
 # Strip workspaces from package.json (bun is strict about missing workspace dirs, npm wasn't)
+# Use bun install (not bun ci) since modified package.json won't match lockfile
 COPY package.json /tmp/package.json
 RUN jq 'del(.workspaces)' /tmp/package.json > package.json
 COPY bun.lock bun.lock
 COPY bunfig.toml bunfig.toml
 COPY sdk sdk
-RUN bun ci
+RUN bun install
 RUN bun run build
 
 WORKDIR /app/solana
