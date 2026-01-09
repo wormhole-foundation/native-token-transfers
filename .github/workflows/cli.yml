@@ -33,8 +33,9 @@ jobs:
           cache-to: type=gha,mode=max,scope=cli
 
   # Solana tests - builds cli-local-test-solana target with GHA layer caching
+  # Uses tilt-kube-public runner due to large disk space requirements (~20GB+ for Solana toolchain)
   test-solana:
-    runs-on: ubuntu-latest
+    runs-on: tilt-kube-public
     steps:
       - uses: actions/checkout@v6
 
