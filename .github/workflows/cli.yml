@@ -125,4 +125,4 @@ jobs:
             -e HOME=/root \
             -w /workspace \
             cli-local:latest \
-            bash -c "./cli/test/solana.sh --use-tmp-dir"
+            bash -ci "./cli/test/solana.sh --use-tmp-dir"
