@@ -32,32 +32,97 @@ jobs:
           cache-from: type=gha,scope=cli
           cache-to: type=gha,mode=max,scope=cli
 
-  # Solana tests - builds cli-local-test-solana target with GHA layer caching
-  test-solana:
+  # Build Solana contracts (v1.0.0 and v2.0.0 in parallel)
+  # Artifacts are cached based on version tag + build script hash
+  build-solana:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ["1.0.0", "2.0.0"]
     steps:
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: false
-          swap-storage: false
-
       - uses: actions/checkout@v6
 
+      - name: Restore cached v${{ matrix.version }} artifacts
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/solana-artifacts/v${{ matrix.version }}
+          key: solana-v${{ matrix.version }}-${{ hashFiles('cli/test/build-solana.sh', 'Dockerfile.cli', 'Dockerfile.anchor-base', 'solana/Anchor.toml') }}
+
       - name: Set up Docker Buildx
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and test Solana
+      - name: Build cli-local image
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.cli
-          target: cli-local-test-solana
-          push: false
+          target: cli-local
+          load: true
+          tags: cli-local:latest
           cache-from: type=gha,scope=cli
           cache-to: type=gha,mode=max,scope=cli
+
+      - name: Build Solana v${{ matrix.version }}
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -v "/tmp/solana-artifacts:/tmp/solana-artifacts" \
+            -e OUTPUT_DIR=/tmp/solana-artifacts \
+            -e HOME=/root \
+            -w /workspace \
+            cli-local:latest \
+            bash -c "./cli/test/build-solana.sh ${{ matrix.version }}"
+
+      - name: Upload v${{ matrix.version }} artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-v${{ matrix.version }}-artifacts
+          path: /tmp/solana-artifacts/v${{ matrix.version }}
+          retention-days: 1
+
+  # Run Solana tests using pre-built artifacts
+  test-solana:
+    needs: build-solana
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download v1.0.0 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: solana-v1.0.0-artifacts
+          path: /tmp/solana-artifacts/v1.0.0
+
+      - name: Download v2.0.0 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: solana-v2.0.0-artifacts
+          path: /tmp/solana-artifacts/v2.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build cli-local image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.cli
+          target: cli-local
+          load: true
+          tags: cli-local:latest
+          cache-from: type=gha,scope=cli
+
+      - name: Run Solana tests
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -v "/tmp/solana-artifacts:/tmp/solana-artifacts" \
+            -e SOLANA_ARTIFACTS_DIR=/tmp/solana-artifacts \
+            -e HOME=/root \
+            -w /workspace \
+            cli-local:latest \
+            bash -c "./cli/test/solana.sh --use-tmp-dir"
