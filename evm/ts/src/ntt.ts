@@ -563,7 +563,11 @@ export class EvmNtt<N extends Network, C extends EvmChains>
   }
 
   // TODO: should this be some map of idx to transceiver?
-  async *redeem(attestations: Ntt.Attestation[]) {
+  async *redeem(
+    attestations: Ntt.Attestation[],
+    payer: AccountAddress<C>,
+    recipient?: AccountAddress<C>
+  ) {
     if (attestations.length !== this.xcvrs.length)
       throw new Error(
         "Not enough attestations for the registered Transceivers"
@@ -648,7 +652,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
   async *completeInboundQueuedTransfer(
     fromChain: Chain,
     transceiverMessage: Ntt.Message,
-    payer?: AccountAddress<C>
+    payer: AccountAddress<C>
   ) {
     const tx =
       await this.manager.completeInboundQueuedTransfer.populateTransaction(

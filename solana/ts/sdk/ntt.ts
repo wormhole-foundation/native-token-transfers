@@ -1249,7 +1249,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     }
   }
 
-  async *redeem(attestations: Ntt.Attestation[], payer: AccountAddress<C>) {
+  async *redeem(
+    attestations: Ntt.Attestation[],
+    payer: AccountAddress<C>,
+    recipient?: AccountAddress<C>
+  ) {
     const config = await this.getConfig();
     if (config.paused) throw new Error("Contract is paused");
 

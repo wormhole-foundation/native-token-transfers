@@ -239,7 +239,7 @@ export namespace NttRoute {
     config: Config,
     srcManager: ChainAddress<C>,
     dstChain: Chain
-  ): Ntt.Contracts {
+  ): { srcContracts: Ntt.Contracts; dstContracts: Ntt.Contracts } {
     const cfg = Object.values(config.tokens);
     const address = canonicalAddress(srcManager);
     for (const tokens of cfg) {
@@ -255,7 +255,19 @@ export namespace NttRoute {
             `Cannot find destination Ntt contracts in config for: ${address}`
           );
         }
-        return {
+
+        const srcContracts = {
+          token: found.token,
+          manager: found.manager,
+          transceiver: {
+            wormhole: found.transceiver.find((v) => v.type === "wormhole")!
+              .address,
+          },
+          quoter: found.quoter,
+          svmShims: found.svmShims,
+        };
+
+        const dstContracts = {
           token: remote.unwrapsOnRedeem ? "native" : remote.token,
           manager: remote.manager,
           transceiver: {
@@ -265,6 +277,8 @@ export namespace NttRoute {
           quoter: remote.quoter,
           svmShims: remote.svmShims,
         };
+
+        return { srcContracts, dstContracts };
       }
     }
     throw new Error("Cannot find Ntt contracts in config for: " + address);

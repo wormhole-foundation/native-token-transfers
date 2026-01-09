@@ -3,11 +3,19 @@ import {
   Network,
   toChainId,
   amount as sdkAmount,
+  encoding,
+  deserializeLayout,
 } from "@wormhole-foundation/sdk-base";
-import { SignedQuote } from "@wormhole-foundation/sdk-definitions";
+import {
+  NativeAddress,
+  SignedQuote,
+  relayInstructionsLayout,
+} from "@wormhole-foundation/sdk-definitions";
+import { isAttested, Wormhole } from "@wormhole-foundation/sdk-connect";
 import axios from "axios";
 import { apiBaseUrl } from "./consts.js";
 import { NttRoute } from "../types.js";
+import { NttExecutorRoute } from "./executor.js";
 
 export enum RelayStatus {
   Pending = "pending",
@@ -110,6 +118,7 @@ export async function fetchSignedQuote(
 export interface StatusResponse extends RelayData {
   signedQuote: SignedQuote;
   estimatedCost: string;
+  requestForExecution: RequestForExecution;
 }
 
 // Fetch Status
@@ -162,4 +171,64 @@ export function calculateReferrerFee(
     remainingAmount = amount - sdkAmount.units(trimmedFee);
   }
   return { referrerFee, remainingAmount, referrerFeeDbps: dBps };
+}
+
+export async function getNativeRecipientAddress(
+  network: Network,
+  receipt: NttExecutorRoute.TransferReceipt
+): Promise<NativeAddress<Chain>> {
+  if (!isAttested(receipt)) {
+    throw new Error(
+      "Cannot extract recipient address from unattested transfer"
+    );
+  }
+
+  // For Stacks, we need to extract from the transaction's relay instructions
+  // which will contain the pre-hashed recipient address
+  if (receipt.to === "Stacks") {
+    const [txStatus] = await fetchStatus(
+      network,
+      receipt.originTxs.at(-1)!.txid,
+      receipt.to
+    );
+
+    if (!txStatus) {
+      throw new Error("Failed to fetch transaction status");
+    }
+
+    const { relayInstructionsBytes } = txStatus.requestForExecution;
+
+    const relayInstructionsDecoded = encoding.hex.decode(
+      relayInstructionsBytes
+    );
+
+    const relayInstructions = deserializeLayout(
+      relayInstructionsLayout,
+      relayInstructionsDecoded
+    );
+
+    const stacksInstruction = relayInstructions.requests.find(
+      ({ request }) => request.type === "StacksNttReceiveInstruction"
+    );
+
+    if (
+      !stacksInstruction ||
+      stacksInstruction.request.type !== "StacksNttReceiveInstruction"
+    ) {
+      throw new Error(
+        "No StacksNttReceiveInstruction found in relay instructions"
+      );
+    }
+
+    const recipientBytes = stacksInstruction.request.recipient;
+    const recipientAddressString = encoding.bytes.decode(recipientBytes);
+    return Wormhole.parseAddress("Stacks", recipientAddressString);
+  }
+
+  // For other chains, we can extract directly from the VAA payload
+  const vaa = receipt.attestation.attestation;
+  return Wormhole.parseAddress(
+    receipt.to,
+    vaa.payload.nttManagerPayload.payload.recipientAddress.toString()
+  );
 }

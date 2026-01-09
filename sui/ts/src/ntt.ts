@@ -889,7 +889,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
   async *redeem(
     attestations: Ntt.Attestation[],
-    payer?: AccountAddress<C>
+    payer: AccountAddress<C>,
+    recipient?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     // Check if paused
     const isPaused = await this.isPaused();
@@ -1300,7 +1301,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
   async *completeInboundQueuedTransfer<PC extends Chain>(
     fromChain: PC,
     transceiverMessage: Ntt.Message,
-    payer?: AccountAddress<C>
+    payer: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     // Check if paused
     const isPaused = await this.isPaused();

@@ -40,6 +40,7 @@ jobs:
             --workspace sdk/definitions \
             --workspace evm/ts \
             --workspace solana \
+            --workspace stacks \
             --workspace sui \
             --workspace sdk/route
         # OIDC authentication is used automatically by npm CLI 11.5.1+
