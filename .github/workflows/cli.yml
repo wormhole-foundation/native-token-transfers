@@ -44,7 +44,7 @@ jobs:
 
       - name: Restore cached v${{ matrix.version }} artifacts
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/solana-artifacts/v${{ matrix.version }}
           key: solana-v${{ matrix.version }}-${{ hashFiles('cli/test/build-solana.sh', 'Dockerfile.cli', 'Dockerfile.anchor-base', 'solana/Anchor.toml') }}
