@@ -17,13 +17,17 @@ COPY --from=ntt-evm-contract . evm/out
 RUN rm -rf evm/out/ts
 
 COPY . ./
-# Strip workspaces from package.json (bun is strict about missing workspace dirs, npm wasn't)
+# Remove workspace entries that aren't in Docker context (bun is strict about missing dirs)
 # Use bun install (not bun ci) since modified package.json won't match lockfile
-RUN jq 'del(.workspaces)' package.json > /tmp/package.json && mv /tmp/package.json package.json
+RUN jq '.workspaces = [.workspaces[] | select(. != "cli" and . != "sui/ts")]' package.json > /tmp/package.json && mv /tmp/package.json package.json
 RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.bun \
   bun install
 
-RUN bun run build
-RUN bun run generate:test
+# Build packages directly (can't use --filter since workspaces are modified)
+RUN cd sdk/definitions && bun run build
+RUN cd evm/ts && bun run build
+RUN cd solana && bun run build
+RUN cd sdk/route && bun run build
+RUN cd evm/ts && bun run generate:test
 
 WORKDIR /usr/src/sdk
