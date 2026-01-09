@@ -33,10 +33,20 @@ jobs:
           cache-to: type=gha,mode=max,scope=cli
 
   # Solana tests - builds cli-local-test-solana target with GHA layer caching
-  # Uses tilt-kube-public runner due to large disk space requirements (~20GB+ for Solana toolchain)
   test-solana:
-    runs-on: tilt-kube-public
+    runs-on: ubuntu-latest
     steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
       - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
