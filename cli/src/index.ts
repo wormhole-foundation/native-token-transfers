@@ -997,24 +997,51 @@ yargs(hideBin(process.argv))
         [chain]: config,
       };
 
+      let lastStatusLineLength = 0;
+      const updateStatusLine = (message: string) => {
+        const padded = message.padEnd(lastStatusLineLength, " ");
+        process.stdout.write(`\r${padded}`);
+        lastStatusLineLength = Math.max(lastStatusLineLength, message.length);
+      };
+      const finishStatusLine = () => {
+        if (lastStatusLineLength > 0) {
+          process.stdout.write("\n");
+        }
+      };
+      const formatError = (error: unknown) =>
+        error instanceof Error ? error.message : String(error);
+
       // discover peers
-      let count = 0;
-      for (const c of chains) {
-        process.stdout.write(
-          `[${count}/${chains.length - 1}] Fetching peer config for ${c}`
-        );
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        count++;
-
-        const peer = await retryWithExponentialBackoff(
-          () => ntt.getPeer(c),
-          5,
-          5000
-        );
-
-        process.stdout.write(`\n`);
+      type PeerResult =
+        | {
+            chain: Chain;
+            status: "ok";
+            config: ChainConfig;
+            ntt: Ntt<Network, Chain>;
+          }
+        | { chain: Chain; status: "none" }
+        | {
+            chain: Chain;
+            status: "error";
+            stage: "peer" | "config";
+            error: unknown;
+          };
+      const peerChains = chains.filter((c) => c !== chain);
+      const total = peerChains.length;
+      const maxConcurrent = 6;
+      const fetchPeerConfig = async (c: Chain): Promise<PeerResult> => {
+        let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
+        try {
+          peer = await retryWithExponentialBackoff(
+            () => ntt.getPeer(c),
+            5,
+            5000
+          );
+        } catch (e) {
+          return { chain: c, status: "error", stage: "peer", error: e };
+        }
         if (peer === null) {
-          continue;
+          return { chain: c, status: "none" };
         }
         const address: UniversalAddress =
           peer.address.address.toUniversalAddress();
@@ -1024,11 +1051,64 @@ yargs(hideBin(process.argv))
             { chain: c, address },
             overrides
           );
-          ntts[c] = peerNtt as any;
-          configs[c] = peerConfig;
+          return {
+            chain: c,
+            status: "ok",
+            config: peerConfig,
+            ntt: peerNtt as any,
+          };
         } catch (e) {
-          console.error(`Failed to pull config for ${c}:`, e);
-          continue;
+          return { chain: c, status: "error", stage: "config", error: e };
+        }
+      };
+      const peerResults: PeerResult[] = [];
+      let completed = 0;
+      let nextIndex = 0;
+      const runPool = async <T>(
+        items: T[],
+        concurrency: number,
+        task: (item: T) => Promise<PeerResult>
+      ) => {
+        const worker = async () => {
+          while (true) {
+            const index = nextIndex++;
+            if (index >= items.length) {
+              return;
+            }
+            const item = items[index]!;
+            const result = await task(item);
+            peerResults.push(result);
+            completed++;
+            updateStatusLine(
+              `[${completed}/${total}] Fetching peer config for ${item}`
+            );
+          }
+        };
+        const workerCount = Math.min(concurrency, items.length);
+        await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      };
+      await runPool(peerChains, maxConcurrent, fetchPeerConfig);
+      updateStatusLine(
+        `[${total}/${total}] Completed attempt fetching peer config for ${total} chain${
+          total === 1 ? "" : "s"
+        }.`
+      );
+      finishStatusLine();
+      const peerErrors: {
+        chain: Chain;
+        stage: "peer" | "config";
+        error: unknown;
+      }[] = [];
+      for (const result of peerResults) {
+        if (result.status === "ok") {
+          ntts[result.chain] = result.ntt as any;
+          configs[result.chain] = result.config;
+        } else if (result.status === "error") {
+          peerErrors.push({
+            chain: result.chain,
+            stage: result.stage,
+            error: result.error,
+          });
         }
       }
 
@@ -1051,6 +1131,26 @@ yargs(hideBin(process.argv))
         chains: sorted,
       };
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
+
+      if (peerErrors.length > 0) {
+        const chainsWithErrors = Array.from(
+          new Set(peerErrors.map((entry) => entry.chain))
+        ).sort((a, b) => a.localeCompare(b));
+        console.error(
+          `Completed with errors for ${chainsWithErrors.length} chain(s): ${chainsWithErrors.join(", ")}`
+        );
+        if (verbose) {
+          for (const { chain: errorChain, stage, error } of peerErrors) {
+            console.warn(`  - ${errorChain} (${stage}): ${formatError(error)}`);
+          }
+        } else {
+          console.warn("Run with --verbose to see details.");
+        }
+      } else {
+        console.log(
+          colors.green(`Deployment file created successfully: ${path}`)
+        );
+      }
     }
   )
   .command(
