@@ -74,13 +74,11 @@ jobs:
 
       - name: Run Forge build
         run: make build
-
-      - name: Install Echidna
-        run: |
-          curl -LO https://github.com/crytic/echidna/releases/download/v2.2.3/echidna-2.2.3-x86_64-linux.tar.gz
-          mkdir echidna-bin
-          tar -xzf echidna-2.2.3-x86_64-linux.tar.gz -C echidna-bin
-          pip install crytic-compile
+        working-directory: evm
 
       - name: Run Echidna
-        run: echidna-bin/echidna ./echidna --config echidna.yaml
+        uses: crytic/echidna-action@v2
+        with:
+          files: ./evm/echidna
+          config: evm/echidna.yaml
+          echidna-version: v2.3.0

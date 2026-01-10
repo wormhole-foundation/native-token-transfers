@@ -81,16 +81,6 @@ contract IntegrationHelpers is Test {
         );
     }
 
-    function _enableSR(
-        WormholeTransceiver[2] memory transceivers,
-        uint16 chainId
-    ) internal {
-        for (uint256 i; i < transceivers.length; i++) {
-            transceivers[i].setIsWormholeRelayingEnabled(chainId, true);
-            transceivers[i].setIsWormholeEvmChain(chainId, true);
-        }
-    }
-
     function _quotePrices(
         WormholeTransceiver[] memory transceivers,
         uint16 recipientChainId,
@@ -189,17 +179,5 @@ contract IntegrationHelpers is Test {
         }
 
         return encodedVMs;
-    }
-
-    function _receiveWormholeMessage(
-        IWormhole.VM memory vaa,
-        WormholeTransceiver sourceTransceiver,
-        WormholeTransceiver targetTransceiver,
-        uint16 emitterChainId,
-        bytes[] memory a
-    ) internal {
-        targetTransceiver.receiveWormholeMessages(
-            vaa.payload, a, toWormholeFormat(address(sourceTransceiver)), emitterChainId, vaa.hash
-        );
     }
 }
