@@ -3,17 +3,73 @@ apiVersion: batch/v1
 metadata:
   name: ntt-ci-tests
 spec:
-  backoffLimit: 0
+  backoffLimit: 2
   template:
     spec:
       restartPolicy: Never
-      containers:
-        - name: ntt-ci-tests
-          image: ntt-ci
+      initContainers:
+        # Wait for all dependent services to be truly ready (not just port open)
+        # This prevents ECONNREFUSED errors from services still initializing
+        - name: wait-for-services
+          image: curlimages/curl:8.5.0
           command:
             - /bin/sh
             - -c
-            - 'npm run test:ci && echo "done!" && touch /success'
+            - |
+              echo "Waiting for services to be fully ready..."
+
+              # Check Ethereum RPC is responding (eth-devnet uses port 8545)
+              until curl -sf --max-time 2 -X POST http://eth-devnet:8545 \
+                -H "Content-Type: application/json" \
+                -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' | grep -q result; do
+                echo "Waiting for eth-devnet..."
+                sleep 2
+              done
+              echo "eth-devnet ready"
+
+              # Check BSC RPC is responding
+              # Note: eth-devnet2 is a headless service, use container port 8545 directly
+              until curl -sf --max-time 2 -X POST http://eth-devnet2:8545 \
+                -H "Content-Type: application/json" \
+                -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' | grep -q result; do
+                echo "Waiting for eth-devnet2..."
+                sleep 2
+              done
+              echo "eth-devnet2 ready"
+
+              # Check Solana RPC is responding
+              until curl -sf --max-time 2 http://solana-devnet:8899/health | grep -q ok; do
+                echo "Waiting for solana-devnet..."
+                sleep 2
+              done
+              echo "solana-devnet ready"
+
+              # Check Wormchain Tendermint RPC is responding
+              until curl -sf --max-time 2 http://wormchain:26657/status | grep -q result; do
+                echo "Waiting for wormchain..."
+                sleep 2
+              done
+              echo "wormchain ready"
+
+              # Check Guardian API is responding
+              until curl -sf --max-time 2 http://guardian:7071/v1/heartbeats; do
+                echo "Waiting for guardian..."
+                sleep 2
+              done
+              echo "guardian ready"
+
+              echo "All services ready!"
+      containers:
+        - name: ntt-ci-tests
+          image: ntt-ci
+          env:
+            - name: CI
+              value: "true"
+          command:
+            - /bin/sh
+            - -c
+            # Use Node (not Bun) to run Jest - Bun has compatibility issues with jest-environment-node
+            - 'cd /usr/src && npx jest --config ./jest.config.ts && echo "done!" && touch /success'
           readinessProbe:
             exec:
               command:

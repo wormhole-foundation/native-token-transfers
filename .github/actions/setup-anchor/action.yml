@@ -35,5 +35,5 @@ runs:
       run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
       shell: bash
     - name: Install Anchor
-      run: npm i -g @coral-xyz/anchor-cli@${{ inputs.anchor-version }}
+      run: bun add -g @coral-xyz/anchor-cli@${{ inputs.anchor-version }}
       shell: bash
