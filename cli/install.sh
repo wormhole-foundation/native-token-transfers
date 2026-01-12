@@ -11,6 +11,31 @@ fi
 
 REPO="https://github.com/wormhole-foundation/native-token-transfers.git"
 
+# Clean up old installations before installing
+function cleanup_old_install {
+  echo "Cleaning up old installations..."
+
+  # Remove old ntt binary if it exists
+  if command -v ntt > /dev/null 2>&1; then
+    local old_ntt
+    old_ntt=$(command -v ntt)
+    echo "Removing old ntt binary: $old_ntt"
+    rm -f "$old_ntt" 2>/dev/null || true
+  fi
+
+  # Remove old source checkout (but preserve version file for debugging)
+  if [ -d "$HOME/.ntt-cli/.checkout" ]; then
+    echo "Removing old source checkout"
+    rm -rf "$HOME/.ntt-cli/.checkout"
+  fi
+
+  # Unlink old bun-linked package if it exists
+  if bun pm ls -g 2>/dev/null | grep -q "@wormhole-foundation/ntt-cli"; then
+    echo "Unlinking old bun package"
+    bun unlink @wormhole-foundation/ntt-cli 2>/dev/null || true
+  fi
+}
+
 function main {
   branch=""
 
@@ -34,6 +59,9 @@ function main {
         ;;
     esac
   done
+
+  # Clean up old installations first
+  cleanup_old_install
 
   path=""
   mkdir -p "$HOME/.ntt-cli"
@@ -119,38 +147,11 @@ function select_branch {
 function install_cli {
   cd "$1"
 
-  # if 'ntt' is already installed, uninstall it
-  # just check with 'which'
-  if which ntt > /dev/null; then
-    echo "Removing existing ntt CLI"
-    rm $(which ntt)
-  fi
-
-  # swallow the output of the first install
-  # TODO: figure out why it fails the first time.
-  bun install > /dev/null 2>&1 || true
   bun install
 
-  # make a temporary directory
-
-  tmpdir="$(mktemp -d)"
-
-  # create a temporary symlink 'npm' to 'bun'
-
-  ln -s "$(command -v bun)" "$tmpdir/npm"
-
-  # add the temporary directory to the PATH
-
-  export PATH="$tmpdir:$PATH"
-
-  # swallow the output of the first build
-  # TODO: figure out why it fails the first time.
-  bun --bun run --filter '*' build > /dev/null 2>&1 || true
-  bun --bun run --filter '*' build
-
-  # remove the temporary directory
-
-  rm -r "$tmpdir"
+  # Build using root script which handles dependency ordering
+  # (sdk-definitions-ntt must be built before other packages)
+  bun run build
 
   # now link the CLI
 
