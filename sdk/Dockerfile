@@ -19,12 +19,6 @@ RUN rm -rf evm/out/ts
 
 COPY . ./
 
-# Create dummy package.json for workspaces not in Docker context
-# This allows bun ci to work with frozen lockfile (no dependency drift)
-RUN mkdir -p cli sui/ts && \
-    echo '{"name":"@wormhole-foundation/ntt-cli","version":"0.0.0"}' > cli/package.json && \
-    echo '{"name":"@wormhole-foundation/sdk-sui-ntt","version":"0.0.0"}' > sui/ts/package.json
-
 RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.bun \
   bun ci
 

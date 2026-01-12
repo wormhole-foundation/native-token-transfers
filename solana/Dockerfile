@@ -71,14 +71,10 @@ COPY package.json package.json
 COPY bun.lock bun.lock
 COPY bunfig.toml bunfig.toml
 COPY sdk sdk
-
-# Create dummy package.json for workspaces not in Docker context
-# This allows bun ci to work with frozen lockfile (no dependency drift)
-RUN mkdir -p cli sui/ts evm/ts solana && \
-    echo '{"name":"@wormhole-foundation/ntt-cli","version":"0.0.0"}' > cli/package.json && \
-    echo '{"name":"@wormhole-foundation/sdk-sui-ntt","version":"0.0.0"}' > sui/ts/package.json && \
-    echo '{"name":"@wormhole-foundation/sdk-evm-ntt","version":"0.0.0"}' > evm/ts/package.json && \
-    echo '{"name":"@wormhole-foundation/sdk-solana-ntt","version":"0.0.0"}' > solana/package.json
+COPY cli/package.json cli/package.json
+COPY sui/ts/package.json sui/ts/package.json
+COPY evm/ts/package.json evm/ts/package.json
+COPY solana/package.json solana/package.json
 
 RUN bun ci
 RUN bun run build

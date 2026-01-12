@@ -15,7 +15,7 @@ REGISTRY = "ghcr.io/wormhole-foundation/native-token-transfers"
 docker_build(
     ref = "ntt-solana-contract",
     context = "./",
-    only = ["./sdk", "./solana"],
+    only = ["./sdk", "./solana", "./cli/package.json", "./sui/ts/package.json", "./evm/ts/package.json", "./package.json", "./bun.lock", "./bunfig.toml", "./tsconfig.json", "./tsconfig.cjs.json", "./tsconfig.esm.json"],
     ignore=["./sdk/__tests__", "./sdk/Dockerfile", "./sdk/ci.yaml", "./sdk/**/dist", "./sdk/node_modules", "./sdk/**/node_modules"],
     target = "builder",
     dockerfile = "./solana/Dockerfile",
@@ -48,7 +48,7 @@ docker_build(
 docker_build(
     ref = "ntt-ci",
     context = "./",
-    only=["./sdk", "./package.json", "./bun.lock", "./bunfig.toml", "jest.config.ts", "tsconfig.json", "tsconfig.esm.json", "tsconfig.cjs.json", "tsconfig.test.json"],
+    only=["./sdk", "./cli/package.json", "./sui/ts/package.json", "./package.json", "./bun.lock", "./bunfig.toml", "jest.config.ts", "tsconfig.json", "tsconfig.esm.json", "tsconfig.cjs.json", "tsconfig.test.json"],
     dockerfile = "./sdk/Dockerfile",
     cache_from = [REGISTRY + "/ntt-ci:latest"],
 )
