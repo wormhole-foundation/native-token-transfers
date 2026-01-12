@@ -41,7 +41,7 @@ import { Ntt } from "../definitions/src/index.js";
 import { submitAccountantVAAs } from "./accountant.js";
 
 // Note: Currently, in order for this to run, the evm bindings with extra contracts must be build
-// To do that, at the root, run `npm run generate:test`
+// To do that, at the root, run `bun run generate:test`
 
 export const NETWORK: "Devnet" = "Devnet";
 
@@ -70,16 +70,22 @@ export interface Ctx extends StartingCtx {
 export const wh = new Wormhole(NETWORK, [evm.Platform, solana.Platform], {
   ...(process.env["CI"]
     ? {
+        api: "http://guardian:7071",
         chains: {
           Ethereum: {
+            rpc: "http://eth-devnet:8545",
             contracts: {
               relayer: "0xcC680D088586c09c3E0E099a676FA4b6e42467b4",
             },
           },
           Bsc: {
+            rpc: "http://eth-devnet2:8545",
             contracts: {
               relayer: "0xcC680D088586c09c3E0E099a676FA4b6e42467b4",
             },
+          },
+          Solana: {
+            rpc: "http://solana-devnet:8899",
           },
         },
       }

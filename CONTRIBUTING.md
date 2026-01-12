@@ -19,12 +19,12 @@ Do not change the dependencies of the package.json by hand!
 
 Instead:
 
-- When initially installing OR pulling what has been changed: `npm ci`.
-  If you do not do this, you may not get exactly what is specified in the file, inadvertently update dependencies, or even pull exploits down to your machine! **Never use `npm install` for this use case**.
-- When needing to add or update a package: `npm i <package>@<version>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.
-- When needing to remove a package: `npm r <package>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.
+- When initially installing OR pulling what has been changed: `bun ci`.
+  If you do not do this, you may not get exactly what is specified in the file, inadvertently update dependencies, or even pull exploits down to your machine! **Never use `bun install` for this use case**.
+- When needing to add or update a package: `bun add <package>@<version>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.
+- When needing to remove a package: `bun remove <package>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.
 
-Always commit your `package-lock.json`.
+Always commit your `bun.lock`.
 
 Using specific versions improves security because package versions cannot be overwritten after they are released.
 
@@ -33,33 +33,33 @@ Using specific versions improves security because package versions cannot be ove
 ##### If installing a package locally
 
 - Copy in package.json and the lock file
-- Then run `npm ci`
+- Then run `bun ci`
 
 ```dockerfile
 # NOTE: Dockerfile must be pinned too
-FROM node:18.19.0-alpine@sha256:12345...
+FROM oven/bun:1.2-alpine@sha256:12345...
 
 WORKDIR /app
 
 # Include package files
-COPY package.json package-lock.json ./
+COPY package.json bun.lock ./
 
-# Use npm ci so that packages are not upgraded
-RUN npm ci
+# Use bun ci so that packages are not upgraded
+RUN bun ci
 
 ...
 ```
 
 ##### If installing a package globally
 
-- Use `npm i <package>@<version>`
+- Use `bun add -g <package>@<version>`
 
 ```dockerfile
 # NOTE: Dockerfile must be pinned too
-FROM node:18.19.0-alpine@sha256:12345...
+FROM oven/bun:1.2-alpine@sha256:12345...
 
 # Pin global packages to specific versions
-RUN npm install -g somepackage@1.2.3
+RUN bun add -g somepackage@1.2.3
 
 ...
 
