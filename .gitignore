@@ -31,5 +31,5 @@ node_modules
 # Claude code
 .claude/settings.local.json
 
-# Bun lock files (created during manual CLI installation)
-bun.lock
+# Bun lockb (binary format, we use text format bun.lock instead)
+*.lockb
