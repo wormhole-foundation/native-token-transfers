@@ -60,9 +60,7 @@ export async function promptSolanaMainnetOverridesIfNeeded(
     console.log(colors.cyan("No overrides.json found in this directory."));
   }
 
-  const wantsOverride = await promptYesNo(
-    "Would you like to set one up now?"
-  );
+  const wantsOverride = await promptYesNo("Would you like to set one up now?");
   if (!wantsOverride) {
     console.log(colors.gray("Skipping overrides.json setup."));
     return;
