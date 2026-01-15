@@ -29,7 +29,6 @@ import * as solanaWeb3 from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs from "fs";
 import path from "path";
-import readline from "readline";
 import {
   ChainContext,
   UniversalAddress,
@@ -105,6 +104,11 @@ import * as configuration from "./configuration";
 import { createTokenTransferCommand } from "./tokenTransfer";
 import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
+import { promptYesNo } from "./prompts.js";
+import {
+  loadOverrides,
+  promptSolanaMainnetOverridesIfNeeded,
+} from "./overrides.js";
 import {
   collectMissingConfigs,
   printMissingConfigReport,
@@ -115,15 +119,7 @@ import type { Deployment } from "./validation";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
-const overrides: WormholeConfigOverrides<Network> = (function () {
-  // read overrides.json file if exists
-  if (fs.existsSync("overrides.json")) {
-    console.error(colors.yellow("Using overrides.json"));
-    return JSON.parse(fs.readFileSync("overrides.json").toString());
-  } else {
-    return {};
-  }
-})();
+const overrides: WormholeConfigOverrides<Network> = loadOverrides();
 
 // Setup Sui environment for consistent CLI usage with automatic cleanup
 async function withSuiEnv<N extends Network, C extends Chain, T>(
@@ -681,6 +677,12 @@ yargs(hideBin(process.argv))
       }
 
       validateChain(network, chain);
+      await promptSolanaMainnetOverridesIfNeeded(
+        network,
+        chain,
+        overrides,
+        Boolean(argv["yes"])
+      );
 
       const existsLocking = Object.values(deployments.chains).some(
         (c) => c.mode === "locking"
@@ -4831,16 +4833,8 @@ function cargoNetworkFeature(network: Network): string {
 async function askForConfirmation(
   prompt: string = "Do you want to continue?"
 ): Promise<void> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  const answer = await new Promise<string>((resolve) => {
-    rl.question(`${prompt} [y/N]`, resolve);
-  });
-  rl.close();
-
-  if (answer !== "y") {
+  const confirmed = await promptYesNo(prompt);
+  if (!confirmed) {
     console.log("Aborting");
     process.exit(0);
   }
