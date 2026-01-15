@@ -108,6 +108,7 @@ import { createTokenTransferCommand } from "./tokenTransfer";
 import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
 import { promptYesNo } from "./prompts.js";
+import { runTaskPool } from "./utils/concurrency";
 import {
   configureInboundLimitsForNewChain,
   configureInboundLimitsForPull,
@@ -1393,8 +1394,9 @@ yargs(hideBin(process.argv))
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
       const path = argv["path"];
+      const maxConcurrent = 6;
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+        await pullDeployments(deployments, network, verbose, maxConcurrent);
 
       let changed = false;
       for (const [chain, deployment] of Object.entries(deps)) {
@@ -1689,9 +1691,10 @@ yargs(hideBin(process.argv))
       const deployments: Config = loadConfig(path);
 
       const network = deployments.network as Network;
+      const maxConcurrent = 6;
 
       let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+        await pullDeployments(deployments, network, verbose, maxConcurrent);
 
       let fixable = 0;
 
@@ -4810,20 +4813,26 @@ async function pushDeployment<C extends Chain>(
 async function pullDeployments(
   deployments: Config,
   network: Network,
-  verbose: boolean
+  verbose: boolean,
+  concurrency: number = 1
 ): Promise<Partial<{ [C in Chain]: Deployment<Chain> }>> {
   let deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
-
-  for (const [chain, deployment] of Object.entries(deployments.chains)) {
+  type PullDeploymentResult =
+    | { chain: Chain; status: "missing-manager" }
+    | { chain: Chain; status: "missing-transceiver" }
+    | { chain: Chain; status: "ok"; deployment: Deployment<Chain> };
+  const entries = Object.entries(deployments.chains);
+  const fetchDeployment = async (
+    entry: [string, ChainConfig]
+  ): Promise<PullDeploymentResult> => {
+    const [chain, deployment] = entry;
     if (verbose) {
       process.stdout.write(`Fetching config for ${chain}......\n`);
     }
     assertChain(chain);
     const managerAddress: string | undefined = deployment.manager;
     if (managerAddress === undefined) {
-      console.error(`manager field not found for chain ${chain}`);
-      // process.exit(1);
-      continue;
+      return { chain, status: "missing-manager" };
     }
     const [remote, ctx, ntt, decimals] = await pullChainConfig(
       network,
@@ -4837,21 +4846,59 @@ async function pullDeployments(
     // address in the config. currently we just assume that ix 0 is the wormhole one
     const whTransceiver = await ntt.getTransceiver(0);
     if (whTransceiver === null) {
-      console.error(`Wormhole transceiver not found for ${chain}`);
-      process.exit(1);
+      return { chain, status: "missing-transceiver" };
     }
 
-    deps[chain] = {
-      ctx,
-      ntt,
-      decimals,
-      manager: { chain, address: toUniversal(chain, managerAddress) },
-      whTransceiver,
-      config: {
-        remote,
-        local,
+    return {
+      chain,
+      status: "ok",
+      deployment: {
+        ctx,
+        ntt,
+        decimals,
+        manager: { chain, address: toUniversal(chain, managerAddress) },
+        whTransceiver,
+        config: {
+          remote,
+          local,
+        },
       },
     };
+  };
+  const handleResult = (result: PullDeploymentResult): boolean => {
+    if (result.status === "ok") {
+      deps[result.chain] = result.deployment;
+      return false;
+    }
+    if (result.status === "missing-manager") {
+      console.error(`manager field not found for chain ${result.chain}`);
+      return false;
+    }
+    console.error(`Wormhole transceiver not found for ${result.chain}`);
+    return true;
+  };
+  if (concurrency <= 1) {
+    for (const entry of entries) {
+      const result = await fetchDeployment(entry as [string, ChainConfig]);
+      if (handleResult(result)) {
+        process.exit(1);
+      }
+    }
+  } else {
+    const results = await runTaskPool(
+      entries as [string, ChainConfig][],
+      concurrency,
+      fetchDeployment
+    );
+    let shouldExit = false;
+    for (const result of results) {
+      if (handleResult(result)) {
+        shouldExit = true;
+      }
+    }
+    if (shouldExit) {
+      process.exit(1);
+    }
   }
 
   const config = Object.fromEntries(
