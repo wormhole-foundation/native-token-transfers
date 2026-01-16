@@ -290,7 +290,6 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
   );
 }
 
-
 // Wrap signSendWait from sdk to provide full error message
 async function signSendWait(
   ctx: ChainContext<typeof NETWORK>,
@@ -424,8 +423,7 @@ async function deployEvm(ctx: Ctx): Promise<Ctx> {
     200, // Consistency level (200 = instant)
     0, // customConsistencyLevel (0 = not using CCL)
     0, // additionalBlocks (0 = no additional blocks)
-    "0x0000000000000000000000000000000000000000", // customConsistencyLevelAddress (zero address = not using CCL)
-  );
+    "0x0000000000000000000000000000000000000000" // customConsistencyLevelAddress (zero address = not using CCL)
   );
   await WormholeTransceiverAddress.deploymentTransaction()?.wait(1);
 
