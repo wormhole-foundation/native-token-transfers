@@ -35,8 +35,8 @@
   "scripts": {
     "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "npm run build:esm && npm run build:cjs",
-    "rebuild": "npm run clean && npm run build",
+    "build": "bun run build:esm && bun run build:cjs",
+    "rebuild": "bun run clean && bun run build",
     "clean": "rm -rf ./dist",
     "test:ci": "jest --config ./jest.config.ts",
     "build:contracts": "make build",
@@ -71,9 +71,9 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.7.0",
-    "@wormhole-foundation/sdk-definitions": "^4.7.0",
-    "@wormhole-foundation/sdk-solana": "^4.7.0",
-    "@wormhole-foundation/sdk-solana-core": "^4.7.0"
+    "@wormhole-foundation/sdk-base": "^4.7.4",
+    "@wormhole-foundation/sdk-definitions": "^4.7.4",
+    "@wormhole-foundation/sdk-solana": "^4.7.4",
+    "@wormhole-foundation/sdk-solana-core": "^4.7.4"
   }
 }

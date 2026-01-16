@@ -47,6 +47,15 @@ jobs:
           ANCHOR_VERSION=$(grep 'anchor_version' solana/Anchor.toml | sed 's/.*"\(.*\)"/\1/')
           echo "version=${ANCHOR_VERSION}" >> $GITHUB_OUTPUT
 
+      - name: Check if fork PR
+        id: check-fork
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check if anchor-base image exists
         id: check
         run: |
@@ -56,6 +65,11 @@ jobs:
           else
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "Image not found, will build"
+            # Fork PRs cannot push new images
+            if [[ "${{ steps.check-fork.outputs.is_fork }}" == "true" ]]; then
+              echo "::error::Fork PRs cannot build anchor-base image. Image does not exist. A maintainer must first build this image by running this workflow from main."
+              exit 1
+            fi
           fi
 
       - name: Set up Docker Buildx
