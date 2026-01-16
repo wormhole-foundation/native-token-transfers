@@ -16,6 +16,7 @@ import type {
 import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { ChainConfig } from "./deployments";
+import { runTaskPool } from "./utils/concurrency";
 
 export type ErrorFactory = (message: string) => Error;
 
@@ -167,23 +168,27 @@ export function printMissingConfigReport(
 /** Collect missing implicit config across deployments (peers, relaying flags, Solana LUT/transceiver). */
 export async function collectMissingConfigs(
   deps: Partial<{ [C in Chain]: Deployment<Chain> }>,
-  verbose: boolean
+  verbose: boolean,
+  concurrency: number = 1
 ): Promise<Partial<{ [C in Chain]: MissingImplicitConfig }>> {
   const missingConfigs: Partial<{ [C in Chain]: MissingImplicitConfig }> = {};
+  const entries = Object.entries(deps).filter(
+    ([, deployment]) => deployment !== undefined
+  ) as [string, Deployment<Chain>][];
+  const missingByChain: Partial<{ [C in Chain]: MissingImplicitConfig }> = {};
+  const missingCounts: Partial<Record<Chain, number>> = {};
 
-  for (const [fromChain, from] of Object.entries(deps)) {
-    if (!from) {
-      continue;
-    }
-    let count = 0;
+  for (const [fromChain, from] of entries) {
     assertChain(fromChain);
 
-    let missing: MissingImplicitConfig = {
+    const missing: MissingImplicitConfig = {
       managerPeers: [],
       transceiverPeers: [],
       solanaWormholeTransceiver: false,
       solanaUpdateLUT: false,
     };
+    missingByChain[fromChain] = missing;
+    missingCounts[fromChain] = 0;
 
     if (chainToPlatform(fromChain) === "Solana") {
       const solanaNtt = from.ntt as SolanaNtt<Network, SolanaChains>;
@@ -199,7 +204,7 @@ export async function collectMissingConfigs(
         5000
       );
       if (registeredSelfTransceiver === null) {
-        count++;
+        missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
         missing.solanaWormholeTransceiver = true;
       }
 
@@ -208,77 +213,105 @@ export async function collectMissingConfigs(
         owner: new PublicKey(0),
       });
       if (!(await updateLUT.next()).done) {
-        count++;
+        missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
         missing.solanaUpdateLUT = true;
       }
     }
-
-    for (const [toChain, to] of Object.entries(deps)) {
-      if (!to) {
-        continue;
-      }
+  }
+  type PairTask = {
+    fromChain: Chain;
+    toChain: Chain;
+    from: Deployment<Chain>;
+    to: Deployment<Chain>;
+  };
+  const tasks: PairTask[] = [];
+  for (const [fromChain, from] of entries) {
+    assertChain(fromChain);
+    for (const [toChain, to] of entries) {
       assertChain(toChain);
       if (fromChain === toChain) {
         continue;
       }
-      if (verbose) {
-        process.stdout.write(
-          `Verifying registration for ${fromChain} -> ${toChain}......\n`
-        );
-      }
-      const peer = await retryWithExponentialBackoff(
-        () => from.ntt.getPeer(toChain),
-        5,
-        5000
+      tasks.push({
+        fromChain,
+        toChain,
+        from,
+        to,
+      });
+    }
+  }
+  const runTask = async (task: PairTask) => {
+    const { fromChain, toChain, from, to } = task;
+    const missing = missingByChain[fromChain];
+    if (!missing) {
+      return;
+    }
+    if (verbose) {
+      process.stdout.write(
+        `Verifying registration for ${fromChain} -> ${toChain}......\n`
       );
-      if (peer === null) {
-        const configLimit = from.config.local?.limits?.inbound?.[
-          toChain
-        ]?.replace(".", "");
-        count++;
-        missing.managerPeers.push({
-          address: to.manager,
-          tokenDecimals: to.decimals,
-          inboundLimit: BigInt(configLimit ?? 0),
-        });
-      } else {
-        if (
-          !Buffer.from(peer.address.address.address.toString()).equals(
-            Buffer.from(to.manager.address.address.toString())
-          )
-        ) {
-          console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
-        }
-        if (peer.tokenDecimals !== to.decimals) {
-          console.error(
-            `Peer decimals mismatch for ${fromChain} -> ${toChain}`
-          );
-        }
+    }
+    const peer = await retryWithExponentialBackoff(
+      () => from.ntt.getPeer(toChain),
+      5,
+      5000
+    );
+    if (peer === null) {
+      const configLimit = from.config.local?.limits?.inbound?.[
+        toChain
+      ]?.replace(".", "");
+      missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
+      missing.managerPeers.push({
+        address: to.manager,
+        tokenDecimals: to.decimals,
+        inboundLimit: BigInt(configLimit ?? 0),
+      });
+    } else {
+      if (
+        !Buffer.from(peer.address.address.address.toString()).equals(
+          Buffer.from(to.manager.address.address.toString())
+        )
+      ) {
+        console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
       }
-
-      const transceiverPeer = await retryWithExponentialBackoff(
-        () => from.whTransceiver.getPeer(toChain),
-        5,
-        5000
-      );
-      const transceiverAddress = await to.whTransceiver.getAddress();
-      if (transceiverPeer === null) {
-        count++;
-        missing.transceiverPeers.push(transceiverAddress);
-      } else {
-        if (
-          !Buffer.from(transceiverPeer.address.address.toString()).equals(
-            Buffer.from(transceiverAddress.address.address.toString())
-          )
-        ) {
-          console.error(
-            `Transceiver peer address mismatch for ${fromChain} -> ${toChain}`
-          );
-        }
+      if (peer.tokenDecimals !== to.decimals) {
+        console.error(`Peer decimals mismatch for ${fromChain} -> ${toChain}`);
       }
     }
-    if (count > 0) {
-      missingConfigs[fromChain] = missing;
+
+    const transceiverPeer = await retryWithExponentialBackoff(
+      () => from.whTransceiver.getPeer(toChain),
+      5,
+      5000
+    );
+    const transceiverAddress = await to.whTransceiver.getAddress();
+    if (transceiverPeer === null) {
+      missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
+      missing.transceiverPeers.push(transceiverAddress);
+    } else {
+      if (
+        !Buffer.from(transceiverPeer.address.address.toString()).equals(
+          Buffer.from(transceiverAddress.address.address.toString())
+        )
+      ) {
+        console.error(
+          `Transceiver peer address mismatch for ${fromChain} -> ${toChain}`
+        );
+      }
+    }
+  };
+  if (concurrency <= 1) {
+    for (const task of tasks) {
+      await runTask(task);
+    }
+  } else {
+    await runTaskPool(tasks, concurrency, runTask);
+  }
+
+  for (const [chain, missing] of Object.entries(missingByChain)) {
+    assertChain(chain);
+    if ((missingCounts[chain] ?? 0) > 0) {
+      missingConfigs[chain] = missing!;
     }
   }
   return missingConfigs;
