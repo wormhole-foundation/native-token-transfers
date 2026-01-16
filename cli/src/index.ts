@@ -78,6 +78,8 @@ export type { Deployment } from "./validation";
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
 const EXCLUDED_DIFF_PATHS = ["managerVariant"];
+// Cap concurrent read-only RPC calls; lower if you hit provider rate limits.
+const DEFAULT_MAX_CONCURRENT = 6;
 
 // Helper functions for nested object access
 function getNestedValue(obj: any, path: string[]): any {
@@ -1203,7 +1205,7 @@ yargs(hideBin(process.argv))
           };
       const peerChains = chains.filter((c) => c !== chain);
       const total = peerChains.length;
-      const maxConcurrent = 6;
+      const maxConcurrent = DEFAULT_MAX_CONCURRENT;
       const fetchPeerConfig = async (c: Chain): Promise<PeerResult> => {
         let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
         try {
@@ -1394,7 +1396,7 @@ yargs(hideBin(process.argv))
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
       const path = argv["path"];
-      const maxConcurrent = 6;
+      const maxConcurrent = DEFAULT_MAX_CONCURRENT;
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose, maxConcurrent);
 
@@ -1691,7 +1693,7 @@ yargs(hideBin(process.argv))
       const deployments: Config = loadConfig(path);
 
       const network = deployments.network as Network;
-      const maxConcurrent = 6;
+      const maxConcurrent = DEFAULT_MAX_CONCURRENT;
 
       let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose, maxConcurrent);
@@ -1736,7 +1738,7 @@ yargs(hideBin(process.argv))
       }
 
       // verify peers
-      const missing = await collectMissingConfigs(deps, verbose);
+      const missing = await collectMissingConfigs(deps, verbose, maxConcurrent);
 
       const hasMissingConfigs = printMissingConfigReport(missing);
       if (hasMissingConfigs) {
