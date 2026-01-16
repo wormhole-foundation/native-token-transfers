@@ -18,7 +18,7 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
         address wormholeCoreBridge;
         uint8 consistencyLevel;
         uint8 customConsistencyLevel;
-        uint16 addtlBlocks;
+        uint16 additionalBlocks;
         address customConsistencyLevelAddress;
         uint256 gasLimit;
         uint256 outboundLimit;
@@ -39,9 +39,8 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
             params.wormholeCoreBridge,
             params.consistencyLevel,
             params.customConsistencyLevel,
-            params.addtlBlocks,
-            params.customConsistencyLevelAddress,
-            params.gasLimit
+            params.additionalBlocks,
+            params.customConsistencyLevelAddress
         );
 
         console2.log("WormholeTransceiver Implementation deployed at: ", address(implementation));
@@ -63,7 +62,7 @@ contract UpgradeWormholeTransceiver is ParseNttConfig {
         params.consistencyLevel = uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL"));
         params.customConsistencyLevel =
             uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0)));
-        params.addtlBlocks = uint16(vm.envOr("RELEASE_ADDTL_BLOCKS", uint256(0)));
+        params.additionalBlocks = uint16(vm.envOr("RELEASE_ADDITIONAL_BLOCKS", uint256(0)));
         params.customConsistencyLevelAddress =
             vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
 

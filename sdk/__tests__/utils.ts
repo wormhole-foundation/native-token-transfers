@@ -290,50 +290,6 @@ export async function transferWithChecks(sourceCtx: Ctx, destinationCtx: Ctx) {
   );
 }
 
-// NOTE: waitForRelay is disabled because relayer support was removed
-// async function waitForRelay(
-//   msgId: WormholeMessageId,
-//   dst: Ctx,
-//   retryTime: number = 2000,
-//   maxRetries: number = 60 // 2 minutes with default retryTime
-// ) {
-//   const vaa = await wh.getVaa(msgId, "Uint8Array");
-//   const deliveryHash = keccak256(vaa!.hash);
-//
-//   const wormholeRelayer = IWormholeRelayer__factory.connect(
-//     dst.context.config.contracts.relayer!,
-//     await dst.context.getRpc()
-//   );
-//
-//   let success = false;
-//   let attempts = 0;
-//   while (!success && attempts < maxRetries) {
-//     attempts++;
-//     try {
-//       const successBlock =
-//         await wormholeRelayer.deliverySuccessBlock(deliveryHash);
-//       if (successBlock > 0) success = true;
-//       console.log(
-//         `Relayer delivery (attempt ${attempts}/${maxRetries}): `,
-//         success
-//       );
-//     } catch (e) {
-//       console.error(
-//         `Relayer check error (attempt ${attempts}/${maxRetries}):`,
-//         e
-//       );
-//     }
-//     if (!success) {
-//       await new Promise((resolve) => setTimeout(resolve, retryTime));
-//     }
-//   }
-//
-//   if (!success) {
-//     throw new Error(
-//       `Relay delivery failed after ${maxRetries} attempts (${(maxRetries * retryTime) / 1000}s)`
-//     );
-//   }
-// }
 
 // Wrap signSendWait from sdk to provide full error message
 async function signSendWait(
@@ -465,11 +421,11 @@ async function deployEvm(ctx: Ctx): Promise<Ctx> {
     // List of useful wormhole contracts - https://github.com/wormhole-foundation/wormhole/blob/00f504ef452ae2d94fa0024c026be2d8cf903ad5/ethereum/ts-scripts/relayer/config/ci/contracts.json
     await manager.getAddress(),
     ctx.context.config.contracts.coreBridge!, // Core wormhole contract - https://docs.wormhole.com/wormhole/blockchain-environments/evm#local-network-contract -- may need to be changed to support other chains
-    201, // Consistency level (201 = finalized)
+    200, // Consistency level (200 = instant)
     0, // customConsistencyLevel (0 = not using CCL)
-    0, // addtlBlocks (0 = no additional blocks)
+    0, // additionalBlocks (0 = no additional blocks)
     "0x0000000000000000000000000000000000000000", // customConsistencyLevelAddress (zero address = not using CCL)
-    500000n // Gas limit
+  );
   );
   await WormholeTransceiverAddress.deploymentTransaction()?.wait(1);
 

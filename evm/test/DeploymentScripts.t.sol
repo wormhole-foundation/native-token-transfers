@@ -26,7 +26,7 @@ import {WormholeSimulator} from "wormhole-solidity-sdk/testing/helpers/WormholeS
 /// @dev Custom Consistency Level (CCL) is enabled when consistency level is set to 203.
 ///      When CCL is enabled:
 ///      - customConsistencyLevel: The finality level where counting starts (200 = instant, 201 = safe, 202 = finalized)
-///      - addtlBlocks: Additional blocks to wait beyond the custom consistency level
+///      - additionalBlocks: Additional blocks to wait beyond the custom consistency level
 contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
     using TrimmedAmountLib for uint256;
 
@@ -133,7 +133,7 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
         DeploymentParams memory params = _createTestParams(IManagerBase.Mode.LOCKING);
         params.consistencyLevel = CCL_CONSISTENCY_LEVEL; // Enable CCL
         params.customConsistencyLevel = CUSTOM_CONSISTENCY_LEVEL;
-        params.addtlBlocks = ADDTL_BLOCKS;
+        params.additionalBlocks = ADDTL_BLOCKS;
         params.customConsistencyLevelAddress = CCL_CONTRACT_ADDRESS;
 
         // Deploy manager first
@@ -151,7 +151,7 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
             CUSTOM_CONSISTENCY_LEVEL,
             "Custom consistency level mismatch"
         );
-        assertEq(wormholeTransceiver.addtlBlocks(), ADDTL_BLOCKS, "Additional blocks mismatch");
+        assertEq(wormholeTransceiver.additionalBlocks(), ADDTL_BLOCKS, "Additional blocks mismatch");
         assertEq(
             wormholeTransceiver.customConsistencyLevelAddress(),
             CCL_CONTRACT_ADDRESS,
@@ -212,7 +212,7 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
     function testDeploymentWithDisabledCCL() public {
         DeploymentParams memory params = _createTestParams(IManagerBase.Mode.LOCKING);
         params.customConsistencyLevel = 0;
-        params.addtlBlocks = 0;
+        params.additionalBlocks = 0;
         params.customConsistencyLevelAddress = address(0);
 
         address manager = deployNttManager(params, "standard");
@@ -224,7 +224,7 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
         assertEq(
             wormholeTransceiver.customConsistencyLevel(), 0, "Custom consistency level should be 0"
         );
-        assertEq(wormholeTransceiver.addtlBlocks(), 0, "Additional blocks should be 0");
+        assertEq(wormholeTransceiver.additionalBlocks(), 0, "Additional blocks should be 0");
         assertEq(
             wormholeTransceiver.customConsistencyLevelAddress(),
             address(0),
@@ -246,7 +246,7 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
             wormholeCoreBridge: address(wormhole),
             consistencyLevel: STANDARD_CONSISTENCY_LEVEL, // Use standard by default
             customConsistencyLevel: 0,
-            addtlBlocks: 0,
+            additionalBlocks: 0,
             customConsistencyLevelAddress: address(0),
             gasLimit: GAS_LIMIT,
             outboundLimit: type(uint64).max

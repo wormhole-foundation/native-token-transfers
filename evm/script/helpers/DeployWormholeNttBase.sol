@@ -19,8 +19,8 @@ import {IWormhole} from "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 contract DeployWormholeNttBase is ParseNttConfig {
     /// @notice Parameters for deploying NTT contracts
     /// @dev Custom Consistency Level (CCL) is enabled when consistencyLevel=203.
-    ///      CCL parameters: customConsistencyLevel (200/201/202), addtlBlocks, customConsistencyLevelAddress
-    ///      Example: consistencyLevel=203, customConsistencyLevel=200, addtlBlocks=3
+    ///      CCL parameters: customConsistencyLevel (200/201/202), additionalBlocks, customConsistencyLevelAddress
+    ///      Example: consistencyLevel=203, customConsistencyLevel=200, additionalBlocks=3
     ///               → Wait 3 blocks after instant finality
     struct DeploymentParams {
         address token;
@@ -31,7 +31,7 @@ contract DeployWormholeNttBase is ParseNttConfig {
         address wormholeCoreBridge;
         uint8 consistencyLevel; // Set to 203 to enable CCL
         uint8 customConsistencyLevel; // CCL only: finality level to start counting (200/201/202)
-        uint16 addtlBlocks; // CCL only: additional blocks to wait
+        uint16 additionalBlocks; // CCL only: additional blocks to wait
         address customConsistencyLevelAddress; // CCL only: CCL contract address
         uint256 gasLimit;
         uint256 outboundLimit;
@@ -104,9 +104,8 @@ contract DeployWormholeNttBase is ParseNttConfig {
             params.wormholeCoreBridge,
             params.consistencyLevel,
             params.customConsistencyLevel,
-            params.addtlBlocks,
-            params.customConsistencyLevelAddress,
-            params.gasLimit
+            params.additionalBlocks,
+            params.customConsistencyLevelAddress
         );
 
         WormholeTransceiver transceiverProxy =
@@ -172,7 +171,7 @@ contract DeployWormholeNttBase is ParseNttConfig {
         params.consistencyLevel = uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL"));
         params.customConsistencyLevel =
             uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0)));
-        params.addtlBlocks = uint16(vm.envOr("RELEASE_ADDTL_BLOCKS", uint256(0)));
+        params.additionalBlocks = uint16(vm.envOr("RELEASE_ADDITIONAL_BLOCKS", uint256(0)));
         params.customConsistencyLevelAddress =
             vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
 

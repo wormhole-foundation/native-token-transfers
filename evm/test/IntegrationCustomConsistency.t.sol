@@ -78,8 +78,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
             CUSTOM_CONSISTENCY_LEVEL,
             BASE_CONSISTENCY_LEVEL,
             ADDTL_BLOCKS,
-            customConsistencyLevelAddress,
-            GAS_LIMIT
+            customConsistencyLevelAddress
         );
         wormholeTransceiverChain1 = WormholeTransceiver(
             address(new ERC1967Proxy(address(wormholeTransceiverChain1Implementation), ""))
@@ -136,8 +135,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
             CUSTOM_CONSISTENCY_LEVEL,
             BASE_CONSISTENCY_LEVEL,
             ADDTL_BLOCKS,
-            customConsistencyLevelAddress,
-            GAS_LIMIT
+            customConsistencyLevelAddress
         );
         wormholeTransceiverChain2 = WormholeTransceiver(
             address(new ERC1967Proxy(address(wormholeTransceiverChain2Implementation), ""))
@@ -250,7 +248,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
         // Test that CCL parameters are set correctly
         assertEq(wormholeTransceiverChain1.consistencyLevel(), CUSTOM_CONSISTENCY_LEVEL);
         assertEq(wormholeTransceiverChain1.customConsistencyLevel(), BASE_CONSISTENCY_LEVEL);
-        assertEq(wormholeTransceiverChain1.addtlBlocks(), ADDTL_BLOCKS);
+        assertEq(wormholeTransceiverChain1.additionalBlocks(), ADDTL_BLOCKS);
         assertEq(
             wormholeTransceiverChain1.customConsistencyLevelAddress(), customConsistencyLevelAddress
         );
@@ -277,8 +275,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
             200, // Regular consistency level
             BASE_CONSISTENCY_LEVEL,
             ADDTL_BLOCKS,
-            customConsistencyLevelAddress,
-            GAS_LIMIT
+            customConsistencyLevelAddress
         );
         WormholeTransceiver testTransceiver = WormholeTransceiver(
             address(new ERC1967Proxy(address(testTransceiverImplementation), ""))

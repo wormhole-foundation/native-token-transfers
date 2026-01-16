@@ -21,7 +21,7 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     // ==================== Immutables ===============================================
     uint8 public immutable consistencyLevel;
     uint8 public immutable customConsistencyLevel;
-    uint16 public immutable addtlBlocks;
+    uint16 public immutable additionalBlocks;
     address public immutable customConsistencyLevelAddress;
     IWormhole public immutable wormhole;
     /// @dev We don't check this in `_checkImmutables` since it's set at construction
@@ -29,7 +29,6 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     uint256 immutable wormholeTransceiver_evmChainId;
     /// @dev We purposely avoid checking this in `_checkImmutables` to allow tweaking it
     ///      without needing to allow modification of security critical immutables.
-    uint256 public immutable gasLimit;
 
     // ==================== Constants ================================================
 
@@ -46,22 +45,23 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     ///      This is bytes4(keccak256("WormholePeerRegistration"))
     bytes4 constant WH_PEER_REGISTRATION_PREFIX = 0x18fc67c2;
 
+    /// @dev Consistency level value indicating custom consistency level is used
+    uint16 constant CONSISTENCY_LEVEL_CUSTOM = 203;
+
     constructor(
         address nttManager,
         address wormholeCoreBridge,
         uint8 _consistencyLevel,
         uint8 _customConsistencyLevel,
-        uint16 _addtlBlocks,
-        address _customConsistencyLevelAddress,
-        uint256 _gasLimit
+        uint16 _additionalBlocks,
+        address _customConsistencyLevelAddress
     ) Transceiver(nttManager) {
         wormhole = IWormhole(wormholeCoreBridge);
         wormholeTransceiver_evmChainId = block.chainid;
         consistencyLevel = _consistencyLevel;
         customConsistencyLevel = _customConsistencyLevel;
-        addtlBlocks = _addtlBlocks;
+        additionalBlocks = _additionalBlocks;
         customConsistencyLevelAddress = _customConsistencyLevelAddress;
-        gasLimit = _gasLimit;
     }
 
     enum RelayingType {
@@ -82,10 +82,9 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
             tokenDecimals: INttManager(nttManager).tokenDecimals()
         });
 
-        // Configure CustomConsistencyLevel if consistency level is 203
-        if (consistencyLevel == 203) {
+        if (consistencyLevel == CONSISTENCY_LEVEL_CUSTOM) {
             bytes32 config =
-                ConfigMakers.makeAdditionalBlocksConfig(customConsistencyLevel, addtlBlocks);
+                ConfigMakers.makeAdditionalBlocksConfig(customConsistencyLevel, additionalBlocks);
             ICustomConsistencyLevel(customConsistencyLevelAddress).configure(config);
         }
 

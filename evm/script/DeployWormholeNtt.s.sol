@@ -79,7 +79,7 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             wormholeCoreBridge: wormhole,
             consistencyLevel: uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL")),
             customConsistencyLevel: uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0))),
-            addtlBlocks: uint16(vm.envOr("RELEASE_ADDTL_BLOCKS", uint256(0))),
+            additionalBlocks: uint16(vm.envOr("RELEASE_ADDITIONAL_BLOCKS", uint256(0))),
             customConsistencyLevelAddress: vm.envOr(
                 "RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0)
             ),

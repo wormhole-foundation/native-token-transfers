@@ -4602,14 +4602,12 @@ async function getImmutables<N extends Network, C extends Chain>(
     0
   )) as EvmNttWormholeTranceiver<N, EvmChains>;
   const consistencyLevel = await transceiver.transceiver.consistencyLevel();
-  const gasLimit = await transceiver.transceiver.gasLimit();
 
   const token = await evmNtt.manager.token();
   const tokenDecimals = await evmNtt.manager.tokenDecimals();
 
   const whTransceiverImmutables = {
     consistencyLevel,
-    gasLimit,
   };
   return {
     manager: {

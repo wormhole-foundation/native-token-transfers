@@ -36,18 +36,16 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
         address wormholeCoreBridge,
         uint8 _consistencyLevel,
         uint8 _customConsistencyLevel,
-        uint16 _addtlBlocks,
-        address _customConsistencyLevelAddress,
-        uint256 _gasLimit
+        uint16 _additionalBlocks,
+        address _customConsistencyLevelAddress
     )
         WormholeTransceiverState(
             nttManager,
             wormholeCoreBridge,
             _consistencyLevel,
             _customConsistencyLevel,
-            _addtlBlocks,
-            _customConsistencyLevelAddress,
-            _gasLimit
+            _additionalBlocks,
+            _customConsistencyLevelAddress
         )
     {}
 
