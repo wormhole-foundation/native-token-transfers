@@ -4667,7 +4667,7 @@ async function pullDeployments(
   const ntts = Object.fromEntries(
     Object.entries(deps).map(([k, v]) => [k, v.ntt])
   );
-  await pullInboundLimits(ntts, config, verbose);
+  await pullInboundLimits(ntts, config, verbose, concurrency);
   return deps;
 }
 
@@ -4892,39 +4892,70 @@ async function askForConfirmation(
 async function pullInboundLimits(
   ntts: Partial<{ [C in Chain]: Ntt<Network, C> }>,
   config: Config["chains"],
-  verbose: boolean
+  verbose: boolean,
+  concurrency: number = 1
 ) {
-  for (const [c1, ntt1] of Object.entries(ntts)) {
-    assertChain(c1);
-    const chainConf = config[c1];
+  const entries = Object.entries(ntts).filter(
+    ([, ntt]) => ntt !== undefined
+  ) as [string, Ntt<Network, Chain>][];
+  const decimalsByChain: Partial<Record<Chain, number>> = {};
+  for (const [chain, ntt] of entries) {
+    assertChain(chain);
+    const chainConf = config[chain];
     if (!chainConf) {
-      console.error(`Chain ${c1} not found in deployment`);
+      console.error(`Chain ${chain} not found in deployment`);
       process.exit(1);
     }
-    const decimals = await ntt1.getTokenDecimals();
-    for (const [c2, ntt2] of Object.entries(ntts)) {
-      assertChain(c2);
-      if (ntt1 === ntt2) {
+    if (chainConf.limits?.inbound === undefined) {
+      chainConf.limits.inbound = {};
+    }
+    decimalsByChain[chain] = await ntt.getTokenDecimals();
+  }
+  type InboundTask = {
+    fromChain: Chain;
+    toChain: Chain;
+    fromNtt: Ntt<Network, Chain>;
+  };
+  const tasks: InboundTask[] = [];
+  for (const [fromChain, fromNtt] of entries) {
+    assertChain(fromChain);
+    for (const [toChain, toNtt] of entries) {
+      assertChain(toChain);
+      if (fromNtt === toNtt) {
         continue;
       }
-      if (verbose) {
-        process.stdout.write(
-          `Fetching inbound limit for ${c1} -> ${c2}.......\n`
-        );
-      }
-      const peer = await retryWithExponentialBackoff(
-        () => ntt1.getPeer(c2),
-        5,
-        5000
-      );
-      if (chainConf.limits?.inbound === undefined) {
-        chainConf.limits.inbound = {};
-      }
-
-      const limit = peer?.inboundLimit ?? 0n;
-
-      chainConf.limits.inbound[c2] = formatNumber(limit, decimals);
+      tasks.push({ fromChain, toChain, fromNtt });
     }
+  }
+  const runTask = async (task: InboundTask) => {
+    const { fromChain, toChain, fromNtt } = task;
+    if (verbose) {
+      process.stdout.write(
+        `Fetching inbound limit for ${fromChain} -> ${toChain}.......\n`
+      );
+    }
+    const peer = await retryWithExponentialBackoff(
+      () => fromNtt.getPeer(toChain),
+      5,
+      5000
+    );
+    const limit = peer?.inboundLimit ?? 0n;
+    const decimals = decimalsByChain[fromChain];
+    if (decimals === undefined) {
+      console.error(`Token decimals not found for chain ${fromChain}`);
+      process.exit(1);
+    }
+    config[fromChain]!.limits!.inbound![toChain] = formatNumber(
+      limit,
+      decimals
+    );
+  };
+  if (concurrency <= 1) {
+    for (const task of tasks) {
+      await runTask(task);
+    }
+  } else {
+    await runTaskPool(tasks, concurrency, runTask);
   }
 }
 
