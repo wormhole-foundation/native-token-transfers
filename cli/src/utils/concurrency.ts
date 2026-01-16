@@ -1,3 +1,4 @@
+// Run async tasks with a fixed concurrency cap, preserving input order.
 export async function runTaskPool<T, R>(
   items: T[],
   concurrency: number,
