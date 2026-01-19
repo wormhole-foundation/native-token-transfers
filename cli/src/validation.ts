@@ -164,7 +164,7 @@ export function printMissingConfigReport(
   return true;
 }
 
-/** Collect missing implicit config across deployments (peers, relaying flags, Solana LUT/transceiver). */
+/** Collect missing implicit config across deployments (peers, Solana LUT/transceiver). */
 export async function collectMissingConfigs(
   deps: Partial<{ [C in Chain]: Deployment<Chain> }>,
   verbose: boolean
