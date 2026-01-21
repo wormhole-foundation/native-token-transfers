@@ -1137,7 +1137,7 @@ yargs(hideBin(process.argv))
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // now loop through the chains, and query their peer information to get the inbound limits
-      await pullInboundLimits(ntts, sorted, verbose);
+      await pullInboundLimits(ntts, sorted, verbose, maxConcurrent);
 
       const deployment: Config = {
         network: argv["network"],
