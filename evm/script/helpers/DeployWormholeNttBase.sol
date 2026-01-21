@@ -33,13 +33,8 @@ contract DeployWormholeNttBase is ParseNttConfig {
         uint8 customConsistencyLevel; // CCL only: finality level to start counting (200/201/202)
         uint16 additionalBlocks; // CCL only: additional blocks to wait
         address customConsistencyLevelAddress; // CCL only: CCL contract address
-        uint256 gasLimit;
         uint256 outboundLimit;
     }
-
-    // The minimum gas limit to verify a message on mainnet. If you're worried about saving
-    // gas on testnet, pick up the phone and start dialing!
-    uint256 constant MIN_WORMHOLE_GAS_LIMIT = 150000;
 
     function deployNttManagerImplementation(
         string memory variantStr,
@@ -174,9 +169,6 @@ contract DeployWormholeNttBase is ParseNttConfig {
         params.additionalBlocks = uint16(vm.envOr("RELEASE_ADDITIONAL_BLOCKS", uint256(0)));
         params.customConsistencyLevelAddress =
             vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
-
-        params.gasLimit = vm.envUint("RELEASE_GAS_LIMIT");
-        require(params.gasLimit >= MIN_WORMHOLE_GAS_LIMIT, "Invalid gas limit");
 
         // Outbound rate limiter limit.
         params.outboundLimit = vm.envUint("RELEASE_OUTBOUND_LIMIT");

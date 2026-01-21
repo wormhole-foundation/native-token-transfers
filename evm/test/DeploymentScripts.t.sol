@@ -35,7 +35,6 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
     uint8 constant CCL_CONSISTENCY_LEVEL = 203; // Enables Custom Consistency Level feature
     uint8 constant CUSTOM_CONSISTENCY_LEVEL = 200; // Start counting from instant finality (200)
     uint16 constant ADDTL_BLOCKS = 3; // Wait 3 additional blocks beyond CCL
-    uint256 constant GAS_LIMIT = 500000;
     uint64 constant RATE_LIMIT_DURATION = 1 days;
 
     uint256 constant DEVNET_GUARDIAN_PK =
@@ -248,7 +247,6 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
             customConsistencyLevel: 0,
             additionalBlocks: 0,
             customConsistencyLevelAddress: address(0),
-            gasLimit: GAS_LIMIT,
             outboundLimit: type(uint64).max
         });
     }

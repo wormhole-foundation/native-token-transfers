@@ -83,7 +83,6 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             customConsistencyLevelAddress: vm.envOr(
                 "RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0)
             ),
-            gasLimit: vm.envUint("RELEASE_GAS_LIMIT"),
             outboundLimit: uint256(type(uint64).max) * scale
         });
 
