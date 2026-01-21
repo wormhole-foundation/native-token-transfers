@@ -1088,33 +1088,19 @@ yargs(hideBin(process.argv))
           return { chain: c, status: "error", stage: "config", error: e };
         }
       };
-      const peerResults: PeerResult[] = [];
       let completed = 0;
-      let nextIndex = 0;
-      const runPool = async <T>(
-        items: T[],
-        concurrency: number,
-        task: (item: T) => Promise<PeerResult>
-      ) => {
-        const worker = async () => {
-          while (true) {
-            const index = nextIndex++;
-            if (index >= items.length) {
-              return;
-            }
-            const item = items[index]!;
-            const result = await task(item);
-            peerResults.push(result);
-            completed++;
-            updateStatusLine(
-              `[${completed}/${total}] Fetching peer config for ${item}`
-            );
-          }
-        };
-        const workerCount = Math.min(concurrency, items.length);
-        await Promise.all(Array.from({ length: workerCount }, () => worker()));
-      };
-      await runPool(peerChains, maxConcurrent, fetchPeerConfig);
+      const peerResults = await runTaskPool(
+        peerChains,
+        maxConcurrent,
+        async (item) => {
+          const result = await fetchPeerConfig(item);
+          completed++;
+          updateStatusLine(
+            `[${completed}/${total}] Fetching peer config for ${item}`
+          );
+          return result;
+        }
+      );
       updateStatusLine(
         `[${total}/${total}] Completed attempt fetching peer config for ${total} chain${
           total === 1 ? "" : "s"
