@@ -105,6 +105,7 @@ import { createTokenTransferCommand } from "./tokenTransfer";
 import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
 import { promptYesNo } from "./prompts.js";
+import { configureInboundLimitsForNewChain } from "./limits.js";
 import {
   loadOverrides,
   promptSolanaMainnetOverridesIfNeeded,
@@ -785,6 +786,11 @@ yargs(hideBin(process.argv))
       }
 
       deployments.chains[chain] = config;
+      await configureInboundLimitsForNewChain(
+        deployments,
+        chain,
+        Boolean(argv["yes"])
+      );
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
       console.log(`Added ${chain} to ${path}`);
     }
