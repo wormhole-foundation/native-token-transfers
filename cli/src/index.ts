@@ -78,7 +78,7 @@ export type { Deployment } from "./validation";
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
 const EXCLUDED_DIFF_PATHS = ["managerVariant"];
-// Cap concurrent read-only RPC calls; lower if you hit provider rate limits.
+// Cap concurrent read-only RPC calls; lower if you hit rate limits (override with --rpc-concurrency).
 const DEFAULT_MAX_CONCURRENT = 6;
 
 // Helper functions for nested object access
@@ -437,7 +437,28 @@ const options = {
     type: "array",
     choices: chains,
   },
+  rpcConcurrency: {
+    describe: "Max concurrent read-only RPC calls",
+    type: "number",
+    default: DEFAULT_MAX_CONCURRENT,
+  },
 } as const;
+
+function resolveRpcConcurrency(raw: unknown): number {
+  if (Array.isArray(raw)) {
+    console.error("--rpc-concurrency may only be specified once");
+    process.exit(1);
+  }
+  if (raw === undefined) {
+    return DEFAULT_MAX_CONCURRENT;
+  }
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    console.error("--rpc-concurrency must be a positive number");
+    process.exit(1);
+  }
+  return Math.max(1, Math.floor(value));
+}
 
 /**
  * Executes a callback with deployment scripts, optionally overriding them with version 1 scripts.
@@ -1115,6 +1136,7 @@ yargs(hideBin(process.argv))
         .positional("address", options.address)
         .option("path", options.deploymentPath)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 clone Testnet Ethereum 0x5678...",
           "Clone an existing Ethereum deployment on Testnet"
@@ -1131,6 +1153,7 @@ yargs(hideBin(process.argv))
 
       const path = argv["path"];
       const verbose = argv["verbose"];
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
       // check if the file exists
       if (fs.existsSync(path)) {
         console.error(`Deployment file already exists at ${path}`);
@@ -1205,7 +1228,6 @@ yargs(hideBin(process.argv))
           };
       const peerChains = chains.filter((c) => c !== chain);
       const total = peerChains.length;
-      const maxConcurrent = DEFAULT_MAX_CONCURRENT;
       const fetchPeerConfig = async (c: Chain): Promise<PeerResult> => {
         let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
         try {
@@ -1383,6 +1405,7 @@ yargs(hideBin(process.argv))
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 pull",
           "Pull the latest configuration from the blockchain for all chains"
@@ -1396,7 +1419,7 @@ yargs(hideBin(process.argv))
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
       const path = argv["path"];
-      const maxConcurrent = DEFAULT_MAX_CONCURRENT;
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose, maxConcurrent);
 
@@ -1678,6 +1701,7 @@ yargs(hideBin(process.argv))
       yargs
         .option("path", options.deploymentPath)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 status",
           "Check the status of the deployment across all chains"
@@ -1693,7 +1717,7 @@ yargs(hideBin(process.argv))
       const deployments: Config = loadConfig(path);
 
       const network = deployments.network as Network;
-      const maxConcurrent = DEFAULT_MAX_CONCURRENT;
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
 
       let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
         await pullDeployments(deployments, network, verbose, maxConcurrent);
