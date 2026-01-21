@@ -121,6 +121,99 @@ import type { Deployment } from "./validation";
 // simple. on evm we need to simulate with prank)
 const overrides: WormholeConfigOverrides<Network> = loadOverrides();
 
+// Custom Consistency Level (CCL) configuration
+type CclConfig = {
+  customConsistencyLevel: number; // 200, 201, or 202
+  additionalBlocks: number;
+  cclContractAddress: string;
+};
+
+// Known CCL contract addresses by chain and network
+const CCL_CONTRACT_ADDRESSES: Partial<
+  Record<Network, Partial<Record<Chain, string>>>
+> = {
+  Testnet: {
+    Sepolia: "0x6A4B4A882F5F0a447078b4Fd0b4B571A82371ec2",
+    Linea: "0x6A4B4A882F5F0a447078b4Fd0b4B571A82371ec2",
+  },
+  Mainnet: {
+    // Add mainnet addresses here when available
+  },
+};
+
+/**
+ * Parse the --unsafe-custom-finality flag value
+ * Format: "level:blocks" where level is 200/201/202 and blocks is additional wait
+ * Example: "200:5" means instant + 5 blocks
+ */
+function parseCclFlag(
+  value: string,
+  network: Network,
+  chain: Chain
+): CclConfig | null {
+  if (!value) return null;
+
+  const parts = value.split(":");
+  if (parts.length !== 2) {
+    throw new Error(
+      "Invalid --unsafe-custom-finality format. Expected 'level:blocks' (e.g., '200:5')"
+    );
+  }
+
+  const customConsistencyLevel = parseInt(parts[0], 10);
+  const additionalBlocks = parseInt(parts[1], 10);
+
+  // Validate consistency level
+  if (![200, 201, 202].includes(customConsistencyLevel)) {
+    throw new Error(
+      `Invalid consistency level: ${customConsistencyLevel}. Must be 200 (instant), 201 (safe), or 202 (finalized)`
+    );
+  }
+
+  // Validate additional blocks
+  if (isNaN(additionalBlocks) || additionalBlocks < 0) {
+    throw new Error(
+      `Invalid additional blocks: ${parts[1]}. Must be a non-negative integer`
+    );
+  }
+
+  // Get CCL contract address for the chain and network
+  const networkAddresses = CCL_CONTRACT_ADDRESSES[network];
+  const cclContractAddress = networkAddresses?.[chain];
+  if (!cclContractAddress) {
+    throw new Error(
+      `No CCL contract address known for chain ${chain} on ${network}. Please contact Wormhole team for the correct address.`
+    );
+  }
+
+  return {
+    customConsistencyLevel,
+    additionalBlocks,
+    cclContractAddress,
+  };
+}
+
+/**
+ * Display warning and get confirmation for custom finality usage
+ */
+async function confirmCustomFinality(): Promise<boolean> {
+  const warningMessage = `
+${colors.yellow("⚠️⚠️⚠️ Custom finality is an advanced feature. Wormhole Contributors recommend to use this with caution.")}
+
+${colors.yellow("Choosing a level of finality other than ")}${colors.cyan("`finalized`")}${colors.yellow(" on EVM chains exposes you to re-org risk")} (https://www.alchemy.com/overviews/what-is-a-reorg). ${colors.yellow("This is especially dangerous when moving assets cross-chain, because it means that assets released or minted on the destination chain may not have been burned or locked on the source chain.")}
+
+${colors.yellow('To select a custom finality level, Wormhole Contributors recommend referring to information on forked blocks in blockchain explorers, paying attention to the "ReorgDepth" column.')}
+  ${colors.cyan("- Ethereum: https://etherscan.io/blocks_forked?p=1")}
+  ${colors.cyan("- Polygon: https://polygonscan.com/blocks_forked")}
+  ${colors.cyan("- …")}
+
+${colors.yellow("By proceeding, you affirm that you understand, and are comfortable with, the risks of setting a custom finality level, and you understand the re-org/rollback risks of Custom finality, accept sole responsibility, and agree the Wormhole Parties have no liability for losses arising from your selection.")}
+`;
+
+  console.log(warningMessage);
+  return await promptYesNo("Do you want to proceed?", { defaultYes: false });
+}
+
 // Setup Sui environment for consistent CLI usage with automatic cleanup
 async function withSuiEnv<N extends Network, C extends Chain, T>(
   pwd: string,
@@ -634,6 +727,11 @@ yargs(hideBin(process.argv))
           choices: ["standard", "noRateLimiting", "wethUnwrap"],
           default: "standard",
         })
+        .option("unsafe-custom-finality", {
+          describe:
+            "Enable custom consistency level (CCL) for advanced finality control (EVM only). Format: 'level:blocks' where level is 200 (instant), 201 (safe), or 202 (finalized), and blocks is additional wait time. Example: '200:5' means instant + 5 blocks. Requires explicit confirmation.",
+          type: "string",
+        })
         .example(
           "$0 add-chain Ethereum --token 0x1234... --mode burning --latest",
           "Add Ethereum chain with the latest contract version in burning mode"
@@ -683,6 +781,38 @@ yargs(hideBin(process.argv))
         overrides,
         Boolean(argv["yes"])
       );
+
+      // Parse and validate CCL configuration (EVM only)
+      let cclConfig: CclConfig | null = null;
+      const platform = chainToPlatform(chain);
+      if (argv["unsafe-custom-finality"]) {
+        if (platform !== "Evm") {
+          console.error(
+            colors.red(
+              "Error: --unsafe-custom-finality is only supported for EVM chains"
+            )
+          );
+          process.exit(1);
+        }
+
+        try {
+          cclConfig = parseCclFlag(
+            argv["unsafe-custom-finality"],
+            network,
+            chain
+          );
+
+          // Show warning and get confirmation
+          const confirmed = await confirmCustomFinality();
+          if (!confirmed) {
+            console.log("Aborting deployment");
+            process.exit(0);
+          }
+        } catch (error) {
+          console.error(colors.red(`Error: ${(error as Error).message}`));
+          process.exit(1);
+        }
+      }
 
       const existsLocking = Object.values(deployments.chains).some(
         (c) => c.mode === "locking"
@@ -767,7 +897,8 @@ yargs(hideBin(process.argv))
         argv["sui-package-path"],
         argv["sui-wormhole-state"],
         argv["sui-treasury-cap"],
-        argv["gas-estimate-multiplier"]
+        argv["gas-estimate-multiplier"],
+        cclConfig
       );
 
       const [config, _ctx, _ntt, decimals] = await pullChainConfig(
@@ -779,7 +910,6 @@ yargs(hideBin(process.argv))
       console.log("token decimals:", colors.yellow(decimals));
 
       // Add manager variant to config for EVM chains
-      const platform = chainToPlatform(chain);
       if (platform === "Evm" && argv["manager-variant"]) {
         config.managerVariant = argv["manager-variant"];
       }
@@ -2945,7 +3075,8 @@ async function deploy<N extends Network, C extends Chain>(
   suiPackagePath?: string,
   suiWormholeState?: string,
   suiTreasuryCap?: string,
-  gasEstimateMultiplier?: number
+  gasEstimateMultiplier?: number,
+  cclConfig?: CclConfig | null
 ): Promise<ChainAddress<C> | SuiDeploymentResult<C>> {
   if (version === null) {
     await warnLocalDeployment(yes);
@@ -2962,7 +3093,8 @@ async function deploy<N extends Network, C extends Chain>(
         signerType,
         evmVerify,
         managerVariant || "standard",
-        gasEstimateMultiplier
+        gasEstimateMultiplier,
+        cclConfig
       );
     case "Solana":
       if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
@@ -3011,7 +3143,8 @@ async function deployEvm<N extends Network, C extends Chain>(
   signerType: SignerType,
   verify: boolean,
   managerVariant: string,
-  gasEstimateMultiplier?: number
+  gasEstimateMultiplier?: number,
+  cclConfig?: CclConfig | null
 ): Promise<ChainAddress<C>> {
   ensureNttRoot(pwd);
 
@@ -3105,10 +3238,20 @@ ${simulateArg} \
             RELEASE_TOKEN_ADDRESS: token,
             RELEASE_DECIMALS: decimals.toString(),
             RELEASE_MODE: modeUint.toString(),
-            RELEASE_CONSISTENCY_LEVEL: "202",
+            RELEASE_CONSISTENCY_LEVEL: cclConfig ? "203" : "202",
             RELEASE_GAS_LIMIT: "500000",
             MANAGER_VARIANT: managerVariant,
           };
+
+          // Add CCL-specific environment variables when CCL is enabled
+          if (cclConfig) {
+            env.RELEASE_CUSTOM_CONSISTENCY_LEVEL =
+              cclConfig.customConsistencyLevel.toString();
+            env.RELEASE_ADDITIONAL_BLOCKS =
+              cclConfig.additionalBlocks.toString();
+            env.RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS =
+              cclConfig.cclContractAddress;
+          }
 
           command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url "${rpc}" \
@@ -3175,6 +3318,31 @@ ${simulateArg} \
     process.exit(1);
   }
   const universalManager = toUniversal(ch.chain, manager);
+
+  // Display CCL configuration summary if CCL was used
+  if (cclConfig) {
+    const levelNames: Record<number, string> = {
+      200: "instant",
+      201: "safe",
+      202: "finalized",
+    };
+    console.log("");
+    console.log(colors.cyan("Custom Consistency Level Configuration:"));
+    console.log(colors.cyan(`  - Consistency Level: 203 (Custom)`));
+    console.log(
+      colors.cyan(
+        `  - Base Finality: ${cclConfig.customConsistencyLevel} (${levelNames[cclConfig.customConsistencyLevel]})`
+      )
+    );
+    console.log(
+      colors.cyan(`  - Additional Blocks: ${cclConfig.additionalBlocks}`)
+    );
+    console.log(
+      colors.cyan(`  - CCL Contract: ${cclConfig.cclContractAddress}`)
+    );
+    console.log("");
+  }
+
   return { chain: ch.chain, address: universalManager };
 }
 
@@ -4602,14 +4770,35 @@ async function getImmutables<N extends Network, C extends Chain>(
     0
   )) as EvmNttWormholeTranceiver<N, EvmChains>;
   const consistencyLevel = await transceiver.transceiver.consistencyLevel();
-  const gasLimit = await transceiver.transceiver.gasLimit();
 
   const token = await evmNtt.manager.token();
   const tokenDecimals = await evmNtt.manager.tokenDecimals();
 
+  // Fetch CCL parameters if consistency level is 203 (custom)
+  let customConsistencyLevel: bigint | undefined;
+  let additionalBlocks: bigint | undefined;
+  let customConsistencyLevelAddress: string | undefined;
+
+  if (consistencyLevel === 203n) {
+    try {
+      customConsistencyLevel =
+        await transceiver.transceiver.customConsistencyLevel();
+      additionalBlocks = await transceiver.transceiver.additionalBlocks();
+      customConsistencyLevelAddress =
+        await transceiver.transceiver.customConsistencyLevelAddress();
+    } catch (error) {
+      // CCL parameters might not be available in older versions
+      console.warn("Warning: Could not fetch CCL parameters from transceiver");
+    }
+  }
+
   const whTransceiverImmutables = {
     consistencyLevel,
-    gasLimit,
+    ...(customConsistencyLevel !== undefined && { customConsistencyLevel }),
+    ...(additionalBlocks !== undefined && { additionalBlocks }),
+    ...(customConsistencyLevelAddress !== undefined && {
+      customConsistencyLevelAddress,
+    }),
   };
   return {
     manager: {
