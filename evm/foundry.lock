@@ -1,0 +1,14 @@
+{
+  "lib/forge-std": {
+    "rev": "36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "0457042d93d9dfd760dbaa06a4d2f1216fdbe297"
+  },
+  "lib/solidity-bytes-utils": {
+    "rev": "e0115c4d231910df47ce3b60625ce562fe4af985"
+  },
+  "lib/wormhole-solidity-sdk": {
+    "rev": "b9e129e65d34827d92fceeed8c87d3ecdfc801d0"
+  }
+}
