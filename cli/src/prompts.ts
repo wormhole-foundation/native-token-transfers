@@ -29,7 +29,7 @@ export async function promptLine(
     rl.once("SIGINT", () => {
       process.stdout.write("\n");
       if (abortOnSigint) {
-        process.exit(0);
+        process.exit(130);
       }
       settle("");
       rl.close();
