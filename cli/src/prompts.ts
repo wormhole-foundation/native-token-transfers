@@ -1,10 +1,18 @@
 import readline from "readline";
 
-export async function promptLine(prompt: string): Promise<string> {
+type PromptOptions = {
+  abortOnSigint?: boolean;
+};
+
+export async function promptLine(
+  prompt: string,
+  options?: PromptOptions
+): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
+  const abortOnSigint = options?.abortOnSigint ?? false;
 
   return new Promise((resolve) => {
     let settled = false;
@@ -18,6 +26,9 @@ export async function promptLine(prompt: string): Promise<string> {
 
     rl.once("SIGINT", () => {
       process.stdout.write("\n");
+      if (abortOnSigint) {
+        process.exit(0);
+      }
       settle("");
       rl.close();
     });
@@ -37,11 +48,17 @@ export async function promptLine(prompt: string): Promise<string> {
 
 export async function promptYesNo(
   prompt: string,
-  options?: { defaultYes?: boolean }
+  options?: { defaultYes?: boolean; abortOnSigint?: boolean }
 ): Promise<boolean> {
   const defaultYes = options?.defaultYes ?? false;
   const suffix = defaultYes ? " [Y/n]" : " [y/N]";
-  const answer = (await promptLine(`${prompt}${suffix}`)).trim().toLowerCase();
+  const answer = (
+    await promptLine(`${prompt}${suffix}`, {
+      abortOnSigint: options?.abortOnSigint,
+    })
+  )
+    .trim()
+    .toLowerCase();
   if (!answer) {
     return defaultYes;
   }
