@@ -219,8 +219,8 @@ async function applyInboundGroups(
             ? "missing"
             : isZeroLimit(current)
               ? "zero"
-              : "set";
-        return status === "set" ? source : `${source} (${status})`;
+              : "";
+        return status ? `${source} (${status})` : source;
       })
       .sort((a, b) => a.localeCompare(b));
     console.log(
