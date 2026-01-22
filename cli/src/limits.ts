@@ -77,6 +77,7 @@ function collectMissingInboundGroups(
       if (source === destination) {
         continue;
       }
+      // Only consider pairs where either side is the new chain.
       if (source !== newChain && destination !== newChain) {
         continue;
       }
@@ -133,6 +134,7 @@ function collectMissingInboundGroupsForAll(
       if (source === destination) {
         continue;
       }
+      // Scan all destination<-source pairs for missing/zero limits.
       const current = destinationConfig.limits?.inbound?.[source];
       if (current !== undefined && !isZeroLimit(current)) {
         continue;
@@ -251,13 +253,13 @@ async function applyInboundGroups(
           `Default: ${group.defaultLimit}`,
           "> ",
         ].join("\n");
-        const answer = (await promptLine(prompt, { abortOnSigint: true })).trim();
+        const answer = (
+          await promptLine(prompt, { abortOnSigint: true })
+        ).trim();
         let value = answer || group.defaultLimit;
         if (answer === "0") {
           value =
-            group.decimals === 0
-              ? "0"
-              : `0.${"0".repeat(group.decimals)}`;
+            group.decimals === 0 ? "0" : `0.${"0".repeat(group.decimals)}`;
         }
         if (!isValidLimit(value, group.decimals)) {
           console.error(

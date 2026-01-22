@@ -4,6 +4,7 @@ type PromptOptions = {
   abortOnSigint?: boolean;
 };
 
+/** Prompt for a single line of input from stdin. */
 export async function promptLine(
   prompt: string,
   options?: PromptOptions
@@ -12,6 +13,7 @@ export async function promptLine(
     input: process.stdin,
     output: process.stdout,
   });
+  // When enabled, treat Ctrl+C as a hard abort.
   const abortOnSigint = options?.abortOnSigint ?? false;
 
   return new Promise((resolve) => {
@@ -46,6 +48,7 @@ export async function promptLine(
   });
 }
 
+/** Prompt for a yes/no confirmation and return the choice. */
 export async function promptYesNo(
   prompt: string,
   options?: { defaultYes?: boolean; abortOnSigint?: boolean }
