@@ -47,6 +47,8 @@ export namespace Ntt {
       postMessageShimOverride?: string;
       verifyVaaShimOverride?: string;
     };
+    /** Estimated time of arrival in milliseconds */
+    eta?: number;
   };
 
   export const DEFAULT_SVM_SHIM_ADDRESSES: {
