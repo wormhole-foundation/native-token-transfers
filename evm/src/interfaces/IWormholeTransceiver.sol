@@ -12,14 +12,6 @@ interface IWormholeTransceiver is IWormholeTransceiverState {
         bool shouldSkipRelayerSend;
     }
 
-    /// @notice Emitted when a relayed message is received.
-    /// @dev Topic0
-    ///      0xf557dbbb087662f52c815f6c7ee350628a37a51eae9608ff840d996b65f87475
-    /// @param digest The digest of the message.
-    /// @param emitterChainId The chain ID of the emitter.
-    /// @param emitterAddress The address of the emitter.
-    event ReceivedRelayedMessage(bytes32 digest, uint16 emitterChainId, bytes32 emitterAddress);
-
     /// @notice Emitted when a message is received.
     /// @dev Topic0
     ///     0xf6fc529540981400dc64edf649eb5e2e0eb5812a27f8c81bac2c1d317e71a5f0.
@@ -39,11 +31,6 @@ interface IWormholeTransceiver is IWormholeTransceiverState {
     event SendTransceiverMessage(
         uint16 recipientChain, TransceiverStructs.TransceiverMessage message
     );
-
-    /// @notice Error when the relaying configuration is invalid. (e.g. chainId is not registered)
-    /// @dev Selector: 0x9449a36c.
-    /// @param chainId The chain ID that is invalid.
-    error InvalidRelayingConfig(uint16 chainId);
 
     /// @notice Error when the peer transceiver is invalid.
     /// @dev Selector: 0x79b1ce56.
