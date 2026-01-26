@@ -158,8 +158,9 @@ export class NttManualRoute<N extends Network>
         amount: dstAmount,
       },
       eta:
+        params.normalizedParams.sourceContracts.eta ??
         finality.estimateFinalityTime(request.fromChain.chain) +
-        guardians.guardianAttestationEta * 1000,
+          guardians.guardianAttestationEta * 1000,
     };
     const { fromChain, toChain } = request;
     const dstNtt = await toChain.getProtocol("Ntt", {
