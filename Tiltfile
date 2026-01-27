@@ -2,18 +2,24 @@ load('ext://namespace', 'namespace_create', 'namespace_inject')
 load('ext://git_resource', 'git_checkout')
 
 git_checkout('https://github.com/wormhole-foundation/wormhole.git#main', '.wormhole/', unsafe_mode=True)
-local(['sed','-i.bak','s/{chainId: vaa.ChainIDEthereum, addr: "000000000000000000000000855FA758c77D68a04990E992aA4dcdeF899F654A"},/{chainId: vaa.ChainIDEthereum, addr: "000000000000000000000000855FA758c77D68a04990E992aA4dcdeF899F654A"},{chainId: vaa.ChainIDSolana, addr: "8bf0b547c96edc5c1d512ca25c5c1d1812a180438a0046e511d1fb61561d5cdf"},{chainId: vaa.ChainIDSolana, addr: "0a490691c21334ca173d9ce386e2a86774ce173f351db10d5d0cccc5c4875376"},{chainId: vaa.ChainIDEthereum, addr: "0000000000000000000000006f84742680311cef5ba42bc10a71a4708b4561d1"},{chainId: vaa.ChainIDEthereum, addr: "0000000000000000000000009ba423008e530c4d464da15f0c9652942216f019"},{chainId: vaa.ChainIDBSC, addr: "0000000000000000000000006f84742680311cef5ba42bc10a71a4708b4561d1"},{chainId: vaa.ChainIDBSC, addr: "000000000000000000000000baac7efcddde498b0b791eda92d43b20f5cd8ff6"},/g', '.wormhole/node/pkg/accountant/ntt_config.go'])
+local(['sed','-i.bak','s/{chainId: vaa.ChainIDEthereum, addr: "000000000000000000000000855FA758c77D68a04990E992aA4dcdeF899F654A"},/{chainId: vaa.ChainIDEthereum, addr: "000000000000000000000000855FA758c77D68a04990E992aA4dcdeF899F654A"},{chainId: vaa.ChainIDSolana, addr: "253e5fcb56de6013759d1bbed9c2b0940b7a556b9333957d37be63d9ba096dd3"},{chainId: vaa.ChainIDSolana, addr: "739c49640a801d835bae7c77b64f1c6403c1665e443b87bb4147c75187750830"},{chainId: vaa.ChainIDEthereum, addr: "0000000000000000000000006f84742680311cef5ba42bc10a71a4708b4561d1"},{chainId: vaa.ChainIDEthereum, addr: "0000000000000000000000009ba423008e530c4d464da15f0c9652942216f019"},{chainId: vaa.ChainIDBSC, addr: "0000000000000000000000006f84742680311cef5ba42bc10a71a4708b4561d1"},{chainId: vaa.ChainIDBSC, addr: "000000000000000000000000baac7efcddde498b0b791eda92d43b20f5cd8ff6"},/g', '.wormhole/node/pkg/accountant/ntt_config.go'])
 
 load(".wormhole/Tiltfile", "namespace", "k8s_yaml_with_ns")
 
-# Solana deploy
+# Registry for pre-built images (speeds up CI builds via layer caching)
+REGISTRY = "ghcr.io/wormhole-foundation/native-token-transfers"
+
+# Solana deploy - uses cache_from for faster CI builds
+# Note: Must use 'builder' target (not 'export') because Dockerfile.test-validator
+# copies from ntt-solana-contract and needs the full builder filesystem
 docker_build(
     ref = "ntt-solana-contract",
     context = "./",
-    only = ["./sdk", "./solana"],
+    only = ["./sdk", "./solana", "./cli/package.json", "./sui/ts/package.json", "./evm/ts/package.json", "./package.json", "./bun.lock", "./bunfig.toml", "./tsconfig.json", "./tsconfig.cjs.json", "./tsconfig.esm.json"],
     ignore=["./sdk/__tests__", "./sdk/Dockerfile", "./sdk/ci.yaml", "./sdk/**/dist", "./sdk/node_modules", "./sdk/**/node_modules"],
     target = "builder",
     dockerfile = "./solana/Dockerfile",
+    cache_from = [REGISTRY + "/ntt-solana-contract:latest"],
 )
 docker_build(
     ref = "solana-test-validator",
@@ -30,23 +36,27 @@ k8s_resource(
     ],
 )
 
-# EVM build
+# EVM build - uses cache_from for faster CI builds
 docker_build(
     ref = "ntt-evm-contract",
     context = "./evm",
     dockerfile = "./evm/Dockerfile",
+    cache_from = [REGISTRY + "/ntt-evm-contract:latest"],
 )
 
-# CI tests
+# CI tests - uses cache_from for faster CI builds
 docker_build(
     ref = "ntt-ci",
     context = "./",
-    only=["./sdk", "./package.json", "./package-lock.json", "jest.config.ts", "tsconfig.json", "tsconfig.esm.json", "tsconfig.cjs.json", "tsconfig.test.json"],
+    only=["./sdk", "./cli/package.json", "./sui/ts/package.json", "./package.json", "./bun.lock", "./bunfig.toml", "jest.config.ts", "tsconfig.json", "tsconfig.esm.json", "tsconfig.cjs.json", "tsconfig.test.json"],
     dockerfile = "./sdk/Dockerfile",
+    cache_from = [REGISTRY + "/ntt-ci:latest"],
 )
 k8s_yaml_with_ns("./sdk/ci.yaml")
 k8s_resource(
     "ntt-ci-tests",
     labels = ["ntt"],
-    resource_deps = ["eth-devnet", "eth-devnet2", "solana-devnet", "guardian", "relayer-engine", "wormchain"],
+    # relayer-engine transitively depends on guardian, which depends on eth-devnet, eth-devnet2,
+    # solana-devnet, and wormchain. The init container in ci.yaml does the real health checks.
+    resource_deps = ["relayer-engine"],
 )

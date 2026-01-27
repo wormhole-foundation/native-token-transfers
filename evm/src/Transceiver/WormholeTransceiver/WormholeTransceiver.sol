@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/WormholeRelayerSDK.sol";
 import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
 import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 
 import "../../libraries/TransceiverHelpers.sol";
 import "../../libraries/TransceiverStructs.sol";
+import "../../libraries/ConfigMakers.sol";
 
 import "../../interfaces/IWormholeTransceiver.sol";
-import "../../interfaces/ISpecialRelayer.sol";
 import "../../interfaces/INttManager.sol";
+import "../../interfaces/ICustomConsistencyLevel.sol";
 
 import "./WormholeTransceiverState.sol";
 
@@ -21,35 +21,31 @@ import "./WormholeTransceiverState.sol";
 /// @dev This contract is responsible for sending and receiving NTT messages
 ///      that are authenticated through Wormhole Core.
 ///
-/// @dev Messages can be delivered either via standard relaying or special relaying, or
-///      manually via the core layer.
+/// @dev Messages are delivered manually via the core layer or through
+///      external relayers/executors that call receiveMessage directly.
 ///
 /// @dev Once a message is received, it is delivered to its corresponding
 ///      NttManager contract.
-contract WormholeTransceiver is
-    IWormholeTransceiver,
-    IWormholeReceiver,
-    WormholeTransceiverState
-{
+contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
     using BytesParsing for bytes;
 
-    string public constant WORMHOLE_TRANSCEIVER_VERSION = "1.1.0";
+    string public constant WORMHOLE_TRANSCEIVER_VERSION = "1.4.0";
 
     constructor(
         address nttManager,
         address wormholeCoreBridge,
-        address wormholeRelayerAddr,
-        address specialRelayerAddr,
         uint8 _consistencyLevel,
-        uint256 _gasLimit
+        uint8 _customConsistencyLevel,
+        uint16 _additionalBlocks,
+        address _customConsistencyLevelAddress
     )
         WormholeTransceiverState(
             nttManager,
             wormholeCoreBridge,
-            wormholeRelayerAddr,
-            specialRelayerAddr,
             _consistencyLevel,
-            _gasLimit
+            _customConsistencyLevel,
+            _additionalBlocks,
+            _customConsistencyLevelAddress
         )
     {}
 
@@ -70,54 +66,13 @@ contract WormholeTransceiver is
         // parse the encoded Transceiver payload
         TransceiverStructs.TransceiverMessage memory parsedTransceiverMessage;
         TransceiverStructs.NttManagerMessage memory parsedNttManagerMessage;
-        (parsedTransceiverMessage, parsedNttManagerMessage) = TransceiverStructs
-            .parseTransceiverAndNttManagerMessage(WH_TRANSCEIVER_PAYLOAD_PREFIX, payload);
+        (parsedTransceiverMessage, parsedNttManagerMessage) =
+            TransceiverStructs.parseTransceiverAndNttManagerMessage(
+                WH_TRANSCEIVER_PAYLOAD_PREFIX, payload
+            );
 
         _deliverToNttManager(
             sourceChainId,
-            parsedTransceiverMessage.sourceNttManagerAddress,
-            parsedTransceiverMessage.recipientNttManagerAddress,
-            parsedNttManagerMessage
-        );
-    }
-
-    /// @inheritdoc IWormholeReceiver
-    function receiveWormholeMessages(
-        bytes memory payload,
-        bytes[] memory additionalMessages,
-        bytes32 sourceAddress,
-        uint16 sourceChain,
-        bytes32 deliveryHash
-    ) external payable onlyRelayer {
-        if (getWormholePeer(sourceChain) != sourceAddress) {
-            revert InvalidWormholePeer(sourceChain, sourceAddress);
-        }
-
-        // VAA replay protection:
-        // - Note that this VAA is for the AR delivery, not for the raw message emitted by the source
-        // - chain Transceiver contract. The VAAs received by this entrypoint are different than the
-        // - VAA received by the receiveMessage entrypoint.
-        if (isVAAConsumed(deliveryHash)) {
-            revert TransferAlreadyCompleted(deliveryHash);
-        }
-        _setVAAConsumed(deliveryHash);
-
-        // We don't honor additional messages in this handler.
-        if (additionalMessages.length > 0) {
-            revert UnexpectedAdditionalMessages();
-        }
-
-        // emit `ReceivedRelayedMessage` event
-        emit ReceivedRelayedMessage(deliveryHash, sourceChain, sourceAddress);
-
-        // parse the encoded Transceiver payload
-        TransceiverStructs.TransceiverMessage memory parsedTransceiverMessage;
-        TransceiverStructs.NttManagerMessage memory parsedNttManagerMessage;
-        (parsedTransceiverMessage, parsedNttManagerMessage) = TransceiverStructs
-            .parseTransceiverAndNttManagerMessage(WH_TRANSCEIVER_PAYLOAD_PREFIX, payload);
-
-        _deliverToNttManager(
-            sourceChain,
             parsedTransceiverMessage.sourceNttManagerAddress,
             parsedTransceiverMessage.recipientNttManagerAddress,
             parsedNttManagerMessage
@@ -149,30 +104,10 @@ contract WormholeTransceiver is
     // ==================== Internal ========================================================
 
     function _quoteDeliveryPrice(
-        uint16 targetChain,
-        TransceiverStructs.TransceiverInstruction memory instruction
+        uint16, /* targetChain */
+        TransceiverStructs.TransceiverInstruction memory /* instruction */
     ) internal view override returns (uint256 nativePriceQuote) {
-        // Check the special instruction up front to see if we should skip sending via a relayer
-        WormholeTransceiverInstruction memory weIns =
-            parseWormholeTransceiverInstruction(instruction.payload);
-        if (weIns.shouldSkipRelayerSend) {
-            return wormhole.messageFee();
-        }
-
-        if (_checkInvalidRelayingConfig(targetChain)) {
-            revert InvalidRelayingConfig(targetChain);
-        }
-
-        if (_shouldRelayViaStandardRelaying(targetChain)) {
-            (uint256 cost,) = wormholeRelayer.quoteEVMDeliveryPrice(targetChain, 0, gasLimit);
-            return cost;
-        } else if (isSpecialRelayingEnabled(targetChain)) {
-            uint256 cost = specialRelayer.quoteDeliveryPrice(getNttManagerToken(), targetChain, 0);
-            // We need to pay both the special relayer cost and the Wormhole message fee independently
-            return cost + wormhole.messageFee();
-        } else {
-            return wormhole.messageFee();
-        }
+        return wormhole.messageFee();
     }
 
     function _sendMessage(
@@ -180,8 +115,8 @@ contract WormholeTransceiver is
         uint256 deliveryPayment,
         address caller,
         bytes32 recipientNttManagerAddress,
-        bytes32 refundAddress,
-        TransceiverStructs.TransceiverInstruction memory instruction,
+        bytes32, /* refundAddress */
+        TransceiverStructs.TransceiverInstruction memory, /* instruction */
         bytes memory nttManagerMessage
     ) internal override {
         (
@@ -195,54 +130,13 @@ contract WormholeTransceiver is
             new bytes(0)
         );
 
-        WormholeTransceiverInstruction memory weIns =
-            parseWormholeTransceiverInstruction(instruction.payload);
+        wormhole.publishMessage{value: deliveryPayment}(
+            0, encodedTransceiverPayload, consistencyLevel
+        );
 
-        if (!weIns.shouldSkipRelayerSend && _shouldRelayViaStandardRelaying(recipientChain)) {
-            // NOTE: standard relaying supports refunds. The amount to be refunded will be sent
-            // to a refundAddress specified by the client on the destination chain.
-
-            // push onto the stack again to avoid stack too deep error
-            bytes32 refundRecipient = refundAddress;
-            uint16 destinationChain = recipientChain;
-
-            wormholeRelayer.sendToEvm{value: deliveryPayment}(
-                destinationChain,
-                fromWormholeFormat(getWormholePeer(destinationChain)),
-                encodedTransceiverPayload,
-                0, // receiverValue
-                0, // paymentForExtraReceiverValue,
-                gasLimit,
-                destinationChain,
-                fromWormholeFormat(refundRecipient),
-                wormholeRelayer.getDefaultDeliveryProvider(),
-                new VaaKey[](0),
-                consistencyLevel
-            );
-
-            emit RelayingInfo(uint8(RelayingType.Standard), refundAddress, deliveryPayment);
-        } else if (!weIns.shouldSkipRelayerSend && isSpecialRelayingEnabled(recipientChain)) {
-            uint256 wormholeFee = wormhole.messageFee();
-            uint64 sequence = wormhole.publishMessage{value: wormholeFee}(
-                0, encodedTransceiverPayload, consistencyLevel
-            );
-            specialRelayer.requestDelivery{value: deliveryPayment - wormholeFee}(
-                getNttManagerToken(), recipientChain, 0, sequence
-            );
-
-            // NOTE: specialized relaying does not currently support refunds. The zero address
-            // is used as a placeholder for the refund address until support is added.
-            emit RelayingInfo(uint8(RelayingType.Special), bytes32(0), deliveryPayment);
-        } else {
-            wormhole.publishMessage{value: deliveryPayment}(
-                0, encodedTransceiverPayload, consistencyLevel
-            );
-
-            // NOTE: manual relaying does not currently support refunds. The zero address
-            // is used as refundAddress.
-            emit RelayingInfo(uint8(RelayingType.Manual), bytes32(0), deliveryPayment);
-        }
-
+        // NOTE: manual relaying does not currently support refunds. The zero address
+        // is used as refundAddress.
+        emit RelayingInfo(uint8(RelayingType.Manual), bytes32(0), deliveryPayment);
         emit SendTransceiverMessage(recipientChain, transceiverMessage);
     }
 

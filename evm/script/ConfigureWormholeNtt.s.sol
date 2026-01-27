@@ -10,8 +10,9 @@ import "../src/interfaces/IOwnableUpgradeable.sol";
 
 import {ParseNttConfig} from "./helpers/ParseNttConfig.sol";
 import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
-import {WormholeTransceiverState} from
-    "../src/Transceiver/WormholeTransceiver/WormholeTransceiverState.sol";
+import {
+    WormholeTransceiverState
+} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiverState.sol";
 
 contract ConfigureWormholeNtt is ParseNttConfig {
     using stdJson for string;
@@ -36,14 +37,6 @@ contract ConfigureWormholeNtt is ParseNttConfig {
             if (targetConfig.chainId == params.wormholeChainId) {
                 continue;
             } else {
-                // Set relayer.
-                if (targetConfig.isWormholeRelayingEnabled) {
-                    wormholeTransceiver.setIsWormholeRelayingEnabled(targetConfig.chainId, true);
-                    console2.log("Wormhole relaying enabled for chain", targetConfig.chainId);
-                } else if (targetConfig.isSpecialRelayingEnabled) {
-                    wormholeTransceiver.setIsSpecialRelayingEnabled(targetConfig.chainId, true);
-                    console2.log("Special relaying enabled for chain", targetConfig.chainId);
-                }
                 uint256 messageFee =
                     WormholeTransceiverState(address(wormholeTransceiver)).wormhole().messageFee();
                 // Set peer.
@@ -51,14 +44,6 @@ contract ConfigureWormholeNtt is ParseNttConfig {
                     targetConfig.chainId, targetConfig.wormholeTransceiver
                 );
                 console2.log("Wormhole peer set for chain", targetConfig.chainId);
-
-                // Set EVM chain.
-                if (targetConfig.isEvmChain) {
-                    wormholeTransceiver.setIsWormholeEvmChain(targetConfig.chainId, true);
-                    console2.log("EVM chain set for chain", targetConfig.chainId);
-                } else {
-                    console2.log("This is not an EVM chain, doing nothing");
-                }
             }
         }
     }

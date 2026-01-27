@@ -7,6 +7,7 @@ COPY solana/Cargo.lock Cargo.lock
 COPY solana/Cargo.toml Cargo.toml
 COPY solana/modules modules
 COPY solana/programs programs
+COPY solana/tests tests
 COPY solana/rust-toolchain rust-toolchain
 
 ENV RUST_BACKTRACE=1
@@ -22,6 +23,7 @@ RUN --mount=type=cache,target=/opt/solana/deps/target,id=build_anchor_ntt_target
 
 RUN cp ./target/sbf-solana-solana/release/example_native_token_transfers.so /opt/solana/deps/example_native_token_transfers.so
 RUN cp ./target/sbf-solana-solana/release/wormhole_governance.so /opt/solana/deps/wormhole_governance.so
+RUN cp ./target/sbf-solana-solana/release/ntt_transceiver.so /opt/solana/deps/ntt_transceiver.so
 
 RUN --mount=type=cache,target=/opt/solana/deps/target,id=build_anchor_ntt_target \
     --mount=type=cache,target=/usr/local/cargo/registry,id=cargo_registry \
@@ -29,6 +31,8 @@ RUN --mount=type=cache,target=/opt/solana/deps/target,id=build_anchor_ntt_target
     anchor build --arch sbf -- --no-default-features --features tilt-devnet2
 
 RUN cp ./target/sbf-solana-solana/release/example_native_token_transfers.so /opt/solana/deps/example_native_token_transfers_2.so
+RUN cp ./target/sbf-solana-solana/release/ntt_transceiver.so /opt/solana/deps/ntt_transceiver_2.so
+
 
 COPY solana/tilt /opt/solana/deps
 
@@ -53,23 +57,29 @@ COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.c
 COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl
 COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types
 
-FROM node:lts-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS governance
+FROM oven/bun:1.3.4-alpine@sha256:1d653098bf847813e26adb2435f932b7cfa3c132a7e25dd5216dbb1f67dbd118 AS governance
 
 WORKDIR /app
 
-# RUN apk add python3
-RUN apk add --no-cache make python3 gcc g++
+RUN apk add --no-cache make python3 gcc g++ jq
 
 COPY tsconfig.json tsconfig.json
 COPY tsconfig.cjs.json tsconfig.cjs.json
 COPY tsconfig.esm.json tsconfig.esm.json
+# Copy package files
 COPY package.json package.json
-COPY package-lock.json package-lock.json
+COPY bun.lock bun.lock
+COPY bunfig.toml bunfig.toml
 COPY sdk sdk
-RUN npm ci
-RUN npm run build
+COPY cli/package.json cli/package.json
+COPY sui/ts/package.json sui/ts/package.json
+COPY evm/ts/package.json evm/ts/package.json
+COPY solana/package.json solana/package.json
+
+RUN bun ci
+RUN bun run build
 
 WORKDIR /app/solana
 COPY solana/ts ts
 
-ENTRYPOINT [ "npx", "tsx" ]
+ENTRYPOINT [ "bunx", "tsx" ]

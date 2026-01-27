@@ -8,15 +8,20 @@ import "../../src/interfaces/INttManager.sol";
 import "../../src/interfaces/IWormholeTransceiver.sol";
 
 import {NttManager} from "../../src/NttManager/NttManager.sol";
-import {WormholeTransceiver} from
-    "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
+import {NttManagerNoRateLimiting} from "../../src/NttManager/NttManagerNoRateLimiting.sol";
+import {NttManagerWethUnwrap} from "../../src/NttManager/NttManagerWethUnwrap.sol";
+import {
+    WormholeTransceiver
+} from "../../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-
-interface IWormhole {
-    function messageFee() external view returns (uint256);
-}
+import {IWormhole} from "wormhole-solidity-sdk/interfaces/IWormhole.sol";
 
 contract DeployWormholeNttBase is ParseNttConfig {
+    /// @notice Parameters for deploying NTT contracts
+    /// @dev Custom Consistency Level (CCL) is enabled when consistencyLevel=203.
+    ///      CCL parameters: customConsistencyLevel (200/201/202), additionalBlocks, customConsistencyLevelAddress
+    ///      Example: consistencyLevel=203, customConsistencyLevel=200, additionalBlocks=3
+    ///               → Wait 3 blocks after instant finality
     struct DeploymentParams {
         address token;
         IManagerBase.Mode mode;
@@ -24,22 +29,49 @@ contract DeployWormholeNttBase is ParseNttConfig {
         uint64 rateLimitDuration;
         bool shouldSkipRatelimiter;
         address wormholeCoreBridge;
-        address wormholeRelayerAddr;
-        address specialRelayerAddr;
-        uint8 consistencyLevel;
-        uint256 gasLimit;
+        uint8 consistencyLevel; // Set to 203 to enable CCL
+        uint8 customConsistencyLevel; // CCL only: finality level to start counting (200/201/202)
+        uint16 additionalBlocks; // CCL only: additional blocks to wait
+        address customConsistencyLevelAddress; // CCL only: CCL contract address
         uint256 outboundLimit;
     }
 
-    // The minimum gas limit to verify a message on mainnet. If you're worried about saving
-    // gas on testnet, pick up the phone and start dialing!
-    uint256 constant MIN_WORMHOLE_GAS_LIMIT = 150000;
+    function deployNttManagerImplementation(
+        string memory variantStr,
+        address token,
+        IManagerBase.Mode mode,
+        uint16 wormholeChainId,
+        uint64 rateLimitDuration,
+        bool shouldSkipRatelimiter
+    ) internal returns (address implementation) {
+        // Deploy the appropriate Manager Implementation based on variant
+        if (keccak256(bytes(variantStr)) == keccak256(bytes("noRateLimiting"))) {
+            console2.log("Deploying NttManagerNoRateLimiting variant");
+            NttManagerNoRateLimiting impl =
+                new NttManagerNoRateLimiting(token, mode, wormholeChainId);
+            implementation = address(impl);
+        } else if (keccak256(bytes(variantStr)) == keccak256(bytes("wethUnwrap"))) {
+            console2.log("Deploying NttManagerWethUnwrap variant");
+            NttManagerWethUnwrap impl = new NttManagerWethUnwrap(
+                token, mode, wormholeChainId, rateLimitDuration, shouldSkipRatelimiter
+            );
+            implementation = address(impl);
+        } else {
+            // Default to standard NttManager
+            console2.log("Deploying standard NttManager variant");
+            NttManager impl = new NttManager(
+                token, mode, wormholeChainId, rateLimitDuration, shouldSkipRatelimiter
+            );
+            implementation = address(impl);
+        }
+    }
 
     function deployNttManager(
-        DeploymentParams memory params
+        DeploymentParams memory params,
+        string memory variantStr
     ) internal returns (address) {
-        // Deploy the Manager Implementation.
-        NttManager implementation = new NttManager(
+        address implementation = deployNttManagerImplementation(
+            variantStr,
             params.token,
             params.mode,
             params.wormholeChainId,
@@ -48,8 +80,7 @@ contract DeployWormholeNttBase is ParseNttConfig {
         );
 
         // NttManager Proxy
-        NttManager nttManagerProxy =
-            NttManager(address(new ERC1967Proxy(address(implementation), "")));
+        NttManager nttManagerProxy = NttManager(address(new ERC1967Proxy(implementation, "")));
 
         nttManagerProxy.initialize();
 
@@ -66,10 +97,10 @@ contract DeployWormholeNttBase is ParseNttConfig {
         WormholeTransceiver implementation = new WormholeTransceiver(
             nttManager,
             params.wormholeCoreBridge,
-            params.wormholeRelayerAddr,
-            params.specialRelayerAddr,
             params.consistencyLevel,
-            params.gasLimit
+            params.customConsistencyLevel,
+            params.additionalBlocks,
+            params.customConsistencyLevelAddress
         );
 
         WormholeTransceiver transceiverProxy =
@@ -131,13 +162,13 @@ contract DeployWormholeNttBase is ParseNttConfig {
         params.wormholeCoreBridge = vm.envAddress("RELEASE_CORE_BRIDGE_ADDRESS");
         require(params.wormholeCoreBridge != address(0), "Invalid wormhole core bridge address");
 
-        // Wormhole relayer, special relayer, consistency level.
-        params.wormholeRelayerAddr = vm.envAddress("RELEASE_WORMHOLE_RELAYER_ADDRESS");
-        params.specialRelayerAddr = vm.envAddress("RELEASE_SPECIAL_RELAYER_ADDRESS");
+        // Consistency level and custom consistency level parameters.
         params.consistencyLevel = uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL"));
-
-        params.gasLimit = vm.envUint("RELEASE_GAS_LIMIT");
-        require(params.gasLimit >= MIN_WORMHOLE_GAS_LIMIT, "Invalid gas limit");
+        params.customConsistencyLevel =
+            uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0)));
+        params.additionalBlocks = uint16(vm.envOr("RELEASE_ADDITIONAL_BLOCKS", uint256(0)));
+        params.customConsistencyLevelAddress =
+            vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0));
 
         // Outbound rate limiter limit.
         params.outboundLimit = vm.envUint("RELEASE_OUTBOUND_LIMIT");

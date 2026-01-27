@@ -1,8 +1,13 @@
+# Use pre-built anchor image to avoid 6+ minute compile time
+# See Dockerfile.anchor-base for how this image is built
+# ARG must be declared before any FROM to be used in FROM instructions
+ARG ANCHOR_BASE_IMAGE=ghcr.io/wormhole-foundation/native-token-transfers/anchor-base:0.29.0
+
 # NOTE: we use the backpackapp base image so we can use solana. You would think
 # that the solana installer script just works, but you would be wrong. It seems
 # to have been broken recently since the migration to the anza url.
 # The old installer url returns a 403. So we instead rely on solana binaries cached on docker hub. Everything is fine.
-FROM backpackapp/build:v0.30.1@sha256:c160fe32cba7c463981110b2aac2924de4833c06a0af6473a830ead880c4ef3b as base
+FROM backpackapp/build:v0.30.1@sha256:c160fe32cba7c463981110b2aac2924de4833c06a0af6473a830ead880c4ef3b AS base
 
 RUN apt update
 
@@ -12,20 +17,27 @@ RUN apt install -y git
 RUN apt install -y curl
 RUN apt install -y unzip
 
-RUN curl -fsSL https://bun.sh/install | bash
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.4"
 
 RUN curl -L https://foundry.paradigm.xyz | bash
-RUN bash -ci "foundryup"
+RUN bash -ci "foundryup --install v1.3.6"
 
 RUN apt install -y jq
 
-FROM base as base-solana
+FROM ${ANCHOR_BASE_IMAGE} AS anchor-base
 
-RUN cargo install --git https://github.com/coral-xyz/anchor --tag v0.29.0 avm --locked --force
-RUN avm install 0.29.0
-RUN avm use 0.29.0
+FROM base AS base-solana
+# Copy pre-compiled anchor binaries from anchor-base image
+# - avm: anchor version manager CLI
+# - anchor: avm wrapper that delegates to correct anchor version
+# - .avm: contains installed anchor versions (e.g., anchor-0.29.0)
+COPY --from=anchor-base /root/.cargo/bin/avm /root/.cargo/bin/avm
+COPY --from=anchor-base /root/.cargo/bin/anchor /root/.cargo/bin/anchor
+COPY --from=anchor-base /root/.avm /root/.avm
+# Verify correct anchor version is active
+RUN anchor --version | grep -q "0.29.0" || (echo "ERROR: Expected anchor 0.29.0" && exit 1)
 
-FROM base as cli-remote
+FROM base AS cli-remote
 # NOTE: when invoking the installer outside of the source tree, it clones the
 # repo and installs that way.
 # This build stage tests that path.
@@ -33,7 +45,7 @@ COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
 RUN bash -ci "which ntt"
 
-FROM base-solana as cli-local
+FROM base-solana AS cli-local
 # NOTE: when invoking the installer inside of the source tree, it installs from
 # the local source tree.
 # This build stage tests that path.
@@ -42,7 +54,8 @@ COPY tsconfig.json tsconfig.json
 COPY tsconfig.esm.json tsconfig.esm.json
 COPY tsconfig.cjs.json tsconfig.cjs.json
 COPY package.json package.json
-COPY package-lock.json package-lock.json
+COPY bun.lock bun.lock
+COPY bunfig.toml bunfig.toml
 COPY sdk sdk
 COPY solana/package.json solana/package.json
 COPY solana/ts solana/ts
@@ -50,18 +63,17 @@ COPY evm/ts evm/ts
 COPY solana/tsconfig.*.json solana/
 COPY sui/ts sui/ts
 COPY cli/package.json cli/package.json
-COPY cli/package-lock.json cli/package-lock.json
 COPY cli/src cli/src
 COPY cli/install.sh cli/install.sh
 RUN bash -ci "./cli/install.sh"
 RUN bash -ci "which ntt"
 
-FROM cli-local as cli-local-test
+FROM cli-local AS cli-local-test
 COPY cli/test cli/test
 COPY evm evm
 RUN bash -ci "./cli/test/sepolia-bsc.sh"
 
-FROM cli-local as cli-local-test-solana
+FROM cli-local AS cli-local-test-solana
 COPY cli/test cli/test
 # evm/script needed for the cli, at least for now
 COPY evm/script evm/script

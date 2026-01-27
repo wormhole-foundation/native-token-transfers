@@ -196,8 +196,9 @@ export class NttAutomaticRoute<N extends Network>
         ),
       },
       eta:
+        params.normalizedParams.sourceContracts.eta ??
         finality.estimateFinalityTime(request.fromChain.chain) +
-        guardians.guardianAttestationEta * 1000,
+          guardians.guardianAttestationEta * 1000,
     };
     const dstNtt = await toChain.getProtocol("Ntt", {
       ntt: params.normalizedParams.destinationContracts,

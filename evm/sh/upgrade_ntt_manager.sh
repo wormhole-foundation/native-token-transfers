@@ -62,7 +62,9 @@ then
     etherscan_key=$ETHERSCAN_KEY
 fi
 
-forge script $FORGE_SCRIPTS/UpgradeNttManager.s.sol \
+forge script $FORGE_SCRIPTS/DeployWormholeNtt.s.sol \
+    --sig "upgrade(address)" \
+    $RELEASE_MANAGER_ADDRESS \
     --rpc-url $rpc \
     --broadcast \
     --private-key $private_key \

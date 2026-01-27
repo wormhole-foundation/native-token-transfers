@@ -1,0 +1,53 @@
+[package]
+name = "test-utils"
+version = "3.0.0"
+description = "Test utilities"
+edition = "2021"
+
+[features]
+# cargo-test-sbf will pass this along
+test-sbf = []
+# enable to use standalone shim transceiver
+shim = ["ntt-transceiver"]
+# networks
+mainnet = [ "wormhole-anchor-sdk/mainnet", "example-native-token-transfers/mainnet", "ntt-transceiver/mainnet" ]
+bridge-address-from-env = [ "wormhole-anchor-sdk/from-env", "example-native-token-transfers/bridge-address-from-env", "ntt-transceiver/bridge-address-from-env" ]
+solana-devnet = [ "wormhole-anchor-sdk/solana-devnet", "example-native-token-transfers/solana-devnet", "ntt-transceiver/solana-devnet" ]
+tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet", "example-native-token-transfers/tilt-devnet", "ntt-transceiver/tilt-devnet" ]
+tilt-devnet2 = [ "tilt-devnet", "example-native-token-transfers/tilt-devnet2", "ntt-transceiver/tilt-devnet2" ]
+
+[lints]
+workspace = true
+
+[dependencies]
+anchor-lang.workspace = true
+anchor-spl.workspace = true
+base64 = "0.21.7"
+bincode = "1.3.3"
+cfg-if.workspace = true
+hex.workspace = true
+libsecp256k1 = "=0.6.0"
+serde = "1.0.196"
+serde_json = "1.0.113"
+serde_wormhole.workspace = true
+sha3 = "0.10.4"
+solana-banks-interface.workspace = true
+solana-program.workspace = true
+solana-program-runtime.workspace = true
+solana-program-test.workspace = true
+solana-sdk = "*"
+spl-associated-token-account = { version = "3.0.0", features = ["no-entrypoint"] }
+spl-token.workspace = true
+spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
+wormhole-io.workspace = true
+wormhole-anchor-sdk.workspace = true
+wormhole-sdk.workspace = true
+wormhole-solana-utils.workspace = true
+
+example-native-token-transfers = { path = "../../programs/example-native-token-transfers", default-features = false }
+ntt-messages = { path = "../../modules/ntt-messages", features = ["anchor", "hash"] }
+ntt-transceiver = { path = "../../programs/ntt-transceiver", features = ["testing"], optional = true }
+wormhole-governance = { path = "../../programs/wormhole-governance", features = ["no-entrypoint"] }
+
+wormhole-svm-definitions = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef" }
+wormhole-svm-shim = { git = "https://github.com/wormhole-foundation/wormhole", rev = "325cca4b628f17536f54b079eeb82b41247bfbef" }

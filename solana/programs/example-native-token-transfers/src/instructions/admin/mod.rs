@@ -142,6 +142,7 @@ pub fn register_transceiver(ctx: Context<RegisterTransceiver>) -> Result<()> {
     Ok(())
 }
 
+// TODO: Rename to DisableTransceiver
 #[derive(Accounts)]
 pub struct DeregisterTransceiver<'info> {
     #[account(
@@ -166,11 +167,14 @@ pub fn deregister_transceiver(ctx: Context<DeregisterTransceiver>) -> Result<()>
         .enabled_transceivers
         .set(ctx.accounts.registered_transceiver.id, false)?;
 
-    // decrement threshold if too high
     let num_enabled_transceivers = ctx.accounts.config.enabled_transceivers.len();
+    // at least one transceiver should be enabled
+    if num_enabled_transceivers == 0 {
+        return Err(NTTError::ZeroThreshold.into());
+    }
+    // decrement threshold if too high
     if num_enabled_transceivers < ctx.accounts.config.threshold {
-        // threshold should be at least 1
-        ctx.accounts.config.threshold = num_enabled_transceivers.max(1);
+        ctx.accounts.config.threshold = num_enabled_transceivers;
     }
     Ok(())
 }

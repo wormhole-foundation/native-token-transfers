@@ -1,4 +1,7 @@
-FROM node:20.11.1-alpine@sha256:f4c96a28c0b2d8981664e03f461c2677152cd9a756012ffa8e2c6727427c2bda
+FROM oven/bun:1.3.4-alpine@sha256:1d653098bf847813e26adb2435f932b7cfa3c132a7e25dd5216dbb1f67dbd118 AS base
+
+# Install Node alongside Bun - Jest has compatibility issues with Bun's runtime
+RUN apk add --no-cache make python3 gcc g++ jq nodejs npm
 
 WORKDIR /usr/src/
 
@@ -14,12 +17,16 @@ COPY --from=ntt-evm-contract . evm/out
 
 RUN rm -rf evm/out/ts
 
+COPY . ./
 
-COPY . ./ 
-RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.npm \
-  npm ci
+RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.bun \
+  bun ci
 
-RUN npm run build
-RUN npm run generate:test
+# Build packages directly (can't use --filter since workspaces are modified)
+RUN cd sdk/definitions && bun run build
+RUN cd evm/ts && bun run build
+RUN cd solana && bun run build
+RUN cd sdk/route && bun run build
+RUN cd evm/ts && bun run generate:test
 
 WORKDIR /usr/src/sdk

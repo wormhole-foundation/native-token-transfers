@@ -1,8 +1,9 @@
 import { Program } from "@coral-xyz/anchor";
 import {
   createAssociatedTokenAccountIdempotentInstruction,
-  createTransferInstruction,
+  createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
+  getMint,
 } from "@solana/spl-token";
 import {
   AddressLookupTableAccount,
@@ -135,9 +136,8 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
             true,
             tokenProgram
           );
-          const referrerAtaAccount = await this.connection.getAccountInfo(
-            referrerAta
-          );
+          const referrerAtaAccount =
+            await this.connection.getAccountInfo(referrerAta);
           if (!referrerAtaAccount) {
             message.instructions.push(
               createAssociatedTokenAccountIdempotentInstruction(
@@ -149,12 +149,20 @@ export class SolanaNttWithExecutor<N extends Network, C extends SolanaChains>
               )
             );
           }
+          const mintInfo = await getMint(
+            this.connection,
+            mint,
+            undefined,
+            tokenProgram
+          );
           message.instructions.push(
-            createTransferInstruction(
+            createTransferCheckedInstruction(
               senderAta,
+              mint,
               referrerAta,
               senderPk,
               quote.referrerFee,
+              mintInfo.decimals,
               undefined,
               tokenProgram
             )

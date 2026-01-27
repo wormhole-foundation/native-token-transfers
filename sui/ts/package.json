@@ -3,11 +3,12 @@
   "version": "0.5.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wormhole-foundation/example-native-token-transfers.git"
+    "url": "git+https://github.com/wormhole-foundation/native-token-transfers.git"
   },
   "bugs": {
-    "url": "https://github.com/wormhole-foundation/example-native-token-transfers"
+    "url": "https://github.com/wormhole-foundation/native-token-transfers"
   },
+  "homepage": "https://github.com/wormhole-foundation/native-token-transfers#readme",
   "directories": {
     "test": "__tests__"
   },
@@ -34,20 +35,14 @@
   "scripts": {
     "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "npm run build:esm && npm run build:cjs",
-    "rebuild": "npm run clean && npm run build",
+    "build": "bun run build:esm && bun run build:cjs",
+    "rebuild": "bun run clean && bun run build",
     "clean": "rm -rf ./dist",
     "test": "jest --config ./jest.config.ts"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
-    "@mysten/sui": "1.37.2"
-  },
-  "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^3.5.0",
-    "@wormhole-foundation/sdk-definitions": "^3.5.0",
-    "@wormhole-foundation/sdk-sui": "^3.5.0",
-    "@wormhole-foundation/sdk-sui-core": "^3.5.0"
+    "@mysten/sui": "1.37.2",
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0"
   },
   "type": "module",
   "exports": {
@@ -61,5 +56,11 @@
         "default": "./dist/cjs/index.js"
       }
     }
+  },
+  "peerDependencies": {
+    "@wormhole-foundation/sdk-base": "^4.7.4",
+    "@wormhole-foundation/sdk-definitions": "^4.7.4",
+    "@wormhole-foundation/sdk-sui": "^4.7.4",
+    "@wormhole-foundation/sdk-sui-core": "^4.7.4"
   }
 }

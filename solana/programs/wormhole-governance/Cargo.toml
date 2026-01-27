@@ -9,15 +9,19 @@ crate-type = ["cdylib", "lib"]
 name = "wormhole_governance"
 
 [features]
-default = ["mainnet"]
+default = []
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 idl-build = [
   "anchor-lang/idl-build",
+  "wormhole-anchor-sdk/idl-build",
+  "wormhole-anchor-sdk/no-custom-discriminator",
+  "wormhole-anchor-sdk/mainnet",
 ]
 
+bridge-address-from-env = [ "wormhole-anchor-sdk/from-env" ]
 mainnet = [ "wormhole-anchor-sdk/mainnet" ]
 solana-devnet = [ "wormhole-anchor-sdk/solana-devnet" ]
 tilt-devnet = [ "wormhole-anchor-sdk/tilt-devnet" ]

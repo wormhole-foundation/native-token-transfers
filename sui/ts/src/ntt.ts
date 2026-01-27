@@ -35,6 +35,7 @@ import {
   extractNttCommonPackageId,
   createNttManagerMessageObjects,
   parseInboxItemResult,
+  getCoinMetadataId,
 } from "./utils.js";
 
 interface SuiMode {
@@ -713,25 +714,10 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       );
     }
 
-    // Query the CoinMetadata object ID dynamically
-    let coinMetadataId: string;
-    try {
-      const coinMetadata = await this.provider.getCoinMetadata({
-        coinType: this.contracts.ntt!["token"],
-      });
-      if (!coinMetadata?.id) {
-        throw new Error(
-          `CoinMetadata not found for ${this.contracts.ntt!["token"]}`
-        );
-      }
-      coinMetadataId = coinMetadata.id;
-    } catch (error) {
-      throw new Error(
-        `Failed to get CoinMetadata for ${this.contracts.ntt!["token"]}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
+    const coinMetadataId = await getCoinMetadataId(
+      this.network,
+      this.contracts.ntt!["token"]
+    );
 
     // get token ID
     const token = this.contracts.ntt!["token"];
@@ -839,9 +825,8 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     }
 
     // Get transceiver package ID
-    const transceiverPackageId = await this.getPackageIdFromObject(
-      transceiverStateId
-    );
+    const transceiverPackageId =
+      await this.getPackageIdFromObject(transceiverStateId);
 
     // Create transceiver message
     const [transceiverMessage] = txb.moveCall({
@@ -918,26 +903,21 @@ export class SuiNtt<N extends Network, C extends SuiChains>
 
     const packageId = await this.getPackageId();
 
-    // Get coin metadata
-    const coinMetadata = await this.provider.getCoinMetadata({
-      coinType: this.contracts.ntt!["token"],
-    });
-    if (!coinMetadata?.id) {
-      throw new Error(
-        `CoinMetadata not found for ${this.contracts.ntt!["token"]}`
-      );
-    }
+    const coinMetadataId = await getCoinMetadataId(
+      this.network,
+      this.contracts.ntt!["token"]
+    );
 
     // Build transaction for all attestations
     const txb = new Transaction();
 
     for (const attestation of attestations) {
       // Loop to add redeem call for all wormhole attestations
-      await this.addRedeemCall(txb, attestation, packageId, coinMetadata.id);
+      await this.addRedeemCall(txb, attestation, packageId, coinMetadataId);
     }
 
     // Add release call for all redeems
-    await this.addReleaseCall(txb, attestations, packageId, coinMetadata.id);
+    await this.addReleaseCall(txb, attestations, packageId, coinMetadataId);
 
     const unsignedTx = new SuiUnsignedTransaction(
       txb,

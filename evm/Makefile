@@ -16,7 +16,7 @@ clean:
 	forge clean
 
 gen-bindings: prod-build
-	npm ci && cd ts && npm run generate
+	bun ci && cd ts && bun run generate
 
 
 #######################

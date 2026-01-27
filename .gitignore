@@ -30,3 +30,9 @@ node_modules
 
 # Claude code
 .claude/settings.local.json
+
+# Echidna outputs
+crytic-export/
+corpus/
+# Bun lockb (binary format, we use text format bun.lock instead)
+*.lockb

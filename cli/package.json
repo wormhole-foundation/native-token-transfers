@@ -1,10 +1,11 @@
 {
   "name": "@wormhole-foundation/ntt-cli",
-  "version": "1.3.0",
+  "version": "1.7.0",
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prettier": "prettier --write ./src"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -17,36 +18,17 @@
     "ntt": "src/index.ts"
   },
   "dependencies": {
-    "@mysten/sui": "1.37.2",
-    "@wormhole-foundation/sdk-sui-ntt": "^2.0.3",
-    "chalk": "^5.3.0",
-    "yargs": "^17.7.2"
+    "yargs": "18.0.0"
   },
   "overrides": {
-    "@wormhole-foundation/sdk-definitions-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.5.0",
-      "@wormhole-foundation/sdk-definitions": "^3.5.0"
-    },
-    "@wormhole-foundation/sdk-evm-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.5.0",
-      "@wormhole-foundation/sdk-definitions": "^3.5.0",
-      "@wormhole-foundation/sdk-evm": "^3.5.0",
-      "@wormhole-foundation/sdk-evm-core": "^3.5.0"
-    },
-    "@wormhole-foundation/sdk-route-ntt": {
-      "@wormhole-foundation/sdk-connect": "^3.5.0"
-    },
-    "@wormhole-foundation/sdk-solana-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.5.0",
-      "@wormhole-foundation/sdk-definitions": "^3.5.0",
-      "@wormhole-foundation/sdk-solana": "^3.5.0",
-      "@wormhole-foundation/sdk-solana-core": "^3.5.0"
-    },
-    "@wormhole-foundation/sdk-sui-ntt": {
-      "@wormhole-foundation/sdk-base": "^3.5.0",
-      "@wormhole-foundation/sdk-definitions": "^3.5.0",
-      "@wormhole-foundation/sdk-sui": "^3.5.0",
-      "@wormhole-foundation/sdk-sui-core": "^3.5.0"
-    }
+    "@wormhole-foundation/sdk-base": "^4.7.4",
+    "@wormhole-foundation/sdk-definitions": "^4.7.4",
+    "@wormhole-foundation/sdk-evm": "^4.7.4",
+    "@wormhole-foundation/sdk-evm-core": "^4.7.4",
+    "@wormhole-foundation/sdk-connect": "^4.7.4",
+    "@wormhole-foundation/sdk-solana": "^4.7.4",
+    "@wormhole-foundation/sdk-solana-core": "^4.7.4",
+    "@wormhole-foundation/sdk-sui": "^4.7.4",
+    "@wormhole-foundation/sdk-sui-core": "^4.7.4"
   }
 }

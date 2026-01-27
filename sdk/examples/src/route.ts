@@ -1,4 +1,9 @@
-import { canonicalAddress, routes, wormhole } from "@wormhole-foundation/sdk";
+import {
+  canonicalAddress,
+  routes,
+  Wormhole,
+  wormhole,
+} from "@wormhole-foundation/sdk";
 import evm from "@wormhole-foundation/sdk/evm";
 import solana from "@wormhole-foundation/sdk/solana";
 
@@ -27,13 +32,8 @@ import { getSigner } from "./helpers.js";
     nttAutomaticRoute({ tokens: NttTokens }),
   ]);
 
-  const srcTokens = await resolver.supportedSourceTokens(src);
-  console.log(
-    "Allowed source tokens: ",
-    srcTokens.map((t) => canonicalAddress(t))
-  );
-  // Just grab the first one
-  const sendToken = srcTokens[0]!;
+  const { chain, token } = NttTokens.Test[0]!;
+  const sendToken = Wormhole.tokenId(chain, token);
 
   // given the send token, what can we possibly get on the destination chain?
   const destTokens = await resolver.supportedDestinationTokens(

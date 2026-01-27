@@ -8,6 +8,7 @@
   "bugs": {
     "url": "https://github.com/wormhole-foundation/native-token-transfers"
   },
+  "homepage": "https://github.com/wormhole-foundation/native-token-transfers#readme",
   "directories": {
     "test": "__tests__"
   },
@@ -34,24 +35,19 @@
   "scripts": {
     "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "npm run build:esm && npm run build:cjs",
-    "rebuild": "npm run clean && npm run build",
+    "build": "bun run build:esm && bun run build:cjs",
+    "rebuild": "bun run clean && bun run build",
     "clean": "rm -rf ./dist",
     "generate:test": "typechain --node16-modules --target ethers-v6 --out-dir ethers-ci-contracts '../out/!(build-info)/*.json'",
     "generate:slim": "ABI_VERSION=`tsx scripts/readVersion.ts` && typechain --node16-modules --target ethers-v6 --out-dir src/ethers-contracts/$ABI_VERSION '../out/?(WormholeTransceiver.sol|NttManager.sol)/*.json'",
-    "generate": "npm run generate:slim",
+    "generate": "bun run generate:slim",
     "build:contracts": "cd ../.. && make build-evm-prod",
-    "test": "jest --config ./jest.config.ts"
+    "test": "jest --config ./jest.config.ts",
+    "prettier": "prettier --write ./src ./__tests__"
   },
   "dependencies": {
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
     "ethers": "^6.5.1"
-  },
-  "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^3.5.0",
-    "@wormhole-foundation/sdk-definitions": "^3.5.0",
-    "@wormhole-foundation/sdk-evm": "^3.5.0",
-    "@wormhole-foundation/sdk-evm-core": "^3.5.0"
   },
   "devDependencies": {
     "@typechain/ethers-v6": "^0.5.1",
@@ -70,5 +66,11 @@
         "default": "./dist/cjs/index.js"
       }
     }
+  },
+  "peerDependencies": {
+    "@wormhole-foundation/sdk-base": "^4.7.4",
+    "@wormhole-foundation/sdk-definitions": "^4.7.4",
+    "@wormhole-foundation/sdk-evm": "^4.7.4",
+    "@wormhole-foundation/sdk-evm-core": "^4.7.4"
   }
 }

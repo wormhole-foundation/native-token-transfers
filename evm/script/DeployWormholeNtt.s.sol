@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
+// DEPLOY_SCRIPT_VERSION: 2
+
 import {Script, console} from "forge-std/Script.sol";
 import {DeployWormholeNttBase} from "./helpers/DeployWormholeNttBase.sol";
 import {INttManager} from "../src/interfaces/INttManager.sol";
@@ -8,23 +10,28 @@ import {IWormholeTransceiver} from "../src/interfaces/IWormholeTransceiver.sol";
 import "../src/interfaces/IManagerBase.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {NttManager} from "../src/NttManager/NttManager.sol";
+import {NttManagerNoRateLimiting} from "../src/NttManager/NttManagerNoRateLimiting.sol";
+import {NttManagerWethUnwrap} from "../src/NttManager/NttManagerWethUnwrap.sol";
 
 interface IWormhole {
     function chainId() external view returns (uint16);
 }
 
 contract DeployWormholeNtt is Script, DeployWormholeNttBase {
-    function run(
-        address wormhole,
-        address token,
-        address wormholeRelayer,
-        address specialRelayer,
-        uint8 decimals,
-        IManagerBase.Mode mode
-    ) public {
+    function run() public {
         vm.startBroadcast();
 
         console.log("Deploying Wormhole Ntt...");
+
+        // Read all parameters from environment variables
+        address wormhole = vm.envAddress("RELEASE_CORE_BRIDGE_ADDRESS");
+        address token = vm.envAddress("RELEASE_TOKEN_ADDRESS");
+        uint8 decimals = uint8(vm.envUint("RELEASE_DECIMALS"));
+        uint8 modeUint = uint8(vm.envUint("RELEASE_MODE"));
+        IManagerBase.Mode mode =
+            modeUint == 0 ? IManagerBase.Mode.LOCKING : IManagerBase.Mode.BURNING;
+        string memory managerVariant = vm.envOr("MANAGER_VARIANT", string("standard"));
+
         IWormhole wh = IWormhole(wormhole);
 
         // sanity check decimals
@@ -32,9 +39,9 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             token.staticcall(abi.encodeWithSignature("decimals()"));
 
         if (success) {
-            uint8 queriedDecimals = abi.decode(queriedDecimals, (uint8));
-            if (queriedDecimals != decimals) {
-                console.log("Decimals mismatch: ", queriedDecimals, " != ", decimals);
+            uint8 queriedDecimalsValue = abi.decode(queriedDecimals, (uint8));
+            if (queriedDecimalsValue != decimals) {
+                console.log("Decimals mismatch: ", queriedDecimalsValue, " != ", decimals);
                 vm.stopBroadcast();
                 return;
             }
@@ -70,16 +77,17 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             rateLimitDuration: 86400,
             shouldSkipRatelimiter: false,
             wormholeCoreBridge: wormhole,
-            wormholeRelayerAddr: wormholeRelayer,
-            specialRelayerAddr: specialRelayer,
-            consistencyLevel: 202,
-            gasLimit: 500000,
-            // the trimming will trim this number to uint64.max
+            consistencyLevel: uint8(vm.envUint("RELEASE_CONSISTENCY_LEVEL")),
+            customConsistencyLevel: uint8(vm.envOr("RELEASE_CUSTOM_CONSISTENCY_LEVEL", uint256(0))),
+            additionalBlocks: uint16(vm.envOr("RELEASE_ADDITIONAL_BLOCKS", uint256(0))),
+            customConsistencyLevelAddress: vm.envOr(
+                "RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS", address(0)
+            ),
             outboundLimit: uint256(type(uint64).max) * scale
         });
 
         // Deploy NttManager.
-        address manager = deployNttManager(params);
+        address manager = deployNttManager(params, managerVariant);
 
         // Deploy Wormhole Transceiver.
         address transceiver = deployWormholeTransceiver(params, manager);
@@ -101,18 +109,23 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
 
         console.log("Upgrading manager...");
 
+        // Read manager variant from environment variable (defaults to "standard")
+        string memory managerVariant = vm.envOr("MANAGER_VARIANT", string("standard"));
+
         uint64 rateLimitDuration = nttManager.rateLimitDuration();
         bool shouldSkipRatelimiter = rateLimitDuration == 0;
 
-        NttManager implementation = new NttManager(
+        // Deploy new implementation using helper function
+        address implementation = deployNttManagerImplementation(
+            managerVariant,
             nttManager.token(),
             nttManager.mode(),
             nttManager.chainId(),
-            nttManager.rateLimitDuration(),
+            rateLimitDuration,
             shouldSkipRatelimiter
         );
 
-        nttManager.upgrade(address(implementation));
+        nttManager.upgrade(implementation);
 
         vm.stopBroadcast();
     }

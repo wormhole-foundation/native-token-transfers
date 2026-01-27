@@ -156,8 +156,16 @@ export namespace NTT {
       id: Uint8Array
     ): PublicKey =>
       derivePda(["transceiver_message", chainToBytes(chain), id], programId);
+    const unverifiedMessageAccount = (payer: PublicKey, seed: BN): PublicKey =>
+      derivePda(
+        ["vaa_body", payer.toBytes(), new Uint8Array(seed.toArray("be"))],
+        programId
+      );
     const wormholeMessageAccount = (outboxItem: PublicKey): PublicKey =>
       derivePda(["message", outboxItem.toBytes()], programId);
+    const wormholeMessageWithShimAccount = (
+      postMessageShim: PublicKey
+    ): PublicKey => derivePda(emitterAccount().toBytes(), postMessageShim);
 
     // TODO: memoize?
     return {
@@ -165,7 +173,9 @@ export namespace NTT {
       outboxItemSigner,
       transceiverPeerAccount,
       transceiverMessageAccount,
+      unverifiedMessageAccount,
       wormholeMessageAccount,
+      wormholeMessageWithShimAccount,
     };
   };
 
@@ -190,8 +200,8 @@ export namespace NTT {
         connection.rpcEndpoint === rpc.rpcAddress("Devnet", "Solana")
           ? "6sbzC1eH4FTujJXWj51eQe25cYvr4xfXbJ1vAj7j2k5J" // The CI pubkey, funded on ci network
           : connection.rpcEndpoint.startsWith("http://localhost")
-          ? "98evdAiWr7ey9MAQzoQQMwFQkTsSR6KkWQuFqKrgwNwb" // the anchor pubkey, funded on local network
-          : "Hk3SdYTJFpawrvRz4qRztuEt2SqoCG7BGj2yJfDJSFbJ"; // The default pubkey is funded on mainnet and devnet we need a funded account to simulate the transaction below
+            ? "98evdAiWr7ey9MAQzoQQMwFQkTsSR6KkWQuFqKrgwNwb" // the anchor pubkey, funded on local network
+            : "Hk3SdYTJFpawrvRz4qRztuEt2SqoCG7BGj2yJfDJSFbJ"; // The default pubkey is funded on mainnet and devnet we need a funded account to simulate the transaction below
       sender = new PublicKey(address);
     }
 
@@ -200,9 +210,8 @@ export namespace NTT {
     const ix = await program.methods.version().accountsStrict({}).instruction();
     // Since we don't need the very very very latest blockhash, using finalized
     // ensures the blockhash will be found when we immediately simulate the tx
-    const { blockhash } = await program.provider.connection.getLatestBlockhash(
-      "finalized"
-    );
+    const { blockhash } =
+      await program.provider.connection.getLatestBlockhash("finalized");
     const msg = new TransactionMessage({
       payerKey: sender,
       recentBlockhash: blockhash,

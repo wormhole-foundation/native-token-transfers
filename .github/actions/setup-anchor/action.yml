@@ -17,7 +17,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: ${{ inputs.node-version }}
     - name: Cache Solana CLI tools
@@ -35,5 +35,5 @@ runs:
       run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
       shell: bash
     - name: Install Anchor
-      run: npm i -g @coral-xyz/anchor-cli@${{ inputs.anchor-version }}
+      run: bun add -g @coral-xyz/anchor-cli@${{ inputs.anchor-version }}
       shell: bash

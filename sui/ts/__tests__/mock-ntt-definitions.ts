@@ -21,5 +21,5 @@ export const mocks = {
   NttMessage: {},
   NttTransceiver: {},
   NttTxParams: {},
-  NttConfig: {}
+  NttConfig: {},
 };
