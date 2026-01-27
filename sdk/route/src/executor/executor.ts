@@ -278,8 +278,9 @@ export class NttExecutorRoute<N extends Network>
           toChain.config.nativeTokenDecimals
         ),
         eta:
+          params.normalizedParams.sourceContracts.eta ??
           finality.estimateFinalityTime(request.fromChain.chain) +
-          guardians.guardianAttestationEta * 1000,
+            guardians.guardianAttestationEta * 1000,
         expires,
         details: executorQuote,
       };
