@@ -55,6 +55,8 @@ export namespace NttRoute {
       postMessageShimOverride?: string;
       verifyVaaShimOverride?: string;
     };
+    /** Estimated time of arrival in milliseconds. When specified, this value is used in quotes instead of the dynamic calculation. */
+    eta?: number;
   };
 
   export type Config = {
@@ -216,6 +218,7 @@ export namespace NttRoute {
               },
               quoter: srcFound.quoter,
               svmShims: srcFound.svmShims,
+              eta: srcFound.eta,
             },
             dstContracts: {
               token: dstFound.token,
