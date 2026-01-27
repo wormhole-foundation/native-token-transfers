@@ -34,7 +34,7 @@
     "tsx": "^4.7.2"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk": "^4.7.4",
+    "@wormhole-foundation/sdk": "^4.9.1",
     "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
     "@wormhole-foundation/sdk-evm-ntt": "1.0.0",
     "@wormhole-foundation/sdk-route-ntt": "1.0.0",
