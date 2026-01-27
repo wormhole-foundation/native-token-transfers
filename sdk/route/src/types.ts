@@ -172,7 +172,7 @@ export namespace NttRoute {
         const remote = configs.find((config) => config.chain === toChain.chain);
         if (!remote) return;
 
-        if (remote.unwrapsOnRedeem) {
+        if (remote.unwrapsOnRedeem || remote.isWrappedGasToken) {
           return nativeTokenId(toChain.chain);
         } else {
           return Wormhole.tokenId(toChain.chain, remote.token);
