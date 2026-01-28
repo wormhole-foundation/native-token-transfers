@@ -71,6 +71,11 @@ function collectMissingInboundGroups(
     }
     const decimals = getDecimalsFromLimit(outbound);
     if (decimals === null) {
+      console.warn(
+        colors.yellow(
+          `Skipping ${destination}: malformed outbound limit (${outbound})`
+        )
+      );
       continue;
     }
     for (const source of relevantChains) {
@@ -128,6 +133,11 @@ function collectMissingInboundGroupsForAll(
     }
     const decimals = getDecimalsFromLimit(outbound);
     if (decimals === null) {
+      console.warn(
+        colors.yellow(
+          `Skipping ${destination}: malformed outbound limit (${outbound})`
+        )
+      );
       continue;
     }
     for (const source of chains) {
