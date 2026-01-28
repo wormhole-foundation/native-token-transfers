@@ -110,7 +110,7 @@ import { createTokenTransferCommand } from "./tokenTransfer";
 import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
 import { promptYesNo } from "./prompts.js";
-import { runTaskPool } from "./utils/concurrency";
+import { runTaskPoolWithSequential } from "./utils/concurrency";
 import {
   configureInboundLimitsForNewChain,
   configureInboundLimitsForPull,
@@ -438,7 +438,7 @@ const options = {
     choices: chains,
   },
   rpcConcurrency: {
-    describe: "Max concurrent read-only RPC calls",
+    describe: "Max concurrent read-only RPC calls (Solana runs sequentially)",
     type: "number",
     default: DEFAULT_MAX_CONCURRENT,
   },
@@ -1261,9 +1261,10 @@ yargs(hideBin(process.argv))
         }
       };
       let completed = 0;
-      const peerResults = await runTaskPool(
+      const peerResults = await runTaskPoolWithSequential(
         peerChains,
         maxConcurrent,
+        (item) => chainToPlatform(item) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
         async (item) => {
           const result = await fetchPeerConfig(item);
           completed++;
@@ -4897,9 +4898,14 @@ async function pullDeployments(
       }
     }
   } else {
-    const results = await runTaskPool(
+    const results = await runTaskPoolWithSequential(
       entries as [string, ChainConfig][],
       concurrency,
+      (entry) => {
+        const [chain] = entry;
+        assertChain(chain);
+        return chainToPlatform(chain) === "Solana"; // Solana RPC: run sequentially to avoid rate limits.
+      },
       fetchDeployment
     );
     let shouldExit = false;
@@ -5204,7 +5210,12 @@ async function pullInboundLimits(
       await runTask(task);
     }
   } else {
-    await runTaskPool(tasks, concurrency, runTask);
+    await runTaskPoolWithSequential(
+      tasks,
+      concurrency,
+      (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
+      runTask
+    );
   }
 }
 

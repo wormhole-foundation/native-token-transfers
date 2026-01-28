@@ -16,7 +16,7 @@ import type {
 import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { ChainConfig } from "./deployments";
-import { runTaskPool } from "./utils/concurrency";
+import { runTaskPoolWithSequential } from "./utils/concurrency";
 
 export type ErrorFactory = (message: string) => Error;
 
@@ -47,6 +47,8 @@ export type MissingImplicitConfig = {
   solanaWormholeTransceiver: boolean;
   solanaUpdateLUT: boolean;
 };
+
+const PLACEHOLDER_PUBKEY = new PublicKey(0);
 
 /** Ensure the selected chain runs on a platform the CLI supports. */
 export function ensurePlatformSupported(
@@ -208,9 +210,10 @@ export async function collectMissingConfigs(
         missing.solanaWormholeTransceiver = true;
       }
 
+      // Placeholder key is only used for address derivation in this check.
       const updateLUT = solanaNtt.initializeOrUpdateLUT({
-        payer: new PublicKey(0),
-        owner: new PublicKey(0),
+        payer: PLACEHOLDER_PUBKEY,
+        owner: PLACEHOLDER_PUBKEY,
       });
       if (!(await updateLUT.next()).done) {
         missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
@@ -259,7 +262,7 @@ export async function collectMissingConfigs(
     if (peer === null) {
       const configLimit = from.config.local?.limits?.inbound?.[
         toChain
-      ]?.replace(".", "");
+      ]?.replace(/\./g, "");
       missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
       missing.managerPeers.push({
         address: to.manager,
@@ -305,7 +308,12 @@ export async function collectMissingConfigs(
       await runTask(task);
     }
   } else {
-    await runTaskPool(tasks, concurrency, runTask);
+    await runTaskPoolWithSequential(
+      tasks,
+      concurrency,
+      (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
+      runTask
+    );
   }
 
   for (const [chain, missing] of Object.entries(missingByChain)) {
