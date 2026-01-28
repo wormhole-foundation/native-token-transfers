@@ -106,6 +106,10 @@ import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
 import { promptYesNo } from "./prompts.js";
 import {
+  configureInboundLimitsForNewChain,
+  configureInboundLimitsForPull,
+} from "./limits.js";
+import {
   loadOverrides,
   promptSolanaMainnetOverridesIfNeeded,
 } from "./overrides.js";
@@ -915,6 +919,11 @@ yargs(hideBin(process.argv))
       }
 
       deployments.chains[chain] = config;
+      await configureInboundLimitsForNewChain(
+        deployments,
+        chain,
+        Boolean(argv["yes"])
+      );
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
       console.log(`Added ${chain} to ${path}`);
     }
@@ -1280,8 +1289,15 @@ yargs(hideBin(process.argv))
           deployments.chains[chain] = preservedConfig;
         }
       }
-      if (!changed) {
-        console.log(`${path} is already up to date`);
+      const inboundResult = await configureInboundLimitsForPull(
+        deployments,
+        Boolean(argv["yes"])
+      );
+      const shouldWrite = changed || inboundResult.updated;
+      if (!shouldWrite) {
+        if (!inboundResult.hadMissing) {
+          console.log(`${path} is already up to date`);
+        }
         process.exit(0);
       }
 
