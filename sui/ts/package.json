@@ -58,9 +58,9 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.7.4",
-    "@wormhole-foundation/sdk-definitions": "^4.7.4",
-    "@wormhole-foundation/sdk-sui": "^4.7.4",
-    "@wormhole-foundation/sdk-sui-core": "^4.7.4"
+    "@wormhole-foundation/sdk-base": "^4.9.1",
+    "@wormhole-foundation/sdk-definitions": "^4.9.1",
+    "@wormhole-foundation/sdk-sui": "^4.9.1",
+    "@wormhole-foundation/sdk-sui-core": "^4.9.1"
   }
 }
