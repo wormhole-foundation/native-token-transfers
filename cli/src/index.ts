@@ -77,6 +77,8 @@ export type { Deployment } from "./validation";
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
 const EXCLUDED_DIFF_PATHS = ["managerVariant"];
+// Cap concurrent read-only RPC calls; lower if you hit rate limits (override with --rpc-concurrency).
+const DEFAULT_MAX_CONCURRENT = 6;
 
 // Helper functions for nested object access
 function getNestedValue(obj: any, path: string[]): any {
@@ -105,6 +107,7 @@ import { createTokenTransferCommand } from "./tokenTransfer";
 import { ethers, Interface } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
 import { promptYesNo } from "./prompts.js";
+import { runTaskPoolWithSequential } from "./utils/concurrency";
 import {
   loadOverrides,
   promptSolanaMainnetOverridesIfNeeded,
@@ -427,7 +430,28 @@ const options = {
     type: "array",
     choices: chains,
   },
+  rpcConcurrency: {
+    describe: "Max concurrent read-only RPC calls (Solana runs sequentially)",
+    type: "number",
+    default: DEFAULT_MAX_CONCURRENT,
+  },
 } as const;
+
+function resolveRpcConcurrency(raw: unknown): number {
+  if (Array.isArray(raw)) {
+    console.error("--rpc-concurrency may only be specified once");
+    process.exit(1);
+  }
+  if (raw === undefined) {
+    return DEFAULT_MAX_CONCURRENT;
+  }
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    console.error("--rpc-concurrency must be a positive number");
+    process.exit(1);
+  }
+  return Math.max(1, Math.floor(value));
+}
 
 /**
  * Executes a callback with deployment scripts, optionally overriding them with version 1 scripts.
@@ -1070,6 +1094,7 @@ yargs(hideBin(process.argv))
         .positional("address", options.address)
         .option("path", options.deploymentPath)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 clone Testnet Ethereum 0x5678...",
           "Clone an existing Ethereum deployment on Testnet"
@@ -1086,6 +1111,7 @@ yargs(hideBin(process.argv))
 
       const path = argv["path"];
       const verbose = argv["verbose"];
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
       // check if the file exists
       if (fs.existsSync(path)) {
         console.error(`Deployment file already exists at ${path}`);
@@ -1129,24 +1155,50 @@ yargs(hideBin(process.argv))
         [chain]: config,
       };
 
+      let lastStatusLineLength = 0;
+      const updateStatusLine = (message: string) => {
+        const padded = message.padEnd(lastStatusLineLength, " ");
+        process.stdout.write(`\r${padded}`);
+        lastStatusLineLength = Math.max(lastStatusLineLength, message.length);
+      };
+      const finishStatusLine = () => {
+        if (lastStatusLineLength > 0) {
+          process.stdout.write("\n");
+        }
+      };
+      const formatError = (error: unknown) =>
+        error instanceof Error ? error.message : String(error);
+
       // discover peers
-      let count = 0;
-      for (const c of chains) {
-        process.stdout.write(
-          `[${count}/${chains.length - 1}] Fetching peer config for ${c}`
-        );
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        count++;
-
-        const peer = await retryWithExponentialBackoff(
-          () => ntt.getPeer(c),
-          5,
-          5000
-        );
-
-        process.stdout.write(`\n`);
+      type PeerResult =
+        | {
+            chain: Chain;
+            status: "ok";
+            config: ChainConfig;
+            ntt: Ntt<Network, Chain>;
+          }
+        | { chain: Chain; status: "none" }
+        | {
+            chain: Chain;
+            status: "error";
+            stage: "peer" | "config";
+            error: unknown;
+          };
+      const peerChains = chains.filter((c) => c !== chain);
+      const total = peerChains.length;
+      const fetchPeerConfig = async (c: Chain): Promise<PeerResult> => {
+        let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
+        try {
+          peer = await retryWithExponentialBackoff(
+            () => ntt.getPeer(c),
+            5,
+            5000
+          );
+        } catch (e) {
+          return { chain: c, status: "error", stage: "peer", error: e };
+        }
         if (peer === null) {
-          continue;
+          return { chain: c, status: "none" };
         }
         const address: UniversalAddress =
           peer.address.address.toUniversalAddress();
@@ -1156,11 +1208,51 @@ yargs(hideBin(process.argv))
             { chain: c, address },
             overrides
           );
-          ntts[c] = peerNtt as any;
-          configs[c] = peerConfig;
+          return {
+            chain: c,
+            status: "ok",
+            config: peerConfig,
+            ntt: peerNtt as any,
+          };
         } catch (e) {
-          console.error(`Failed to pull config for ${c}:`, e);
-          continue;
+          return { chain: c, status: "error", stage: "config", error: e };
+        }
+      };
+      let completed = 0;
+      const peerResults = await runTaskPoolWithSequential(
+        peerChains,
+        maxConcurrent,
+        (item) => chainToPlatform(item) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
+        async (item) => {
+          const result = await fetchPeerConfig(item);
+          completed++;
+          updateStatusLine(
+            `[${completed}/${total}] Fetching peer config for ${item}`
+          );
+          return result;
+        }
+      );
+      updateStatusLine(
+        `[${total}/${total}] Completed attempt fetching peer config for ${total} chain${
+          total === 1 ? "" : "s"
+        }.`
+      );
+      finishStatusLine();
+      const peerErrors: {
+        chain: Chain;
+        stage: "peer" | "config";
+        error: unknown;
+      }[] = [];
+      for (const result of peerResults) {
+        if (result.status === "ok") {
+          ntts[result.chain] = result.ntt as any;
+          configs[result.chain] = result.config;
+        } else if (result.status === "error") {
+          peerErrors.push({
+            chain: result.chain,
+            stage: result.stage,
+            error: result.error,
+          });
         }
       }
 
@@ -1176,13 +1268,33 @@ yargs(hideBin(process.argv))
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // now loop through the chains, and query their peer information to get the inbound limits
-      await pullInboundLimits(ntts, sorted, verbose);
+      await pullInboundLimits(ntts, sorted, verbose, maxConcurrent);
 
       const deployment: Config = {
         network: argv["network"],
         chains: sorted,
       };
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
+
+      if (peerErrors.length > 0) {
+        const chainsWithErrors = Array.from(
+          new Set(peerErrors.map((entry) => entry.chain))
+        ).sort((a, b) => a.localeCompare(b));
+        console.error(
+          `Completed with errors for ${chainsWithErrors.length} chain(s): ${chainsWithErrors.join(", ")}`
+        );
+        if (verbose) {
+          for (const { chain: errorChain, stage, error } of peerErrors) {
+            console.warn(`  - ${errorChain} (${stage}): ${formatError(error)}`);
+          }
+        } else {
+          console.warn("Run with --verbose to see details.");
+        }
+      } else {
+        console.log(
+          colors.green(`Deployment file created successfully: ${path}`)
+        );
+      }
     }
   )
   .command(
@@ -1238,6 +1350,7 @@ yargs(hideBin(process.argv))
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 pull",
           "Pull the latest configuration from the blockchain for all chains"
@@ -1251,8 +1364,9 @@ yargs(hideBin(process.argv))
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
       const path = argv["path"];
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+        await pullDeployments(deployments, network, verbose, maxConcurrent);
 
       let changed = false;
       for (const [chain, deployment] of Object.entries(deps)) {
@@ -1525,6 +1639,7 @@ yargs(hideBin(process.argv))
       yargs
         .option("path", options.deploymentPath)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 status",
           "Check the status of the deployment across all chains"
@@ -1540,9 +1655,10 @@ yargs(hideBin(process.argv))
       const deployments: Config = loadConfig(path);
 
       const network = deployments.network as Network;
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
 
       let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+        await pullDeployments(deployments, network, verbose, maxConcurrent);
 
       let fixable = 0;
 
@@ -1584,7 +1700,7 @@ yargs(hideBin(process.argv))
       }
 
       // verify peers
-      const missing = await collectMissingConfigs(deps, verbose);
+      const missing = await collectMissingConfigs(deps, verbose, maxConcurrent);
 
       const hasMissingConfigs = printMissingConfigReport(missing);
       if (hasMissingConfigs) {
@@ -4638,20 +4754,26 @@ async function pushDeployment<C extends Chain>(
 async function pullDeployments(
   deployments: Config,
   network: Network,
-  verbose: boolean
+  verbose: boolean,
+  concurrency: number = 1
 ): Promise<Partial<{ [C in Chain]: Deployment<Chain> }>> {
   let deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
-
-  for (const [chain, deployment] of Object.entries(deployments.chains)) {
+  type PullDeploymentResult =
+    | { chain: Chain; status: "missing-manager" }
+    | { chain: Chain; status: "missing-transceiver" }
+    | { chain: Chain; status: "ok"; deployment: Deployment<Chain> };
+  const entries = Object.entries(deployments.chains);
+  const fetchDeployment = async (
+    entry: [string, ChainConfig]
+  ): Promise<PullDeploymentResult> => {
+    const [chain, deployment] = entry;
     if (verbose) {
       process.stdout.write(`Fetching config for ${chain}......\n`);
     }
     assertChain(chain);
     const managerAddress: string | undefined = deployment.manager;
     if (managerAddress === undefined) {
-      console.error(`manager field not found for chain ${chain}`);
-      // process.exit(1);
-      continue;
+      return { chain, status: "missing-manager" };
     }
     const [remote, ctx, ntt, decimals] = await pullChainConfig(
       network,
@@ -4665,21 +4787,64 @@ async function pullDeployments(
     // address in the config. currently we just assume that ix 0 is the wormhole one
     const whTransceiver = await ntt.getTransceiver(0);
     if (whTransceiver === null) {
-      console.error(`Wormhole transceiver not found for ${chain}`);
-      process.exit(1);
+      return { chain, status: "missing-transceiver" };
     }
 
-    deps[chain] = {
-      ctx,
-      ntt,
-      decimals,
-      manager: { chain, address: toUniversal(chain, managerAddress) },
-      whTransceiver,
-      config: {
-        remote,
-        local,
+    return {
+      chain,
+      status: "ok",
+      deployment: {
+        ctx,
+        ntt,
+        decimals,
+        manager: { chain, address: toUniversal(chain, managerAddress) },
+        whTransceiver,
+        config: {
+          remote,
+          local,
+        },
       },
     };
+  };
+  const handleResult = (result: PullDeploymentResult): boolean => {
+    if (result.status === "ok") {
+      deps[result.chain] = result.deployment;
+      return false;
+    }
+    if (result.status === "missing-manager") {
+      console.error(`manager field not found for chain ${result.chain}`);
+      return false;
+    }
+    console.error(`Wormhole transceiver not found for ${result.chain}`);
+    return true;
+  };
+  if (concurrency <= 1) {
+    for (const entry of entries) {
+      const result = await fetchDeployment(entry as [string, ChainConfig]);
+      if (handleResult(result)) {
+        process.exit(1);
+      }
+    }
+  } else {
+    const results = await runTaskPoolWithSequential(
+      entries as [string, ChainConfig][],
+      concurrency,
+      (entry) => {
+        const [chain] = entry;
+        assertChain(chain);
+        return chainToPlatform(chain) === "Solana"; // Solana RPC: run sequentially to avoid rate limits.
+      },
+      fetchDeployment
+    );
+    let shouldExit = false;
+    for (const result of results) {
+      if (handleResult(result)) {
+        shouldExit = true;
+      }
+    }
+    if (shouldExit) {
+      process.exit(1);
+    }
   }
 
   const config = Object.fromEntries(
@@ -4688,7 +4853,7 @@ async function pullDeployments(
   const ntts = Object.fromEntries(
     Object.entries(deps).map(([k, v]) => [k, v.ntt])
   );
-  await pullInboundLimits(ntts, config, verbose);
+  await pullInboundLimits(ntts, config, verbose, concurrency);
   return deps;
 }
 
@@ -4934,39 +5099,75 @@ async function askForConfirmation(
 async function pullInboundLimits(
   ntts: Partial<{ [C in Chain]: Ntt<Network, C> }>,
   config: Config["chains"],
-  verbose: boolean
+  verbose: boolean,
+  concurrency: number = 1
 ) {
-  for (const [c1, ntt1] of Object.entries(ntts)) {
-    assertChain(c1);
-    const chainConf = config[c1];
+  const entries = Object.entries(ntts).filter(
+    ([, ntt]) => ntt !== undefined
+  ) as [string, Ntt<Network, Chain>][];
+  const decimalsByChain: Partial<Record<Chain, number>> = {};
+  for (const [chain, ntt] of entries) {
+    assertChain(chain);
+    const chainConf = config[chain];
     if (!chainConf) {
-      console.error(`Chain ${c1} not found in deployment`);
+      console.error(`Chain ${chain} not found in deployment`);
       process.exit(1);
     }
-    const decimals = await ntt1.getTokenDecimals();
-    for (const [c2, ntt2] of Object.entries(ntts)) {
-      assertChain(c2);
-      if (ntt1 === ntt2) {
+    if (chainConf.limits?.inbound === undefined) {
+      chainConf.limits.inbound = {};
+    }
+    decimalsByChain[chain] = await ntt.getTokenDecimals();
+  }
+  type InboundTask = {
+    fromChain: Chain;
+    toChain: Chain;
+    fromNtt: Ntt<Network, Chain>;
+  };
+  const tasks: InboundTask[] = [];
+  for (const [fromChain, fromNtt] of entries) {
+    assertChain(fromChain);
+    for (const [toChain, toNtt] of entries) {
+      assertChain(toChain);
+      if (fromNtt === toNtt) {
         continue;
       }
-      if (verbose) {
-        process.stdout.write(
-          `Fetching inbound limit for ${c1} -> ${c2}.......\n`
-        );
-      }
-      const peer = await retryWithExponentialBackoff(
-        () => ntt1.getPeer(c2),
-        5,
-        5000
-      );
-      if (chainConf.limits?.inbound === undefined) {
-        chainConf.limits.inbound = {};
-      }
-
-      const limit = peer?.inboundLimit ?? 0n;
-
-      chainConf.limits.inbound[c2] = formatNumber(limit, decimals);
+      tasks.push({ fromChain, toChain, fromNtt });
     }
+  }
+  const runTask = async (task: InboundTask) => {
+    const { fromChain, toChain, fromNtt } = task;
+    if (verbose) {
+      process.stdout.write(
+        `Fetching inbound limit for ${fromChain} -> ${toChain}.......\n`
+      );
+    }
+    const peer = await retryWithExponentialBackoff(
+      () => fromNtt.getPeer(toChain),
+      5,
+      5000
+    );
+    const limit = peer?.inboundLimit ?? 0n;
+    const decimals = decimalsByChain[fromChain];
+    if (decimals === undefined) {
+      console.error(`Token decimals not found for chain ${fromChain}`);
+      process.exit(1);
+    }
+    config[fromChain]!.limits!.inbound![toChain] = formatNumber(
+      limit,
+      decimals
+    );
+  };
+  if (concurrency <= 1) {
+    for (const task of tasks) {
+      await runTask(task);
+    }
+  } else {
+    await runTaskPoolWithSequential(
+      tasks,
+      concurrency,
+      (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
+      runTask
+    );
   }
 }
 
