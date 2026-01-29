@@ -52,8 +52,11 @@
 
 ;; Peer NTT managers on other chain
 (define-map peers
-  (buff 2)    ;; Chain ID
-  (buff 32)   ;; NTT manager contract address
+  (buff 2) ;; Chain ID
+  {
+    address: (buff 32), ;; NTT manager contract address
+    decimals: uint      ;; Token decimals on peer chain
+  }
 )
 
 ;; Since this contract can't be updated, provide a dynamically-typed key/value store,
@@ -106,13 +109,16 @@
 
 ;; @desc Add authorized NTT manager on other chain
 ;; TODO: Add `inbound-limit` for rate limiting?
-(define-public (add-peer (chain (buff 2)) (contract (buff 32)))
+(define-public (add-peer (chain (buff 2)) (contract (buff 32)) (decimals uint))
   (begin
     (try! (check-caller))
     (asserts! (is-eq (len chain) u2) ERR_BUFFER_LEN)
     (asserts! (is-eq (len contract) u32) ERR_BUFFER_LEN)
     (asserts! (not (is-eq chain WORMHOLE_STACKS_CHAIN_ID) ) ERR_CANT_REGISTER_SELF)
-    (ok (map-set peers chain contract))))
+    (ok (map-set peers chain {
+      address: contract,
+      decimals: decimals
+    }))))
 
 (define-public (peers-delete (chain (buff 2)))
   (begin

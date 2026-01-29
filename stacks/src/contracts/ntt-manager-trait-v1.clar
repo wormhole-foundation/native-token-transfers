@@ -1,5 +1,6 @@
-(use-trait transceiver-trait .transceiver-trait-v1.transceiver-trait)
 (use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
+(use-trait transceiver-trait .transceiver-trait-v1.transceiver-trait)
+(use-trait protocol-send-trait .protocol-send-trait-v1.send-trait)
 
 ;; This is needed so that the transceiver can call into the manager
 (define-trait ntt-manager-trait (
@@ -26,14 +27,18 @@
   ;; Get latest version of NTT manager from state contract
   (get-active-contract () (response principal uint))
   ;; Get peer for given protocol
-  (get-peer ((buff 2)) (response (buff 32) uint))
+  (get-peer ((buff 2)) (response {
+    address: (buff 32),
+    decimals: uint
+  } uint))
   ;; Send a token transfer to peer chain
   (send-token-transfer (
-      <sip-010-trait>     ;; Token contract
-      <transceiver-trait> ;; Transceiver to send message through
-      uint                ;; Amount of token to transfer
-      (buff 2)            ;; Recipient chain
-      (buff 32))          ;; Recipient address
+      <sip-010-trait>       ;; Token contract
+      <transceiver-trait>   ;; Transceiver to send message through
+      <protocol-send-trait> ;; Protocol to send message over
+      uint                  ;; Amount of token to transfer
+      (buff 2)              ;; Recipient chain
+      (buff 32))            ;; Recipient address
     (response uint uint))
   ;; Process payload for NTT manager
   ;; Transceiver has already parsed and verified VAA and extracted necessary fields

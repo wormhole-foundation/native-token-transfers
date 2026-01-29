@@ -78,7 +78,7 @@
       (if is-locking
         ;; Lock tokens in this contract
         ;; TODO: Add memo?
-        (contract-call? token transfer amount sender (get-contract-principal) none)
+        (contract-call? token transfer amount sender current-contract none)
         ;; Burn FTs
         (contract-call? .bridged-token burn amount sender)))))
 
@@ -92,7 +92,8 @@
       (if is-locking
         ;; Unlock and send
         ;; TODO: Add memo?
-        (as-contract (contract-call? token transfer amount tx-sender recipient none))
+        (as-contract? ((with-ft (contract-of token) "*" amount))
+          (try! (contract-call? token transfer amount current-contract recipient none)))
         ;; Mint tokens
         (contract-call? .bridged-token mint amount recipient)))))
 
@@ -196,7 +197,3 @@
 
 (define-private (check-token (token <sip-010-trait>))
   (ok (asserts! (is-eq (contract-of token) (try! (get-token-contract))) ERR_UNAUTHORIZED)))
-
-;; @desc Get this contract's principal
-(define-private (get-contract-principal)
-  (as-contract tx-sender))

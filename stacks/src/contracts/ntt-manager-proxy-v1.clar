@@ -44,9 +44,10 @@
 
 ;;;; Traits
 
+(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 (use-trait manager-trait .ntt-manager-trait-v1.ntt-manager-trait)
 (use-trait transceiver-trait .transceiver-trait-v1.transceiver-trait)
-(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
+(use-trait protocol-send-trait .protocol-send-trait-v1.send-trait)
 
 ;;;; Constants
 
@@ -99,22 +100,15 @@
     (ntt-manager <manager-trait>)
     (token <sip-010-trait>)
     (transceiver <transceiver-trait>)
+    (protocol <protocol-send-trait>)
     (amount uint)
     (recipient-chain (buff 2))
     (recipient-address (buff 32)))
   (begin
     (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager send-token-transfer token transceiver amount recipient-chain recipient-address)))
+    (contract-call? ntt-manager send-token-transfer token transceiver protocol amount recipient-chain recipient-address)))
 
-(define-public (receive-token-transfer
-    (ntt-manager <manager-trait>)
-    (token <sip-010-trait>)
-    (source-chain (buff 2))
-    (source-ntt-manager (buff 32))
-    (ntt-manager-payload (buff 1024)))
-  (begin
-    (try! (check-active-ntt-manager ntt-manager))
-    (contract-call? ntt-manager receive-token-transfer token source-chain source-ntt-manager ntt-manager-payload)))
+;; NOTE: Do not proxy `receive-token-transfer`, which should only be called by an NTT transceiver
 
 ;;;; Read-only functions
 

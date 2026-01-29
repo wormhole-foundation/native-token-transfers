@@ -7,14 +7,15 @@
 
 ;;;; Traits
 
-;; (impl-trait .ntt-manager-xfer-trait-v1.transfer-trait)
-;; (impl-trait .ntt-manager-trait-v1.ntt-manager-trait)
+(impl-trait .ntt-manager-xfer-trait-v1.transfer-trait)
+(impl-trait .ntt-manager-trait-v1.ntt-manager-trait)
 
 ;; Transfer trait used previous contract that we are importing from
 ;; May not match the version of `transfer-trait` this contract implements
+(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 (use-trait previous-transfer-trait .ntt-manager-xfer-trait-v1.transfer-trait)
 (use-trait transceiver-trait .transceiver-trait-v1.transceiver-trait)
-(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
+(use-trait protocol-send-trait .protocol-send-trait-v1.send-trait)
 
 ;;;; Token Definitions
 
@@ -42,14 +43,14 @@
 (define-constant ERR_DIV_REMAINDER (err u5011))
 ;; Peer not found for protocol
 (define-constant ERR_NO_PEER (err u5012))
+;; Exponent large enough to cause overflow
+(define-constant ERR_EXPONENENT_SIZE (err u5013))
 
 ;; Update process errors
 (define-constant ERR_UPG_UNAUTHORIZED (err u5101))
 (define-constant ERR_UPG_CHECK_CONTRACT_ADDRESS (err u5103))
-(define-constant ERR_UPG_TOKEN_BALANCE (err u5104))
 
 ;; Token transfer: Building message
-(define-constant ERR_TT_GET_DECIMALS (err u5201))
 (define-constant ERR_TT_PAYLOAD_LEN (err u5202))
 (define-constant ERR_TT_AMOUNT (err u5203))
 (define-constant ERR_TT_RECIPIENT_ADDRESS (err u5204))
@@ -65,7 +66,6 @@
 (define-constant ERR_TT_CHECK_PREFIX (err u5220))
 (define-constant ERR_TT_CHECK_SOURCE_NTT_MANAGER (err u5221))
 (define-constant ERR_TT_CHECK_RECIPIENT_CHAIN_ID (err u5223))
-(define-constant ERR_TT_CHECK_TOKEN (err u5224))
 ;; NTT Manager message header: Validating fields
 (define-constant ERR_NTT_PARSING_ID (err u5301))
 (define-constant ERR_NTT_PARSING_SENDER (err u5302))
@@ -78,13 +78,6 @@
 (define-constant ERR_EXT_PARSING_PAYLOAD (err u5402))
 (define-constant ERR_EXT_CHECK_PAYLOAD_LEN (err u5403))
 (define-constant ERR_EXT_CHECK_OVERLAY (err u5404))
-(define-constant ERR_EXT_PARSING_PREFIX (err u5405))
-(define-constant ERR_EXT_PARSING_PRINCIPAL_1 (err u5406))
-(define-constant ERR_EXT_PARSING_PRINCIPAL_2 (err u5407))
-
-;; Deployment assert errors
-(define-constant ERR_SCALING_LIST_LEN (err u5501))
-(define-constant ERR_CFG_TOKEN_CONTRACT (err u5503))
 
 (define-constant MAX_VALUE_U8 u255)
 (define-constant MAX_VALUE_U16 u65535)
@@ -92,17 +85,11 @@
 
 ;; ID for a token transfer message: [0x99, 'N', 'T', 'T']
 (define-constant PREFIX_TOKEN_TRANSFER 0x994e5454)
-;; ID for a Stacks address in payload extension: First four bytes of `keccak256("Stacks Principal")`
-(define-constant PREFIX_EXT_STACKS_ADDR 0x3b060a8d)
 ;; Max length for an NTT manager message
 (define-constant NTT_MANAGER_MAX_PAYLOAD_LEN u1024)
 
 ;; Stacks chain ID in Wormhole protocol. Copied from `wormhole-core`
 (define-constant WORMHOLE_STACKS_CHAIN_ID 0x003c)
-
-;; Known protocols
-(define-constant PROTOCOL_WORMHOLE u1)
-(define-constant PROTOCOL_AXELAR u2)
 
 ;;;; Data Vars: Don't export to sucessor contract
 (define-data-var initialized bool false)
@@ -139,17 +126,33 @@
 (define-public (pause)
   (begin
     (try! (check-pauser))
+    (print {
+      topic: "pauser",
+      action: "pause",
+      caller: contract-caller,
+    })
     (ok (var-set paused true))))
 
 (define-public (unpause)
   (begin
     (try! (check-pauser))
+    (print {
+      topic: "pauser",
+      action: "unpause",
+      caller: contract-caller,
+    })
     (ok (var-set paused false))))
 
-(define-public (transfer-pause-capability (p principal))
+(define-public (transfer-pause-capability (address principal))
   (begin
     (try! (check-pauser))
-    (ok (var-set pauser p))))
+    (print {
+      topic: "pauser",
+      action: "transfer-pause-capability",
+      caller: contract-caller,
+      address: address
+    })
+    (ok (var-set pauser address))))
 
 (define-private (check-pauser)
   (ok (asserts! (or (is-eq contract-caller (get-pauser)) (is-admin contract-caller)) ERR_UNAUTHORIZED)))
@@ -170,16 +173,31 @@
 ;; ALL FUNCTIONS HERE ARE ADMIN FUNCTIONS AND MUST CALL `check-admin`!
 
 ;; @desc Add new admin account for this contract
-(define-public (add-admin (account principal))
+(define-public (add-admin (address principal))
   (begin
     (try! (check-admin))
-    (ok (map-set admins account true))))
+    (print {
+      topic: "admin",
+      action: "add-admin",
+      caller: contract-caller,
+      address: address,
+    })
+    (ok (map-set admins address true))))
 
 ;; @desc Remove admin account for this contract
-(define-public (remove-admin (account principal))
-  (begin
-    (try! (check-admin))
-    (ok (map-delete admins account))))
+(define-public (remove-admin (address principal))
+  (let ((admin (try! (check-admin)))
+        (deleted (map-delete admins address)))
+    (print {
+      topic: "admin",
+      action: "remove-admin",
+      caller: contract-caller,
+      address: address,
+      result: {
+        deleted: deleted
+      }
+    })
+    (ok deleted)))
 
 ;;;; Public Functions: Token transfer
 
@@ -187,23 +205,30 @@
 
 ;; @desc Lock tokens and send cross-chain message via specified transceiver
 ;;       `contract-caller` must have registered a 32-byte address via `wormhole-core`
-(define-public (send-token-transfer (token <sip-010-trait>) (transceiver <transceiver-trait>) (amount uint) (recipient-chain (buff 2)) (recipient-address (buff 32)))
+(define-public (send-token-transfer
+    (token <sip-010-trait>)
+    (transceiver <transceiver-trait>)
+    (protocol <protocol-send-trait>)
+    (amount uint)
+    (recipient-chain (buff 2))
+    (recipient-address (buff 32)))
   (let ((check1 (try! (check-enabled)))
         (check2 (try! (check-transceiver-trait transceiver)))
         (sequence (get-next-sequence))
         (token-decimals (try! (contract-call? token get-decimals)))
-        (scaled-val (try! (scale-amount-to-u64 amount token-decimals)))
+        (peer (unwrap! (contract-call? .ntt-manager-state peers-get recipient-chain) ERR_UNKNOWN_CHAIN))
+        (scaled-val (try! (trim-decimals amount token-decimals (get decimals peer))))
         (scaled-amount (get amount scaled-val))
         (scaled-decimals-as-buff-1 (try! (uint-to-buff-1-be (get decimals scaled-val))))
-        (sender (get addr32 (try! (contract-call? .addr32 register contract-caller))))
+        (sender tx-sender)
+        (sender-addr32 (get addr32 (try! (contract-call? .addr32 register sender))))
         ;; Make unique message ID from block height and sequence
         (message-id (concat
           (uint-to-buff-16-be stacks-block-height)
           (uint-to-buff-16-be sequence)))
-        (ntt-peer (unwrap! (contract-call? .ntt-manager-state peers-get recipient-chain) ERR_UNKNOWN_CHAIN))
-        (ntt-payload (try! (build-token-transfer-payload message-id scaled-decimals-as-buff-1 sender scaled-amount recipient-address recipient-chain none))))
-    (try! (contract-call? .token-manager lock-or-burn-tokens token amount tx-sender))
-    (try! (contract-call? transceiver send-token-transfer ntt-payload recipient-chain ntt-peer sender))
+        (ntt-payload (try! (build-token-transfer-payload message-id scaled-decimals-as-buff-1 sender-addr32 scaled-amount recipient-address recipient-chain none))))
+    (try! (contract-call? .token-manager lock-or-burn-tokens token amount sender))
+    (try! (contract-call? transceiver send-token-transfer protocol ntt-payload recipient-chain (get address peer) sender-addr32))
     (var-set next-sequence (+ sequence u1))
     (ok sequence)))
 
@@ -220,24 +245,10 @@
         (peer-data (unwrap! (contract-call? .ntt-manager-state peers-get source-chain) ERR_UNKNOWN_CHAIN))
         (uid (keccak256 (concat source-chain ntt-manager-payload)))
         (recipient-addr32 (get recipient-addr32 ntt-manager-message))
-        (recipient-from-msg (match (get additional-payload ntt-manager-message)
-          ;; We got additinoal payload, try parsing as Stacks principal
-          bytes (match (parse-additional-payload-as-stacks-principal bytes)
-            o (some o)
-            e none)
-          ;; No additional payload
-          none))
-        (recipient (match recipient-from-msg
-          ;; QUESTION FOR AR: Which of the following to do here:
-          ;;  - Ignore `recipient-addr32` (what is done now)
-          ;;  - Do lookup anyways and check against result?
-          ;;  - Force fixed value of `recipient-addr32` with payload extension, like `keccak256("PayloadExtension")`
-          r r
-          ;; If no Stacks principal sent in payload extension, try lookup
-          (unwrap! (contract-call? .addr32 lookup recipient-addr32) ERR_ADDR32_NOT_REGISTERED))))
+        (recipient (unwrap! (contract-call? .addr32 lookup recipient-addr32) ERR_ADDR32_NOT_REGISTERED)))
 
     ;; Check message values
-    (asserts! (is-eq source-ntt-manager peer-data)
+    (asserts! (is-eq source-ntt-manager (get address peer-data))
       ERR_TT_CHECK_SOURCE_NTT_MANAGER)
     (asserts! (is-eq (get recipient-chain ntt-manager-message) WORMHOLE_STACKS_CHAIN_ID)
       ERR_TT_CHECK_RECIPIENT_CHAIN_ID)
@@ -297,16 +308,30 @@
         (var-set pauser (get pauser previous-state))
         true)
       (var-set initialized true)
+      (print {
+        topic: "update",
+        action: "initialize-from-previous",
+        caller: contract-caller,
+        import: import,
+        previous-state: previous-state,
+        previous-contract: previous-contract,
+      })
       (ok true))))
 
 ;; @desc Call in active contract to start update process
-(define-public (begin-state-transfer (successor principal))
+(define-public (start-update (successor principal))
   (let ((successor-parts (unwrap! (principal-destruct? successor) ERR_UPG_CHECK_CONTRACT_ADDRESS)))
     (try! (check-admin))
     ;; Check we have a contract principal and not a standard principal
     (asserts! (is-some (get name successor-parts)) ERR_UPG_CHECK_CONTRACT_ADDRESS)
     (try! (contract-call? .token-manager start-ownership-transfer successor))
     (try! (contract-call? .ntt-manager-state start-ownership-transfer successor))
+    (print {
+      topic: "update",
+      action: "start-update",
+      caller: contract-caller,
+      successor: successor
+    })
     (ok true)))
 
 ;; @desc Transfer state and funds to new contract (caller)
@@ -325,10 +350,18 @@
 
 ;; @desc If update process fails, we can cancel
 (define-public (cancel-update)
-  (begin
-    (try! (check-admin))
+  (let ((admin (try! (check-admin)))
+        (cancelled-transfer (contract-call? .ntt-manager-state cancel-ownership-transfer)))
     (try! (contract-call? .token-manager cancel-ownership-transfer))
-    (contract-call? .ntt-manager-state cancel-ownership-transfer)))
+    (print {
+      topic: "update",
+      action: "cancel-update",
+      caller: contract-caller,
+      result: {
+        cancelled-transfer: cancelled-transfer
+      }
+    })
+    (ok cancelled-transfer)))
 
 ;;;; Read-only Functions
 
@@ -348,30 +381,72 @@
   (default-to false (map-get? admins account)))
 
 ;; @desc Register transceiver and remove existing transceiver for protocol
+;;
+;; Known protocols
+;;  - wormhole: u1
+;;  - axelar: u2
 (define-public (add-transceiver (transceiver <transceiver-trait>))
   (let ((protocol (try! (contract-call? transceiver get-protocol-id))))
     (try! (check-admin))
-    (contract-call? .ntt-manager-state add-transceiver (contract-of transceiver) protocol)))
+    (try! (contract-call? .ntt-manager-state add-transceiver (contract-of transceiver) protocol))
+    (print {
+      topic: "admin",
+      action: "add-transceiver",
+      caller: contract-caller,
+      transceiver: transceiver,
+    })
+    (ok true)))
 
 ;; @desc Unregister transceiver
-;;       Do not use trrait arg, in case transceiver trait has changed
-(define-public (remove-transceiver (p principal))
-  (begin
-    (try! (check-admin))
-    (contract-call? .ntt-manager-state remove-transceiver p)))
+;;       Do not use trait arg, in case transceiver trait has changed
+(define-public (remove-transceiver (address principal))
+  (let ((admin (try! (check-admin)))
+        (deleted (try! (contract-call? .ntt-manager-state remove-transceiver address))))
+    (print {
+      topic: "admin",
+      action: "remove-peer",
+      caller: contract-caller,
+      address: address,
+      result: {
+        deleted: deleted
+      }
+    })
+    (ok deleted)))
 
 ;; @desc Add authorized NTT manager on other chain
 ;; TODO: Add `inbound-limit` for rate limiting?
-(define-public (add-peer (chain (buff 2)) (contract (buff 32)))
+(define-public (add-peer (chain (buff 2)) (contract (buff 32)) (decimals uint))
   (begin
     (try! (check-admin))
-    (contract-call? .ntt-manager-state add-peer chain contract )))
+    (try! (contract-call? .ntt-manager-state add-peer chain contract decimals))
+    (print {
+      topic: "admin",
+      action: "add-peer",
+      caller: contract-caller,
+      peer: {
+        chain: chain,
+        contract: contract,
+        decimals: decimals
+      }
+    })
+    (ok true)))
 
 ;; @desc Remove peer by chain ID
 (define-public (remove-peer (chain (buff 2)))
-  (begin
-    (try! (check-admin))
-    (contract-call? .ntt-manager-state peers-delete chain)))
+  (let ((admin (try! (check-admin)))
+        (deleted (try! (contract-call? .ntt-manager-state peers-delete chain))))
+    (print {
+      topic: "admin",
+      action: "remove-peer",
+      caller: contract-caller,
+      peer: {
+        chain: chain
+      },
+      result: {
+        deleted: deleted
+      }
+    })
+    (ok deleted)))
 
 (define-public (get-peer (chain (buff 2)))
   (ok (unwrap! (contract-call? .ntt-manager-state peers-get chain) ERR_NO_PEER)))
@@ -422,66 +497,6 @@
 
 (define-read-only (get-next-sequence)
   (var-get next-sequence))
-
-;; @desc Scale amount to different number of decimals
-;;       Returns error if funds would be lost due to integer division
-(define-read-only (scale-decimals (amount uint) (from uint) (to uint))
-  (if (is-eq amount u0)
-    (ok u0)
-    (if (is-eq to from)
-      ;; No adjustment needed
-      (ok amount)
-      ;; Need to scale amount
-      (if (> to from)
-        ;; We are increasing decimal precision, multiply amount in message by power of 10
-        (ok (* amount (pow u10 (- to from))))
-        ;; We are decreasing decimal precision, divide in message by power of 10
-        (let ((scaling-factor (pow u10 (- from to)))
-              (scaled-amount (/ amount scaling-factor)))
-          (asserts! (is-eq (* scaled-amount scaling-factor) amount) ERR_DIV_REMAINDER)
-          (ok scaled-amount))))))
-
-;; @desc Scale amount down by `entry` decimals, if needed
-;;       This is a single, foldable step for the `scale-amount-to-u64` function
-;; NOTE: This will generate a runtime error if `decimals` goes below 0
-(define-private (scale-down-by
-    (entry uint)
-    (acc {
-      amount: uint,
-      decimals: uint
-    }))
-  (let ((amount (get amount acc)))
-    (if (<= amount MAX_VALUE_U64)
-      ;; `amount` fits already
-      acc
-      ;; Too big, scale amount down by `entry`
-      (let ((from (get decimals acc))
-            (to (- from entry))
-            (scaling-factor (pow u10 (- from to))))
-        {
-          amount: (/ amount scaling-factor),
-          decimals: to
-        }))))
-
-;; Represents the max amount of decimals we might have to shift a `u128` to fit in `u64`
-(define-constant scaling-list (list u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1 u1))
-(asserts! (is-eq (len scaling-list) u19) ERR_SCALING_LIST_LEN)
-
-;; @desc Scale amount and decimals so that amount fits in `u64`
-;;       Returns error if funds would be lost due to integer division
-(define-read-only (scale-amount-to-u64 (amount uint) (decimals uint))
-  (if (is-eq amount u0)
-    (ok { amount: u0, decimals: decimals })
-    (let ((scaled-val (fold scale-down-by
-            scaling-list
-            { amount: amount, decimals: decimals }))
-        (scaled-amount (get amount scaled-val))
-        (scaled-by (- decimals (get decimals scaled-val))))
-    ;; Check `amount` fits now
-    (asserts! (<= scaled-amount MAX_VALUE_U64) ERR_INT_OVERFLOW)
-    ;; Reverse scaling to check for "dust"
-    (asserts! (is-eq amount (* scaled-amount (pow u10 scaled-by))) ERR_DIV_REMAINDER)
-    (ok scaled-val))))
 
 ;;;; Private Functions
 
@@ -650,23 +665,45 @@
         (asserts! (is-eq (get pos (get next cursor-addl-payload-len)) (len payload)) ERR_EXT_CHECK_OVERLAY)
         (ok none)))))
 
-;; @desc Try to parse NTT transceiver payload extension as a Stacks address
-;;       This function expects there to be bytes in the buffer, but can return `(ok none)` if payload length is zero
-;;
-;; Message format:
-;;   []byte    stacks_principal  // Stacks principal encoded as StacksCodec
-(define-private (parse-additional-payload-as-stacks-principal (payload (buff 877)))
-  (let ((cursor-prefix (unwrap! (read-buff-4 { bytes: payload, pos: u0 })
-          ERR_EXT_PARSING_PREFIX))
-        (addr-bytes (unwrap! (slice? payload u4 (len payload))
-          ERR_EXT_PARSING_PRINCIPAL_1))
-        (addr (unwrap! (from-consensus-buff? principal addr-bytes)
-          ERR_EXT_PARSING_PRINCIPAL_2)))
-    (ok addr)))
+;;;; Decimal trimming/scaling
 
-;; @desc Get this contract's principal
-(define-private (get-contract-principal)
-  (as-contract tx-sender))
+(define-constant TRIMMED_DECIMALS u8)
+
+(define-private (min-uint (a uint) (b uint))
+  (if (< a b) a b))
+
+;; @desc Scale amount to different number of decimals
+;;       Returns error if funds would be lost due to integer division
+(define-read-only (scale-decimals (amount uint) (from uint) (to uint))
+  (if (is-eq amount u0)
+    (ok u0)
+    (if (is-eq to from)
+      ;; No adjustment needed
+      (ok amount)
+      ;; Need to scale amount
+      (if (> to from)
+        ;; We are increasing decimal precision, multiply amount in message by power of 10
+        (let ((delta (- to from)))
+          ;; NOTE: This can overflow if delta >= 20
+          ;;       Shouldn't happen though since decimals should always be <= 8
+          (asserts! (<= delta u19) ERR_EXPONENENT_SIZE)
+          (ok (* amount (pow u10 delta))))
+        ;; We are decreasing decimal precision, divide in message by power of 10
+        (let ((scaling-factor (pow u10 (- from to)))
+              (scaled-amount (/ amount scaling-factor)))
+          (asserts! (is-eq (* scaled-amount scaling-factor) amount) ERR_DIV_REMAINDER)
+          (ok scaled-amount))))))
+
+;; @desc Trim amount to target decimals
+;;       Returns { amount, decimals }, with decimals equal to min(TRIMMED_DECIMALS, from, to)
+;;       This ensures that no dust is destroyed on either side of the transfer
+(define-read-only (trim-decimals (amount uint) (from uint) (to uint))
+  (let ((decimals (min-uint TRIMMED_DECIMALS (min-uint from to)))
+        (scaled-amount (try! (scale-decimals amount from decimals))))
+      (ok {
+        amount: scaled-amount,
+        decimals: decimals
+      })))
 
 ;;;; `uint` to `buff` conversions
 
