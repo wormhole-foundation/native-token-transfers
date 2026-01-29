@@ -5,6 +5,10 @@
       "address": "0x98f3c9e6E3fAce36bAAd05FE09d375Ef1464288B"
     },
     {
+      "chainId": 4,
+      "address": "0x98f3c9e6E3fAce36bAAd05FE09d375Ef1464288B"
+    },
+    {
       "chainId": 6,
       "address": "0x54a8e5f9c4CbA08F9943965859F6c34eAF03E26c"
     },
@@ -152,6 +156,10 @@
       "address": "0x23Fea5514DFC9821479fBE18BA1D7e1A61f6FfCf",
       "chainId": 2
     },
+    {
+      "address": "0x8E4dc685e990379b8D53EcA47841E09B8d30043e",
+      "chainId": 4
+    }
     {
       "address": "0x169D91C797edF56100F1B765268145660503a423",
       "chainId": 6

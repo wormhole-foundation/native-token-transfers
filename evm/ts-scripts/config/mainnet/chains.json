@@ -8,6 +8,12 @@
       "rpc": "https://eth.llamarpc.com"
     },
     {
+      "description": "BSC",
+      "evmNetworkId": 56,
+      "chainId": 4,
+      "rpc": "https://bsc-rpc.publicnode.com"
+    },
+    {
       "description": "Avalanche",
       "evmNetworkId": 43114,
       "chainId": 6,
