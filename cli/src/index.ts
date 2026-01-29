@@ -4358,7 +4358,7 @@ async function deployStacks<N extends Network, C extends Chain>(
     stacksContractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
     stacksContractsDirectory + "/ntt-manager-xfer-trait-v1",
     stacksContractsDirectory + "/ntt-manager-trait-v1",
-    stacksContractsDirectory + "/receiver-trait-v1",
+    stacksContractsDirectory + "/wormhole-receiver-trait-v1",
   ]
 
   if(ch.network === "Devnet") {
@@ -4481,7 +4481,7 @@ async function deployStacks<N extends Network, C extends Chain>(
     functionArgs: [
       Cl.principal(`${deployerAddress}.${nttManagerContractName}`),
       isLocking ? Cl.principal(token) : Cl.principal(`${deployerAddress}.${bridgedTokenContractName}`),
-      Cl.none()
+      Cl.principal(wormhole)
     ],
     senderKey: signer.source.source,
     network: stacksNetwork,
