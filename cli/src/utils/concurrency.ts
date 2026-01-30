@@ -25,8 +25,9 @@ export async function runTaskPool<T, R>(
 }
 
 // Run tasks where a subset must execute sequentially (e.g., rate-limited chains),
-// while the rest use a pool. Note: the sequential lane runs alongside the pool,
-// so total in-flight work can be pool concurrency + 1.
+// while the rest use a pool. The sequential lane runs alongside the pool,
+// so total in-flight work can be pool concurrency + 1. This is intentional to
+// keep the parallel lane fast while protecting rate-limited chains.
 export async function runTaskPoolWithSequential<T, R>(
   items: T[],
   concurrency: number,

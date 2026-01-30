@@ -438,7 +438,8 @@ const options = {
     choices: chains,
   },
   rpcConcurrency: {
-    describe: "Max concurrent read-only RPC calls (Solana runs sequentially)",
+    describe:
+      "Max concurrent read-only RPC calls for the parallel lane (sequential chains like Solana run alongside it, so total in-flight can be +1)",
     type: "number",
     default: DEFAULT_MAX_CONCURRENT,
   },
