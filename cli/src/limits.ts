@@ -16,7 +16,11 @@ function getDecimalsFromLimit(limit: string): number | null {
   if (parts.length !== 2) {
     return null;
   }
-  return parts[1].length;
+  const fraction = parts[1];
+  if (fraction === undefined) {
+    return null;
+  }
+  return fraction.length;
 }
 
 /** Determine if a formatted limit represents zero. */
@@ -34,14 +38,15 @@ function isValidLimit(value: string, decimals: number): boolean {
   if (parts.length !== 2) {
     return false;
   }
-  if (parts[1].length !== decimals) {
+  const [whole, fraction] = parts;
+  if (whole === undefined || fraction === undefined || fraction.length !== decimals) {
     return false;
   }
-  return /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1]);
+  return /^\d+$/.test(whole) && /^\d+$/.test(fraction);
 }
 
 /** Group missing/zero inbound limits by destination for the new chain. */
-function collectMissingInboundGroups(
+export function collectMissingInboundGroups(
   chainsConfig: Config["chains"],
   newChain: Chain
 ): MissingInboundGroup[] {
@@ -110,7 +115,7 @@ function collectMissingInboundGroups(
 }
 
 /** Group missing/zero inbound limits across all chains by destination. */
-function collectMissingInboundGroupsForAll(
+export function collectMissingInboundGroupsForAll(
   chainsConfig: Config["chains"]
 ): MissingInboundGroup[] {
   const chainNames = Object.keys(chainsConfig);
