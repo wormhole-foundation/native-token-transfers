@@ -20,6 +20,18 @@ describe("limitFormatting helpers", () => {
     expect(formatNumber(1234n, 0)).toBe("0.1234");
   });
 
+  it("always includes a single dot with the expected fractional length", () => {
+    const cases = [0n, 1n, 9n, 10n, 99n, 100n, 999n, 1000n, 123456n];
+    for (let decimals = 1; decimals <= 6; decimals += 1) {
+      for (const num of cases) {
+        const formatted = formatNumber(num, decimals);
+        const parts = formatted.split(".");
+        expect(parts).toHaveLength(2);
+        expect(parts[1]?.length).toBe(decimals);
+      }
+    }
+  });
+
   it("checks decimal formatting length", () => {
     expect(checkNumberFormatting("10.00", 2)).toBe(true);
     expect(checkNumberFormatting("10.0", 2)).toBe(false);
@@ -30,6 +42,11 @@ describe("limitFormatting helpers", () => {
     expect(isValidLimit("10.00", 2)).toBe(true);
     expect(isValidLimit("10.0", 2)).toBe(false);
     expect(isValidLimit("aa.bb", 2)).toBe(false);
+    expect(isValidLimit("", 2)).toBe(false);
+    expect(isValidLimit("10.0.0", 2)).toBe(false);
+    expect(isValidLimit("10..", 2)).toBe(false);
+    expect(isValidLimit(".10", 2)).toBe(false);
+    expect(isValidLimit("10.a", 2)).toBe(false);
     expect(isValidLimit("10", 0)).toBe(true);
     expect(isValidLimit("10.", 0)).toBe(false);
   });
