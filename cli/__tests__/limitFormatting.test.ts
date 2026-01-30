@@ -10,6 +10,7 @@ describe("limitFormatting helpers", () => {
     expect(formatNumber(0n, 2)).toBe("0.00");
     expect(formatNumber(1234n, 2)).toBe("12.34");
     expect(formatNumber(5n, 1)).toBe("0.5");
+    expect(formatNumber(5n, 2)).toBe("0.05");
   });
 
   it("preserves legacy zero-precision formatting", () => {

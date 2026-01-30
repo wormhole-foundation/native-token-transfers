@@ -1,13 +1,11 @@
 export function formatNumber(num: bigint, decimals: number): string {
-  if (num === 0n) {
-    return "0." + "0".repeat(decimals);
-  }
   const str = num.toString();
-  const formatted = str.slice(0, -decimals) + "." + str.slice(-decimals);
-  if (formatted.startsWith(".")) {
-    return "0" + formatted;
+  if (decimals === 0) {
+    return num === 0n ? "0." : `0.${str}`;
   }
-  return formatted;
+  const padded = str.padStart(decimals + 1, "0");
+  const splitIndex = padded.length - decimals;
+  return `${padded.slice(0, splitIndex)}.${padded.slice(splitIndex)}`;
 }
 
 export function checkNumberFormatting(

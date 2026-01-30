@@ -2,7 +2,7 @@ const path = require("path");
 
 module.exports = {
   verbose: true,
-  testTimeout: 10000000,
+  testTimeout: 120000,
   rootDir: __dirname,
   roots: ["<rootDir>/__tests__"],
   testMatch: ["**/*.test.ts"],
