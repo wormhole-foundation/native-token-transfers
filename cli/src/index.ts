@@ -4332,6 +4332,7 @@ async function deployStacks<N extends Network, C extends Chain>(
 ): Promise<StacksDeploymentResult<C>> {
   ensureNttRoot(pwd);
 
+  //const wormhole = "ST37PDDGEA78QSPSBZM1ZHPCZV9GKAPDFHA32RWY8.wormhole-core-v4";
   const wormhole = ch.config.contracts.coreBridge
   // console.log(pwd)
   // console.log(mode)
@@ -4351,7 +4352,8 @@ async function deployStacks<N extends Network, C extends Chain>(
   const stacksContractsDirectory = `${pwd}/stacks/src/contracts`
   const stacksRequirementsDirectory = `${pwd}/stacks/test/requirements`
   const deployerAddress = signer.address.address.toString()
-  console.log(`Deploying Stacks NTT from ${deployerAddress} rpc ${clientBaseUrl} ${signAndSendSigner}...`)
+  const isLocking = mode === "locking"
+  console.log(`Deploying Stacks NTT in ${mode} mode from ${deployerAddress} rpc ${clientBaseUrl} ${signAndSendSigner}...`)
 
   const traits = [
     stacksContractsDirectory + "/transceiver-trait-v1",
@@ -4418,7 +4420,7 @@ async function deployStacks<N extends Network, C extends Chain>(
     const deployTx = await makeContractDeploy({
         contractName: contract.name,
         codeBody: contract.code,
-        clarityVersion: 3,
+        clarityVersion: 4,
         senderKey: signer.source.source,
         nonce,
         network: stacksNetwork,
@@ -4445,7 +4447,6 @@ async function deployStacks<N extends Network, C extends Chain>(
 
   console.log(chalk.green(`All contracts deployed.`))
   console.log(`Initializing NTT Manager with mode: ${mode} ...`)
-  const isLocking = mode === "locking"
   const initializeFunction = isLocking ? "initialize-locking-mode" : "initialize-burning-mode"
   const args = isLocking ? [Cl.principal(token)] : [
     // TODO
