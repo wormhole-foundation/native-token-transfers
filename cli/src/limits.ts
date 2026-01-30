@@ -25,7 +25,7 @@ function getDecimalsFromLimit(limit: string): number | null {
 
 /** Determine if a formatted limit represents zero. */
 function isZeroLimit(value: string): boolean {
-  const normalized = value.replace(".", "");
+  const normalized = value.replace(/\./g, "");
   return normalized.length === 0 || /^0+$/.test(normalized);
 }
 
@@ -39,7 +39,11 @@ function isValidLimit(value: string, decimals: number): boolean {
     return false;
   }
   const [whole, fraction] = parts;
-  if (whole === undefined || fraction === undefined || fraction.length !== decimals) {
+  if (
+    whole === undefined ||
+    fraction === undefined ||
+    fraction.length !== decimals
+  ) {
     return false;
   }
   return /^\d+$/.test(whole) && /^\d+$/.test(fraction);
@@ -185,6 +189,7 @@ function setInboundLimit(
     return;
   }
   if (!destinationConfig.limits) {
+    // Placeholder outbound; normal flows only call setInboundLimit when outbound is already configured.
     destinationConfig.limits = { outbound: "0.0", inbound: {} };
   }
   if (!destinationConfig.limits.inbound) {
