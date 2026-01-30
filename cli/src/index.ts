@@ -100,6 +100,8 @@ import type {
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
 import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
+import { checkNumberFormatting, formatNumber } from "./limitFormatting.js";
+import { checkConfigErrors } from "./configErrors.js";
 import * as configuration from "./configuration";
 import { createTokenTransferCommand } from "./tokenTransfer";
 import { ethers, Interface } from "ethers";
@@ -2653,39 +2655,6 @@ yargs(hideBin(process.argv))
   .demandCommand()
   .parse();
 
-function checkConfigErrors(
-  deps: Partial<{ [C in Chain]: Deployment<Chain> }>
-): number {
-  let fatal = 0;
-  for (const [chain, deployment] of Object.entries(deps)) {
-    assertChain(chain);
-    const config = deployment.config.local!;
-    if (!checkNumberFormatting(config.limits.outbound, deployment.decimals)) {
-      console.error(
-        `ERROR: ${chain} has an outbound limit (${config.limits.outbound}) with the wrong number of decimals. The number should have ${deployment.decimals} decimals.`
-      );
-      fatal++;
-    }
-    if (config.limits.outbound === formatNumber(0n, deployment.decimals)) {
-      console.warn(colors.yellow(`${chain} has an outbound limit of 0`));
-    }
-    for (const [c, limit] of Object.entries(config.limits.inbound)) {
-      if (!checkNumberFormatting(limit, deployment.decimals)) {
-        console.error(
-          `ERROR: ${chain} has an inbound limit with the wrong number of decimals for ${c} (${limit}). The number should have ${deployment.decimals} decimals.`
-        );
-        fatal++;
-      }
-      if (limit === formatNumber(0n, deployment.decimals)) {
-        console.warn(
-          colors.yellow(`${chain} has an inbound limit of 0 from ${c}`)
-        );
-      }
-    }
-  }
-  return fatal;
-}
-
 function createWorkTree(platform: Platform, version: string): string {
   const tag = getGitTagName(platform, version);
   if (!tag) {
@@ -4896,30 +4865,6 @@ async function nttFromManager<N extends Network, C extends Chain>(
     ntt: addresses,
   });
   return { ntt, addresses };
-}
-
-function formatNumber(num: bigint, decimals: number) {
-  if (num === 0n) {
-    return "0." + "0".repeat(decimals);
-  }
-  const str = num.toString();
-  const formatted = str.slice(0, -decimals) + "." + str.slice(-decimals);
-  if (formatted.startsWith(".")) {
-    return "0" + formatted;
-  }
-  return formatted;
-}
-
-function checkNumberFormatting(formatted: string, decimals: number): boolean {
-  // check that the string has the correct number of decimals
-  const parts = formatted.split(".");
-  if (parts.length !== 2) {
-    return false;
-  }
-  if (parts[1].length !== decimals) {
-    return false;
-  }
-  return true;
 }
 
 function cargoNetworkFeature(network: Network): string {

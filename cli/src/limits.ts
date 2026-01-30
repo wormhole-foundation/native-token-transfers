@@ -1,6 +1,11 @@
 import { assertChain, type Chain } from "@wormhole-foundation/sdk";
 import { colors } from "./colors.js";
 import type { Config } from "./deployments";
+import {
+  getDecimalsFromLimit,
+  isValidLimit,
+  isZeroLimit,
+} from "./limitFormatting.js";
 import { promptLine, promptYesNo } from "./prompts.js";
 
 type MissingInboundGroup = {
@@ -9,45 +14,6 @@ type MissingInboundGroup = {
   defaultLimit: string;
   decimals: number;
 };
-
-/** Extract the decimal precision from a formatted limit string. */
-function getDecimalsFromLimit(limit: string): number | null {
-  const parts = limit.split(".");
-  if (parts.length !== 2) {
-    return null;
-  }
-  const fraction = parts[1];
-  if (fraction === undefined) {
-    return null;
-  }
-  return fraction.length;
-}
-
-/** Determine if a formatted limit represents zero. */
-function isZeroLimit(value: string): boolean {
-  const normalized = value.replace(/\./g, "");
-  return normalized.length === 0 || /^0+$/.test(normalized);
-}
-
-/** Validate a formatted limit against expected decimal precision. */
-function isValidLimit(value: string, decimals: number): boolean {
-  if (decimals === 0) {
-    return /^\d+$/.test(value);
-  }
-  const parts = value.split(".");
-  if (parts.length !== 2) {
-    return false;
-  }
-  const [whole, fraction] = parts;
-  if (
-    whole === undefined ||
-    fraction === undefined ||
-    fraction.length !== decimals
-  ) {
-    return false;
-  }
-  return /^\d+$/.test(whole) && /^\d+$/.test(fraction);
-}
 
 /** Group missing/zero inbound limits by destination for the new chain. */
 export function collectMissingInboundGroups(
