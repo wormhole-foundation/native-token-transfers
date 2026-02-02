@@ -353,7 +353,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       functionArgs: [
         StacksNtt.chainToClBuffer(peer.chain),
         Cl.buffer(new UniversalAddress(peer.address.toString()).toUint8Array()),
-        // Cl.uint(tokenDecimals),
+        Cl.uint(tokenDecimals),
       ],
       postConditionMode: PostConditionMode.Allow
     }
