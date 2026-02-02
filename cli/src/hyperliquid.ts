@@ -20,12 +20,13 @@ export async function setHyperEvmBigBlocks(
   enable: boolean,
   isTestnet: boolean
 ): Promise<{ success: boolean; address: string; error?: string }> {
-  const wallet = new ethers.Wallet(privateKey);
   const apiUrl = isTestnet ? HYPERLIQUID_API.testnet : HYPERLIQUID_API.mainnet;
   const action = { type: "evmUserModify", usingBigBlocks: enable };
   const nonce = Date.now();
 
+  let wallet: ethers.Wallet | undefined;
   try {
+    wallet = new ethers.Wallet(privateKey);
     // Compute action hash: keccak256(msgpack(action) + nonce_bytes + vault_byte)
     const actionPacked = msgpackEncode(action);
     const nonceBytes = new Uint8Array(8);
@@ -76,7 +77,7 @@ export async function setHyperEvmBigBlocks(
   } catch (error) {
     return {
       success: false,
-      address: wallet.address,
+      address: wallet?.address ?? "",
       error: error instanceof Error ? error.message : String(error),
     };
   }

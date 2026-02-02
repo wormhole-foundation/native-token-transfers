@@ -872,6 +872,14 @@ yargs(hideBin(process.argv))
         );
 
         if (shouldEnableBigBlocks) {
+          if (network !== "Mainnet" && network !== "Testnet") {
+            console.error(
+              colors.red(
+                `Error: Automatic big blocks toggle is only supported for "Mainnet" or "Testnet" networks, got "${network}". Please enable big blocks manually.`
+              )
+            );
+            process.exit(1);
+          }
           await enableBigBlocks(network === "Testnet");
         } else {
           console.log(
