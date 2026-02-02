@@ -71,6 +71,7 @@ import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 import { handleDeploymentError } from "./error";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
+import { enableBigBlocks } from "./hyperliquid.js";
 export type { ChainConfig, Config } from "./deployments";
 export type { Deployment } from "./validation";
 
@@ -850,7 +851,7 @@ yargs(hideBin(process.argv))
           )
         );
         console.log(
-          colors.white("Hyperliquid app: https://app.hyperliquid.xyz/")
+          colors.white("   Hyperliquid app: https://app.hyperliquid.xyz/")
         );
         console.log(
           colors.yellow(
@@ -859,13 +860,39 @@ yargs(hideBin(process.argv))
         );
         console.log(
           colors.white(
-            "Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture"
+            "   Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture"
           )
         );
         console.log(colors.yellow(""));
 
+        // Ask if user wants to enable big blocks now
+        const shouldEnableBigBlocks = await promptYesNo(
+          "Would you like to enable big blocks now?",
+          { defaultYes: true }
+        );
+
+        if (shouldEnableBigBlocks) {
+          await enableBigBlocks(network === "Testnet");
+        } else {
+          console.log(
+            colors.white(
+              "Please enable big blocks manually before proceeding:"
+            )
+          );
+          console.log(
+            colors.white(
+              "   Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture"
+            )
+          );
+          console.log(colors.yellow(""));
+          await askForConfirmation(
+            "Did you enable big blocks manually?"
+          );
+        }
+
+        // Confirm the verified account requirement
         await askForConfirmation(
-          "Did you make sure to do steps 1 & 2 mentioned above?"
+          "Did you create a verified account by depositing into Hyperliquid from the deployer wallet?"
         );
       }
 
@@ -2413,6 +2440,65 @@ yargs(hideBin(process.argv))
           console.log(`Program ID: ${buildResult.programId}`);
           console.log(`Binary: ${buildResult.binary}`);
           console.log(`Keypair: ${buildResult.programKeypairPath}`);
+        }
+      )
+      .demandCommand();
+  })
+  .command("hype", "Hyperliquid/HyperEVM utilities", (yargs) => {
+    yargs
+      .command(
+        "set-big-blocks",
+        "Enable or disable big blocks for HyperEVM deployments",
+        (yargs) =>
+          yargs
+            .option("disable", {
+              alias: "d",
+              describe: "Disable big blocks",
+              type: "boolean",
+              default: false,
+            })
+            .option("path", {
+              ...options.deploymentPath,
+              describe:
+                "Path to deployment.json (used to detect network). Falls back to --testnet flag if not found.",
+            })
+            .option("testnet", {
+              describe:
+                "Override: use HyperEVM testnet instead of mainnet (only needed if no deployment.json)",
+              type: "boolean",
+            })
+            .example(
+              "$0 hype set-big-blocks",
+              "Enable big blocks (reads network from deployment.json)"
+            )
+            .example(
+              "$0 hype set-big-blocks --disable",
+              "Disable big blocks"
+            )
+            .example(
+              "$0 hype set-big-blocks -d",
+              "Disable big blocks (short form)"
+            ),
+        async (argv) => {
+          const deploymentPath = argv["path"];
+
+          // Determine network: try deployment.json first, then fall back to --testnet flag
+          let isTestnet: boolean;
+          if (fs.existsSync(deploymentPath)) {
+            const deployments: Config = loadConfig(deploymentPath);
+            isTestnet = deployments.network === "Testnet";
+          } else if (argv["testnet"] !== undefined) {
+            isTestnet = argv["testnet"];
+          } else {
+            console.error(
+              colors.red(
+                `No deployment.json found at ${deploymentPath}. Please specify --testnet or --testnet=false to indicate the network.`
+              )
+            );
+            process.exit(1);
+          }
+
+          await enableBigBlocks(isTestnet, !argv["disable"]);
         }
       )
       .demandCommand();
