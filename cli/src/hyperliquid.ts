@@ -46,7 +46,12 @@ export async function setHyperEvmBigBlocks(
           chainId: 1337,
           verifyingContract: "0x0000000000000000000000000000000000000000",
         },
-        { Agent: [{ name: "source", type: "string" }, { name: "connectionId", type: "bytes32" }] },
+        {
+          Agent: [
+            { name: "source", type: "string" },
+            { name: "connectionId", type: "bytes32" },
+          ],
+        },
         { source: isTestnet ? "b" : "a", connectionId }
       )
     );
@@ -96,7 +101,9 @@ export async function enableBigBlocks(
 
   const networkName = isTestnet ? "HyperEVM Testnet" : "HyperEVM Mainnet";
   console.log(
-    colors.cyan(`${enable ? "Enabling" : "Disabling"} big blocks on ${networkName}...`)
+    colors.cyan(
+      `${enable ? "Enabling" : "Disabling"} big blocks on ${networkName}...`
+    )
   );
 
   const result = await setHyperEvmBigBlocks(privateKey, enable, isTestnet);

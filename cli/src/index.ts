@@ -875,9 +875,7 @@ yargs(hideBin(process.argv))
           await enableBigBlocks(network === "Testnet");
         } else {
           console.log(
-            colors.white(
-              "Please enable big blocks manually before proceeding:"
-            )
+            colors.white("Please enable big blocks manually before proceeding:")
           );
           console.log(
             colors.white(
@@ -885,9 +883,7 @@ yargs(hideBin(process.argv))
             )
           );
           console.log(colors.yellow(""));
-          await askForConfirmation(
-            "Did you enable big blocks manually?"
-          );
+          await askForConfirmation("Did you enable big blocks manually?");
         }
 
         // Confirm the verified account requirement
@@ -2471,10 +2467,7 @@ yargs(hideBin(process.argv))
               "$0 hype set-big-blocks",
               "Enable big blocks (reads network from deployment.json)"
             )
-            .example(
-              "$0 hype set-big-blocks --disable",
-              "Disable big blocks"
-            )
+            .example("$0 hype set-big-blocks --disable", "Disable big blocks")
             .example(
               "$0 hype set-big-blocks -d",
               "Disable big blocks (short form)"
