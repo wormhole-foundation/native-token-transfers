@@ -1,7 +1,7 @@
 export function formatNumber(num: bigint, decimals: number): string {
   const str = num.toString();
   if (decimals === 0) {
-    return num === 0n ? "0." : `0.${str}`;
+    return `${str}.`;
   }
   const padded = str.padStart(decimals + 1, "0");
   const splitIndex = padded.length - decimals;
@@ -45,7 +45,7 @@ export function isZeroLimit(value: string): boolean {
 
 export function isValidLimit(value: string, decimals: number): boolean {
   if (decimals === 0) {
-    return /^\d+$/.test(value);
+    return /^\d+\.?$/.test(value);
   }
   const parts = value.split(".");
   if (parts.length !== 2) {

@@ -13,11 +13,10 @@ describe("limitFormatting helpers", () => {
     expect(formatNumber(5n, 2)).toBe("0.05");
   });
 
-  it("preserves legacy zero-precision formatting", () => {
-    // Legacy formatting keeps a trailing dot for zero precision.
+  it("formats zero-decimal values with trailing dot", () => {
     expect(formatNumber(0n, 0)).toBe("0.");
-    // Historical behavior uses a leading zero and dot for non-zero values.
-    expect(formatNumber(1234n, 0)).toBe("0.1234");
+    expect(formatNumber(5n, 0)).toBe("5.");
+    expect(formatNumber(1234n, 0)).toBe("1234.");
   });
 
   it("always includes a single dot with the expected fractional length", () => {
@@ -48,7 +47,7 @@ describe("limitFormatting helpers", () => {
     expect(isValidLimit(".10", 2)).toBe(false);
     expect(isValidLimit("10.a", 2)).toBe(false);
     expect(isValidLimit("10", 0)).toBe(true);
-    expect(isValidLimit("10.", 0)).toBe(false);
+    expect(isValidLimit("10.", 0)).toBe(true);
   });
 
   it("detects zero-like limits", () => {
