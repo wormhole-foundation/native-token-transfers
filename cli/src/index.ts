@@ -1200,11 +1200,17 @@ yargs(hideBin(process.argv))
 
       let lastStatusLineLength = 0;
       const updateStatusLine = (message: string) => {
+        if (!process.stdout.isTTY) {
+          return;
+        }
         const padded = message.padEnd(lastStatusLineLength, " ");
         process.stdout.write(`\r${padded}`);
         lastStatusLineLength = Math.max(lastStatusLineLength, message.length);
       };
       const finishStatusLine = () => {
+        if (!process.stdout.isTTY) {
+          return;
+        }
         if (lastStatusLineLength > 0) {
           process.stdout.write("\n");
         }
