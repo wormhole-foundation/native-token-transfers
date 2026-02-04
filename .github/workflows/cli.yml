@@ -29,8 +29,13 @@ jobs:
           file: Dockerfile.cli
           target: cli-local-test
           push: false
+          build-args: |
+            TRACE=0
           cache-from: type=gha,scope=cli
           cache-to: type=gha,mode=max,scope=cli
+          secrets: |
+            BSC_RPC_URL=${{ secrets.BSC_RPC_URL }}
+            SEPOLIA_RPC_URL=${{ secrets.SEPOLIA_RPC_URL }}
 
   # Build Solana contracts (v1.0.0 and v2.0.0 in parallel)
   # Artifacts are cached based on version tag + build script hash
