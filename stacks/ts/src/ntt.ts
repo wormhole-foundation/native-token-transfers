@@ -35,11 +35,13 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
   }
 
   async *setPeer(peer: ChainAddress<Chain>, payer?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
+    const protocolContractAddress = await this.getProtocolContractAddress()
     const tx = {
       contractName: this.contractName,
       contractAddress: this.deployer,
       functionName: 'add-peer',
       functionArgs: [
+        Cl.address(protocolContractAddress),
         StacksNtt.chainToClBuffer(peer.chain),
         Cl.buffer(new UniversalAddress(peer.address.toString()).toUint8Array()),
       ],
@@ -97,6 +99,11 @@ export class StacksNttWormholeTransceiver<N extends Network, C extends StacksCha
   async getPauser(): Promise<AccountAddress<C> | null> {
     const res = await this.transceiverReadOnly('get-pauser', [])
     return cvToValue(res)
+  }
+
+  async getProtocolContractAddress(): Promise<string> {
+    const res = await this.transceiverReadOnly('get-protocol-contract', [])
+    return cvToValue(res).value
   }
 
   async *receive(attestation: Ntt.Attestation, sender?: AccountAddress<C> | undefined): AsyncGenerator<UnsignedTransaction<N, C>, any, any> {
@@ -395,6 +402,10 @@ export class StacksNtt<N extends Network, C extends StacksChains>
     }
     
     const transceiverAddress = (await transceiver.getAddress()).address.toString()
+    const protocolContractAddress = await (transceiver as StacksNttWormholeTransceiver<N, C>).getProtocolContractAddress()
+    if(!protocolContractAddress) {
+      throw new Error("Protocol contract address not found")
+    }
     const activeNttManager = await this.getActiveNttManager()
     const tx = {
       contractName: activeNttManager.contractName,
@@ -403,6 +414,7 @@ export class StacksNtt<N extends Network, C extends StacksChains>
       functionArgs: [
         Cl.address(this.tokenAddress),
         Cl.address(transceiverAddress),
+        Cl.address(protocolContractAddress),
         Cl.uint(amount),
         StacksNtt.chainToClBuffer(destination.chain),
         Cl.buffer(new UniversalAddress(destination.address.toString()).toUint8Array()),

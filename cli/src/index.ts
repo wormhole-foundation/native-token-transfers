@@ -2767,6 +2767,9 @@ async function upgrade<N extends Network, C extends Chain>(
       const suiNtt = ntt as SuiNtt<N, SuiChains>;
       const suiCtx = ctx as ChainContext<N, SuiChains>;
       return upgradeSui(worktree, toVersion, suiNtt, suiCtx, signerType);
+    case "Stacks":
+      console.log("Stacks won't be upgraded");
+      return Promise.resolve();
     default:
       throw new Error("Unsupported platform");
   }
@@ -4332,8 +4335,8 @@ async function deployStacks<N extends Network, C extends Chain>(
 ): Promise<StacksDeploymentResult<C>> {
   ensureNttRoot(pwd);
 
-  //const wormhole = "ST37PDDGEA78QSPSBZM1ZHPCZV9GKAPDFHA32RWY8.wormhole-core-v4";
-  const wormhole = ch.config.contracts.coreBridge
+  const wormhole = "ST37PDDGEA78QSPSBZM1ZHPCZV9GKAPDFHA32RWY8.wormhole-core-v4";
+  // const wormhole = ch.config.contracts.coreBridge
   // console.log(pwd)
   // console.log(mode)
   // console.log(ch)
@@ -4603,13 +4606,19 @@ async function missingConfigs(
                     inboundLimit: BigInt(configLimit ?? 0),
                 });
             } else {
+              if(fromChain === "Stacks") {
+                if(peer.address.toString() !== `0x${keccak256(to.manager.address.address.toString()).toHex()}`) {
+                  console.error(`[Stacks] Peer address mismatch for ${fromChain} -> ${toChain} (${peer.address.toString()} !== ${`0x${keccak256(to.manager.address.address.toString()).toHex()}`})`);
+                }
+              } else {
                 // @ts-ignore TODO
                 if (!Buffer.from(peer.address.address.address).equals(Buffer.from(to.manager.address.address))) {
                     console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
                 }
-                if (peer.tokenDecimals !== to.decimals) {
-                    console.error(`Peer decimals mismatch for ${fromChain} -> ${toChain}`);
-                }
+              }
+              if (peer.tokenDecimals !== to.decimals) {
+                  console.error(`Peer decimals mismatch for ${fromChain} -> ${toChain}`);
+              }
             }
 
             if (chainToPlatform(fromChain) === "Evm") {
@@ -4652,10 +4661,16 @@ async function missingConfigs(
                   } : transceiverAddress
                 );
             } else {
+              if(toChain === "Stacks") {
+                if(transceiverPeer.address.toString() !==  `0x${keccak256(transceiverAddress.address.address.toString()).toHex()}`) {
+                  console.error(`[Stacks] Transceiver peer address mismatch for ${fromChain} -> ${toChain} (${transceiverPeer.address.toString()} !== ${`0x${keccak256(transceiverAddress.address.address.toString()).toHex()}`})`);
+                }
+              } else {
                 // @ts-ignore TODO
                 if (!Buffer.from(transceiverPeer.address.address).equals(Buffer.from(transceiverAddress.address.address))) {
                     console.error(`Transceiver peer address mismatch for ${fromChain} -> ${toChain}`);
                 }
+              }
             }
 
         }
