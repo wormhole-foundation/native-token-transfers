@@ -4335,8 +4335,8 @@ async function deployStacks<N extends Network, C extends Chain>(
 ): Promise<StacksDeploymentResult<C>> {
   ensureNttRoot(pwd);
 
-  const wormhole = "ST37PDDGEA78QSPSBZM1ZHPCZV9GKAPDFHA32RWY8.wormhole-core-v4";
-  // const wormhole = ch.config.contracts.coreBridge
+  //const wormhole = "ST37PDDGEA78QSPSBZM1ZHPCZV9GKAPDFHA32RWY8.wormhole-core-v4";
+  const wormhole = ch.config.contracts.coreBridge
   // console.log(pwd)
   // console.log(mode)
   // console.log(ch)
