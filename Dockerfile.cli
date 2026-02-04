@@ -71,7 +71,12 @@ RUN bash -ci "which ntt"
 FROM cli-local AS cli-local-test
 COPY cli/test cli/test
 COPY evm evm
-RUN bash -ci "./cli/test/sepolia-bsc.sh"
+ARG TRACE=1
+RUN --mount=type=secret,id=BSC_RPC_URL --mount=type=secret,id=SEPOLIA_RPC_URL \
+  BSC_RPC_URL_FILE=/run/secrets/BSC_RPC_URL \
+  SEPOLIA_RPC_URL_FILE=/run/secrets/SEPOLIA_RPC_URL \
+  TRACE=$TRACE \
+  bash -ci "./cli/test/sepolia-bsc.sh"
 
 FROM cli-local AS cli-local-test-solana
 COPY cli/test cli/test
