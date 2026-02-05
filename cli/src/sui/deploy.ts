@@ -18,7 +18,6 @@ import { ensureNttRoot } from "../validation";
 import type { SuiDeploymentResult } from "../commands/shared";
 import {
   withSuiEnv,
-  updateMoveTomlForNetwork,
   performPackageUpgradeInPTB,
 } from "./helpers";
 
@@ -35,8 +34,11 @@ export async function upgradeSui<N extends Network, C extends SuiChains>(
 
   // Setup Sui environment and execute upgrade
   await withSuiEnv(pwd, ctx, async () => {
+    // Determine build environment for Sui 1.63+ package system
+    const buildEnv = ctx.network === "Mainnet" ? "mainnet" : "testnet";
+
     // Build the updated packages
-    console.log("Building updated packages...");
+    console.log(`Building updated packages for ${buildEnv} environment...`);
     const packagesToBuild = ["ntt_common", "ntt", "wormhole_transceiver"];
 
     for (const packageName of packagesToBuild) {
@@ -44,7 +46,7 @@ export async function upgradeSui<N extends Network, C extends SuiChains>(
       console.log(`Building package: ${packageName}`);
 
       try {
-        execSync(`sui move build`, {
+        execSync(`sui move build -e ${buildEnv}`, {
           cwd: packagePath,
           stdio: "inherit",
           env: process.env,
@@ -89,7 +91,7 @@ export async function upgradeSui<N extends Network, C extends SuiChains>(
         const packagePath = `${pwd}/${pkg.path}`;
         console.log(`Building package at: ${packagePath}`);
 
-        execSync(`sui move build`, {
+        execSync(`sui move build -e ${buildEnv}`, {
           cwd: packagePath,
           stdio: "pipe",
           env: process.env,
@@ -150,19 +152,22 @@ export async function deploySui<N extends Network, C extends Chain>(
     console.log("Building Move packages...");
     const packagesPath = `${pwd}/${finalPackagePath}/packages`;
 
-    // Detect network type and update Move.toml files accordingly
+    // Determine build environment for Sui 1.63+ package system
     const networkType = ch.network;
-    const { restore } = updateMoveTomlForNetwork(packagesPath, networkType);
+    const buildEnv = networkType === "Mainnet" ? "mainnet" : "testnet";
+    console.log(`Building for ${buildEnv} environment...`);
 
-    // Ensure we restore files if deployment fails
     try {
       // Build ntt_common first (dependency)
       try {
         console.log("Building ntt_common package...");
-        execSync(`cd ${packagesPath}/ntt_common && sui move build`, {
-          stdio: "inherit",
-          env: process.env,
-        });
+        execSync(
+          `cd ${packagesPath}/ntt_common && sui move build -e ${buildEnv}`,
+          {
+            stdio: "inherit",
+            env: process.env,
+          }
+        );
       } catch (e) {
         console.error("Failed to build ntt_common package");
         throw e;
@@ -171,7 +176,7 @@ export async function deploySui<N extends Network, C extends Chain>(
       // Build ntt package
       try {
         console.log("Building ntt package...");
-        execSync(`cd ${packagesPath}/ntt && sui move build`, {
+        execSync(`cd ${packagesPath}/ntt && sui move build -e ${buildEnv}`, {
           stdio: "inherit",
           env: process.env,
         });
@@ -183,10 +188,13 @@ export async function deploySui<N extends Network, C extends Chain>(
       // Build wormhole_transceiver package
       try {
         console.log("Building wormhole_transceiver package...");
-        execSync(`cd ${packagesPath}/wormhole_transceiver && sui move build`, {
-          stdio: "inherit",
-          env: process.env,
-        });
+        execSync(
+          `cd ${packagesPath}/wormhole_transceiver && sui move build -e ${buildEnv}`,
+          {
+            stdio: "inherit",
+            env: process.env,
+          }
+        );
       } catch (e) {
         console.error("Failed to build wormhole_transceiver package");
         throw e;
@@ -205,7 +213,9 @@ export async function deploySui<N extends Network, C extends Chain>(
         }
       );
 
-      const nttCommonDeploy = JSON.parse(nttCommonResult);
+      const nttCommonDeploy = JSON.parse(
+        nttCommonResult.substring(nttCommonResult.indexOf("{"))
+      );
       if (!nttCommonDeploy.objectChanges) {
         throw new Error("Failed to deploy ntt_common package");
       }
@@ -230,7 +240,7 @@ export async function deploySui<N extends Network, C extends Chain>(
         }
       );
 
-      const nttDeploy = JSON.parse(nttResult);
+      const nttDeploy = JSON.parse(nttResult.substring(nttResult.indexOf("{")));
       if (!nttDeploy.objectChanges) {
         throw new Error("Failed to deploy ntt package");
       }
@@ -255,7 +265,9 @@ export async function deploySui<N extends Network, C extends Chain>(
         }
       );
 
-      const whTransceiverDeploy = JSON.parse(whTransceiverResult);
+      const whTransceiverDeploy = JSON.parse(
+        whTransceiverResult.substring(whTransceiverResult.indexOf("{"))
+      );
       if (!whTransceiverDeploy.objectChanges) {
         throw new Error("Failed to deploy wormhole_transceiver package");
       }
@@ -670,9 +682,6 @@ export async function deploySui<N extends Network, C extends Chain>(
         }`
       );
 
-      // Restore original Move.toml files after successful deployment
-      restore();
-
       // Return the deployment information including AdminCaps and package IDs
       return {
         chain: ch.chain,
@@ -690,8 +699,6 @@ export async function deploySui<N extends Network, C extends Chain>(
         },
       };
     } catch (deploymentError) {
-      // Restore original Move.toml files if deployment fails
-      restore();
       handleDeploymentError(
         deploymentError,
         ch.chain,
