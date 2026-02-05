@@ -45,7 +45,7 @@ export interface NttManagerBindings {
 export function loadAbiVersion(targetVersion: string): NttBindings {
   for (const [abiVersion, abi] of abiVersions) {
     if (Ntt.abiVersionMatches(targetVersion, abiVersion)) {
-      return abi;
+      return abi as unknown as NttBindings;
     }
   }
   throw new Error(`Unknown ABI version: ${targetVersion}`);
