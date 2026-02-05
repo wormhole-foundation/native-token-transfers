@@ -58,7 +58,7 @@ module ntt_common::ntt_manager_message {
         message: NttManagerMessage<vector<u8>>
     ): vector<u8> {
         let NttManagerMessage {id, sender, payload} = message;
-        assert!(vector::length(&payload) < (((1<<16)-1) as u64), E_PAYLOAD_TOO_LONG);
+        assert!(vector::length(&payload) < (((1u64<<16)-1) as u64), E_PAYLOAD_TOO_LONG);
         let payload_length = (vector::length(&payload) as u16);
 
         let mut buf: vector<u8> = vector::empty<u8>();
