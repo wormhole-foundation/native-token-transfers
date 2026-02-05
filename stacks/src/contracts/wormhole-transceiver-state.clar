@@ -8,6 +8,11 @@
 ;; This contract does not have a version in its name because there cannot be different versions of it
 ;; If you need additional state in the future, use `kv-store` or deploy a `wormhole-transceiver-state-2` contract
 
+;;;; Traits
+
+(use-trait protocol-send-trait .protocol-send-trait-v1.send-trait)
+(use-trait wormhole-core-trait .wormhole-trait-core-v2.core-trait)
+
 ;;;; Constants
 
 ;; State contract not initialized (no active core contract set)
@@ -19,6 +24,8 @@
 (define-constant ERR_CANT_REGISTER_SELF (err u12006))
 (define-constant ERR_UNINITIALIZED (err u12007))
 (define-constant ERR_ALREADY_INITIALIZED (err u12008))
+(define-constant ERR_CORE_UNINITIALIZED (err u12009))
+(define-constant ERR_CORE_MISMATCH (err u12010))
 
 (define-constant WORMHOLE_STACKS_CHAIN_ID 0x003c)
 
@@ -108,6 +115,30 @@
     (try! (check-caller))
     (ok (map-set kv-store key value))))
 
+;;;; Public functions: Call `post-message`
+
+;; NOTE: `post-message` calls MUST be routed through state contract so sender ID never changes!
+
+(define-public (post-message-via-send-trait
+    (protocol <protocol-send-trait>)
+    (payload (buff 8192))
+    (nonce uint)
+    (consistency-level (optional uint)))
+  (begin
+    (try! (check-caller))
+    (try! (check-wormhole-core (contract-of protocol)))
+    (contract-call? protocol protocol-agnostic-send payload none none (some nonce) consistency-level)))
+
+(define-public (post-message-via-core-trait
+    (wormhole-core <wormhole-core-trait>)
+    (payload (buff 8192))
+    (nonce uint)
+    (consistency-level (optional uint)))
+  (begin
+    (try! (check-caller))
+    (try! (check-wormhole-core (contract-of wormhole-core)))
+    (contract-call? wormhole-core post-message payload nonce consistency-level)))
+
 ;;;; Public functions: Update process
 
 ;; @desc Initialize transfer of state contract to new owner
@@ -134,6 +165,9 @@
 
 ;; These functions do not modify state and can be called by anyone
 
+(define-read-only (is-initialized)
+  (is-some (var-get token-contract)))
+
 ;; @desc Check that the calling contract is the owner
 ;;       This must be called in any function that modifies state
 (define-read-only (check-caller)
@@ -154,8 +188,8 @@
 (define-read-only (get-token-contract)
   (ok (unwrap! (var-get token-contract) ERR_UNINITIALIZED)))
 
-(define-read-only (is-initialized)
-  (is-some (var-get token-contract)))
+(define-read-only (get-wormhole-core)
+  (ok (unwrap! (contract-call? .wormhole-core-state get-active-wormhole-core-contract) ERR_CORE_UNINITIALIZED)))
 
 ;; These functions simply call `map-get?` on the given map
 
@@ -167,3 +201,10 @@
 
 (define-read-only (peers-get (chain (buff 2)))
   (map-get? peers chain))
+
+;;;; Private functions
+
+;; @desc Check if contract is active version of Wormhole Core
+(define-private (check-wormhole-core (p principal))
+  (let ((core (try! (get-wormhole-core))))
+    (ok (asserts! (is-eq p core) ERR_CORE_MISMATCH))))

@@ -16,6 +16,7 @@
 (define-constant ERR_UNAUTHORIZED (err u14002))
 (define-constant ERR_ALREADY_INITIALIZED (err u14003))
 (define-constant ERR_NOT_OWNER (err u14004))
+(define-constant ERR_TRANSFER_INDEX_PREFIX u1000000)
 
 ;;;; Data Vars
 
@@ -57,7 +58,7 @@
     (try! (check-caller))
     (ft-burn? bridged-token amount sender)))
 
-;;; SIP-10 trait implementation
+;;;; SIP-10 trait implementation
 
 (define-public (transfer
     (amount uint)
@@ -91,6 +92,37 @@
     (asserts! (is-initialized) ERR_UNINITIALIZED)
     (ok (var-get token-uri))))
 
+;;;; Public functions: Batch actions
+
+(define-public (transfer-many
+    (transfers (list 200 {
+      amount: uint,
+      sender: principal,
+      recipient: principal,
+      memo: (optional (buff 34))
+    })))
+  (fold transfer-many-iter transfers (ok u0)))
+
+(define-private (transfer-many-iter
+    (single-transfer {
+      amount: uint,
+      sender: principal,
+      recipient: principal,
+      memo: (optional (buff 34))
+    })
+    (result (response uint uint)))
+  (match result
+    index 
+      (let (
+          (amount (get amount single-transfer))
+          (sender (get sender single-transfer))
+          (recipient (get recipient single-transfer))
+          (memo (get memo single-transfer)))
+        (unwrap!  (transfer amount sender recipient memo) (err (+ ERR_TRANSFER_INDEX_PREFIX index)))
+        (ok (+ index u1)))
+    err-index
+      (err err-index)))
+
 ;;;; Read-only functions
 
 (define-read-only (get-owner)
@@ -107,5 +139,6 @@
   (ok (asserts! (is-eq contract-caller OWNER) ERR_UNAUTHORIZED)))
 
 ;; @desc For unit tests, can remove on deployment
+;; #[allow(unused_private_fn)]
 (define-private (mint-unchecked (amount uint) (recipient principal))
   (ft-mint? bridged-token amount recipient))

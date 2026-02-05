@@ -2767,6 +2767,9 @@ async function upgrade<N extends Network, C extends Chain>(
       const suiNtt = ntt as SuiNtt<N, SuiChains>;
       const suiCtx = ctx as ChainContext<N, SuiChains>;
       return upgradeSui(worktree, toVersion, suiNtt, suiCtx, signerType);
+    case "Stacks":
+      console.log("Stacks won't be upgraded");
+      return Promise.resolve();
     default:
       throw new Error("Unsupported platform");
   }
@@ -4332,6 +4335,7 @@ async function deployStacks<N extends Network, C extends Chain>(
 ): Promise<StacksDeploymentResult<C>> {
   ensureNttRoot(pwd);
 
+  //const wormhole = "ST37PDDGEA78QSPSBZM1ZHPCZV9GKAPDFHA32RWY8.wormhole-core-v4";
   const wormhole = ch.config.contracts.coreBridge
   // console.log(pwd)
   // console.log(mode)
@@ -4351,14 +4355,15 @@ async function deployStacks<N extends Network, C extends Chain>(
   const stacksContractsDirectory = `${pwd}/stacks/src/contracts`
   const stacksRequirementsDirectory = `${pwd}/stacks/test/requirements`
   const deployerAddress = signer.address.address.toString()
-  console.log(`Deploying Stacks NTT from ${deployerAddress} rpc ${clientBaseUrl} ${signAndSendSigner}...`)
+  const isLocking = mode === "locking"
+  console.log(`Deploying Stacks NTT in ${mode} mode from ${deployerAddress} rpc ${clientBaseUrl} ${signAndSendSigner}...`)
 
   const traits = [
     stacksContractsDirectory + "/transceiver-trait-v1",
     stacksContractsDirectory + "/wormhole-transceiver-xfer-trait-v1",
     stacksContractsDirectory + "/ntt-manager-xfer-trait-v1",
     stacksContractsDirectory + "/ntt-manager-trait-v1",
-    stacksContractsDirectory + "/receiver-trait-v1",
+    stacksContractsDirectory + "/wormhole-receiver-trait-v1",
   ]
 
   if(ch.network === "Devnet") {
@@ -4418,7 +4423,7 @@ async function deployStacks<N extends Network, C extends Chain>(
     const deployTx = await makeContractDeploy({
         contractName: contract.name,
         codeBody: contract.code,
-        clarityVersion: 3,
+        clarityVersion: 4,
         senderKey: signer.source.source,
         nonce,
         network: stacksNetwork,
@@ -4445,7 +4450,6 @@ async function deployStacks<N extends Network, C extends Chain>(
 
   console.log(chalk.green(`All contracts deployed.`))
   console.log(`Initializing NTT Manager with mode: ${mode} ...`)
-  const isLocking = mode === "locking"
   const initializeFunction = isLocking ? "initialize-locking-mode" : "initialize-burning-mode"
   const args = isLocking ? [Cl.principal(token)] : [
     // TODO
@@ -4481,7 +4485,7 @@ async function deployStacks<N extends Network, C extends Chain>(
     functionArgs: [
       Cl.principal(`${deployerAddress}.${nttManagerContractName}`),
       isLocking ? Cl.principal(token) : Cl.principal(`${deployerAddress}.${bridgedTokenContractName}`),
-      Cl.none()
+      Cl.principal(wormhole)
     ],
     senderKey: signer.source.source,
     network: stacksNetwork,
@@ -4602,13 +4606,19 @@ async function missingConfigs(
                     inboundLimit: BigInt(configLimit ?? 0),
                 });
             } else {
+              if(fromChain === "Stacks") {
+                if(peer.address.toString() !== `0x${keccak256(to.manager.address.address.toString()).toHex()}`) {
+                  console.error(`[Stacks] Peer address mismatch for ${fromChain} -> ${toChain} (${peer.address.toString()} !== ${`0x${keccak256(to.manager.address.address.toString()).toHex()}`})`);
+                }
+              } else {
                 // @ts-ignore TODO
                 if (!Buffer.from(peer.address.address.address).equals(Buffer.from(to.manager.address.address))) {
                     console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
                 }
-                if (peer.tokenDecimals !== to.decimals) {
-                    console.error(`Peer decimals mismatch for ${fromChain} -> ${toChain}`);
-                }
+              }
+              if (peer.tokenDecimals !== to.decimals) {
+                  console.error(`Peer decimals mismatch for ${fromChain} -> ${toChain}`);
+              }
             }
 
             if (chainToPlatform(fromChain) === "Evm") {
@@ -4651,10 +4661,16 @@ async function missingConfigs(
                   } : transceiverAddress
                 );
             } else {
+              if(toChain === "Stacks") {
+                if(transceiverPeer.address.toString() !==  `0x${keccak256(transceiverAddress.address.address.toString()).toHex()}`) {
+                  console.error(`[Stacks] Transceiver peer address mismatch for ${fromChain} -> ${toChain} (${transceiverPeer.address.toString()} !== ${`0x${keccak256(transceiverAddress.address.address.toString()).toHex()}`})`);
+                }
+              } else {
                 // @ts-ignore TODO
                 if (!Buffer.from(transceiverPeer.address.address).equals(Buffer.from(transceiverAddress.address.address))) {
                     console.error(`Transceiver peer address mismatch for ${fromChain} -> ${toChain}`);
                 }
+              }
             }
 
         }

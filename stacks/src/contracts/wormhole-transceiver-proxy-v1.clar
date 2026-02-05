@@ -45,7 +45,6 @@
 ;;;; Traits
 
 (use-trait transceiver-trait .transceiver-trait-v1.transceiver-trait)
-(use-trait sip-010-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 
 ;;;; Constants
 
@@ -79,15 +78,7 @@
     (try! (check-active-transceiver transceiver))
     (contract-call? transceiver get-protocol-id)))
 
-(define-public (send-token-transfer
-    (transceiver <transceiver-trait>)
-    (ntt-payload (buff 1024))
-    (recipient-chain (buff 2))
-    (recipient-ntt-manager (buff 32))
-    (refund-address (buff 32)))
-  (begin
-    (try! (check-active-transceiver transceiver))
-    (contract-call? transceiver send-token-transfer ntt-payload recipient-chain recipient-ntt-manager refund-address)))
+;; NOTE: Do not proxy `send-token-transfer`, which should only be called by NTT manager
 
 ;;;; Read-only functions
 
