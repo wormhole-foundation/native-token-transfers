@@ -50,12 +50,12 @@ module ntt_common::contract_auth {
         b"Invalid auth type";
 
     public fun get_auth_address<Auth>(type_name: vector<u8>): Option<address> {
-        let fqt = type_name::get<Auth>();
+        let fqt = type_name::with_defining_ids<Auth>();
 
-        let address_hex = fqt.get_address().into_bytes();
+        let address_hex = fqt.address_string().into_bytes();
         let addy = address::from_bytes(hex::decode(address_hex));
 
-        let mod = fqt.get_module().into_bytes();
+        let mod = fqt.module_string().into_bytes();
 
         let mut expected = address_hex;
         expected.append(b"::");
@@ -84,8 +84,8 @@ module ntt_common::contract_auth {
 
     public fun auth_as<Auth, State: key>(_auth: &Auth, type_name: vector<u8>, obj: &State): address {
         let package_id = assert_auth_type<Auth>(_auth, type_name);
-        let fqt = type_name::get<State>();
-        let state_package_id = address::from_bytes(hex::decode(fqt.get_address().into_bytes()));
+        let fqt = type_name::with_defining_ids<State>();
+        let state_package_id = address::from_bytes(hex::decode(fqt.address_string().into_bytes()));
         assert!(package_id == state_package_id, EInvalidAuthType);
 
         object::id_address(obj)
