@@ -1,0 +1,42 @@
+name: Sui CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Cancel in-progress runs on new commits to same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: ./sui
+
+jobs:
+  test:
+    name: sui move test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Sui CLI via suiup
+        run: |
+          SUIUP_COMMIT="10e17f534f437b2e3335d23ed82e3e72d27ca02c"
+          SUIUP_SHA256="fa328e7ff0c7219e4fb046580bd5dd44125507480bbce45393a339d52e6b4aab"
+          curl -sSfL "https://raw.githubusercontent.com/MystenLabs/suiup/${SUIUP_COMMIT}/install.sh" -o /tmp/suiup-install.sh
+          echo "${SUIUP_SHA256}  /tmp/suiup-install.sh" | sha256sum -c -
+          sh /tmp/suiup-install.sh
+          export PATH="$HOME/.local/bin:$PATH"
+          suiup install -y sui@1.63.2
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        working-directory: .
+
+      - name: Check Sui version
+        run: sui --version
+
+      - name: Run Move tests
+        run: make test
