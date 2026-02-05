@@ -1,22 +1,10 @@
 [package]
-name = "WormholeTransceiver"
-edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-license = "Apache 2.0"
+name = "wormhole_transceiver"
+version = "1.0.0"
+edition = "2024.beta"
 
-[dependencies.Wormhole]
-git = "https://github.com/wormhole-foundation/wormhole.git"
-rev = "sui/testnet"
-subdir = "sui/wormhole"
-
-[dependencies.NttCommon]
-local = "../ntt_common"
-
-[dependencies.Ntt]
-local = "../ntt"
-
-[addresses]
-wormhole_transceiver = "0x0"
-
-[dev-dependencies]
-
-[dev-addresses]
+[dependencies]
+# After wormhole PR #4639 merges, switch to: rev = "main"
+wormhole = { git = "https://github.com/wormholelabs-xyz/wormhole.git", subdir = "sui/wormhole", rev = "sui-package-update" }
+ntt_common = { local = "../ntt_common" }
+ntt = { local = "../ntt" }
