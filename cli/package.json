@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "prettier": "prettier --write ./src"
+    "prettier": "prettier --write ./src",
+    "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "latest",
