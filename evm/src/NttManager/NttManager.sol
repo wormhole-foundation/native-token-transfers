@@ -41,7 +41,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     using TrimmedAmountLib for uint256;
     using TrimmedAmountLib for TrimmedAmount;
 
-    string public constant NTT_MANAGER_VERSION = "1.3.1";
+    string public constant NTT_MANAGER_VERSION = "2.0.0";
 
     // =============== Setup =================================================================
 

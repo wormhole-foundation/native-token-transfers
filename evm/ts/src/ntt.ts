@@ -134,10 +134,16 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
   }
 
   async isEvmChain(chain: Chain): Promise<boolean> {
+    if (!("isWormholeEvmChain" in this.transceiver)) return false;
     return await this.transceiver.isWormholeEvmChain(toChainId(chain));
   }
 
   async *setIsEvmChain(chain: Chain, isEvm: boolean) {
+    if (!("setIsWormholeEvmChain" in this.transceiver)) {
+      throw new Error(
+        "setIsWormholeEvmChain is not supported by this ABI version"
+      );
+    }
     const tx = await this.transceiver.setIsWormholeEvmChain.populateTransaction(
       toChainId(chain),
       isEvm
@@ -159,12 +165,18 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
   }
 
   async isWormholeRelayingEnabled(destChain: Chain): Promise<boolean> {
+    if (!("isWormholeRelayingEnabled" in this.transceiver)) return false;
     return await this.transceiver.isWormholeRelayingEnabled(
       toChainId(destChain)
     );
   }
 
   async *setIsWormholeRelayingEnabled(destChain: Chain, enabled: boolean) {
+    if (!("setIsWormholeRelayingEnabled" in this.transceiver)) {
+      throw new Error(
+        "setIsWormholeRelayingEnabled is not supported by this ABI version"
+      );
+    }
     const tx =
       await this.transceiver.setIsWormholeRelayingEnabled.populateTransaction(
         toChainId(destChain),
@@ -177,12 +189,18 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
   }
 
   async isSpecialRelayingEnabled(destChain: Chain): Promise<boolean> {
+    if (!("isSpecialRelayingEnabled" in this.transceiver)) return false;
     return await this.transceiver.isSpecialRelayingEnabled(
       toChainId(destChain)
     );
   }
 
   async *setIsSpecialRelayingEnabled(destChain: Chain, enabled: boolean) {
+    if (!("setIsSpecialRelayingEnabled" in this.transceiver)) {
+      throw new Error(
+        "setIsSpecialRelayingEnabled is not supported by this ABI version"
+      );
+    }
     const tx =
       await this.transceiver.setIsSpecialRelayingEnabled.populateTransaction(
         toChainId(destChain),
