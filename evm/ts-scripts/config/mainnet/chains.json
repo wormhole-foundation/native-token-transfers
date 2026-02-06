@@ -1,0 +1,59 @@
+{
+  "guardianSetIndex": 4,
+  "chains": [
+    {
+      "description": "Ethereum",
+      "evmNetworkId": 1,
+      "chainId": 2,
+      "rpc": "https://eth.llamarpc.com"
+    },
+    {
+      "description": "BSC",
+      "evmNetworkId": 56,
+      "chainId": 4,
+      "rpc": "https://bsc-rpc.publicnode.com"
+    },
+    {
+      "description": "Avalanche",
+      "evmNetworkId": 43114,
+      "chainId": 6,
+      "rpc": "https://avalanche.drpc.org"
+    },
+    {
+      "description": "Arbitrum",
+      "evmNetworkId": 42161,
+      "chainId": 23,
+      "rpc": "https://api.zan.top/arb-one"
+    },
+    {
+      "description": "Optimism",
+      "evmNetworkId": 10,
+      "chainId": 24,
+      "rpc": "https://optimism-rpc.publicnode.com"
+    },
+    {
+      "description": "Base",
+      "evmNetworkId": 8453,
+      "chainId": 30,
+      "rpc": "https://mainnet.base.org"
+    },
+    {
+      "description": "Monad",
+      "evmNetworkId": 143,
+      "chainId": 48,
+      "rpc": "https://rpc.monad.xyz"
+    },
+    {
+      "description": "XRPL EVM",
+      "evmNetworkId": 1440000,
+      "chainId": 57,
+      "rpc": "https://rpc.xrplevm.org"
+    },
+    {
+      "description": "MegaETH",
+      "evmNetworkId": 4326,
+      "chainId": 64,
+      "rpc": "https://mainnet.megaeth.com/rpc"
+    }
+  ]
+}
