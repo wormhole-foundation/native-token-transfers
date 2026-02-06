@@ -14,15 +14,17 @@ export const abiVersions = [
 ] as const;
 export type AbiVersion = (typeof abiVersions)[number][0];
 
+type AbiBindings = (typeof abiVersions)[number][1];
+
 export interface NttBindings {
   NttManager: NttManagerBindings;
   NttTransceiver: NttTransceiverBindings;
 }
 
 export namespace NttTransceiverBindings {
-  // Note: this is hardcoded to 0.1.0 so we should be warned if there are changes
-  // that would affect the interface
-  export type NttTransceiver = ReturnType<typeof _0_1_0.NttTransceiver.connect>;
+  export type NttTransceiver = ReturnType<
+    AbiBindings["NttTransceiver"]["connect"]
+  >;
 }
 
 export interface NttTransceiverBindings {
@@ -33,7 +35,7 @@ export interface NttTransceiverBindings {
 }
 
 export namespace NttManagerBindings {
-  export type NttManager = ReturnType<typeof _0_1_0.NttManager.connect>;
+  export type NttManager = ReturnType<AbiBindings["NttManager"]["connect"]>;
 }
 
 export interface NttManagerBindings {
@@ -43,7 +45,7 @@ export interface NttManagerBindings {
 export function loadAbiVersion(targetVersion: string): NttBindings {
   for (const [abiVersion, abi] of abiVersions) {
     if (Ntt.abiVersionMatches(targetVersion, abiVersion)) {
-      return abi as unknown as NttBindings;
+      return abi;
     }
   }
   throw new Error(`Unknown ABI version: ${targetVersion}`);
