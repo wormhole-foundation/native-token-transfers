@@ -2969,8 +2969,11 @@ async function upgradeSui<N extends Network, C extends SuiChains>(
 
   // Setup Sui environment and execute upgrade
   await withSuiEnv(pwd, ctx, async () => {
+    // Determine build environment for Sui 1.63+ package system
+    const buildEnv = ctx.network === "Mainnet" ? "mainnet" : "testnet";
+
     // Build the updated packages
-    console.log("Building updated packages...");
+    console.log(`Building updated packages for ${buildEnv} environment...`);
     const packagesToBuild = ["ntt_common", "ntt", "wormhole_transceiver"];
 
     for (const packageName of packagesToBuild) {
@@ -2978,7 +2981,7 @@ async function upgradeSui<N extends Network, C extends SuiChains>(
       console.log(`Building package: ${packageName}`);
 
       try {
-        execSync(`sui move build`, {
+        execSync(`sui move build -e ${buildEnv}`, {
           cwd: packagePath,
           stdio: "inherit",
           env: process.env,
@@ -3023,7 +3026,7 @@ async function upgradeSui<N extends Network, C extends SuiChains>(
         const packagePath = `${pwd}/${pkg.path}`;
         console.log(`Building package at: ${packagePath}`);
 
-        execSync(`sui move build`, {
+        execSync(`sui move build -e ${buildEnv}`, {
           cwd: packagePath,
           stdio: "pipe",
           env: process.env,
@@ -3082,13 +3085,16 @@ async function performPackageUpgradeInPTB<
       throw new Error(`Unknown package: ${packageName}`);
   }
 
+  // Determine build environment for Sui 1.63+ package system
+  const buildEnv = ctx.network === "Mainnet" ? "mainnet" : "testnet";
+
   // Get build output with dependencies using the correct sui command
   console.log(
-    `Running sui move build --dump-bytecode-as-base64 for ${packagePath}...`
+    `Running sui move build --dump-bytecode-as-base64 -e ${buildEnv} for ${packagePath}...`
   );
 
   const buildOutput = execSync(
-    `sui move build --dump-bytecode-as-base64 --path ${packagePath}`,
+    `sui move build --dump-bytecode-as-base64 -e ${buildEnv} --path ${packagePath}`,
     {
       encoding: "utf-8",
       env: process.env,
@@ -3884,73 +3890,6 @@ async function deploySvm<N extends Network, C extends SolanaChains>(
   return { chain: ch.chain, address: toUniversal(ch.chain, providedProgramId) };
 }
 
-// Helper function to update Move.toml files for network-specific dependencies
-function updateMoveTomlForNetwork(
-  packagesPath: string,
-  networkType: Network
-): { restore: () => void } {
-  const packages = ["ntt_common", "ntt", "wormhole_transceiver"];
-  const backups: { [key: string]: string } = {};
-
-  // Determine the correct revisions based on network (with environment variable overrides)
-  const wormholeRev =
-    process.env.WORMHOLE_REV ||
-    (networkType === "Mainnet" ? "sui/mainnet" : "sui/testnet");
-
-  // localhost not supported for now, because the
-  if (networkType === "Devnet") {
-    throw new Error("devnet not supported yet");
-  }
-
-  console.log(`Updating Move.toml files for ${networkType} network...`);
-  console.log(`  Wormhole revision: ${wormholeRev}`);
-
-  for (const packageName of packages) {
-    const moveTomlPath = `${packagesPath}/${packageName}/Move.toml`;
-
-    try {
-      // Backup original content
-      const originalContent = fs.readFileSync(moveTomlPath, "utf8");
-      backups[moveTomlPath] = originalContent;
-
-      let content = originalContent;
-
-      // Update Wormhole revision
-      content = content.replace(
-        /rev = "sui\/(testnet|mainnet)"/g,
-        `rev = "${wormholeRev}"`
-      );
-
-      // Only write if content actually changed
-      if (content !== originalContent) {
-        fs.writeFileSync(moveTomlPath, content, "utf8");
-        console.log(`  Updated ${packageName}/Move.toml`);
-      } else {
-        console.log(`  No changes needed for ${packageName}/Move.toml`);
-      }
-    } catch (error) {
-      console.warn(
-        `  Warning: Could not update ${packageName}/Move.toml: ${error}`
-      );
-      // Don't throw error here to allow deployment to continue
-    }
-  }
-
-  // Return restore function
-  return {
-    restore: () => {
-      console.log("Restoring original Move.toml files...");
-      for (const [filePath, content] of Object.entries(backups)) {
-        try {
-          fs.writeFileSync(filePath, content, "utf8");
-        } catch (error) {
-          console.warn(`  Warning: Could not restore ${filePath}: ${error}`);
-        }
-      }
-    },
-  };
-}
-
 async function deploySui<N extends Network, C extends Chain>(
   pwd: string,
   version: string | null,
@@ -3982,16 +3921,16 @@ async function deploySui<N extends Network, C extends Chain>(
     console.log("Building Move packages...");
     const packagesPath = `${pwd}/${finalPackagePath}/packages`;
 
-    // Detect network type and update Move.toml files accordingly
+    // Determine build environment for Sui 1.63+ package system
     const networkType = ch.network;
-    const { restore } = updateMoveTomlForNetwork(packagesPath, networkType);
+    const buildEnv = networkType === "Mainnet" ? "mainnet" : "testnet";
+    console.log(`Building for ${buildEnv} environment...`);
 
-    // Ensure we restore files if deployment fails
     try {
       // Build ntt_common first (dependency)
       try {
         console.log("Building ntt_common package...");
-        execSync(`cd ${packagesPath}/ntt_common && sui move build`, {
+        execSync(`cd ${packagesPath}/ntt_common && sui move build -e ${buildEnv}`, {
           stdio: "inherit",
           env: process.env,
         });
@@ -4003,7 +3942,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // Build ntt package
       try {
         console.log("Building ntt package...");
-        execSync(`cd ${packagesPath}/ntt && sui move build`, {
+        execSync(`cd ${packagesPath}/ntt && sui move build -e ${buildEnv}`, {
           stdio: "inherit",
           env: process.env,
         });
@@ -4015,7 +3954,7 @@ async function deploySui<N extends Network, C extends Chain>(
       // Build wormhole_transceiver package
       try {
         console.log("Building wormhole_transceiver package...");
-        execSync(`cd ${packagesPath}/wormhole_transceiver && sui move build`, {
+        execSync(`cd ${packagesPath}/wormhole_transceiver && sui move build -e ${buildEnv}`, {
           stdio: "inherit",
           env: process.env,
         });
@@ -4037,7 +3976,7 @@ async function deploySui<N extends Network, C extends Chain>(
         }
       );
 
-      const nttCommonDeploy = JSON.parse(nttCommonResult);
+      const nttCommonDeploy = JSON.parse(nttCommonResult.substring(nttCommonResult.indexOf("{")));
       if (!nttCommonDeploy.objectChanges) {
         throw new Error("Failed to deploy ntt_common package");
       }
@@ -4062,7 +4001,7 @@ async function deploySui<N extends Network, C extends Chain>(
         }
       );
 
-      const nttDeploy = JSON.parse(nttResult);
+      const nttDeploy = JSON.parse(nttResult.substring(nttResult.indexOf("{")));
       if (!nttDeploy.objectChanges) {
         throw new Error("Failed to deploy ntt package");
       }
@@ -4087,7 +4026,7 @@ async function deploySui<N extends Network, C extends Chain>(
         }
       );
 
-      const whTransceiverDeploy = JSON.parse(whTransceiverResult);
+      const whTransceiverDeploy = JSON.parse(whTransceiverResult.substring(whTransceiverResult.indexOf("{")));
       if (!whTransceiverDeploy.objectChanges) {
         throw new Error("Failed to deploy wormhole_transceiver package");
       }
@@ -4502,9 +4441,6 @@ async function deploySui<N extends Network, C extends Chain>(
         }`
       );
 
-      // Restore original Move.toml files after successful deployment
-      restore();
-
       // Return the deployment information including AdminCaps and package IDs
       return {
         chain: ch.chain,
@@ -4522,8 +4458,6 @@ async function deploySui<N extends Network, C extends Chain>(
         },
       };
     } catch (deploymentError) {
-      // Restore original Move.toml files if deployment fails
-      restore();
       handleDeploymentError(
         deploymentError,
         ch.chain,
