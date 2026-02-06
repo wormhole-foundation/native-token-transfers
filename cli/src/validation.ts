@@ -17,6 +17,16 @@ import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { ChainConfig } from "./deployments";
 
+export function ensureNttRoot(pwd: string = ".") {
+  if (
+    !fs.existsSync(`${pwd}/evm/foundry.toml`) ||
+    !fs.existsSync(`${pwd}/solana/Anchor.toml`)
+  ) {
+    console.error("Run this command from the root of an NTT project.");
+    process.exit(1);
+  }
+}
+
 export type ErrorFactory = (message: string) => Error;
 
 export const SUPPORTED_PLATFORMS: ReadonlySet<Platform> = new Set([

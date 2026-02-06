@@ -1,12 +1,7 @@
 import { describe, it, expect } from "bun:test";
 
 describe("Module Exports", () => {
-  // configuration.ts has a circular dependency with index.ts (imports ensureNttRoot from ".").
-  // Importing it triggers the full yargs chain in index.ts which fails because
-  // configuration.command isn't initialized yet. This will be fixed in Phase 2
-  // by moving ensureNttRoot to validation.ts.
-  // For now, we skip this test and will enable it after the circular dep fix.
-  it.skip("configuration.ts exports command builder and get", async () => {
+  it("configuration.ts exports command builder and get", async () => {
     const mod = await import("../configuration");
     expect(mod.command).toBeDefined();
     expect(typeof mod.command).toBe("function");
@@ -48,13 +43,15 @@ describe("Module Exports", () => {
     expect(mod.colorizeDiff).toBeDefined();
   });
 
-  it("validation.ts exports validators", async () => {
+  it("validation.ts exports validators and ensureNttRoot", async () => {
     const mod = await import("../validation");
     expect(mod.ensurePlatformSupported).toBeDefined();
     expect(mod.validatePayerOption).toBeDefined();
     expect(mod.normalizeRpcArgs).toBeDefined();
     expect(mod.retryWithExponentialBackoff).toBeDefined();
     expect(mod.SUPPORTED_PLATFORMS).toBeDefined();
+    expect(mod.ensureNttRoot).toBeDefined();
+    expect(typeof mod.ensureNttRoot).toBe("function");
   });
 
   it("getSigner.ts exports getSigner and forgeSignerArgs", async () => {
@@ -101,9 +98,8 @@ describe("Module Exports", () => {
 
   // index.ts has side effects on import (yargs.parse() runs immediately),
   // so we can't import it in a test without triggering the CLI.
-  // The ensureNttRoot export is verified via the CLI help tests instead.
-  // After Phase 2, ensureNttRoot moves to validation.ts and this becomes testable.
-  it.skip("index.ts exports ensureNttRoot", async () => {
+  // ensureNttRoot is now tested via the validation.ts test above.
+  it.skip("index.ts re-exports ensureNttRoot (skip: side-effect on import)", async () => {
     const mod = await import("../index");
     expect(mod.ensureNttRoot).toBeDefined();
   });

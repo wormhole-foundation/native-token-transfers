@@ -112,6 +112,7 @@ import {
 } from "./overrides.js";
 import {
   collectMissingConfigs,
+  ensureNttRoot,
   printMissingConfigReport,
   retryWithExponentialBackoff,
   validatePayerOption,
@@ -5161,15 +5162,8 @@ function getGasMultiplier(userMultiplier?: number): string {
   return "";
 }
 
-export function ensureNttRoot(pwd: string = ".") {
-  if (
-    !fs.existsSync(`${pwd}/evm/foundry.toml`) ||
-    !fs.existsSync(`${pwd}/solana/Anchor.toml`)
-  ) {
-    console.error("Run this command from the root of an NTT project.");
-    process.exit(1);
-  }
-}
+// Re-export ensureNttRoot from validation (moved there to fix circular dependency)
+export { ensureNttRoot } from "./validation";
 
 // Check Solana toolchain version against Anchor.toml requirements
 function checkSolanaVersion(pwd: string): void {
