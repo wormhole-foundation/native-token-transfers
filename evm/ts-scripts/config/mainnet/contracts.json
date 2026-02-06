@@ -1,0 +1,40 @@
+{
+  "GeneralPurposeGovernances": [
+    {
+      "address": "0x23Fea5514DFC9821479fBE18BA1D7e1A61f6FfCf",
+      "chainId": 2
+    },
+    {
+      "address": "0x8E4dc685e990379b8D53EcA47841E09B8d30043e",
+      "chainId": 4
+    },
+    {
+      "address": "0x169D91C797edF56100F1B765268145660503a423",
+      "chainId": 6
+    },
+    {
+      "address": "0x36CF4c88FA548c6Ad9fcDc696e1c27Bb3306163F",
+      "chainId": 23
+    },
+    {
+      "address": "0x0E09a3081837ff23D2e59B179E0Bc48A349Afbd8",
+      "chainId": 24
+    },
+    {
+      "address": "0x838a95B6a3E06B6f11C437e22f3C7561a6ec40F1",
+      "chainId": 30
+    },
+    {
+      "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
+      "chainId": 48
+    },
+    {
+      "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
+      "chainId": 57
+    },
+    {
+      "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
+      "chainId": 64
+    }
+  ]
+}
