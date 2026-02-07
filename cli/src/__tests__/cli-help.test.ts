@@ -1,24 +1,30 @@
 import { describe, it, expect } from "bun:test";
-import { $ } from "bun";
+import path from "path";
 
-// Use the installed ntt binary for integration tests.
-// The CLI is installed at ~/.ntt-cli and linked to ~/.bun/bin/ntt.
-// We test against the installed version to verify command structure.
-// After restructuring, we rebuild and re-test to confirm nothing broke.
-const NTT = "ntt";
+// Run the local CLI source directly with bun for integration tests.
+const CLI_ENTRY = path.resolve(import.meta.dir, "../index.ts");
+
+async function runCli(...args: string[]) {
+  const proc = Bun.spawn(["bun", "run", CLI_ENTRY, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdout = await new Response(proc.stdout).text();
+  const stderr = await new Response(proc.stderr).text();
+  const exitCode = await proc.exited;
+  return { stdout, stderr, exitCode };
+}
 
 describe("CLI Help Output", () => {
   it("should display help without errors", async () => {
-    const result = await $`${NTT} --help`.quiet().nothrow();
-    const stdout = result.stdout.toString();
+    const { stdout, exitCode } = await runCli("--help");
 
-    expect(result.exitCode).toBe(0);
+    expect(exitCode).toBe(0);
     expect(stdout).toContain("Commands:");
   });
 
   it("should list all top-level commands", async () => {
-    const result = await $`${NTT} --help`.quiet().nothrow();
-    const stdout = result.stdout.toString();
+    const { stdout } = await runCli("--help");
 
     const expectedCommands = [
       "config",
@@ -35,6 +41,7 @@ describe("CLI Help Output", () => {
       "transfer-ownership",
       "token-transfer",
       "solana",
+      "hype",
       "manual",
     ];
 
@@ -44,8 +51,7 @@ describe("CLI Help Output", () => {
   });
 
   it("should show solana subcommands", async () => {
-    const result = await $`${NTT} solana --help`.quiet().nothrow();
-    const stdout = result.stdout.toString();
+    const { stdout } = await runCli("solana", "--help");
 
     expect(stdout).toContain("key-base58");
     expect(stdout).toContain("token-authority");
@@ -55,8 +61,7 @@ describe("CLI Help Output", () => {
   });
 
   it("should show config subcommands", async () => {
-    const result = await $`${NTT} config --help`.quiet().nothrow();
-    const stdout = result.stdout.toString();
+    const { stdout } = await runCli("config", "--help");
 
     expect(stdout).toContain("set-chain");
     expect(stdout).toContain("unset-chain");
@@ -64,9 +69,14 @@ describe("CLI Help Output", () => {
   });
 
   it("should show manual subcommands", async () => {
-    const result = await $`${NTT} manual --help`.quiet().nothrow();
-    const stdout = result.stdout.toString();
+    const { stdout } = await runCli("manual", "--help");
 
     expect(stdout).toContain("set-peer");
+  });
+
+  it("should show hype subcommands", async () => {
+    const { stdout } = await runCli("hype", "--help");
+
+    expect(stdout).toContain("set-big-blocks");
   });
 });
