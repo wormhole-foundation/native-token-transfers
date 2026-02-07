@@ -96,6 +96,42 @@ describe("Module Exports", () => {
     expect(mod.enableBigBlocks).toBeDefined();
   });
 
+  it("commands/shared.ts exports options and shared types", async () => {
+    const mod = await import("../commands/shared");
+    expect(mod.options).toBeDefined();
+    expect(mod.options.network).toBeDefined();
+    expect(mod.options.chain).toBeDefined();
+    expect(mod.CCL_CONTRACT_ADDRESSES).toBeDefined();
+    expect(mod.EXCLUDED_DIFF_PATHS).toBeDefined();
+    expect(mod.getNestedValue).toBeDefined();
+    expect(mod.setNestedValue).toBeDefined();
+  });
+
+  it("commands that don't depend on index.ts export valid creators", async () => {
+    const config = await import("../commands/config");
+    expect(typeof config.createConfigCommand).toBe("function");
+    const cmd = config.createConfigCommand();
+    expect(cmd).toHaveProperty("command");
+    expect(cmd).toHaveProperty("builder");
+
+    const update = await import("../commands/update");
+    expect(typeof update.createUpdateCommand).toBe("function");
+
+    const newCmd = await import("../commands/new");
+    expect(typeof newCmd.createNewCommand).toBe("function");
+
+    const init = await import("../commands/init");
+    expect(typeof init.createInitCommand).toBe("function");
+  });
+
+  // commands/index.ts barrel re-exports commands that import from ../index.ts,
+  // which triggers yargs.parse() as a side effect.
+  it.skip("commands/index.ts barrel exports all command creators (skip: side-effect on import)", async () => {
+    const mod = await import("../commands/index");
+    expect(mod.createAddChainCommand).toBeDefined();
+    expect(mod.createConfigCommand).toBeDefined();
+  });
+
   // index.ts has side effects on import (yargs.parse() runs immediately),
   // so we can't import it in a test without triggering the CLI.
   // ensureNttRoot is now tested via the validation.ts test above.

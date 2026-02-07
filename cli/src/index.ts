@@ -121,7 +121,7 @@ const overrides: WormholeConfigOverrides<Network> = loadOverrides();
  * Format: "level:blocks" where level is 200/201/202 and blocks is additional wait
  * Example: "200:5" means instant + 5 blocks
  */
-function parseCclFlag(
+export function parseCclFlag(
   value: string,
   network: Network,
   chain: Chain
@@ -171,7 +171,7 @@ function parseCclFlag(
 /**
  * Display warning and get confirmation for custom finality usage
  */
-async function confirmCustomFinality(): Promise<boolean> {
+export async function confirmCustomFinality(): Promise<boolean> {
   const warningMessage = `
 ${colors.yellow("⚠️⚠️⚠️ Custom finality is an advanced feature. Wormhole Contributors recommend to use this with caution.")}
 
@@ -2597,7 +2597,7 @@ yargs(hideBin(process.argv))
   .demandCommand()
   .parse();
 
-function checkConfigErrors(
+export function checkConfigErrors(
   deps: Partial<{ [C in Chain]: Deployment<Chain> }>
 ): number {
   let fatal = 0;
@@ -2630,7 +2630,7 @@ function checkConfigErrors(
   return fatal;
 }
 
-function createWorkTree(platform: Platform, version: string): string {
+export function createWorkTree(platform: Platform, version: string): string {
   const tag = getGitTagName(platform, version);
   if (!tag) {
     console.error(`No tag found matching ${version} for ${platform}`);
@@ -2670,7 +2670,7 @@ function createWorkTree(platform: Platform, version: string): string {
   return worktreeName;
 }
 
-async function upgrade<N extends Network, C extends Chain>(
+export async function upgrade<N extends Network, C extends Chain>(
   _fromVersion: string,
   toVersion: string | null,
   ntt: Ntt<N, C>,
@@ -3018,7 +3018,7 @@ async function performPackageUpgradeInPTB<
   };
 }
 
-async function deploy<N extends Network, C extends Chain>(
+export async function deploy<N extends Network, C extends Chain>(
   version: string | null,
   mode: Ntt.Mode,
   ch: ChainContext<N, C>,
@@ -3427,7 +3427,7 @@ async function runAnchorBuild(
  * @param binaryPath - Optional path to pre-built binary (if provided, building is skipped)
  * @returns Object containing binary path, program ID, and program keypair path
  */
-async function buildSvm(
+export async function buildSvm(
   pwd: string,
   network: Network,
   chain: Chain,
@@ -4407,7 +4407,7 @@ async function deploySui<N extends Network, C extends Chain>(
   });
 }
 
-async function pushDeployment<C extends Chain>(
+export async function pushDeployment<C extends Chain>(
   deployment: Deployment<C>,
   signSendWaitFunc: ReturnType<typeof newSignSendWaiter>,
   signerType: SignerType,
@@ -4595,7 +4595,7 @@ async function pushDeployment<C extends Chain>(
   }
 }
 
-async function pullDeployments(
+export async function pullDeployments(
   deployments: Config,
   network: Network,
   verbose: boolean
@@ -4652,7 +4652,7 @@ async function pullDeployments(
   return deps;
 }
 
-async function pullChainConfig<N extends Network, C extends Chain>(
+export async function pullChainConfig<N extends Network, C extends Chain>(
   network: N,
   manager: ChainAddress<C>,
   overrides?: WormholeConfigOverrides<N>
@@ -4717,7 +4717,7 @@ async function pullChainConfig<N extends Network, C extends Chain>(
   return [config, ch, ntt, decimals];
 }
 
-async function getImmutables<N extends Network, C extends Chain>(
+export async function getImmutables<N extends Network, C extends Chain>(
   chain: C,
   ntt: Ntt<N, C>
 ) {
@@ -4769,7 +4769,7 @@ async function getImmutables<N extends Network, C extends Chain>(
   };
 }
 
-async function getPdas<N extends Network, C extends Chain>(
+export async function getPdas<N extends Network, C extends Chain>(
   chain: C,
   ntt: Ntt<N, C>
 ) {
@@ -4797,7 +4797,7 @@ async function getPdas<N extends Network, C extends Chain>(
   };
 }
 
-function getVersion<N extends Network, C extends Chain>(
+export function getVersion<N extends Network, C extends Chain>(
   chain: C,
   ntt: Ntt<N, C>
 ): string {
@@ -4818,7 +4818,7 @@ function getVersion<N extends Network, C extends Chain>(
 // TODO: there should be a more elegant way to do this, than creating a
 // "dummy" NTT, then calling verifyAddresses to get the contract diff, then
 // finally reconstructing the "real" NTT object from that
-async function nttFromManager<N extends Network, C extends Chain>(
+export async function nttFromManager<N extends Network, C extends Chain>(
   ch: ChainContext<N, C>,
   nativeManagerAddress: string
 ): Promise<{ ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> }> {
@@ -4879,7 +4879,7 @@ function cargoNetworkFeature(network: Network): string {
   }
 }
 
-async function askForConfirmation(
+export async function askForConfirmation(
   prompt: string = "Do you want to continue?"
 ): Promise<void> {
   const confirmed = await promptYesNo(prompt);
@@ -4891,7 +4891,7 @@ async function askForConfirmation(
 
 // NOTE: modifies the config object in place
 // TODO: maybe introduce typestate for having pulled inbound limits?
-async function pullInboundLimits(
+export async function pullInboundLimits(
   ntts: Partial<{ [C in Chain]: Ntt<Network, C> }>,
   config: Config["chains"],
   verbose: boolean
@@ -5189,7 +5189,7 @@ function checkAnchorVersion(pwd: string) {
   }
 }
 
-function resolveVersion(
+export function resolveVersion(
   latest: boolean,
   ver: string | undefined,
   local: boolean,
@@ -5214,7 +5214,7 @@ function resolveVersion(
   }
 }
 
-function warnLocalDeployment(yes: boolean): Promise<void> {
+export function warnLocalDeployment(yes: boolean): Promise<void> {
   if (!yes) {
     console.warn(
       colors.yellow(
@@ -5238,7 +5238,7 @@ function warnLocalDeployment(yes: boolean): Promise<void> {
   return Promise.resolve();
 }
 
-function validateChain<N extends Network, C extends Chain>(
+export function validateChain<N extends Network, C extends Chain>(
   network: N,
   chain: C
 ) {
@@ -5327,7 +5327,7 @@ function nttVersion(): {
   }
 }
 
-async function checkSvmValidSplMultisig(
+export async function checkSvmValidSplMultisig(
   connection: Connection,
   address: PublicKey,
   programId: PublicKey,
