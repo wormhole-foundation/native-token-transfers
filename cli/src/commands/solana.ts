@@ -41,7 +41,7 @@ export function createSolanaCommand(overrides: WormholeConfigOverrides<Network>)
     command: ["solana", "svm"] as const,
     describe: "svm commands",
     builder: (yargs: any) => {
-      yargs
+      return yargs
         .command(
           "key-base58 <keypair>",
           "print private key in base58",

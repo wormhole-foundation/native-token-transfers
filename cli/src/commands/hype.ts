@@ -12,7 +12,7 @@ export function createHypeCommand(overrides: WormholeConfigOverrides<Network>) {
     command: "hype",
     describe: "Hyperliquid/HyperEVM utilities",
     builder: (yargs: any) => {
-      yargs
+      return yargs
         .command(
           "set-big-blocks",
           "Enable or disable big blocks for HyperEVM deployments",

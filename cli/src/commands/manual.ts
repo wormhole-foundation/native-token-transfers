@@ -21,7 +21,7 @@ export function createManualCommand(overrides: WormholeConfigOverrides<Network>)
     command: "manual",
     describe: "Manual NTT operations",
     builder: (yargs: any) => {
-      yargs
+      return yargs
         .command(
           "set-peer <peer-chain> <peer-address>",
           "Manually set a peer relationship between NTT deployments",
