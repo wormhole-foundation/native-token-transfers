@@ -5,25 +5,18 @@ import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
 import {
   encoding,
-  type RpcConnection,
   type UnsignedTransaction,
   type WormholeConfigOverrides,
 } from "@wormhole-foundation/sdk-connect";
 import { execSync } from "child_process";
-import * as myEvmSigner from "./evmsigner.js";
 
 import { colors } from "./colors.js";
 import yargs from "yargs";
-import { $ } from "bun";
 import { hideBin } from "yargs/helpers";
 import {
-  AddressLookupTableAccount,
   Connection,
   Keypair,
   PublicKey,
-  SendTransactionError,
-  TransactionMessage,
-  VersionedTransaction,
 } from "@solana/web3.js";
 import * as solanaWeb3 from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
@@ -31,7 +24,6 @@ import fs from "fs";
 import path from "path";
 import {
   ChainContext,
-  UniversalAddress,
   Wormhole,
   assertChain,
   canonicalAddress,
@@ -46,7 +38,6 @@ import {
   type Platform,
 } from "@wormhole-foundation/sdk";
 import { Transaction } from "@mysten/sui/transactions";
-import { bcs } from "@mysten/sui/bcs";
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-sui-ntt";
@@ -65,7 +56,7 @@ import { registerSolanaTransceiver } from "./solanaHelpers";
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 import { handleDeploymentError } from "./error";
-import { loadConfig, type ChainConfig, type Config } from "./deployments";
+import { type ChainConfig, type Config } from "./deployments";
 export type { ChainConfig, Config } from "./deployments";
 export type { Deployment } from "./validation";
 
@@ -103,27 +94,19 @@ import {
   createUpdateCommand,
   createUpgradeCommand,
 } from "./commands";
-import { ethers, Interface } from "ethers";
+import { ethers } from "ethers";
 import { newSignSendWaiter } from "./signSendWait.js";
 import { promptYesNo } from "./prompts.js";
+import { loadOverrides } from "./overrides.js";
 import {
-  loadOverrides,
-  promptSolanaMainnetOverridesIfNeeded,
-} from "./overrides.js";
-import {
-  collectMissingConfigs,
   ensureNttRoot,
-  printMissingConfigReport,
   retryWithExponentialBackoff,
-  validatePayerOption,
 } from "./validation";
 import type { Deployment } from "./validation";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
 const overrides: WormholeConfigOverrides<Network> = loadOverrides();
-
-// CclConfig and CCL_CONTRACT_ADDRESSES imported from ./commands/shared
 
 /**
  * Parse the --unsafe-custom-finality flag value
@@ -2608,6 +2591,9 @@ export async function getImmutables<N extends Network, C extends Chain>(
 
   // Fetch CCL parameters if consistency level is 203 (custom)
   // These methods only exist on contracts with CCL support (>= v1.3.1).
+  // TODO: Remove the type cast below once the NttTransceiverBindings.NttTransceiver
+  // union type properly exposes CCL methods (e.g. via a version-discriminated type or
+  // by adding the methods to the base NttTransceiver interface in sdk-definitions-ntt).
   // The cast is safe because we're inside a try/catch for older versions.
   let customConsistencyLevel: bigint | undefined;
   let additionalBlocks: bigint | undefined;
