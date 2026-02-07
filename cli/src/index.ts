@@ -2607,17 +2607,23 @@ export async function getImmutables<N extends Network, C extends Chain>(
   const tokenDecimals = await evmNtt.manager.tokenDecimals();
 
   // Fetch CCL parameters if consistency level is 203 (custom)
+  // These methods only exist on contracts with CCL support (>= v1.3.1).
+  // The cast is safe because we're inside a try/catch for older versions.
   let customConsistencyLevel: bigint | undefined;
   let additionalBlocks: bigint | undefined;
   let customConsistencyLevelAddress: string | undefined;
 
   if (consistencyLevel === 203n) {
     try {
-      customConsistencyLevel =
-        await transceiver.transceiver.customConsistencyLevel();
-      additionalBlocks = await transceiver.transceiver.additionalBlocks();
+      const cclTransceiver = transceiver.transceiver as unknown as {
+        customConsistencyLevel(): Promise<bigint>;
+        additionalBlocks(): Promise<bigint>;
+        customConsistencyLevelAddress(): Promise<string>;
+      };
+      customConsistencyLevel = await cclTransceiver.customConsistencyLevel();
+      additionalBlocks = await cclTransceiver.additionalBlocks();
       customConsistencyLevelAddress =
-        await transceiver.transceiver.customConsistencyLevelAddress();
+        await cclTransceiver.customConsistencyLevelAddress();
     } catch (error) {
       // CCL parameters might not be available in older versions
       console.warn("Warning: Could not fetch CCL parameters from transceiver");

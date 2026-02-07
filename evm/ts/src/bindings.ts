@@ -1,6 +1,6 @@
 import { Provider } from "ethers";
 
-import { _0_1_0, _1_0_0, _1_1_0, _2_0_0 } from "./ethers-contracts/index.js";
+import { _0_1_0, _1_0_0, _1_1_0, _1_3_1, _2_0_0 } from "./ethers-contracts/index.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
 // This is a descending list of all ABI versions the SDK is aware of.
@@ -8,6 +8,7 @@ import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 // being used by the live contract (these are supposed to still be compatible with older ABIs).
 export const abiVersions = [
   ["2.0.0", _2_0_0],
+  ["1.3.1", _1_3_1],
   ["1.1.0", _1_1_0],
   ["1.0.0", _1_0_0],
   ["0.1.0", _0_1_0],
