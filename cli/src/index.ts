@@ -37,9 +37,6 @@ import {
   canonicalAddress,
   chainToPlatform,
   chains,
-  isNetwork,
-  networks,
-  platforms,
   signSendWait,
   toUniversal,
   type AccountAddress,
@@ -58,8 +55,6 @@ import type {
   Ntt,
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import { hasExecutorDeployed } from "@wormhole-foundation/sdk-evm-ntt";
-
 import {
   type SolanaChains,
   SolanaAddress,
@@ -71,7 +66,6 @@ import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
 import { handleDeploymentError } from "./error";
 import { loadConfig, type ChainConfig, type Config } from "./deployments";
-import { enableBigBlocks } from "./hyperliquid.js";
 export type { ChainConfig, Config } from "./deployments";
 export type { Deployment } from "./validation";
 
@@ -79,8 +73,6 @@ import {
   options,
   EXCLUDED_DIFF_PATHS,
   CCL_CONTRACT_ADDRESSES,
-  getNestedValue,
-  setNestedValue,
 } from "./commands/shared";
 import type { CclConfig, SuiDeploymentResult } from "./commands/shared";
 
