@@ -73,6 +73,23 @@ import {
   getVersion,
   pullInboundLimits,
 } from "./query";
+import {
+  withDeploymentScript,
+  detectDeployScriptVersion,
+  supportsManagerVariants,
+  getSlowFlag,
+  getGasMultiplier,
+  buildVerifierArgs,
+} from "./evm-helpers";
+import {
+  patchSolanaBinary,
+  checkSvmBinary,
+  cargoNetworkFeature,
+  checkSolanaVersion,
+  checkAnchorVersion,
+  checkSvmValidSplMultisig,
+  hasBridgeAddressFromEnvFeature,
+} from "./solana-helpers";
 
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type {
@@ -82,7 +99,6 @@ import type {
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
 import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
-import * as configuration from "./configuration";
 import { createTokenTransferCommand } from "./tokenTransfer";
 import {
   createAddChainCommand,
@@ -300,120 +316,6 @@ active_address: ~
 }
 
 export type { SuiDeploymentResult } from "./commands/shared";
-
-/**
- * Executes a callback with deployment scripts, optionally overriding them with version 1 scripts.
- *
- * Version 1 Script Override:
- * --------------------------
- * For version 1 deployments (scripts without DEPLOY_SCRIPT_VERSION comment), we extract the
- * scripts from commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7. This commit contains the last
- * known-good version 1 scripts that are compatible with all old NTT versions.
- *
- * Why override version 1 scripts?
- * - Version 1 scripts in old worktrees don't all work
- * - The scripts at commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7 is known to work for all old versions
- * - This ensures consistent behaviour across all version 1 deployments
- *
- * Starting from version 2, scripts in the worktree are reliable and can be used as-is.
- * Version 2+ scripts include the DEPLOY_SCRIPT_VERSION comment and use environment variables.
- */
-async function withDeploymentScript<A>(
-  pwd: string,
-  useBundledV1Scripts: boolean,
-  then: () => Promise<A>
-): Promise<A> {
-  ensureNttRoot(pwd);
-
-  const scriptDir = `${pwd}/evm/script`;
-  const backupDir = `${pwd}/evm/script.backup`;
-
-  // Override with v1 scripts from git commit if needed
-  if (useBundledV1Scripts && pwd !== ".") {
-    // Remove any existing backup
-    if (fs.existsSync(backupDir)) {
-      fs.rmSync(backupDir, { recursive: true, force: true });
-    }
-
-    // Backup original worktree scripts
-    if (fs.existsSync(scriptDir)) {
-      fs.cpSync(scriptDir, backupDir, { recursive: true });
-    }
-
-    // Extract v1 scripts from the specific git commit
-    const tempDir = `${pwd}/evm/script.temp`;
-    const absoluteTempDir = path.resolve(tempDir);
-    fs.mkdirSync(tempDir, { recursive: true });
-
-    try {
-      // Use git archive to extract evm/script from commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7
-      // - git archive must run from repository root (process.cwd())
-      // - Extract to absolute path to handle worktree locations correctly
-      // - --strip-components=2 removes both "evm/" and "script/" path prefixes
-      execSync(
-        `git archive 3f56da6541eb9d09f84cc676391e6fbc5b687dd7 evm/script | tar -x -C "${absoluteTempDir}" --strip-components=2`,
-        { cwd: process.cwd(), stdio: "pipe" }
-      );
-
-      // Replace the script directory with the extracted version
-      fs.rmSync(scriptDir, { recursive: true, force: true });
-      fs.cpSync(tempDir, scriptDir, { recursive: true });
-    } finally {
-      // Clean up temp directory
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      }
-    }
-  }
-
-  try {
-    return await then();
-  } finally {
-    // Restore original scripts if we overrode them
-    if (useBundledV1Scripts && pwd !== ".") {
-      fs.rmSync(scriptDir, { recursive: true, force: true });
-      if (fs.existsSync(backupDir)) {
-        fs.cpSync(backupDir, scriptDir, { recursive: true });
-        fs.rmSync(backupDir, { recursive: true, force: true });
-      }
-    }
-  }
-}
-
-/**
- * Detects the deploy script version by checking for DEPLOY_SCRIPT_VERSION comment
- * Version 1: Scripts with run() method that takes explicit parameters
- * Version 2+: Scripts with run() method that reads from environment variables
- */
-function detectDeployScriptVersion(pwd: string): number {
-  const scriptPath = `${pwd}/evm/script/DeployWormholeNtt.s.sol`;
-
-  if (!fs.existsSync(scriptPath)) {
-    throw new Error(`Deploy script not found: ${scriptPath}`);
-  }
-
-  const scriptContent = fs.readFileSync(scriptPath, "utf8");
-
-  // Look for DEPLOY_SCRIPT_VERSION comment
-  const versionMatch = scriptContent.match(
-    /\/\/\s*DEPLOY_SCRIPT_VERSION:\s*(\d+)/
-  );
-
-  if (versionMatch) {
-    return parseInt(versionMatch[1], 10);
-  }
-
-  // Default to version 1 if no version comment found
-  return 1;
-}
-
-/**
- * Checks if manager variants are supported by checking if NttManagerNoRateLimiting.sol exists
- */
-function supportsManagerVariants(pwd: string): boolean {
-  const noRateLimitingPath = `${pwd}/evm/src/NttManager/NttManagerNoRateLimiting.sol`;
-  return fs.existsSync(noRateLimitingPath);
-}
 
 yargs(hideBin(process.argv))
   .wrap(Math.min(process.stdout.columns || 120, 160)) // Use terminal width, but no more than 160 characters
@@ -1165,25 +1067,6 @@ ${simulateArg} \
   }
 
   return { chain: ch.chain, address: universalManager };
-}
-
-/**
- * Check if the Solana program supports the bridge-address-from-env feature
- * @param pwd - Project root directory
- * @returns true if the feature exists in Cargo.toml
- */
-function hasBridgeAddressFromEnvFeature(pwd: string): boolean {
-  try {
-    const cargoTomlPath = `${pwd}/solana/programs/example-native-token-transfers/Cargo.toml`;
-    if (!fs.existsSync(cargoTomlPath)) {
-      return false;
-    }
-    const cargoToml = fs.readFileSync(cargoTomlPath, "utf8");
-    // Check if bridge-address-from-env feature is defined
-    return cargoToml.includes("bridge-address-from-env");
-  } catch (error) {
-    return false;
-  }
 }
 
 /**
@@ -2589,19 +2472,6 @@ export {
   pullInboundLimits,
 } from "./query";
 
-function cargoNetworkFeature(network: Network): string {
-  switch (network) {
-    case "Mainnet":
-      return "mainnet";
-    case "Testnet":
-      return "solana-devnet";
-    case "Devnet":
-      return "tilt-devnet";
-    default:
-      throw new Error("Unsupported network");
-  }
-}
-
 export async function askForConfirmation(
   prompt: string = "Do you want to continue?"
 ): Promise<void> {
@@ -2612,264 +2482,10 @@ export async function askForConfirmation(
   }
 }
 
-async function patchSolanaBinary(
-  binary: string,
-  wormhole: string,
-  solanaAddress: string
-) {
-  // Ensure binary path exists
-  if (!fs.existsSync(binary)) {
-    console.error(`.so file not found: ${binary}`);
-    process.exit(1);
-  }
-
-  // Convert addresses from base58 to Buffer
-  const wormholeBuffer = new PublicKey(wormhole).toBuffer();
-  const solanaAddressBuffer = new PublicKey(solanaAddress).toBuffer();
-
-  // Read the binary file
-  let binaryData = fs.readFileSync(binary);
-
-  // Find and count occurrences of core bridge address
-  let occurrences = 0;
-  let searchIndex = 0;
-
-  // Replace all occurrences of core bridge with wormhole
-  searchIndex = 0;
-  while (true) {
-    const index = binaryData.indexOf(solanaAddressBuffer, searchIndex);
-    if (index === -1) break;
-    occurrences++;
-
-    // Replace the bytes at this position
-    wormholeBuffer.copy(binaryData, index);
-    searchIndex = index + solanaAddressBuffer.length;
-  }
-
-  // Write the patched binary back to file
-  fs.writeFileSync(binary, binaryData);
-
-  if (occurrences > 0) {
-    console.log(
-      `Patched binary, replacing ${solanaAddress} with ${wormhole} in ${occurrences} places.`
-    );
-  }
-}
-
-async function checkSvmBinary(
-  binary: string,
-  wormhole: string,
-  providedProgramId: string,
-  version?: string
-) {
-  // ensure binary path exists
-  if (!fs.existsSync(binary)) {
-    console.error(`.so file not found: ${binary}`);
-    process.exit(1);
-  }
-
-  // convert addresses from base58 to Buffer
-  const wormholeBuffer = new PublicKey(wormhole).toBuffer();
-  const providedProgramIdBuffer = new PublicKey(providedProgramId).toBuffer();
-  const versionBuffer = version ? Buffer.from(version, "utf8") : undefined;
-
-  if (!searchBufferInBinary(binary, wormholeBuffer)) {
-    console.error(`Wormhole address not found in binary: ${wormhole}`);
-    process.exit(1);
-  }
-  if (!searchBufferInBinary(binary, providedProgramIdBuffer)) {
-    console.error(
-      `Provided program ID not found in binary: ${providedProgramId}`
-    );
-    process.exit(1);
-  }
-  if (versionBuffer && !searchBufferInBinary(binary, versionBuffer)) {
-    // TODO: figure out how to search for the version string in the binary
-    // console.error(`Version string not found in binary: ${version}`);
-    // process.exit(1);
-  }
-}
-
-// Search for a buffer pattern within a binary file using direct buffer operations
-function searchBufferInBinary(
-  binaryPath: string,
-  searchBuffer: Buffer
-): boolean {
-  const binaryData = fs.readFileSync(binaryPath);
-  return binaryData.indexOf(searchBuffer) !== -1;
-}
-
-function getSlowFlag(chain: Chain): string {
-  return chain === "Mezo" ||
-    chain === "HyperEVM" ||
-    chain == "XRPLEVM" ||
-    chain === "CreditCoin"
-    ? "--slow"
-    : "";
-}
-
-function getGasMultiplier(userMultiplier?: number): string {
-  if (userMultiplier !== undefined) {
-    return `--gas-estimate-multiplier ${userMultiplier}`;
-  }
-
-  return "";
-}
-
 // Re-export ensureNttRoot from validation (moved there to fix circular dependency)
 export { ensureNttRoot } from "./validation";
-
-// Check Solana toolchain version against Anchor.toml requirements
-function checkSolanaVersion(pwd: string): void {
-  try {
-    // Read required version from Anchor.toml
-    const anchorToml = fs.readFileSync(`${pwd}/solana/Anchor.toml`, "utf8");
-    const versionMatch = anchorToml.match(/solana_version = "(.+)"/);
-
-    if (!versionMatch) {
-      console.warn(
-        colors.yellow("Warning: Could not find solana_version in Anchor.toml")
-      );
-      return;
-    }
-
-    const requiredVersion = versionMatch[1];
-
-    // Get current Solana version and detect client type
-    let currentVersion: string;
-    let clientType: "agave" | "solanalabs";
-    try {
-      const output = execSync("solana --version", {
-        encoding: "utf8",
-        stdio: "pipe",
-      });
-      const versionMatch = output.match(/solana-cli (\d+\.\d+\.\d+)/);
-      if (!versionMatch) {
-        console.error(colors.red("Error: Could not parse solana CLI version"));
-        process.exit(1);
-      }
-      currentVersion = versionMatch[1];
-
-      // Detect client type
-      if (output.includes("Agave")) {
-        clientType = "agave";
-      } else if (output.includes("SolanaLabs")) {
-        clientType = "solanalabs";
-      } else {
-        // Default to agave if we can't detect
-        clientType = "agave";
-      }
-    } catch (error) {
-      console.error(
-        colors.red(
-          "Error: solana CLI not found. Please install the Solana toolchain."
-        )
-      );
-      console.error(
-        colors.yellow(
-          'Install with: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"'
-        )
-      );
-      process.exit(1);
-    }
-
-    if (currentVersion !== requiredVersion) {
-      console.log(colors.yellow(`Solana version mismatch detected:`));
-      console.log(
-        colors.yellow(`  Required: ${requiredVersion} (from Anchor.toml)`)
-      );
-      console.log(colors.yellow(`  Current:  ${currentVersion}`));
-      console.log(colors.yellow(`\nSwitching to required version...`));
-
-      // Run the appropriate version switch command
-      const installCommand =
-        clientType === "agave"
-          ? `agave-install init ${requiredVersion}`
-          : `solana-install init ${requiredVersion}`;
-
-      try {
-        execSync(installCommand, { stdio: "inherit" });
-        console.log(
-          colors.green(
-            `Successfully switched to Solana version ${requiredVersion}`
-          )
-        );
-      } catch (error) {
-        console.error(
-          colors.red(`Failed to switch Solana version using ${installCommand}`)
-        );
-        console.error(colors.red(`Please run manually: ${installCommand}`));
-        process.exit(1);
-      }
-    }
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      console.warn(colors.yellow("Warning: Could not read Anchor.toml file"));
-    } else {
-      console.warn(
-        colors.yellow(
-          `Warning: Failed to check Solana version: ${
-            error instanceof Error ? error.message : error
-          }`
-        )
-      );
-    }
-  }
-}
-
-function checkAnchorVersion(pwd: string) {
-  try {
-    // Read required version from Anchor.toml
-    const anchorToml = fs.readFileSync(`${pwd}/solana/Anchor.toml`, "utf8");
-    const versionMatch = anchorToml.match(/anchor_version = "(.+)"/);
-
-    if (!versionMatch) {
-      console.error(
-        colors.red("Error: Could not find anchor_version in Anchor.toml")
-      );
-      process.exit(1);
-    }
-
-    const expected = versionMatch[1];
-
-    // Check if Anchor CLI is installed
-    try {
-      execSync("which anchor");
-    } catch {
-      console.error(
-        "Anchor CLI is not installed.\nSee https://www.anchor-lang.com/docs/installation"
-      );
-      process.exit(1);
-    }
-
-    // Get current Anchor version
-    const version = execSync("anchor --version").toString().trim();
-    // version looks like "anchor-cli 0.14.0"
-    const [_, v] = version.split(" ");
-    if (v !== expected) {
-      console.error(colors.red(`Anchor CLI version mismatch!`));
-      console.error(colors.red(`  Required: ${expected} (from Anchor.toml)`));
-      console.error(colors.red(`  Current:  ${v}`));
-      console.error(
-        colors.yellow(`\nTo fix this, install the correct version of Anchor`)
-      );
-      console.error(
-        colors.gray("See https://www.anchor-lang.com/docs/installation")
-      );
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      console.error(colors.red("Error: Could not read Anchor.toml file"));
-      console.error(
-        colors.yellow(`Expected file at: ${pwd}/solana/Anchor.toml`)
-      );
-      process.exit(1);
-    } else {
-      throw error;
-    }
-  }
-}
+// Re-export from helper modules
+export { checkSvmValidSplMultisig } from "./solana-helpers";
 
 export function resolveVersion(
   latest: boolean,
@@ -2941,58 +2557,6 @@ export function validateChain<N extends Network, C extends Chain>(
   }
 }
 
-function buildVerifierArgs(chain: Chain): string[] {
-  const verifier = configuration.get(chain, "verifier", { reportError: true });
-  const verifierType = verifier || "etherscan";
-
-  if (verifierType === "blockscout") {
-    const verifierUrl = configuration.get(chain, "verifier_url", {
-      reportError: true,
-    });
-    if (!verifierUrl) {
-      console.error(
-        `verifier_url is required when using blockscout verifier for ${chain}`
-      );
-      process.exit(1);
-    }
-
-    return [
-      "--verify",
-      "--verifier",
-      "blockscout",
-      "--verifier-url",
-      verifierUrl,
-    ];
-  } else if (verifierType === "sourcify") {
-    const verifierUrl = configuration.get(chain, "verifier_url", {
-      reportError: true,
-    });
-    if (!verifierUrl) {
-      console.error(
-        `verifier_url is required when using sourcify verifier for ${chain}`
-      );
-      process.exit(1);
-    }
-
-    return [
-      "--verify",
-      "--verifier",
-      "sourcify",
-      "--verifier-url",
-      verifierUrl,
-    ];
-  } else {
-    const apiKey = configuration.get(chain, "scan_api_key", {
-      reportError: true,
-    });
-    if (!apiKey) {
-      process.exit(1);
-    }
-
-    return ["--verify", "--etherscan-api-key", apiKey];
-  }
-}
-
 function nttVersion(): {
   version: string;
   commit: string;
@@ -3009,34 +2573,3 @@ function nttVersion(): {
   }
 }
 
-export async function checkSvmValidSplMultisig(
-  connection: Connection,
-  address: PublicKey,
-  programId: PublicKey,
-  tokenAuthority: PublicKey
-): Promise<boolean> {
-  let isMultisigTokenAuthority = false;
-  try {
-    const multisigInfo = await spl.getMultisig(
-      connection,
-      address,
-      undefined,
-      programId
-    );
-    if (multisigInfo.m === 1) {
-      const n = multisigInfo.n;
-      for (let i = 0; i < n; ++i) {
-        // TODO: not sure if there's an easier way to loop through and check
-        if (
-          (
-            multisigInfo[`signer${i + 1}` as keyof spl.Multisig] as PublicKey
-          ).equals(tokenAuthority)
-        ) {
-          isMultisigTokenAuthority = true;
-          break;
-        }
-      }
-    }
-  } catch {}
-  return isMultisigTokenAuthority;
-}
