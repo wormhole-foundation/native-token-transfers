@@ -292,7 +292,6 @@ active_address: ~
   }
 }
 
-// SuiDeploymentResult and options imported from ./commands/shared
 export type { SuiDeploymentResult } from "./commands/shared";
 
 /**
