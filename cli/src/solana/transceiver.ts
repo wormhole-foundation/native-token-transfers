@@ -1,4 +1,4 @@
-import { colors } from "./colors.js";
+import { colors } from "../colors.js";
 import {
   signSendWait,
   type AccountAddress,

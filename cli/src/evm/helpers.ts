@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 import type { Chain } from "@wormhole-foundation/sdk";
-import * as configuration from "./configuration";
-import { ensureNttRoot } from "./validation";
+import * as configuration from "../configuration";
+import { ensureNttRoot } from "../validation";
 
 /**
  * When deploying old NTT versions (version 1 scripts), this function overrides the evm/script/ directory with

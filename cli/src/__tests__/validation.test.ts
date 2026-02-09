@@ -51,7 +51,9 @@ describe("validatePayerOption", () => {
   const errorFactory = (msg: string) => new Error(msg);
 
   test("returns undefined when rawPayer is undefined", () => {
-    expect(validatePayerOption(undefined, "Solana", errorFactory)).toBeUndefined();
+    expect(
+      validatePayerOption(undefined, "Solana", errorFactory)
+    ).toBeUndefined();
   });
 
   test("throws when rawPayer is an array", () => {
@@ -61,9 +63,9 @@ describe("validatePayerOption", () => {
   });
 
   test("throws when rawPayer is empty string", () => {
-    expect(() =>
-      validatePayerOption("", "Solana", errorFactory)
-    ).toThrow("--payer must be a path");
+    expect(() => validatePayerOption("", "Solana", errorFactory)).toThrow(
+      "--payer must be a path"
+    );
   });
 
   test("warns and returns undefined for non-Solana chains", () => {
@@ -93,9 +95,9 @@ describe("normalizeRpcArgs", () => {
   });
 
   test("wraps single string in array", () => {
-    expect(normalizeRpcArgs("Sepolia=http://localhost:8545", errorFactory)).toEqual([
-      "Sepolia=http://localhost:8545",
-    ]);
+    expect(
+      normalizeRpcArgs("Sepolia=http://localhost:8545", errorFactory)
+    ).toEqual(["Sepolia=http://localhost:8545"]);
   });
 
   test("passes through array", () => {
@@ -149,11 +151,7 @@ describe("validateTimeout", () => {
 
 describe("retryWithExponentialBackoff", () => {
   test("returns result on first success", async () => {
-    const result = await retryWithExponentialBackoff(
-      async () => 42,
-      3,
-      10
-    );
+    const result = await retryWithExponentialBackoff(async () => 42, 3, 10);
     expect(result).toBe(42);
   });
 

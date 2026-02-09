@@ -1,4 +1,7 @@
-import type { WormholeConfigOverrides, Network } from "@wormhole-foundation/sdk-connect";
+import type {
+  WormholeConfigOverrides,
+  Network,
+} from "@wormhole-foundation/sdk-connect";
 import {
   chains,
   isNetwork,
@@ -8,15 +11,15 @@ import {
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
-import { getSigner, type SignerType } from "../getSigner";
-import { newSignSendWaiter } from "../signSendWait.js";
+import { getSigner, type SignerType } from "../signers/getSigner";
+import { newSignSendWaiter } from "../signers/signSendWait.js";
 
 import { options } from "./shared";
-import {
-  pullChainConfig,
-} from "../index";
+import { pullChainConfig } from "../index";
 
-export function createManualCommand(overrides: WormholeConfigOverrides<Network>) {
+export function createManualCommand(
+  overrides: WormholeConfigOverrides<Network>
+) {
   return {
     command: "manual",
     describe: "Manual NTT operations",
@@ -126,7 +129,9 @@ export function createManualCommand(overrides: WormholeConfigOverrides<Network>)
                   signer.address.address.toString()
                 )}`
               );
-              console.log("\n" + colors.blue("Executing setPeer transaction..."));
+              console.log(
+                "\n" + colors.blue("Executing setPeer transaction...")
+              );
 
               // Call setPeer on the NTT instance (it returns an AsyncGenerator)
               const setPeerTxs = ntt.setPeer(
@@ -155,7 +160,10 @@ export function createManualCommand(overrides: WormholeConfigOverrides<Network>)
                 );
               } catch (signSendError) {
                 console.error("DEBUG: Error occurred in signSendWaitFunc:");
-                console.error("DEBUG: signSendError type:", typeof signSendError);
+                console.error(
+                  "DEBUG: signSendError type:",
+                  typeof signSendError
+                );
                 console.error(
                   "DEBUG: signSendError constructor:",
                   signSendError?.constructor?.name

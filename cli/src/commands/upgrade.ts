@@ -1,4 +1,7 @@
-import type { WormholeConfigOverrides, Network } from "@wormhole-foundation/sdk-connect";
+import type {
+  WormholeConfigOverrides,
+  Network,
+} from "@wormhole-foundation/sdk-connect";
 import {
   Wormhole,
   chainToPlatform,
@@ -11,7 +14,7 @@ import sui from "@wormhole-foundation/sdk/platforms/sui";
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
-import type { SignerType } from "../getSigner";
+import type { SignerType } from "../signers/getSigner";
 import { validatePayerOption } from "../validation";
 
 import { options } from "./shared";
@@ -27,7 +30,9 @@ import {
 
 import fs from "fs";
 
-export function createUpgradeCommand(overrides: WormholeConfigOverrides<Network>) {
+export function createUpgradeCommand(
+  overrides: WormholeConfigOverrides<Network>
+) {
   return {
     command: "upgrade <chain>",
     describe: "upgrade the contract on a specific chain",

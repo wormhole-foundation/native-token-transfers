@@ -13,11 +13,11 @@ import sui from "@wormhole-foundation/sdk/platforms/sui";
 import type { Argv } from "yargs";
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
-import { enableBigBlocks } from "../hyperliquid.js";
+import { enableBigBlocks } from "../evm/hyperliquid.js";
 import { promptYesNo } from "../prompts.js";
 import { promptSolanaMainnetOverridesIfNeeded } from "../overrides.js";
 import { validatePayerOption } from "../validation";
-import type { SignerType } from "../getSigner";
+import type { SignerType } from "../signers/getSigner";
 import { options } from "./shared";
 import type { CclConfig } from "./shared";
 import {
@@ -216,7 +216,9 @@ export function createAddChainCommand(
 
       // HyperEVM confirmation
       if (chain === "HyperEVM" && !argv["yes"]) {
-        console.log(colors.yellow("\u26A0\uFE0F  HyperEVM Deployment Requirements:"));
+        console.log(
+          colors.yellow("\u26A0\uFE0F  HyperEVM Deployment Requirements:")
+        );
         console.log(
           colors.yellow(
             "Before proceeding with the HyperEVM deployment, please ensure:"

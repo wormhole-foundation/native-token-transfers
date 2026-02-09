@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getSlowFlag, getGasMultiplier } from "../evm-helpers";
+import { getSlowFlag, getGasMultiplier } from "../evm/helpers";
 
 describe("getSlowFlag", () => {
   test("returns --slow for Mezo", () => {

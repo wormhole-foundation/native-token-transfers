@@ -1,4 +1,7 @@
-import type { WormholeConfigOverrides, Network } from "@wormhole-foundation/sdk-connect";
+import type {
+  WormholeConfigOverrides,
+  Network,
+} from "@wormhole-foundation/sdk-connect";
 import {
   Wormhole,
   chainToPlatform,
@@ -34,10 +37,13 @@ import {
   checkSvmValidSplMultisig,
 } from "../index";
 
-export function createSetMintAuthorityCommand(overrides: WormholeConfigOverrides<Network>) {
+export function createSetMintAuthorityCommand(
+  overrides: WormholeConfigOverrides<Network>
+) {
   return {
     command: "set-mint-authority",
-    describe: "set token mint authority to token authority (or valid SPL Multisig if --multisig flag is provided)",
+    describe:
+      "set token mint authority to token authority (or valid SPL Multisig if --multisig flag is provided)",
     builder: (yargs: any) =>
       yargs
         .option("chain", options.chain)

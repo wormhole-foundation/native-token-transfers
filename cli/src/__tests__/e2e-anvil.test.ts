@@ -31,8 +31,7 @@ const BASE_SEPOLIA_FORK_RPC = `http://127.0.0.1:${BASE_SEPOLIA_PORT}`;
 
 // Public RPCs for forking
 const SEPOLIA_RPC =
-  process.env.SEPOLIA_RPC_URL ??
-  "https://ethereum-sepolia-rpc.publicnode.com";
+  process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";
 const BASE_SEPOLIA_RPC =
   process.env.BASE_SEPOLIA_RPC_URL ?? "https://sepolia.base.org";
 
@@ -323,280 +322,245 @@ describe.skipIf(!hasAnvil)("E2E: NTT deployment on Anvil forks", () => {
       fs.rmSync(testDir, { recursive: true, force: true });
     }
   });
-  test(
-    "create NTT project and initialize for Testnet",
-    async () => {
-      // ntt new must run from outside a git repo
-      const proc = Bun.spawn(["bun", "run", CLI, "new", "ntt-project"], {
-        cwd: testDir,
-        stdout: "pipe",
-        stderr: "pipe",
-        env: { ...process.env },
-      });
-      const stdout = await new Response(proc.stdout).text();
-      const exitCode = await proc.exited;
-      expect(exitCode).toBe(0);
+  test("create NTT project and initialize for Testnet", async () => {
+    // ntt new must run from outside a git repo
+    const proc = Bun.spawn(["bun", "run", CLI, "new", "ntt-project"], {
+      cwd: testDir,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env },
+    });
+    const stdout = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    expect(exitCode).toBe(0);
 
-      // Update testDir to point inside the project
-      testDir = path.join(testDir, "ntt-project");
+    // Update testDir to point inside the project
+    testDir = path.join(testDir, "ntt-project");
 
-      // Write .env
-      fs.writeFileSync(
-        path.join(testDir, ".env"),
-        `ETH_PRIVATE_KEY=${ANVIL_PRIVATE_KEY}\n`
-      );
+    // Write .env
+    fs.writeFileSync(
+      path.join(testDir, ".env"),
+      `ETH_PRIVATE_KEY=${ANVIL_PRIVATE_KEY}\n`
+    );
 
-      // Write overrides.json to point at Anvil forks
-      fs.writeFileSync(
-        path.join(testDir, "overrides.json"),
-        JSON.stringify(
-          {
-            chains: {
-              Sepolia: { rpc: SEPOLIA_FORK_RPC },
-              BaseSepolia: { rpc: BASE_SEPOLIA_FORK_RPC },
-            },
-          },
-          null,
-          2
-        )
-      );
-
-      // Init Testnet
-      const init = await ntt(["init", "Testnet"]);
-      expect(init.exitCode).toBe(0);
-
-      // Verify deployment.json exists
-      const deploymentPath = path.join(testDir, "deployment.json");
-      expect(fs.existsSync(deploymentPath)).toBe(true);
-      const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
-      expect(deployment.network).toBe("Testnet");
-      expect(deployment.chains).toEqual({});
-    },
-    120_000
-  );
-
-  test(
-    "deploy NTT to Sepolia fork with custom finality (instant + 1 block)",
-    async () => {
-      const result = await ntt(
-        [
-          "add-chain",
-          "Sepolia",
-          "--latest",
-          "--mode",
-          "burning",
-          "--token",
-          DANTE_SEPOLIA,
-          "--skip-verify",
-          "--yes",
-          "--unsafe-custom-finality",
-          "200:1",
-        ],
+    // Write overrides.json to point at Anvil forks
+    fs.writeFileSync(
+      path.join(testDir, "overrides.json"),
+      JSON.stringify(
         {
-          // Pipe "yes" for the custom finality confirmation prompt
-          stdin: "yes\n",
-          timeout: 600_000,
-        }
-      );
+          chains: {
+            Sepolia: { rpc: SEPOLIA_FORK_RPC },
+            BaseSepolia: { rpc: BASE_SEPOLIA_FORK_RPC },
+          },
+        },
+        null,
+        2
+      )
+    );
 
-      // Show output for debugging
-      if (result.exitCode !== 0) {
-        console.error("add-chain Sepolia stdout:", result.stdout);
-        console.error("add-chain Sepolia stderr:", result.stderr);
-      }
-      expect(result.exitCode).toBe(0);
+    // Init Testnet
+    const init = await ntt(["init", "Testnet"]);
+    expect(init.exitCode).toBe(0);
 
-      // Verify chain was added to deployment.json
-      const deployment = JSON.parse(
-        fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
-      );
-      expect(deployment.chains.Sepolia).toBeDefined();
-      expect(deployment.chains.Sepolia.mode).toBe("burning");
-      expect(deployment.chains.Sepolia.token).toBe(DANTE_SEPOLIA);
-      expect(deployment.chains.Sepolia.manager).toBeTruthy();
-      expect(deployment.chains.Sepolia.transceivers.wormhole.address).toBeTruthy();
-    },
-    600_000
-  );
+    // Verify deployment.json exists
+    const deploymentPath = path.join(testDir, "deployment.json");
+    expect(fs.existsSync(deploymentPath)).toBe(true);
+    const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
+    expect(deployment.network).toBe("Testnet");
+    expect(deployment.chains).toEqual({});
+  }, 120_000);
 
-  test(
-    "deploy NTT to Base Sepolia fork",
-    async () => {
-      const result = await ntt(
-        [
-          "add-chain",
-          "BaseSepolia",
-          "--latest",
-          "--mode",
-          "burning",
-          "--token",
-          DANTE_BASE_SEPOLIA,
-          "--skip-verify",
-          "--yes",
-        ],
-        { timeout: 600_000 }
-      );
-
-      if (result.exitCode !== 0) {
-        console.error("add-chain BaseSepolia stdout:", result.stdout);
-        console.error("add-chain BaseSepolia stderr:", result.stderr);
-      }
-      expect(result.exitCode).toBe(0);
-
-      const deployment = JSON.parse(
-        fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
-      );
-      expect(deployment.chains.BaseSepolia).toBeDefined();
-      expect(deployment.chains.BaseSepolia.mode).toBe("burning");
-      expect(deployment.chains.BaseSepolia.token).toBe(DANTE_BASE_SEPOLIA);
-    },
-    600_000
-  );
-
-  test(
-    "grant MINTER_ROLE to NTT Managers on both chains",
-    async () => {
-      const deployment = JSON.parse(
-        fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
-      );
-      const sepoliaManager = deployment.chains.Sepolia.manager;
-      const baseSepoliaManager = deployment.chains.BaseSepolia.manager;
-
-      // Grant MINTER_ROLE to both managers (impersonating admin)
-      await Promise.all([
-        grantRoleImpersonated(
-          SEPOLIA_FORK_RPC,
-          DANTE_SEPOLIA,
-          MINTER_ROLE,
-          sepoliaManager,
-          ADMIN_ADDRESS
-        ),
-        grantRoleImpersonated(
-          BASE_SEPOLIA_FORK_RPC,
-          DANTE_BASE_SEPOLIA,
-          MINTER_ROLE,
-          baseSepoliaManager,
-          ADMIN_ADDRESS
-        ),
-      ]);
-
-      // Verify roles were granted
-      for (const [rpc, token, manager] of [
-        [SEPOLIA_FORK_RPC, DANTE_SEPOLIA, sepoliaManager],
-        [BASE_SEPOLIA_FORK_RPC, DANTE_BASE_SEPOLIA, baseSepoliaManager],
-      ] as const) {
-        const proc = Bun.spawn(
-          [
-            "cast",
-            "call",
-            token,
-            "hasRole(bytes32,address)(bool)",
-            MINTER_ROLE,
-            manager,
-            "--rpc-url",
-            rpc,
-          ],
-          { stdout: "pipe", stderr: "pipe" }
-        );
-        const out = (await new Response(proc.stdout).text()).trim();
-        expect(out).toBe("true");
-      }
-    },
-    30_000
-  );
-
-  test(
-    "pull config to sync on-chain state",
-    async () => {
-      const result = await ntt(["pull", "--yes"]);
-      if (result.exitCode !== 0) {
-        console.error("pull stdout:", result.stdout);
-        console.error("pull stderr:", result.stderr);
-      }
-      expect(result.exitCode).toBe(0);
-      const output = result.stdout + result.stderr;
-      expect(
-        output.includes("Updated deployment.json") ||
-          output.includes("already up to date")
-      ).toBe(true);
-    },
-    120_000
-  );
-
-  test(
-    "update inbound limits to match outbound and push",
-    async () => {
-      const deploymentPath = path.join(testDir, "deployment.json");
-      const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
-
-      // Set inbound limits to match outbound on both chains
-      const sepoliaOutbound = deployment.chains.Sepolia.limits.outbound;
-      const baseOutbound = deployment.chains.BaseSepolia.limits.outbound;
-
-      deployment.chains.Sepolia.limits.inbound = {
-        BaseSepolia: sepoliaOutbound,
-      };
-      deployment.chains.BaseSepolia.limits.inbound = {
-        Sepolia: baseOutbound,
-      };
-
-      fs.writeFileSync(deploymentPath, JSON.stringify(deployment, null, 2));
-
-      // Push
-      const result = await ntt(["push", "--yes"], { timeout: 300_000 });
-      if (result.exitCode !== 0) {
-        console.error("push stdout:", result.stdout);
-        console.error("push stderr:", result.stderr);
-      }
-      expect(result.exitCode).toBe(0);
-    },
-    300_000
-  );
-
-  test(
-    "status reports deployment is up to date",
-    async () => {
-      const result = await ntt(["status"], { timeout: 120_000 });
-      const output = result.stdout + result.stderr;
-      if (result.exitCode !== 0) {
-        console.error("status stdout:", result.stdout);
-        console.error("status stderr:", result.stderr);
-      }
-      expect(output).toContain("up to date");
-    },
-    120_000
-  );
-
-  test(
-    "deployment.json has correct structure",
-    async () => {
-      const deployment = JSON.parse(
-        fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
-      );
-
-      // Both chains present
-      expect(Object.keys(deployment.chains)).toEqual([
+  test("deploy NTT to Sepolia fork with custom finality (instant + 1 block)", async () => {
+    const result = await ntt(
+      [
+        "add-chain",
         "Sepolia",
-        "BaseSepolia",
-      ]);
-
-      for (const chain of ["Sepolia", "BaseSepolia"] as const) {
-        const c = deployment.chains[chain];
-        expect(c.mode).toBe("burning");
-        expect(c.paused).toBe(false);
-        expect(c.manager).toMatch(/^0x[a-fA-F0-9]{40}$/);
-        expect(c.transceivers.threshold).toBe(1);
-        expect(c.transceivers.wormhole.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
-        expect(c.limits.outbound).toBeTruthy();
-
-        // Inbound limits should be set
-        const otherChain = chain === "Sepolia" ? "BaseSepolia" : "Sepolia";
-        expect(c.limits.inbound[otherChain]).toBeTruthy();
-        expect(c.limits.inbound[otherChain]).not.toBe(
-          "0.000000000000000000"
-        );
+        "--latest",
+        "--mode",
+        "burning",
+        "--token",
+        DANTE_SEPOLIA,
+        "--skip-verify",
+        "--yes",
+        "--unsafe-custom-finality",
+        "200:1",
+      ],
+      {
+        // Pipe "yes" for the custom finality confirmation prompt
+        stdin: "yes\n",
+        timeout: 600_000,
       }
-    },
-    5_000
-  );
+    );
+
+    // Show output for debugging
+    if (result.exitCode !== 0) {
+      console.error("add-chain Sepolia stdout:", result.stdout);
+      console.error("add-chain Sepolia stderr:", result.stderr);
+    }
+    expect(result.exitCode).toBe(0);
+
+    // Verify chain was added to deployment.json
+    const deployment = JSON.parse(
+      fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
+    );
+    expect(deployment.chains.Sepolia).toBeDefined();
+    expect(deployment.chains.Sepolia.mode).toBe("burning");
+    expect(deployment.chains.Sepolia.token).toBe(DANTE_SEPOLIA);
+    expect(deployment.chains.Sepolia.manager).toBeTruthy();
+    expect(
+      deployment.chains.Sepolia.transceivers.wormhole.address
+    ).toBeTruthy();
+  }, 600_000);
+
+  test("deploy NTT to Base Sepolia fork", async () => {
+    const result = await ntt(
+      [
+        "add-chain",
+        "BaseSepolia",
+        "--latest",
+        "--mode",
+        "burning",
+        "--token",
+        DANTE_BASE_SEPOLIA,
+        "--skip-verify",
+        "--yes",
+      ],
+      { timeout: 600_000 }
+    );
+
+    if (result.exitCode !== 0) {
+      console.error("add-chain BaseSepolia stdout:", result.stdout);
+      console.error("add-chain BaseSepolia stderr:", result.stderr);
+    }
+    expect(result.exitCode).toBe(0);
+
+    const deployment = JSON.parse(
+      fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
+    );
+    expect(deployment.chains.BaseSepolia).toBeDefined();
+    expect(deployment.chains.BaseSepolia.mode).toBe("burning");
+    expect(deployment.chains.BaseSepolia.token).toBe(DANTE_BASE_SEPOLIA);
+  }, 600_000);
+
+  test("grant MINTER_ROLE to NTT Managers on both chains", async () => {
+    const deployment = JSON.parse(
+      fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
+    );
+    const sepoliaManager = deployment.chains.Sepolia.manager;
+    const baseSepoliaManager = deployment.chains.BaseSepolia.manager;
+
+    // Grant MINTER_ROLE to both managers (impersonating admin)
+    await Promise.all([
+      grantRoleImpersonated(
+        SEPOLIA_FORK_RPC,
+        DANTE_SEPOLIA,
+        MINTER_ROLE,
+        sepoliaManager,
+        ADMIN_ADDRESS
+      ),
+      grantRoleImpersonated(
+        BASE_SEPOLIA_FORK_RPC,
+        DANTE_BASE_SEPOLIA,
+        MINTER_ROLE,
+        baseSepoliaManager,
+        ADMIN_ADDRESS
+      ),
+    ]);
+
+    // Verify roles were granted
+    for (const [rpc, token, manager] of [
+      [SEPOLIA_FORK_RPC, DANTE_SEPOLIA, sepoliaManager],
+      [BASE_SEPOLIA_FORK_RPC, DANTE_BASE_SEPOLIA, baseSepoliaManager],
+    ] as const) {
+      const proc = Bun.spawn(
+        [
+          "cast",
+          "call",
+          token,
+          "hasRole(bytes32,address)(bool)",
+          MINTER_ROLE,
+          manager,
+          "--rpc-url",
+          rpc,
+        ],
+        { stdout: "pipe", stderr: "pipe" }
+      );
+      const out = (await new Response(proc.stdout).text()).trim();
+      expect(out).toBe("true");
+    }
+  }, 30_000);
+
+  test("pull config to sync on-chain state", async () => {
+    const result = await ntt(["pull", "--yes"]);
+    if (result.exitCode !== 0) {
+      console.error("pull stdout:", result.stdout);
+      console.error("pull stderr:", result.stderr);
+    }
+    expect(result.exitCode).toBe(0);
+    const output = result.stdout + result.stderr;
+    expect(
+      output.includes("Updated deployment.json") ||
+        output.includes("already up to date")
+    ).toBe(true);
+  }, 120_000);
+
+  test("update inbound limits to match outbound and push", async () => {
+    const deploymentPath = path.join(testDir, "deployment.json");
+    const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
+
+    // Set inbound limits to match outbound on both chains
+    const sepoliaOutbound = deployment.chains.Sepolia.limits.outbound;
+    const baseOutbound = deployment.chains.BaseSepolia.limits.outbound;
+
+    deployment.chains.Sepolia.limits.inbound = {
+      BaseSepolia: sepoliaOutbound,
+    };
+    deployment.chains.BaseSepolia.limits.inbound = {
+      Sepolia: baseOutbound,
+    };
+
+    fs.writeFileSync(deploymentPath, JSON.stringify(deployment, null, 2));
+
+    // Push
+    const result = await ntt(["push", "--yes"], { timeout: 300_000 });
+    if (result.exitCode !== 0) {
+      console.error("push stdout:", result.stdout);
+      console.error("push stderr:", result.stderr);
+    }
+    expect(result.exitCode).toBe(0);
+  }, 300_000);
+
+  test("status reports deployment is up to date", async () => {
+    const result = await ntt(["status"], { timeout: 120_000 });
+    const output = result.stdout + result.stderr;
+    if (result.exitCode !== 0) {
+      console.error("status stdout:", result.stdout);
+      console.error("status stderr:", result.stderr);
+    }
+    expect(output).toContain("up to date");
+  }, 120_000);
+
+  test("deployment.json has correct structure", async () => {
+    const deployment = JSON.parse(
+      fs.readFileSync(path.join(testDir, "deployment.json"), "utf8")
+    );
+
+    // Both chains present
+    expect(Object.keys(deployment.chains)).toEqual(["Sepolia", "BaseSepolia"]);
+
+    for (const chain of ["Sepolia", "BaseSepolia"] as const) {
+      const c = deployment.chains[chain];
+      expect(c.mode).toBe("burning");
+      expect(c.paused).toBe(false);
+      expect(c.manager).toMatch(/^0x[a-fA-F0-9]{40}$/);
+      expect(c.transceivers.threshold).toBe(1);
+      expect(c.transceivers.wormhole.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
+      expect(c.limits.outbound).toBeTruthy();
+
+      // Inbound limits should be set
+      const otherChain = chain === "Sepolia" ? "BaseSepolia" : "Sepolia";
+      expect(c.limits.inbound[otherChain]).toBeTruthy();
+      expect(c.limits.inbound[otherChain]).not.toBe("0.000000000000000000");
+    }
+  }, 5_000);
 });

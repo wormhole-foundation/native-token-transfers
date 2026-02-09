@@ -9,13 +9,16 @@ import type { Argv } from "yargs";
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
 import { colorizeDiff, diffObjects } from "../diff";
-import { options, EXCLUDED_DIFF_PATHS, getNestedValue, setNestedValue } from "./shared";
+import {
+  options,
+  EXCLUDED_DIFF_PATHS,
+  getNestedValue,
+  setNestedValue,
+} from "./shared";
 import { pullDeployments, askForConfirmation } from "../index";
 import type { Deployment } from "../validation";
 
-export function createPullCommand(
-  overrides: WormholeConfigOverrides<Network>
-) {
+export function createPullCommand(overrides: WormholeConfigOverrides<Network>) {
   return {
     command: "pull",
     describe: "pull the remote configuration",

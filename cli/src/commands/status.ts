@@ -1,4 +1,7 @@
-import type { WormholeConfigOverrides, Network } from "@wormhole-foundation/sdk-connect";
+import type {
+  WormholeConfigOverrides,
+  Network,
+} from "@wormhole-foundation/sdk-connect";
 import {
   assertChain,
   chainToPlatform,
@@ -10,10 +13,7 @@ import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { colors } from "../colors.js";
 import { colorizeDiff, diffObjects } from "../diff";
 import { loadConfig, type Config } from "../deployments";
-import {
-  collectMissingConfigs,
-  printMissingConfigReport,
-} from "../validation";
+import { collectMissingConfigs, printMissingConfigReport } from "../validation";
 import type { Deployment } from "../validation";
 
 import { options, EXCLUDED_DIFF_PATHS } from "./shared";
@@ -24,7 +24,9 @@ import {
   getPdas,
 } from "../index";
 
-export function createStatusCommand(overrides: WormholeConfigOverrides<Network>) {
+export function createStatusCommand(
+  overrides: WormholeConfigOverrides<Network>
+) {
   return {
     command: "status",
     describe: "check the status of the deployment",

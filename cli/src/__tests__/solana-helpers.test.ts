@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cargoNetworkFeature } from "../solana-helpers";
+import { cargoNetworkFeature } from "../solana/helpers";
 
 describe("cargoNetworkFeature", () => {
   test("returns mainnet for Mainnet", () => {

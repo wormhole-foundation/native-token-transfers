@@ -78,8 +78,7 @@ export const options = {
     default: false,
   },
   gasEstimateMultiplier: {
-    describe:
-      "Gas estimate multiplier for EVM deployments (e.g., 200 for 2x)",
+    describe: "Gas estimate multiplier for EVM deployments (e.g., 200 for 2x)",
     type: "number",
   },
   payer: {

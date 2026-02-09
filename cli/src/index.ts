@@ -13,11 +13,7 @@ import { execSync } from "child_process";
 import { colors } from "./colors.js";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-} from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as solanaWeb3 from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import fs from "fs";
@@ -51,10 +47,14 @@ import {
   SolanaAddress,
 } from "@wormhole-foundation/sdk-solana";
 import { type SuiChains } from "@wormhole-foundation/sdk-sui";
-import { registerSolanaTransceiver } from "./solanaHelpers";
+import { registerSolanaTransceiver } from "./solana/transceiver";
 
 import { colorizeDiff, diffObjects } from "./diff";
-import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
+import {
+  forgeSignerArgs,
+  getSigner,
+  type SignerType,
+} from "./signers/getSigner";
 import { handleDeploymentError } from "./error";
 import { type ChainConfig, type Config } from "./deployments";
 export type { ChainConfig, Config } from "./deployments";
@@ -80,7 +80,7 @@ import {
   getSlowFlag,
   getGasMultiplier,
   buildVerifierArgs,
-} from "./evm-helpers";
+} from "./evm/helpers";
 import {
   patchSolanaBinary,
   checkSvmBinary,
@@ -89,7 +89,7 @@ import {
   checkAnchorVersion,
   checkSvmValidSplMultisig,
   hasBridgeAddressFromEnvFeature,
-} from "./solana-helpers";
+} from "./solana/helpers";
 
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type {
@@ -99,7 +99,7 @@ import type {
 import { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
 import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { getAvailableVersions, getGitTagName } from "./tag";
-import { createTokenTransferCommand } from "./tokenTransfer";
+import { createTokenTransferCommand } from "./commands/token-transfer";
 import {
   createAddChainCommand,
   createCloneCommand,
@@ -118,13 +118,10 @@ import {
   createUpgradeCommand,
 } from "./commands";
 import { ethers } from "ethers";
-import { newSignSendWaiter } from "./signSendWait.js";
+import { newSignSendWaiter } from "./signers/signSendWait.js";
 import { promptYesNo } from "./prompts.js";
 import { loadOverrides } from "./overrides.js";
-import {
-  ensureNttRoot,
-  retryWithExponentialBackoff,
-} from "./validation";
+import { ensureNttRoot, retryWithExponentialBackoff } from "./validation";
 import type { Deployment } from "./validation";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
@@ -2511,7 +2508,7 @@ export async function askForConfirmation(
 // Re-export ensureNttRoot from validation (moved there to fix circular dependency)
 export { ensureNttRoot } from "./validation";
 // Re-export from helper modules
-export { checkSvmValidSplMultisig } from "./solana-helpers";
+export { checkSvmValidSplMultisig } from "./solana/helpers";
 
 export function resolveVersion(
   latest: boolean,
@@ -2598,4 +2595,3 @@ function nttVersion(): {
     return null;
   }
 }
-

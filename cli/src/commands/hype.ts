@@ -1,8 +1,11 @@
-import type { WormholeConfigOverrides, Network } from "@wormhole-foundation/sdk-connect";
+import type {
+  WormholeConfigOverrides,
+  Network,
+} from "@wormhole-foundation/sdk-connect";
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
-import { enableBigBlocks } from "../hyperliquid.js";
+import { enableBigBlocks } from "../evm/hyperliquid.js";
 import fs from "fs";
 
 import { options } from "./shared";

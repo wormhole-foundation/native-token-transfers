@@ -1,4 +1,7 @@
-import type { WormholeConfigOverrides, Network } from "@wormhole-foundation/sdk-connect";
+import type {
+  WormholeConfigOverrides,
+  Network,
+} from "@wormhole-foundation/sdk-connect";
 import {
   Wormhole,
   chainToPlatform,
@@ -14,18 +17,18 @@ import { ethers } from "ethers";
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
-import { getSigner } from "../getSigner";
+import { getSigner } from "../signers/getSigner";
 
 import { options } from "./shared";
-import {
-  pullChainConfig,
-  askForConfirmation,
-} from "../index";
+import { pullChainConfig, askForConfirmation } from "../index";
 
-export function createTransferOwnershipCommand(overrides: WormholeConfigOverrides<Network>) {
+export function createTransferOwnershipCommand(
+  overrides: WormholeConfigOverrides<Network>
+) {
   return {
     command: "transfer-ownership <chain>",
-    describe: "transfer NTT manager ownership to a new wallet (EVM chains only)",
+    describe:
+      "transfer NTT manager ownership to a new wallet (EVM chains only)",
     builder: (yargs: any) =>
       yargs
         .positional("chain", options.chain)

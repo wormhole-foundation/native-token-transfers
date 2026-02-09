@@ -1,4 +1,7 @@
-import type { WormholeConfigOverrides, Network } from "@wormhole-foundation/sdk-connect";
+import type {
+  WormholeConfigOverrides,
+  Network,
+} from "@wormhole-foundation/sdk-connect";
 import { encoding } from "@wormhole-foundation/sdk-connect";
 import {
   Wormhole,
@@ -36,7 +39,9 @@ import {
   createWorkTree,
 } from "../index";
 
-export function createSolanaCommand(overrides: WormholeConfigOverrides<Network>) {
+export function createSolanaCommand(
+  overrides: WormholeConfigOverrides<Network>
+) {
   return {
     command: ["solana", "svm"] as const,
     describe: "svm commands",

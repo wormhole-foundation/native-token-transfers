@@ -9,16 +9,12 @@ describe("formatNumber", () => {
   });
 
   test("formats 1 token (10^18 wei) with 18 decimals", () => {
-    expect(formatNumber(1000000000000000000n, 18)).toBe(
-      "1.000000000000000000"
-    );
+    expect(formatNumber(1000000000000000000n, 18)).toBe("1.000000000000000000");
   });
 
   test("formats fractional amounts with leading zero", () => {
     // 0.5 tokens = 5 * 10^17
-    expect(formatNumber(500000000000000000n, 18)).toBe(
-      "0.500000000000000000"
-    );
+    expect(formatNumber(500000000000000000n, 18)).toBe("0.500000000000000000");
   });
 
   test("formats large numbers correctly", () => {

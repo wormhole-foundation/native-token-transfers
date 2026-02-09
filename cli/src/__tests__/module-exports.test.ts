@@ -9,14 +9,16 @@ describe("Module Exports", () => {
     expect(typeof mod.get).toBe("function");
   });
 
-  it("tokenTransfer.ts exports createTokenTransferCommand", async () => {
-    const mod = await import("../tokenTransfer");
+  it("token-transfer.ts exports createTokenTransferCommand", async () => {
+    const mod = await import("../commands/token-transfer");
     expect(mod.createTokenTransferCommand).toBeDefined();
     expect(typeof mod.createTokenTransferCommand).toBe("function");
   });
 
   it("tokenTransfer command has valid yargs shape", async () => {
-    const { createTokenTransferCommand } = await import("../tokenTransfer");
+    const { createTokenTransferCommand } = await import(
+      "../commands/token-transfer"
+    );
     const cmd = createTokenTransferCommand({});
     expect(cmd).toHaveProperty("command");
     expect(cmd).toHaveProperty("describe");
@@ -55,7 +57,7 @@ describe("Module Exports", () => {
   });
 
   it("getSigner.ts exports getSigner and forgeSignerArgs", async () => {
-    const mod = await import("../getSigner");
+    const mod = await import("../signers/getSigner");
     expect(mod.getSigner).toBeDefined();
     expect(mod.forgeSignerArgs).toBeDefined();
   });
@@ -81,7 +83,7 @@ describe("Module Exports", () => {
   });
 
   it("signSendWait.ts exports newSignSendWaiter", async () => {
-    const mod = await import("../signSendWait");
+    const mod = await import("../signers/signSendWait");
     expect(mod.newSignSendWaiter).toBeDefined();
   });
 
@@ -92,7 +94,7 @@ describe("Module Exports", () => {
   });
 
   it("hyperliquid.ts exports enableBigBlocks", async () => {
-    const mod = await import("../hyperliquid");
+    const mod = await import("../evm/hyperliquid");
     expect(mod.enableBigBlocks).toBeDefined();
   });
 

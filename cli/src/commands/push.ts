@@ -16,24 +16,15 @@ import type { Argv } from "yargs";
 import { ethers, Interface } from "ethers";
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
-import { getSigner, type SignerType } from "../getSigner";
-import { newSignSendWaiter } from "../signSendWait.js";
-import { registerSolanaTransceiver } from "../solanaHelpers";
-import {
-  collectMissingConfigs,
-  validatePayerOption,
-} from "../validation";
+import { getSigner, type SignerType } from "../signers/getSigner";
+import { newSignSendWaiter } from "../signers/signSendWait.js";
+import { registerSolanaTransceiver } from "../solana/transceiver";
+import { collectMissingConfigs, validatePayerOption } from "../validation";
 import type { Deployment } from "../validation";
 import { options } from "./shared";
-import {
-  pullDeployments,
-  checkConfigErrors,
-  pushDeployment,
-} from "../index";
+import { pullDeployments, checkConfigErrors, pushDeployment } from "../index";
 
-export function createPushCommand(
-  overrides: WormholeConfigOverrides<Network>
-) {
+export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
   return {
     command: "push",
     describe: "push the local configuration",

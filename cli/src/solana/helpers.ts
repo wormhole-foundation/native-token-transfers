@@ -3,7 +3,7 @@ import { execSync } from "child_process";
 import { Connection, PublicKey } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 import type { Network } from "@wormhole-foundation/sdk";
-import { colors } from "./colors.js";
+import { colors } from "../colors.js";
 
 export async function patchSolanaBinary(
   binary: string,
