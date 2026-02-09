@@ -59,6 +59,7 @@ import type {
   NttTransceiver,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import { hasExecutorDeployed } from "@wormhole-foundation/sdk-evm-ntt";
+import { deserialize } from "@wormhole-foundation/sdk-definitions";
 
 import {
   type SolanaChains,
@@ -2616,7 +2617,8 @@ yargs(hideBin(process.argv))
             const setPeerTxs = ntt.setPeer(
               peerChainAddress,
               tokenDecimals,
-              inboundLimit
+              inboundLimit,
+              signer.address.address
             );
 
             // Create sign-send-wait function (no special owner for manual operations)
@@ -2713,6 +2715,332 @@ yargs(hideBin(process.argv))
               }
             }
 
+            process.exit(1);
+          }
+        }
+      )
+      .command(
+        "set-transceiver-peer <peer-chain> <peer-address>",
+        "Manually set a transceiver peer relationship between NTT deployments",
+        (yargs) =>
+          yargs
+            .positional("peer-chain", {
+              describe: "Target chain to set as transceiver peer",
+              type: "string",
+              choices: chains,
+              demandOption: true,
+            })
+            .positional("peer-address", {
+              describe:
+                "Universal address of the peer transceiver (hex, 32 bytes)",
+              type: "string",
+              demandOption: true,
+            })
+            .option("chain", {
+              describe: "Source chain where the transceiver peer will be set",
+              type: "string",
+              choices: chains,
+              demandOption: true,
+            })
+            .option("transceiver-index", {
+              describe: "Index of the transceiver to configure",
+              type: "number",
+              default: 0,
+            })
+            .option("path", options.deploymentPath)
+            .option("network", options.network)
+            .option("signer-type", options.signerType)
+            .option("payer", options.payer)
+            .example(
+              "$0 manual set-transceiver-peer Xrpl 0x00000000000000000000000000000000AABBCCDD --chain Solana --network Testnet",
+              "Set Xrpl as transceiver peer for Solana NTT"
+            ),
+        async (argv) => {
+          const path = argv["path"];
+          const deployments: Config = loadConfig(path);
+          const sourceChain: Chain = argv["chain"];
+          const peerChain: Chain = argv["peer-chain"];
+          const peerAddress = argv["peer-address"];
+          const transceiverIndex = argv["transceiver-index"];
+          const network = argv["network"];
+          const signerType = argv["signer-type"] as SignerType;
+
+          // Validate network
+          if (!isNetwork(network)) {
+            console.error("Invalid network");
+            process.exit(1);
+          }
+
+          // Validate source chain exists in deployment
+          const sourceConfig = deployments.chains[sourceChain];
+          if (!sourceConfig) {
+            console.error(
+              `Source chain ${sourceChain} not found in deployment configuration`
+            );
+            process.exit(1);
+          }
+
+          const payerPath = validatePayerOption(
+            argv["payer"],
+            sourceChain,
+            (message) => new Error(message),
+            (message) => console.warn(colors.yellow(message))
+          );
+
+          console.log(colors.blue("🔗 Manual setTransceiverPeer Operation"));
+          console.log(`Source Chain: ${colors.yellow(sourceChain)}`);
+          console.log(`Peer Chain: ${colors.yellow(peerChain)}`);
+          console.log(`Peer Address: ${colors.yellow(peerAddress)}`);
+          console.log(`Transceiver Index: ${colors.yellow(transceiverIndex)}`);
+
+          try {
+            // Load source chain NTT configuration
+            const sourceManager = {
+              chain: sourceChain,
+              address: toUniversal(sourceChain, sourceConfig.manager),
+            };
+            const [, ctx, ntt] = await pullChainConfig(
+              network,
+              sourceManager,
+              overrides
+            );
+
+            console.log(
+              `\nSource NTT Manager: ${colors.yellow(sourceConfig.manager)}`
+            );
+
+            // Create peer address object
+            const peerChainAddress = {
+              chain: peerChain,
+              address: toUniversal(peerChain, peerAddress),
+            };
+
+            // Get signer for the source chain
+            const signer = await getSigner(
+              ctx,
+              signerType,
+              undefined,
+              payerPath
+            );
+
+            console.log(
+              `Signer Address: ${colors.yellow(
+                signer.address.address.toString()
+              )}`
+            );
+            console.log(
+              "\n" + colors.blue("Executing setTransceiverPeer transaction...")
+            );
+
+            // Call setTransceiverPeer on the NTT instance
+            const setTxs = ntt.setTransceiverPeer(
+              transceiverIndex,
+              peerChainAddress,
+              signer.address.address
+            );
+
+            // Create sign-send-wait function (no special owner for manual operations)
+            const signSendWaitFunc = newSignSendWaiter(undefined);
+
+            const results = await signSendWaitFunc(ctx, setTxs, signer.signer);
+
+            console.log(
+              `Transaction Hash: ${colors.green(
+                results[0]?.txid || results[0] || "Transaction completed"
+              )}`
+            );
+
+            console.log(
+              colors.green(
+                "\n✅ setTransceiverPeer operation completed successfully!"
+              )
+            );
+            console.log(
+              `Transceiver peer relationship established: ${sourceChain} ↔ ${peerChain}`
+            );
+          } catch (error) {
+            console.error(
+              colors.red("\n❌ setTransceiverPeer operation failed:")
+            );
+            if (error instanceof Error) {
+              console.error(error.message);
+              console.error(error.stack);
+            } else {
+              console.error(String(error));
+            }
+            process.exit(1);
+          }
+        }
+      )
+      .command(
+        "redeem <vaa>",
+        "Redeem an NTT transfer on the destination chain given a VAA",
+        (yargs) =>
+          yargs
+            .positional("vaa", {
+              describe:
+                "Hex-encoded VAA bytes (with or without 0x prefix), or path to a file containing the VAA bytes",
+              type: "string",
+              demandOption: true,
+            })
+            .option("chain", {
+              describe: "Destination chain where the transfer will be redeemed",
+              type: "string",
+              choices: chains,
+              demandOption: true,
+            })
+            .option("path", options.deploymentPath)
+            .option("network", options.network)
+            .option("signer-type", options.signerType)
+            .option("payer", options.payer)
+            .example(
+              "$0 manual redeem 01000000... --chain Solana --network Testnet",
+              "Redeem an NTT transfer on Solana using hex VAA bytes"
+            )
+            .example(
+              "$0 manual redeem ./vaa.txt --chain Ethereum --network Mainnet",
+              "Redeem an NTT transfer on Ethereum using a VAA from a file"
+            ),
+        async (argv) => {
+          const deploymentPath = argv["path"];
+          const deployments: Config = loadConfig(deploymentPath);
+          const chain: Chain = argv["chain"];
+          const network = argv["network"];
+          const signerType = argv["signer-type"] as SignerType;
+
+          // Validate network
+          if (!isNetwork(network)) {
+            console.error("Invalid network");
+            process.exit(1);
+          }
+
+          // Validate chain exists in deployment
+          const chainConfig = deployments.chains[chain];
+          if (!chainConfig) {
+            console.error(
+              `Chain ${chain} not found in deployment configuration`
+            );
+            process.exit(1);
+          }
+
+          const payerPath = validatePayerOption(
+            argv["payer"],
+            chain,
+            (message) => new Error(message),
+            (message) => console.warn(colors.yellow(message))
+          );
+
+          // Read VAA bytes: either from file or directly from argument
+          let vaaHex = argv["vaa"];
+          // Strip 0x prefix if present
+          if (vaaHex.startsWith("0x") || vaaHex.startsWith("0X")) {
+            vaaHex = vaaHex.slice(2);
+          }
+
+          let vaaBytes: Uint8Array;
+          try {
+            vaaBytes = encoding.hex.decode(vaaHex);
+          } catch (e) {
+            console.error(
+              colors.red(
+                "Failed to decode VAA hex. Ensure the VAA is valid hex-encoded bytes."
+              )
+            );
+            process.exit(1);
+          }
+
+          // Deserialize the VAA
+          let vaa;
+          try {
+            vaa = deserialize("Ntt:WormholeTransfer", vaaBytes);
+          } catch (e) {
+            console.error(
+              colors.yellow(
+                "Failed to deserialize as Ntt:WormholeTransfer, trying Ntt:WormholeTransferStandardRelayer..."
+              )
+            );
+            try {
+              vaa = deserialize(
+                "Ntt:WormholeTransferStandardRelayer",
+                vaaBytes
+              );
+            } catch (e2) {
+              console.error(
+                colors.red(
+                  "Failed to deserialize VAA as any known NTT transfer type."
+                )
+              );
+              if (e2 instanceof Error) console.error(e2.message);
+              process.exit(1);
+            }
+          }
+
+          console.log(colors.blue("📨 Manual Redeem Operation"));
+          console.log(`Destination Chain: ${colors.yellow(chain)}`);
+          console.log(
+            `VAA Emitter Chain: ${colors.yellow(String(vaa!.emitterChain))}`
+          );
+          console.log(`VAA Sequence: ${colors.yellow(String(vaa!.sequence))}`);
+
+          try {
+            // Load destination chain NTT configuration
+            const managerAddress = {
+              chain,
+              address: toUniversal(chain, chainConfig.manager),
+            };
+            const [, ctx, ntt] = await pullChainConfig(
+              network,
+              managerAddress,
+              overrides
+            );
+
+            console.log(`\nNTT Manager: ${colors.yellow(chainConfig.manager)}`);
+
+            // Get signer
+            const signer = await getSigner(
+              ctx,
+              signerType,
+              undefined,
+              payerPath
+            );
+
+            console.log(
+              `Signer Address: ${colors.yellow(
+                signer.address.address.toString()
+              )}`
+            );
+            console.log("\n" + colors.blue("Executing redeem transaction..."));
+
+            // Call redeem on the NTT instance
+            const redeemTxs = ntt.redeem([vaa!], signer.address.address);
+
+            const signSendWaitFunc = newSignSendWaiter(undefined);
+
+            const results = await signSendWaitFunc(
+              ctx,
+              redeemTxs,
+              signer.signer
+            );
+
+            for (const result of results) {
+              console.log(
+                `Transaction Hash: ${colors.green(
+                  result?.txid || result || "Transaction completed"
+                )}`
+              );
+            }
+
+            console.log(
+              colors.green("\n✅ Redeem operation completed successfully!")
+            );
+          } catch (error) {
+            console.error(colors.red("\n❌ Redeem operation failed:"));
+            if (error instanceof Error) {
+              console.error(error.message);
+              console.error(error.stack);
+            } else {
+              console.error(String(error));
+            }
             process.exit(1);
           }
         }
