@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import path from "path";
 import { suppressConsole, restoreConsole } from "./setup";
 
-const CLI = "cli/src/index.ts";
+const CLI = path.resolve(import.meta.dir, "../index.ts");
 
 async function runCli(
   ...args: string[]

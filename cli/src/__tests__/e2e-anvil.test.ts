@@ -232,7 +232,9 @@ async function ntt(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("E2E: NTT deployment on Anvil forks", () => {
+const hasAnvil = Bun.which("anvil") !== null;
+
+describe.skipIf(!hasAnvil)("E2E: NTT deployment on Anvil forks", () => {
   beforeAll(async () => {
     // 1. Start Anvil forks
     anvilSepolia = Bun.spawn(
