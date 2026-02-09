@@ -30,6 +30,7 @@ node_modules
 
 # Claude code
 .claude/settings.local.json
+docs/plans/
 
 # Echidna outputs
 crytic-export/

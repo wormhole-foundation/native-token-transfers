@@ -487,6 +487,28 @@ export async function upgrade<N extends Network, C extends Chain>(
   }
 }
 
+/**
+ * Seed forge build cache from NTT_EVM_CACHE_DIR if set and the destination
+ * doesn't already have an `out/` directory (avoids overwriting a warm cache
+ * from a previous deploy/upgrade in the same run).
+ */
+function seedForgeCache(destEvm: string): void {
+  const evmCacheDir = process.env.NTT_EVM_CACHE_DIR;
+  if (!evmCacheDir) return;
+
+  const srcOut = path.join(evmCacheDir, "out");
+  const srcCache = path.join(evmCacheDir, "cache");
+  const destOut = path.join(destEvm, "out");
+
+  if (fs.existsSync(srcOut) && !fs.existsSync(destOut)) {
+    console.log("Seeding forge cache from", evmCacheDir);
+    execSync(`cp -r ${srcOut} ${destEvm}/out`, { stdio: "pipe" });
+    if (fs.existsSync(srcCache)) {
+      execSync(`cp -r ${srcCache} ${destEvm}/cache`, { stdio: "pipe" });
+    }
+  }
+}
+
 async function upgradeEvm<N extends Network, C extends EvmChains>(
   pwd: string,
   ntt: EvmNtt<N, C>,
@@ -508,6 +530,8 @@ async function upgradeEvm<N extends Network, C extends EvmChains>(
     cwd: `${pwd}/evm`,
     stdio: "pipe",
   });
+
+  seedForgeCache(`${pwd}/evm`);
 
   let verifyArgs: string = "";
   if (evmVerify) {
@@ -904,6 +928,8 @@ async function deployEvm<N extends Network, C extends Chain>(
     cwd: `${pwd}/evm`,
     stdio: "pipe",
   });
+
+  seedForgeCache(`${pwd}/evm`);
 
   // Detect script version to determine deployment strategy
   const scriptVersion = detectDeployScriptVersion(pwd);
