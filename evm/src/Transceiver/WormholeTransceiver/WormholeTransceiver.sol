@@ -29,7 +29,7 @@ import "./WormholeTransceiverState.sol";
 contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
     using BytesParsing for bytes;
 
-    string public constant WORMHOLE_TRANSCEIVER_VERSION = "1.4.0";
+    string public constant WORMHOLE_TRANSCEIVER_VERSION = "2.0.0";
 
     constructor(
         address nttManager,
