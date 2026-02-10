@@ -66,7 +66,7 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+        await pullDeployments(deployments, network, verbose, overrides);
       const signerType = argv["signer-type"] as SignerType;
       const depsChains = Object.keys(deps) as Chain[];
       const needsSolanaPayer = depsChains.some(
@@ -227,7 +227,7 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
       // pull deps again
       const depsAfterRegistrations: Partial<{
         [C in Chain]: Deployment<Chain>;
-      }> = await pullDeployments(deployments, network, verbose);
+      }> = await pullDeployments(deployments, network, verbose, overrides);
 
       for (const [chain, deployment] of Object.entries(
         depsAfterRegistrations
@@ -246,7 +246,8 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
           argv["yes"],
           payerPath,
           gasEstimateMultiplier,
-          argv["dangerously-transfer-ownership-in-one-step"]
+          argv["dangerously-transfer-ownership-in-one-step"],
+          overrides
         );
       }
     },

@@ -373,7 +373,8 @@ export function createSolanaCommand(
               wormhole,
               version,
               programKeyPath,
-              binaryPath
+              binaryPath,
+              overrides
             );
 
             console.log(`Program ID: ${buildResult.programId}`);

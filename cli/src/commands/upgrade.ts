@@ -157,7 +157,8 @@ export function createUpgradeCommand(
         payerPath,
         argv["program-key"],
         argv["binary"],
-        argv["gas-estimate-multiplier"]
+        argv["gas-estimate-multiplier"],
+        overrides
       );
 
       // reinit the ntt object to get the new version

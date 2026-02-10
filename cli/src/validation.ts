@@ -3,6 +3,7 @@ import fs from "fs";
 import {
   assertChain,
   chainToPlatform,
+  chains,
   type Chain,
   type ChainAddress,
   type ChainContext,
@@ -16,6 +17,8 @@ import type {
 import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { ChainConfig } from "./deployments";
+import { colors } from "./colors.js";
+import { formatNumber, checkNumberFormatting } from "./query";
 
 export function ensureNttRoot(pwd: string = ".") {
   if (
@@ -318,4 +321,58 @@ export function retryWithExponentialBackoff<T>(
     }
   };
   return attempt(0);
+}
+
+export function validateChain<N extends Network, C extends Chain>(
+  network: N,
+  chain: C
+) {
+  if (network === "Testnet") {
+    if (chain === "Ethereum") {
+      console.error(
+        "Ethereum is deprecated on Testnet. Use EthereumSepolia instead."
+      );
+      process.exit(1);
+    }
+    // if on testnet, and the chain has a *Sepolia counterpart, use that instead
+    if (chains.find((c) => c === `${c}Sepolia`)) {
+      console.error(
+        `Chain ${chain} is deprecated. Use ${chain}Sepolia instead.`
+      );
+      process.exit(1);
+    }
+  }
+}
+
+export function checkConfigErrors(
+  deps: Partial<{ [C in Chain]: Deployment<Chain> }>
+): number {
+  let fatal = 0;
+  for (const [chain, deployment] of Object.entries(deps)) {
+    assertChain(chain);
+    const config = deployment.config.local!;
+    if (!checkNumberFormatting(config.limits.outbound, deployment.decimals)) {
+      console.error(
+        `ERROR: ${chain} has an outbound limit (${config.limits.outbound}) with the wrong number of decimals. The number should have ${deployment.decimals} decimals.`
+      );
+      fatal++;
+    }
+    if (config.limits.outbound === formatNumber(0n, deployment.decimals)) {
+      console.warn(colors.yellow(`${chain} has an outbound limit of 0`));
+    }
+    for (const [c, limit] of Object.entries(config.limits.inbound)) {
+      if (!checkNumberFormatting(limit, deployment.decimals)) {
+        console.error(
+          `ERROR: ${chain} has an inbound limit with the wrong number of decimals for ${c} (${limit}). The number should have ${deployment.decimals} decimals.`
+        );
+        fatal++;
+      }
+      if (limit === formatNumber(0n, deployment.decimals)) {
+        console.warn(
+          colors.yellow(`${chain} has an inbound limit of 0 from ${c}`)
+        );
+      }
+    }
+  }
+  return fatal;
 }

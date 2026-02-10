@@ -41,7 +41,7 @@ export function createPullCommand(overrides: WormholeConfigOverrides<Network>) {
       const network = deployments.network as Network;
       const path = argv["path"];
       const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+        await pullDeployments(deployments, network, verbose, overrides);
 
       let changed = false;
       for (const [chain, deployment] of Object.entries(deps)) {

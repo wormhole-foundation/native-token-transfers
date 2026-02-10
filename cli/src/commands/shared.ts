@@ -6,6 +6,8 @@ import {
   type ChainAddress,
   type Network,
 } from "@wormhole-foundation/sdk";
+import { colors } from "../colors.js";
+import { promptYesNo } from "../prompts.js";
 
 // Reusable yargs option definitions shared across commands
 export const options = {
@@ -148,4 +150,77 @@ export function setNestedValue(obj: any, path: string[], value: any): void {
     return current[key];
   }, obj);
   target[lastKey] = value;
+}
+
+/**
+ * Parse the --unsafe-custom-finality flag value
+ * Format: "level:blocks" where level is 200/201/202 and blocks is additional wait
+ * Example: "200:5" means instant + 5 blocks
+ */
+export function parseCclFlag(
+  value: string,
+  network: Network,
+  chain: Chain
+): CclConfig | null {
+  if (!value) return null;
+
+  const parts = value.split(":");
+  if (parts.length !== 2) {
+    throw new Error(
+      "Invalid --unsafe-custom-finality format. Expected 'level:blocks' (e.g., '200:5')"
+    );
+  }
+
+  const customConsistencyLevel = parseInt(parts[0], 10);
+  const additionalBlocks = parseInt(parts[1], 10);
+
+  // Validate consistency level
+  if (![200, 201, 202].includes(customConsistencyLevel)) {
+    throw new Error(
+      `Invalid consistency level: ${customConsistencyLevel}. Must be 200 (instant), 201 (safe), or 202 (finalized)`
+    );
+  }
+
+  // Validate additional blocks
+  if (isNaN(additionalBlocks) || additionalBlocks < 0) {
+    throw new Error(
+      `Invalid additional blocks: ${parts[1]}. Must be a non-negative integer`
+    );
+  }
+
+  // Get CCL contract address for the chain and network
+  const networkAddresses = CCL_CONTRACT_ADDRESSES[network];
+  const cclContractAddress = networkAddresses?.[chain];
+  if (!cclContractAddress) {
+    throw new Error(
+      `No CCL contract address known for chain ${chain} on ${network}. Please contact Wormhole team for the correct address.`
+    );
+  }
+
+  return {
+    customConsistencyLevel,
+    additionalBlocks,
+    cclContractAddress,
+  };
+}
+
+/**
+ * Display warning and get confirmation for custom finality usage
+ */
+export async function confirmCustomFinality(): Promise<boolean> {
+  const warningMessage = `
+${colors.yellow("⚠️⚠️⚠️ Custom finality is an advanced feature. Wormhole Contributors recommend to use this with caution.")}
+
+${colors.yellow("Choosing a level of finality other than ")}${colors.cyan("`finalized`")}${colors.yellow(" on EVM chains exposes you to re-org risk")} (https://www.alchemy.com/overviews/what-is-a-reorg). ${colors.yellow("This is especially dangerous when moving assets cross-chain, because it means that assets released or minted on the destination chain may not have been burned or locked on the source chain.")}
+
+${colors.yellow('To select a custom finality level, Wormhole Contributors recommend referring to information on forked blocks in blockchain explorers, paying attention to the "ReorgDepth" column.')}
+  ${colors.cyan("- Ethereum: https://etherscan.io/blocks_forked?p=1")}
+  ${colors.cyan("- Polygon: https://polygonscan.com/blocks_forked")}
+  ${colors.cyan("- …")}
+
+${colors.yellow("By proceeding, you affirm that you understand, and are comfortable with, the risks of setting a custom finality level, and you understand the re-org/rollback risks of Custom finality, accept sole responsibility, and agree the Wormhole Parties have no liability for losses arising from your selection.")}
+`;
+
+  console.log(warningMessage);
+  return await promptYesNo("Do you want to proceed?", { defaultYes: false });
 }

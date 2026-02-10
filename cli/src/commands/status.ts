@@ -51,7 +51,7 @@ export function createStatusCommand(
       const network = deployments.network as Network;
 
       let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+        await pullDeployments(deployments, network, verbose, overrides);
 
       let fixable = 0;
 

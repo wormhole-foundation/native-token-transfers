@@ -53,3 +53,13 @@ export async function promptYesNo(
   }
   return false;
 }
+
+export async function askForConfirmation(
+  prompt: string = "Do you want to continue?"
+): Promise<void> {
+  const confirmed = await promptYesNo(prompt);
+  if (!confirmed) {
+    console.log("Aborting");
+    process.exit(0);
+  }
+}

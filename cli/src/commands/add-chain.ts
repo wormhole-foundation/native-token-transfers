@@ -308,7 +308,8 @@ export function createAddChainCommand(
         argv["sui-wormhole-state"],
         argv["sui-treasury-cap"],
         argv["gas-estimate-multiplier"],
-        cclConfig
+        cclConfig,
+        overrides
       );
 
       const [config, _ctx, _ntt, decimals] = await pullChainConfig(

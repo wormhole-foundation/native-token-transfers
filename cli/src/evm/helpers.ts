@@ -6,6 +6,28 @@ import * as configuration from "../configuration";
 import { ensureNttRoot } from "../validation";
 
 /**
+ * Seed forge build cache from NTT_EVM_CACHE_DIR if set and the destination
+ * doesn't already have an `out/` directory (avoids overwriting a warm cache
+ * from a previous deploy/upgrade in the same run).
+ */
+export function seedForgeCache(destEvm: string): void {
+  const evmCacheDir = process.env.NTT_EVM_CACHE_DIR;
+  if (!evmCacheDir) return;
+
+  const srcOut = path.join(evmCacheDir, "out");
+  const srcCache = path.join(evmCacheDir, "cache");
+  const destOut = path.join(destEvm, "out");
+
+  if (fs.existsSync(srcOut) && !fs.existsSync(destOut)) {
+    console.log("Seeding forge cache from", evmCacheDir);
+    execSync(`cp -r ${srcOut} ${destEvm}/out`, { stdio: "pipe" });
+    if (fs.existsSync(srcCache)) {
+      execSync(`cp -r ${srcCache} ${destEvm}/cache`, { stdio: "pipe" });
+    }
+  }
+}
+
+/**
  * When deploying old NTT versions (version 1 scripts), this function overrides the evm/script/ directory with
  * scripts from commit 3f56da6541eb9d09f84cc676391e6fbc5b687dd7. This commit contains the last
  * known-good version 1 scripts that are compatible with all old NTT versions.
