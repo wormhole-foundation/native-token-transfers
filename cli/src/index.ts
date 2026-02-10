@@ -78,8 +78,10 @@ export type { Deployment } from "./validation";
 // Configuration fields that should be excluded from diff operations
 // These are local-only configurations that don't have on-chain representations
 const EXCLUDED_DIFF_PATHS = ["managerVariant"];
-// Cap concurrent read-only RPC calls; lower if you hit rate limits (override with --rpc-concurrency).
-const DEFAULT_MAX_CONCURRENT = 6;
+// Cap for the parallel lane of read-only RPC calls; the sequential Solana lane
+// runs alongside it, so total in-flight can be this value + 1.
+// Override with --rpc-concurrency.
+const DEFAULT_PARALLEL_CONCURRENCY = 6;
 
 // Helper functions for nested object access
 function getNestedValue(obj: any, path: string[]): any {
@@ -435,7 +437,7 @@ const options = {
     describe:
       "Max concurrent read-only RPC calls for the parallel lane (sequential chains like Solana run alongside it, so total in-flight can be +1)",
     type: "number",
-    default: DEFAULT_MAX_CONCURRENT,
+    default: DEFAULT_PARALLEL_CONCURRENCY,
   },
 } as const;
 
@@ -445,7 +447,7 @@ function resolveRpcConcurrency(raw: unknown): number {
     process.exit(1);
   }
   if (raw === undefined) {
-    return DEFAULT_MAX_CONCURRENT;
+    return DEFAULT_PARALLEL_CONCURRENCY;
   }
   const value = typeof raw === "number" ? raw : Number(raw);
   if (!Number.isFinite(value) || value <= 0) {
@@ -1265,7 +1267,7 @@ yargs(hideBin(process.argv))
           const result = await fetchPeerConfig(item);
           completed++;
           updateStatusLine(
-            `[${completed}/${total}] Fetching peer config for ${item}`
+            `[${completed}/${total}] Fetched peer config for ${item}`
           );
           return result;
         }
@@ -4912,33 +4914,24 @@ async function pullDeployments(
     console.error(`Wormhole transceiver not found for ${result.chain}`);
     return true;
   };
-  if (concurrency <= 1) {
-    for (const entry of entries) {
-      const result = await fetchDeployment(entry as [string, ChainConfig]);
-      if (handleResult(result)) {
-        process.exit(1);
-      }
+  const results = await runTaskPoolWithSequential(
+    entries as [string, ChainConfig][],
+    concurrency,
+    (entry) => {
+      const [chain] = entry;
+      assertChain(chain);
+      return chainToPlatform(chain) === "Solana"; // Solana RPC: run sequentially to avoid rate limits.
+    },
+    fetchDeployment
+  );
+  let shouldExit = false;
+  for (const result of results) {
+    if (handleResult(result)) {
+      shouldExit = true;
     }
-  } else {
-    const results = await runTaskPoolWithSequential(
-      entries as [string, ChainConfig][],
-      concurrency,
-      (entry) => {
-        const [chain] = entry;
-        assertChain(chain);
-        return chainToPlatform(chain) === "Solana"; // Solana RPC: run sequentially to avoid rate limits.
-      },
-      fetchDeployment
-    );
-    let shouldExit = false;
-    for (const result of results) {
-      if (handleResult(result)) {
-        shouldExit = true;
-      }
-    }
-    if (shouldExit) {
-      process.exit(1);
-    }
+  }
+  if (shouldExit) {
+    process.exit(1);
   }
 
   const config = Object.fromEntries(
@@ -5200,7 +5193,7 @@ async function pullInboundLimits(
     ([, ntt]) => ntt !== undefined
   ) as [string, Ntt<Network, Chain>][];
   const decimalsByChain: Partial<Record<Chain, number>> = {};
-  for (const [chain, ntt] of entries) {
+  for (const [chain] of entries) {
     assertChain(chain);
     const chainConf = config[chain];
     if (!chainConf) {
@@ -5210,8 +5203,19 @@ async function pullInboundLimits(
     if (chainConf.limits?.inbound === undefined) {
       chainConf.limits.inbound = {};
     }
-    decimalsByChain[chain] = await ntt.getTokenDecimals();
   }
+  await runTaskPoolWithSequential(
+    entries,
+    concurrency,
+    ([chain]) => {
+      assertChain(chain);
+      return chainToPlatform(chain) === "Solana";
+    },
+    async ([chain, ntt]) => {
+      assertChain(chain);
+      decimalsByChain[chain] = await ntt.getTokenDecimals();
+    }
+  );
   type InboundTask = {
     fromChain: Chain;
     toChain: Chain;
@@ -5251,18 +5255,12 @@ async function pullInboundLimits(
       decimals
     );
   };
-  if (concurrency <= 1) {
-    for (const task of tasks) {
-      await runTask(task);
-    }
-  } else {
-    await runTaskPoolWithSequential(
-      tasks,
-      concurrency,
-      (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
-      runTask
-    );
-  }
+  await runTaskPoolWithSequential(
+    tasks,
+    concurrency,
+    (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
+    runTask
+  );
 }
 
 async function patchSolanaBinary(
