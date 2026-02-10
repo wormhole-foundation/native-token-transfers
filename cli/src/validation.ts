@@ -303,18 +303,12 @@ export async function collectMissingConfigs(
       }
     }
   };
-  if (concurrency <= 1) {
-    for (const task of tasks) {
-      await runTask(task);
-    }
-  } else {
-    await runTaskPoolWithSequential(
-      tasks,
-      concurrency,
-      (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
-      runTask
-    );
-  }
+  await runTaskPoolWithSequential(
+    tasks,
+    concurrency,
+    (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
+    runTask
+  );
 
   for (const [chain, missing] of Object.entries(missingByChain)) {
     assertChain(chain);
