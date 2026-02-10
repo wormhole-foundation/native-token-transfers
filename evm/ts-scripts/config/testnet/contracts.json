@@ -1,0 +1,24 @@
+{
+  "GeneralPurposeGovernances": [
+    {
+      "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
+      "chainId": 57
+    },
+    {
+      "address": "0x9517F0164c1d089ad72E669E57b9088790966dBd",
+      "chainId": 10002
+    },
+    {
+      "address": "0x81b65A48DCAccBA04aCa3C055C4112b0715b90c0",
+      "chainId": 10003
+    },
+    {
+      "address": "0x720A59128B96Eda6EC2940c7899406E4dc56d0DC",
+      "chainId": 10004
+    },
+    {
+      "address": "0xcE1DE1eA4b040D324a07719043A6234C94fd0b5d",
+      "chainId": 10005
+    }
+  ]
+}
