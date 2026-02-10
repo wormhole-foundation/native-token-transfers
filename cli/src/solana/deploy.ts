@@ -237,7 +237,13 @@ export async function buildSvm(
   } else {
     // build the program
     console.log(`Building SVM program for ${network}...`);
-    const exitCode = await runAnchorBuild(pwd, network, chain, wormhole, overrides);
+    const exitCode = await runAnchorBuild(
+      pwd,
+      network,
+      chain,
+      wormhole,
+      overrides
+    );
     if (exitCode !== 0) {
       process.exit(exitCode);
     }

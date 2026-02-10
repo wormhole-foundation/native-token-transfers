@@ -18,7 +18,10 @@ import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
 import type { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
-import { SolanaAddress, type SolanaChains } from "@wormhole-foundation/sdk-solana";
+import {
+  SolanaAddress,
+  type SolanaChains,
+} from "@wormhole-foundation/sdk-solana";
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 
 import { colors } from "./colors.js";

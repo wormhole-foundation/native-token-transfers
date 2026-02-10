@@ -16,7 +16,11 @@ import type {
 import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 
 import { colors } from "../colors.js";
-import { getSigner, forgeSignerArgs, type SignerType } from "../signers/getSigner";
+import {
+  getSigner,
+  forgeSignerArgs,
+  type SignerType,
+} from "../signers/getSigner";
 import { handleDeploymentError } from "../error";
 import { ensureNttRoot } from "../validation";
 import { askForConfirmation } from "../prompts.js";

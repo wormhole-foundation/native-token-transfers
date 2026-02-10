@@ -113,11 +113,7 @@ export {
 } from "./query";
 
 // Re-exports from validation.ts
-export {
-  ensureNttRoot,
-  validateChain,
-  checkConfigErrors,
-} from "./validation";
+export { ensureNttRoot, validateChain, checkConfigErrors } from "./validation";
 
 // Re-exports from solana/helpers.ts
 export { checkSvmValidSplMultisig } from "./solana/helpers";
@@ -138,4 +134,8 @@ export { deploy, upgrade } from "./deploy";
 export { buildSvm } from "./solana/deploy";
 
 // Re-exports from config-mgmt.ts
-export { pushDeployment, pullDeployments, pullChainConfig } from "./config-mgmt";
+export {
+  pushDeployment,
+  pullDeployments,
+  pullChainConfig,
+} from "./config-mgmt";
