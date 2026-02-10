@@ -1,7 +1,4 @@
-import {
-  collectMissingInboundGroups,
-  collectMissingInboundGroupsForAll,
-} from "../src/limits";
+import { collectMissingInboundGroups } from "../src/limits";
 import type { Config } from "../src/deployments";
 
 describe("collectMissingInboundGroups", () => {
@@ -240,7 +237,7 @@ describe("collectMissingInboundGroups", () => {
       },
     });
 
-    const result = collectMissingInboundGroupsForAll(chainsConfig);
+    const result = collectMissingInboundGroups(chainsConfig);
 
     expect(result).toEqual([
       {

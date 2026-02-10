@@ -13,7 +13,6 @@
     "generate": "bun run --filter '*' generate",
     "test": "bun --workspaces --if-present run test",
     "test:ci": "CI=true jest --config ./jest.config.ts",
-    "test:cli": "jest --config ./cli/jest.config.cjs",
     "test:local": "jest --config ./jest.config.ts",
     "generate:test": "bun run --filter '*' generate:test",
     "build:deps": "bun run --filter '*' build:contracts && bun run generate",

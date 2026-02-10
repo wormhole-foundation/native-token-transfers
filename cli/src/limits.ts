@@ -15,10 +15,11 @@ type MissingInboundGroup = {
   decimals: number;
 };
 
-/** Group missing/zero inbound limits by destination for the new chain. */
+/** Group missing/zero inbound limits by destination. When newChain is provided,
+ *  only pairs involving that chain are considered. */
 export function collectMissingInboundGroups(
   chainsConfig: Config["chains"],
-  newChain: Chain
+  newChain?: Chain
 ): MissingInboundGroup[] {
   const chainNames = Object.keys(chainsConfig);
   const chains: Chain[] = [];
@@ -27,72 +28,8 @@ export function collectMissingInboundGroups(
     chains.push(name);
   }
 
-  if (!chains.includes(newChain)) {
+  if (newChain && !chains.includes(newChain)) {
     return [];
-  }
-
-  const otherChains = chains.filter((chain) => chain !== newChain);
-  const relevantChains = [newChain, ...otherChains];
-  const missingByDestination = new Map<Chain, MissingInboundGroup>();
-
-  for (const destination of relevantChains) {
-    const destinationConfig = chainsConfig[destination];
-    if (!destinationConfig) {
-      continue;
-    }
-    const outbound = destinationConfig.limits?.outbound;
-    if (!outbound) {
-      continue;
-    }
-    const decimals = getDecimalsFromLimit(outbound);
-    if (decimals === null) {
-      console.warn(
-        colors.yellow(
-          `Skipping ${destination}: malformed outbound limit (${outbound})`
-        )
-      );
-      continue;
-    }
-    for (const source of relevantChains) {
-      if (source === destination) {
-        continue;
-      }
-      // Only consider pairs where either side is the new chain.
-      if (source !== newChain && destination !== newChain) {
-        continue;
-      }
-      const current = destinationConfig.limits?.inbound?.[source];
-      if (current !== undefined && !isZeroLimit(current)) {
-        continue;
-      }
-      const existing = missingByDestination.get(destination);
-      if (existing) {
-        existing.sources.push(source);
-      } else {
-        missingByDestination.set(destination, {
-          destination,
-          sources: [source],
-          defaultLimit: outbound,
-          decimals,
-        });
-      }
-    }
-  }
-
-  return Array.from(missingByDestination.values()).sort((a, b) =>
-    a.destination.localeCompare(b.destination)
-  );
-}
-
-/** Group missing/zero inbound limits across all chains by destination. */
-export function collectMissingInboundGroupsForAll(
-  chainsConfig: Config["chains"]
-): MissingInboundGroup[] {
-  const chainNames = Object.keys(chainsConfig);
-  const chains: Chain[] = [];
-  for (const name of chainNames) {
-    assertChain(name);
-    chains.push(name);
   }
 
   const missingByDestination = new Map<Chain, MissingInboundGroup>();
@@ -119,7 +56,10 @@ export function collectMissingInboundGroupsForAll(
       if (source === destination) {
         continue;
       }
-      // Scan all destination<-source pairs for missing/zero limits.
+      // When scoped to a new chain, only consider pairs where either side is that chain.
+      if (newChain && source !== newChain && destination !== newChain) {
+        continue;
+      }
       const current = destinationConfig.limits?.inbound?.[source];
       if (current !== undefined && !isZeroLimit(current)) {
         continue;
@@ -282,7 +222,7 @@ export async function configureInboundLimitsForPull(
   deployments: Config,
   skipPrompts: boolean
 ): Promise<{ updated: boolean; hadMissing: boolean }> {
-  const missingGroups = collectMissingInboundGroupsForAll(deployments.chains);
+  const missingGroups = collectMissingInboundGroups(deployments.chains);
   const hadMissing = missingGroups.length > 0;
   const updated = await applyInboundGroups(
     deployments,
