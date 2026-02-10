@@ -20,7 +20,9 @@ export function checkConfigErrors(
       errorCount++;
       continue;
     }
-    if (!checkNumberFormatting(localConfig.limits.outbound, deployment.decimals)) {
+    if (
+      !checkNumberFormatting(localConfig.limits.outbound, deployment.decimals)
+    ) {
       console.error(
         `ERROR: ${chain} has an outbound limit (${localConfig.limits.outbound}) with the wrong number of decimals. The number should have ${deployment.decimals} decimals.`
       );
@@ -29,7 +31,9 @@ export function checkConfigErrors(
     if (localConfig.limits.outbound === formatNumber(0n, deployment.decimals)) {
       console.warn(colors.yellow(`${chain} has an outbound limit of 0`));
     }
-    for (const [inboundChain, limit] of Object.entries(localConfig.limits.inbound)) {
+    for (const [inboundChain, limit] of Object.entries(
+      localConfig.limits.inbound
+    )) {
       if (!checkNumberFormatting(limit, deployment.decimals)) {
         console.error(
           `ERROR: ${chain} has an inbound limit with the wrong number of decimals for ${inboundChain} (${limit}). The number should have ${deployment.decimals} decimals.`
