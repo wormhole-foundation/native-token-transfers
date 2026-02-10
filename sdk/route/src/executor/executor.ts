@@ -13,6 +13,7 @@ import {
   TransferReceipt as _TransferReceipt,
   TransferState,
   UniversalAddress,
+  UnsignedTransaction,
   Wormhole,
   WormholeMessageId,
   amount,
@@ -39,6 +40,7 @@ import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "../types.js";
 import {
   calculateReferrerFee,
+  collectTransactions,
   fetchCapabilities,
   fetchSignedQuote,
   fetchStatus,
@@ -51,6 +53,7 @@ import {
   signedQuoteLayout,
 } from "@wormhole-foundation/sdk-definitions";
 import { getDefaultReferrerAddress } from "./consts.js";
+
 
 export namespace NttExecutorRoute {
   export type Config = {
@@ -449,12 +452,12 @@ export class NttExecutorRoute<N extends Network>
     };
   }
 
-  async initiate(
+  async _buildInitiateXfer(
     request: routes.RouteTransferRequest<N>,
-    signer: Signer,
+    sender: ChainAddress,
+    to: ChainAddress,
     quote: Q,
-    to: ChainAddress
-  ): Promise<R> {
+  ) {
     if (!quote.details) {
       throw new Error("Missing quote details");
     }
@@ -477,7 +480,7 @@ export class NttExecutorRoute<N extends Network>
     });
 
     const { fromChain } = request;
-    const sender = Wormhole.parseAddress(signer.chain(), signer.address());
+    const senderAddress = Wormhole.parseAddress(sender.chain, sender.address.toString());
 
     const nttWithExec = await fromChain.getProtocol("NttWithExecutor", {
       ntt: params.normalizedParams.sourceContracts,
@@ -489,15 +492,38 @@ export class NttExecutorRoute<N extends Network>
 
     const wrapNative = isNative(request.source.id.address);
 
-    const initXfer = nttWithExec.transfer(
-      sender,
+    return nttWithExec.transfer(
+      senderAddress,
       to,
       amount.units(params.normalizedParams.amount),
       details,
       ntt,
       wrapNative
     );
-    const txids = await signSendWait(fromChain, initXfer, signer);
+  }
+
+  async buildInitiateTransactions(
+    request: routes.RouteTransferRequest<N>,
+    sender: ChainAddress,
+    recipient: ChainAddress,
+    quote: Q,
+  ): Promise<UnsignedTransaction<N, Chain>[]> {
+    const xfer = await this._buildInitiateXfer(request, sender, recipient, quote);
+    const txs = await collectTransactions(xfer);
+    return txs as UnsignedTransaction<N, Chain>[];
+  }
+
+  async initiate(
+    request: routes.RouteTransferRequest<N>,
+    signer: Signer,
+    quote: Q,
+    to: ChainAddress
+  ): Promise<R> {
+    const sender = Wormhole.chainAddress(signer.chain(), signer.address());
+    const xfer = await this._buildInitiateXfer(request, sender, to, quote);
+
+    const { fromChain } = request;
+    const txids = await signSendWait(fromChain, xfer, signer);
 
     // Status the transfer immediately before returning
     let statusAttempts = 0;
@@ -532,8 +558,39 @@ export class NttExecutorRoute<N extends Network>
       to: to.chain,
       state: TransferState.SourceInitiated,
       originTxs: txids,
-      params,
+      params: quote.params,
     };
+  }
+
+  async _buildCompleteXfer(
+    sender: ChainAddress,
+    receipt: R,
+  ) {
+    const toChain = this.wh.getChain(receipt.to);
+    const ntt = await toChain.getProtocol("Ntt", {
+      ntt: receipt.params.normalizedParams.destinationContracts,
+    });
+    const senderAddress = Wormhole.parseAddress(sender.chain, sender.address.toString());
+    return ntt.redeem([(receipt as any).attestation.attestation], senderAddress);
+  }
+
+  async buildCompleteTransactions(
+    sender: ChainAddress,
+    receipt: R,
+  ): Promise<UnsignedTransaction<N, Chain>[]> {
+    if (!isAttested(receipt) && !isFailed(receipt)) {
+      if (isRedeemed(receipt)) return [];
+      throw new Error(
+        "The source must be finalized in order to complete the transfer"
+      );
+    }
+
+    if (!receipt.attestation) {
+      throw new Error("No attestation found for the transfer");
+    }
+
+    const txs = await collectTransactions(await this._buildCompleteXfer(sender, receipt));
+    return txs as UnsignedTransaction<N, Chain>[];
   }
 
   async complete(signer: Signer, receipt: R): Promise<R> {
@@ -548,14 +605,10 @@ export class NttExecutorRoute<N extends Network>
       throw new Error("No attestation found for the transfer");
     }
 
+    const sender = Wormhole.chainAddress(signer.chain(), signer.address());
+    const xfer = await this._buildCompleteXfer(sender, receipt);
     const toChain = this.wh.getChain(receipt.to);
-    const ntt = await toChain.getProtocol("Ntt", {
-      ntt: receipt.params.normalizedParams.destinationContracts,
-    });
-    const sender = Wormhole.parseAddress(signer.chain(), signer.address());
-    const completeXfer = ntt.redeem([receipt.attestation.attestation], sender);
-
-    const txids = await signSendWait(toChain, completeXfer, signer);
+    const txids = await signSendWait(toChain, xfer, signer);
     return {
       ...receipt,
       state: TransferState.DestinationInitiated,
@@ -643,6 +696,39 @@ export class NttExecutorRoute<N extends Network>
 
   // Even though this is an automatic route, the transfer may need to be
   // manually finalized if it was queued
+  async _buildFinalizeXfer(
+    sender: ChainAddress,
+    receipt: R,
+  ) {
+    const {
+      attestation: { attestation: vaa },
+    } = receipt as any;
+
+    const toChain = this.wh.getChain(receipt.to);
+    const ntt = await toChain.getProtocol("Ntt", {
+      ntt: receipt.params.normalizedParams.destinationContracts,
+    });
+    return ntt.completeInboundQueuedTransfer(
+      receipt.from,
+      vaa.payload["nttManagerPayload"],
+      sender.address
+    );
+  }
+
+  async buildFinalizeTransactions(
+    sender: ChainAddress,
+    receipt: R,
+  ): Promise<UnsignedTransaction<N, Chain>[]> {
+    if (!isDestinationQueued(receipt)) {
+      throw new Error(
+        "The transfer must be destination queued in order to finalize"
+      );
+    }
+
+    const txs = await collectTransactions(await this._buildFinalizeXfer(sender, receipt));
+    return txs as UnsignedTransaction<N, Chain>[];
+  }
+
   async finalize(signer: Signer, receipt: R): Promise<R> {
     if (!isDestinationQueued(receipt)) {
       throw new Error(
@@ -650,21 +736,10 @@ export class NttExecutorRoute<N extends Network>
       );
     }
 
-    const {
-      attestation: { attestation: vaa },
-    } = receipt;
-
-    const toChain = this.wh.getChain(receipt.to);
-    const ntt = await toChain.getProtocol("Ntt", {
-      ntt: receipt.params.normalizedParams.destinationContracts,
-    });
     const sender = Wormhole.chainAddress(signer.chain(), signer.address());
-    const completeTransfer = ntt.completeInboundQueuedTransfer(
-      receipt.from,
-      vaa.payload["nttManagerPayload"],
-      sender.address
-    );
-    const finalizeTxids = await signSendWait(toChain, completeTransfer, signer);
+    const xfer = await this._buildFinalizeXfer(sender, receipt);
+    const toChain = this.wh.getChain(receipt.to);
+    const finalizeTxids = await signSendWait(toChain, xfer, signer);
     return {
       ...receipt,
       state: TransferState.DestinationFinalized,

@@ -4,6 +4,7 @@ import {
   toChainId,
   amount as sdkAmount,
 } from "@wormhole-foundation/sdk-base";
+import type { UnsignedTransaction } from "@wormhole-foundation/sdk-definitions";
 import { SignedQuote } from "@wormhole-foundation/sdk-definitions";
 import axios from "axios";
 import { apiBaseUrl } from "./consts.js";
@@ -162,4 +163,14 @@ export function calculateReferrerFee(
     remainingAmount = amount - sdkAmount.units(trimmedFee);
   }
   return { referrerFee, remainingAmount, referrerFeeDbps: dBps };
+}
+
+export async function collectTransactions<N extends Network, C extends Chain>(
+  xfer: AsyncGenerator<UnsignedTransaction<N, C>>,
+): Promise<UnsignedTransaction<N, C>[]> {
+  const transactions: UnsignedTransaction<N, C>[] = [];
+  for await (const tx of xfer) {
+    transactions.push(tx);
+  }
+  return transactions;
 }
