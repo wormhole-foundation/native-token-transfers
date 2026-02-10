@@ -547,10 +547,10 @@ export namespace MultiTokenNttRoute {
     };
   }
 
-  export async function buildCompleteXfer<N extends Network, R extends TransferReceipt>(
-    chain: ChainContext<N>,
-    receipt: R
-  ) {
+  export async function buildCompleteXfer<
+    N extends Network,
+    R extends TransferReceipt,
+  >(chain: ChainContext<N>, receipt: R) {
     if (!isAttested(receipt) && !isFailed(receipt)) {
       if (isRedeemed(receipt)) return null;
       throw new Error(
@@ -602,10 +602,10 @@ export namespace MultiTokenNttRoute {
     return receipt;
   }
 
-  export async function buildFinalizeXfer<N extends Network, R extends TransferReceipt>(
-    chain: ChainContext<N>,
-    receipt: R
-  ) {
+  export async function buildFinalizeXfer<
+    N extends Network,
+    R extends TransferReceipt,
+  >(chain: ChainContext<N>, receipt: R) {
     const {
       attestation: { attestation: vaa },
     } = receipt as any;

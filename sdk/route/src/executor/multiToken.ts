@@ -504,7 +504,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     sender: ChainAddress,
     to: ChainAddress,
-    quote: Q,
+    quote: Q
   ) {
     if (!quote.details) {
       throw new Error("Missing quote details");
@@ -527,7 +527,10 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       }
     });
 
-    const senderAddress = Wormhole.parseAddress(sender.chain, sender.address.toString());
+    const senderAddress = Wormhole.parseAddress(
+      sender.chain,
+      sender.address.toString()
+    );
 
     const multiTokenNttWithExecutor = await request.fromChain.getProtocol(
       "MultiTokenNttWithExecutor",
@@ -549,9 +552,14 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     request: routes.RouteTransferRequest<N>,
     sender: ChainAddress,
     recipient: ChainAddress,
-    quote: Q,
+    quote: Q
   ): Promise<UnsignedTransaction<N, Chain>[]> {
-    const xfer = await this._buildInitiateXfer(request, sender, recipient, quote);
+    const xfer = await this._buildInitiateXfer(
+      request,
+      sender,
+      recipient,
+      quote
+    );
     const txs = await collectTransactions(xfer);
     return txs as UnsignedTransaction<N, Chain>[];
   }
@@ -608,7 +616,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
 
   async buildCompleteTransactions(
     sender: ChainAddress,
-    receipt: R,
+    receipt: R
   ): Promise<UnsignedTransaction<N, Chain>[]> {
     const xfer = await MultiTokenNttRoute.buildCompleteXfer(
       this.wh.getChain(receipt.to),
@@ -641,7 +649,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
 
   async buildFinalizeTransactions(
     sender: ChainAddress,
-    receipt: R,
+    receipt: R
   ): Promise<UnsignedTransaction<N, Chain>[]> {
     if (!isDestinationQueued(receipt)) {
       throw new Error(
