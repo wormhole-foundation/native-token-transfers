@@ -33,27 +33,27 @@ export async function getImmutables<N extends Network, C extends Chain>(
   const token = await evmNtt.manager.token();
   const tokenDecimals = await evmNtt.manager.tokenDecimals();
 
-  // Fetch CCL parameters if consistency level is 203 (custom)
+  // Fetch CCL parameters if consistency level is 203 (custom).
   // These methods only exist on contracts with CCL support (>= v1.3.1).
-  // TODO: Remove the type cast below once the NttTransceiverBindings.NttTransceiver
-  // union type properly exposes CCL methods (e.g. via a version-discriminated type or
-  // by adding the methods to the base NttTransceiver interface in sdk-definitions-ntt).
-  // The cast is safe because we're inside a try/catch for older versions.
+  // Use `in` operator guards (same pattern as sdk-evm-ntt ntt.ts) to narrow
+  // the NttTransceiverBindings.NttTransceiver union type at runtime.
   let customConsistencyLevel: bigint | undefined;
   let additionalBlocks: bigint | undefined;
   let customConsistencyLevelAddress: string | undefined;
 
   if (consistencyLevel === 203n) {
     try {
-      const cclTransceiver = transceiver.transceiver as unknown as {
-        customConsistencyLevel(): Promise<bigint>;
-        additionalBlocks(): Promise<bigint>;
-        customConsistencyLevelAddress(): Promise<string>;
-      };
-      customConsistencyLevel = await cclTransceiver.customConsistencyLevel();
-      additionalBlocks = await cclTransceiver.additionalBlocks();
-      customConsistencyLevelAddress =
-        await cclTransceiver.customConsistencyLevelAddress();
+      const tc = transceiver.transceiver;
+      if ("customConsistencyLevel" in tc) {
+        customConsistencyLevel = await tc.customConsistencyLevel();
+      }
+      if ("additionalBlocks" in tc) {
+        additionalBlocks = await tc.additionalBlocks();
+      }
+      if ("customConsistencyLevelAddress" in tc) {
+        customConsistencyLevelAddress =
+          await tc.customConsistencyLevelAddress();
+      }
     } catch (error) {
       // CCL parameters might not be available in older versions
       console.warn("Warning: Could not fetch CCL parameters from transceiver");
