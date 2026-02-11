@@ -67,6 +67,7 @@ export namespace NttRoute {
   /** Options for Per-TransferRequest settings */
   export interface Options {
     automatic: boolean;
+    skipDstRateLimitCheck?: boolean;
   }
 
   export const ManualOptions: Options = {
