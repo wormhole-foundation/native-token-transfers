@@ -153,7 +153,9 @@ export function createSetMintAuthorityCommand(
       // verify current mint authority is not token authority
       const mintInfo = await connection.getAccountInfo(tokenMint);
       if (!mintInfo) {
-        console.error(`Mint ${token} not found on ${ch.chain} ${ch.network}`);
+        console.error(
+          `Mint ${tokenMint.toBase58()} not found on ${ch.chain} ${ch.network}`
+        );
         process.exit(1);
       }
       const mint = spl.unpackMint(tokenMint, mintInfo, mintInfo.owner);
@@ -262,10 +264,10 @@ export function createSetMintAuthorityCommand(
             );
             process.exit(0);
           } catch (error) {
-            if (error instanceof Error) {
-              console.error(error.message);
-            } else if (error instanceof SendTransactionError) {
+            if (error instanceof SendTransactionError) {
               console.error(error.logs);
+            } else if (error instanceof Error) {
+              console.error(error.message);
             }
             process.exit(1);
           }
@@ -358,10 +360,10 @@ export function createSetMintAuthorityCommand(
           );
           process.exit(0);
         } catch (error) {
-          if (error instanceof Error) {
-            console.error(error.message);
-          } else if (error instanceof SendTransactionError) {
+          if (error instanceof SendTransactionError) {
             console.error(error.logs);
+          } else if (error instanceof Error) {
+            console.error(error.message);
           }
           process.exit(1);
         }

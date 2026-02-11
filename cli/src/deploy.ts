@@ -40,7 +40,7 @@ export async function upgrade<N extends Network, C extends Chain>(
   const platform = chainToPlatform(ctx.chain);
   const worktree = toVersion ? createWorkTree(platform, toVersion) : ".";
   switch (platform) {
-    case "Evm":
+    case "Evm": {
       const evmNtt = ntt as EvmNtt<N, EvmChains>;
       const evmCtx = ctx as ChainContext<N, EvmChains>;
       return upgradeEvm(
@@ -52,7 +52,8 @@ export async function upgrade<N extends Network, C extends Chain>(
         managerVariant,
         gasEstimateMultiplier
       );
-    case "Solana":
+    }
+    case "Solana": {
       if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
         console.error("Payer not found. Specify with --payer");
         process.exit(1);
@@ -69,10 +70,12 @@ export async function upgrade<N extends Network, C extends Chain>(
         solanaBinaryPath,
         overrides
       );
-    case "Sui":
+    }
+    case "Sui": {
       const suiNtt = ntt as SuiNtt<N, SuiChains>;
       const suiCtx = ctx as ChainContext<N, SuiChains>;
       return upgradeSui(worktree, toVersion, suiNtt, suiCtx, signerType);
+    }
     default:
       throw new Error("Unsupported platform");
   }

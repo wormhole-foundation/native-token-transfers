@@ -1,4 +1,4 @@
-import { execSync, execFileSync } from "child_process";
+import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import {
@@ -69,7 +69,6 @@ active_address: ~
 
     // Get RPC URL from chain context
     const rpcUrl = ch.config.rpc;
-    console.error(rpcUrl);
 
     // Determine network environment based on RPC URL
     let envAlias: string;
@@ -84,10 +83,11 @@ active_address: ~
     // Create or update the environment
     console.log(`Setting up ${envAlias} environment with RPC: ${rpcUrl}`);
     try {
-      execSync(`sui client new-env --alias ${envAlias} --rpc ${rpcUrl}`, {
-        stdio: "inherit",
-        env: process.env,
-      });
+      execFileSync(
+        "sui",
+        ["client", "new-env", "--alias", envAlias, "--rpc", rpcUrl],
+        { stdio: "inherit", env: process.env }
+      );
     } catch (error) {
       // Environment might already exist, try to switch to it
       console.log(
@@ -97,7 +97,7 @@ active_address: ~
 
     // Switch to the environment
     try {
-      execSync(`sui client switch --env ${envAlias}`, {
+      execFileSync("sui", ["client", "switch", "--env", envAlias], {
         stdio: "inherit",
         env: process.env,
       });
@@ -136,7 +136,7 @@ export function updateMoveTomlForNetwork(
     process.env.WORMHOLE_REV ||
     (networkType === "Mainnet" ? "sui/mainnet" : "sui/testnet");
 
-  // localhost not supported for now, because the
+  // Devnet / localhost not supported — local validator setup is not yet implemented
   if (networkType === "Devnet") {
     throw new Error("devnet not supported yet");
   }
@@ -200,32 +200,14 @@ export async function performPackageUpgradeInPTB<
   upgradeCapId: string,
   ntt: SuiNtt<N, C>
 ): Promise<any> {
-  // Get the package name from the path
-  const packageName = packagePath.split("/").pop();
-  let buildPackageName: string;
-
-  // Map directory names to build package names
-  switch (packageName) {
-    case "ntt_common":
-      buildPackageName = "NttCommon";
-      break;
-    case "ntt":
-      buildPackageName = "Ntt";
-      break;
-    case "wormhole_transceiver":
-      buildPackageName = "WormholeTransceiver";
-      break;
-    default:
-      throw new Error(`Unknown package: ${packageName}`);
-  }
-
   // Get build output with dependencies using the correct sui command
   console.log(
     `Running sui move build --dump-bytecode-as-base64 for ${packagePath}...`
   );
 
-  const buildOutput = execSync(
-    `sui move build --dump-bytecode-as-base64 --path ${packagePath}`,
+  const buildOutput = execFileSync(
+    "sui",
+    ["move", "build", "--dump-bytecode-as-base64", "--path", packagePath],
     {
       encoding: "utf-8",
       env: process.env,

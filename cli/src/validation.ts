@@ -350,7 +350,17 @@ export function checkConfigErrors(
   let fatal = 0;
   for (const [chain, deployment] of Object.entries(deps)) {
     assertChain(chain);
-    const config = deployment.config.local!;
+    const config = deployment.config.local;
+    if (!config) {
+      console.error(`ERROR: ${chain} has no local config`);
+      fatal++;
+      continue;
+    }
+    if (!config.limits) {
+      console.error(`ERROR: ${chain} has no limits configured`);
+      fatal++;
+      continue;
+    }
     if (!checkNumberFormatting(config.limits.outbound, deployment.decimals)) {
       console.error(
         `ERROR: ${chain} has an invalid outbound limit (${config.limits.outbound}). Expected a decimal number with at most ${deployment.decimals} decimals.`

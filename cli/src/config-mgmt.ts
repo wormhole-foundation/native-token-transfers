@@ -85,7 +85,7 @@ export async function pushDeployment<C extends Chain>(
     } else if (k === "owner") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
-        diff[k]?.push!
+        diff[k]!.push!
       );
       // For Solana, we need to use the low-level transfer ownership instructions
       if (chainToPlatform(deployment.manager.chain) === "Solana") {
@@ -125,7 +125,7 @@ export async function pushDeployment<C extends Chain>(
     } else if (k === "pauser") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
-        diff[k]?.push!
+        diff[k]!.push!
       );
       txs.push(deployment.ntt.setPauser(address, signer.address.address));
     } else if (k === "paused") {
