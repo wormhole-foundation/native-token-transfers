@@ -570,6 +570,17 @@ export class NttExecutorRoute<N extends Network>
   }
 
   async _buildCompleteXfer(sender: ChainAddress, receipt: R) {
+    if (!isAttested(receipt) && !isFailed(receipt)) {
+      if (isRedeemed(receipt)) return null;
+      throw new Error(
+        "The source must be finalized in order to complete the transfer"
+      );
+    }
+
+    if (!receipt.attestation) {
+      throw new Error("No attestation found for the transfer");
+    }
+
     const toChain = this.wh.getChain(receipt.to);
     const ntt = await toChain.getProtocol("Ntt", {
       ntt: receipt.params.normalizedParams.destinationContracts,
@@ -579,7 +590,7 @@ export class NttExecutorRoute<N extends Network>
       sender.address.toString()
     );
     return ntt.redeem(
-      [(receipt as any).attestation.attestation],
+      [receipt.attestation.attestation],
       senderAddress
     );
   }
@@ -588,45 +599,25 @@ export class NttExecutorRoute<N extends Network>
     sender: ChainAddress,
     receipt: R
   ): Promise<UnsignedTransaction<N, Chain>[]> {
-    if (!isAttested(receipt) && !isFailed(receipt)) {
-      if (isRedeemed(receipt)) return [];
-      throw new Error(
-        "The source must be finalized in order to complete the transfer"
-      );
-    }
+    const xfer = await this._buildCompleteXfer(sender, receipt);
+    if (xfer === null) return [];
 
-    if (!receipt.attestation) {
-      throw new Error("No attestation found for the transfer");
-    }
-
-    const txs = await collectTransactions(
-      await this._buildCompleteXfer(sender, receipt)
-    );
+    const txs = await collectTransactions(xfer);
     return txs as UnsignedTransaction<N, Chain>[];
   }
 
   async complete(signer: Signer, receipt: R): Promise<R> {
-    if (!isAttested(receipt) && !isFailed(receipt)) {
-      if (isRedeemed(receipt)) return receipt;
-      throw new Error(
-        "The source must be finalized in order to complete the transfer"
-      );
-    }
-
-    if (!receipt.attestation) {
-      throw new Error("No attestation found for the transfer");
-    }
-
     const sender = Wormhole.chainAddress(signer.chain(), signer.address());
     const xfer = await this._buildCompleteXfer(sender, receipt);
+    if (xfer === null) return receipt;
+
     const toChain = this.wh.getChain(receipt.to);
     const txids = await signSendWait(toChain, xfer, signer);
     return {
       ...receipt,
       state: TransferState.DestinationInitiated,
-      attestation: receipt.attestation,
       destinationTxs: txids,
-    };
+    } as R;
   }
 
   async resume(tx: TransactionId): Promise<R> {
@@ -709,9 +700,15 @@ export class NttExecutorRoute<N extends Network>
   // Even though this is an automatic route, the transfer may need to be
   // manually finalized if it was queued
   async _buildFinalizeXfer(sender: ChainAddress, receipt: R) {
+    if (!isDestinationQueued(receipt)) {
+      throw new Error(
+        "The transfer must be destination queued in order to finalize"
+      );
+    }
+
     const {
       attestation: { attestation: vaa },
-    } = receipt as any;
+    } = receipt;
 
     const toChain = this.wh.getChain(receipt.to);
     const ntt = await toChain.getProtocol("Ntt", {
@@ -728,12 +725,6 @@ export class NttExecutorRoute<N extends Network>
     sender: ChainAddress,
     receipt: R
   ): Promise<UnsignedTransaction<N, Chain>[]> {
-    if (!isDestinationQueued(receipt)) {
-      throw new Error(
-        "The transfer must be destination queued in order to finalize"
-      );
-    }
-
     const txs = await collectTransactions(
       await this._buildFinalizeXfer(sender, receipt)
     );
