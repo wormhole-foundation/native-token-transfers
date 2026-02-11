@@ -2878,8 +2878,7 @@ yargs(hideBin(process.argv))
         (yargs) =>
           yargs
             .positional("vaa", {
-              describe:
-                "Hex-encoded VAA bytes (with or without 0x prefix), or path to a file containing the VAA bytes",
+              describe: "Hex-encoded VAA bytes (with or without 0x prefix)",
               type: "string",
               demandOption: true,
             })
