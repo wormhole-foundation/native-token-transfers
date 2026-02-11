@@ -2,7 +2,26 @@ import { Wormhole } from "@wormhole-foundation/sdk";
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { EvmNtt } from "../src/index.js";
 
-const wh = new Wormhole("Testnet", [EvmPlatform]);
+const fallbackRpc = "https://sepolia.drpc.org";
+
+// Try default SDK RPC first, fallback to drpc if it fails
+async function getWormholeInstance() {
+  const wh = new Wormhole("Testnet", [EvmPlatform]);
+  try {
+    const ctx = wh.getChain("Sepolia");
+    const rpc = await ctx.getRpc();
+    await rpc.getBlockNumber();
+    return wh;
+  } catch {
+    return new Wormhole("Testnet", [EvmPlatform], {
+      chains: {
+        Sepolia: {
+          rpc: fallbackRpc,
+        },
+      },
+    });
+  }
+}
 
 const overrides = {
   Sepolia: {
@@ -15,8 +34,9 @@ const overrides = {
 };
 
 describe("ABI Versions Test", function () {
-  const ctx = wh.getChain("Sepolia");
   test("It initializes from Rpc", async function () {
+    const wh = await getWormholeInstance();
+    const ctx = wh.getChain("Sepolia");
     const ntt = await EvmNtt.fromRpc(await ctx.getRpc(), {
       Sepolia: {
         ...ctx.config,
@@ -27,6 +47,8 @@ describe("ABI Versions Test", function () {
   });
 
   test("It initializes from constructor", async function () {
+    const wh = await getWormholeInstance();
+    const ctx = wh.getChain("Sepolia");
     const ntt = new EvmNtt("Testnet", "Sepolia", await ctx.getRpc(), {
       ...ctx.config.contracts,
       ...{ ntt: overrides["Sepolia"] },
@@ -35,6 +57,8 @@ describe("ABI Versions Test", function () {
   });
 
   test("It gets the correct version", async function () {
+    const wh = await getWormholeInstance();
+    const ctx = wh.getChain("Sepolia");
     const version = await EvmNtt.getVersion(await ctx.getRpc(), {
       ntt: overrides["Sepolia"],
     });

@@ -49,6 +49,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Monad: "0xc3F3dDa544815a440633176c7598f5B97500793e",
     Moca: "0xE612837749a0690BA2BCe490D6eFb5F8Fc347df3",
     MegaETH: "0x3EFEc0c7Ee79135330DD03e995872f84b1AD49b6",
+    ZeroGravity: "0xe175A8b838f3CdB2e1AAf4Ff74c05cF2F3AEA9a8",
   },
   Testnet: {
     ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
