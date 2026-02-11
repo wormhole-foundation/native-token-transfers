@@ -589,10 +589,7 @@ export class NttExecutorRoute<N extends Network>
       sender.chain,
       sender.address.toString()
     );
-    return ntt.redeem(
-      [receipt.attestation.attestation],
-      senderAddress
-    );
+    return ntt.redeem([receipt.attestation.attestation], senderAddress);
   }
 
   async buildCompleteTransactions(
