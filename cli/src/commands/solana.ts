@@ -231,18 +231,20 @@ export function createSolanaCommand(
 
             // check if SPL-Multisig is supported for manager version
             // undeployed -- assume version compatible via warning
-            if (major === -1 && !argv["yes"]) {
-              console.warn(
-                colors.yellow(
-                  "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
-                )
-              );
-              console.warn(
-                colors.yellow(
-                  "Ensure the program version you wish to deploy supports SPL Multisig token mint authority"
-                )
-              );
-              await askForConfirmation();
+            if (major === -1) {
+              if (!argv["yes"]) {
+                console.warn(
+                  colors.yellow(
+                    "SPL Multisig token mint authority is only supported for versions >= 3.x.x"
+                  )
+                );
+                console.warn(
+                  colors.yellow(
+                    "Ensure the program version you wish to deploy supports SPL Multisig token mint authority"
+                  )
+                );
+                await askForConfirmation();
+              }
             }
             // unsupported version
             else if (major < 3) {

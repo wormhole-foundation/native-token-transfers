@@ -117,7 +117,7 @@ export async function deploy<N extends Network, C extends Chain>(
         gasEstimateMultiplier,
         cclConfig
       );
-    case "Solana":
+    case "Solana": {
       if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {
         console.error("Payer not found. Specify with --payer");
         process.exit(1);
@@ -136,7 +136,8 @@ export async function deploy<N extends Network, C extends Chain>(
         solanaPriorityFee,
         overrides
       )) as ChainAddress<C>;
-    case "Sui":
+    }
+    case "Sui": {
       const suiCtx = ch as ChainContext<N, Chain>; // TODO: Use proper SuiChains type
       return (await deploySui(
         worktree,
@@ -146,12 +147,13 @@ export async function deploy<N extends Network, C extends Chain>(
         token,
         signerType,
         true,
-        evmVerify,
+        undefined,
         suiGasBudget,
         suiPackagePath,
         suiWormholeState,
         suiTreasuryCap
       )) as any;
+    }
     default:
       throw new Error("Unsupported platform");
   }

@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import {
@@ -55,10 +55,11 @@ active_address: ~
     if (privateKey) {
       console.log("Importing private key from SUI_PRIVATE_KEY...");
       try {
-        execSync(`sui keytool import "${privateKey}" ed25519 --alias default`, {
-          stdio: undefined,
-          env: process.env,
-        });
+        execFileSync(
+          "sui",
+          ["keytool", "import", privateKey, "ed25519", "--alias", "default"],
+          { stdio: "pipe", env: process.env }
+        );
         console.log("Private key imported successfully");
       } catch (error) {
         console.error("Failed to import private key:", error);

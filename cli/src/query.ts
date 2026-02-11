@@ -13,6 +13,7 @@ import type {
 import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { type SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
+import { formatUnits, parseUnits } from "ethers";
 import type { Config } from "./deployments";
 import { retryWithExponentialBackoff } from "./validation";
 
@@ -150,31 +151,20 @@ export async function nttFromManager<N extends Network, C extends Chain>(
   return { ntt, addresses };
 }
 
-export function formatNumber(num: bigint, decimals: number) {
-  if (num === 0n) {
-    return "0." + "0".repeat(decimals);
-  }
-  const str = num.toString();
-  const formatted = str.slice(0, -decimals) + "." + str.slice(-decimals);
-  if (formatted.startsWith(".")) {
-    return "0" + formatted;
-  }
-  return formatted;
+export function formatNumber(num: bigint, decimals: number): string {
+  return formatUnits(num, decimals);
 }
 
 export function checkNumberFormatting(
   formatted: string,
   decimals: number
 ): boolean {
-  // check that the string has the correct number of decimals
-  const parts = formatted.split(".");
-  if (parts.length !== 2) {
+  try {
+    parseUnits(formatted, decimals);
+    return true;
+  } catch {
     return false;
   }
-  if (parts[1].length !== decimals) {
-    return false;
-  }
-  return true;
 }
 
 // NOTE: modifies the config object in place
@@ -207,7 +197,10 @@ export async function pullInboundLimits(
         5,
         5000
       );
-      if (chainConf.limits?.inbound === undefined) {
+      if (!chainConf.limits) {
+        chainConf.limits = { outbound: "0", inbound: {} };
+      }
+      if (chainConf.limits.inbound === undefined) {
         chainConf.limits.inbound = {};
       }
 

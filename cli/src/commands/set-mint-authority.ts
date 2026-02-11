@@ -310,11 +310,12 @@ export function createSetMintAuthorityCommand(
             ).toBase58()}`
           );
         } catch (error) {
-          if (error instanceof Error) {
-            console.error(error.message);
-          } else if (error instanceof SendTransactionError) {
+          if (error instanceof SendTransactionError) {
             console.error(error.logs);
+          } else if (error instanceof Error) {
+            console.error(error.message);
           }
+          process.exit(1);
         }
       }
       // undeployed case
@@ -329,7 +330,7 @@ export function createSetMintAuthorityCommand(
             mintInfo.owner,
             tokenAuthority
           );
-          if (isMultisigTokenAuthority) {
+          if (!isMultisigTokenAuthority) {
             console.error(
               "Invalid SPL Multisig provided. Use 'ntt solana create-spl-multisig' to create valid SPL Multisig first"
             );

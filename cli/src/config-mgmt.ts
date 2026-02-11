@@ -31,6 +31,7 @@ import type { newSignSendWaiter } from "./signers/signSendWait.js";
 import { EXCLUDED_DIFF_PATHS } from "./commands/shared";
 import type { ChainConfig, Config } from "./deployments";
 import type { Deployment } from "./validation";
+import { parseUnits } from "ethers";
 import {
   nttFromManager,
   formatNumber,
@@ -136,9 +137,7 @@ export async function pushDeployment<C extends Chain>(
     } else if (k === "limits") {
       const newOutbound = diff[k]?.outbound?.push;
       if (newOutbound) {
-        // TODO: verify amount has correct number of decimals?
-        // remove "." from string and convert to bigint
-        const newOutboundBigint = BigInt(newOutbound.replace(".", ""));
+        const newOutboundBigint = parseUnits(newOutbound, deployment.decimals);
         txs.push(
           deployment.ntt.setOutboundLimit(
             newOutboundBigint,
@@ -152,8 +151,10 @@ export async function pushDeployment<C extends Chain>(
           assertChain(chain);
           const newInbound = inbound[chain]?.push;
           if (newInbound) {
-            // TODO: verify amount has correct number of decimals?
-            const newInboundBigint = BigInt(newInbound.replace(".", ""));
+            const newInboundBigint = parseUnits(
+              newInbound,
+              deployment.decimals
+            );
             txs.push(
               deployment.ntt.setInboundLimit(
                 chain,

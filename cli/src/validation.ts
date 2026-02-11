@@ -335,7 +335,7 @@ export function validateChain<N extends Network, C extends Chain>(
       process.exit(1);
     }
     // if on testnet, and the chain has a *Sepolia counterpart, use that instead
-    if (chains.find((c) => c === `${c}Sepolia`)) {
+    if (chains.find((c) => c === `${chain}Sepolia`)) {
       console.error(
         `Chain ${chain} is deprecated. Use ${chain}Sepolia instead.`
       );
@@ -353,21 +353,27 @@ export function checkConfigErrors(
     const config = deployment.config.local!;
     if (!checkNumberFormatting(config.limits.outbound, deployment.decimals)) {
       console.error(
-        `ERROR: ${chain} has an outbound limit (${config.limits.outbound}) with the wrong number of decimals. The number should have ${deployment.decimals} decimals.`
+        `ERROR: ${chain} has an invalid outbound limit (${config.limits.outbound}). Expected a decimal number with at most ${deployment.decimals} decimals.`
       );
       fatal++;
     }
-    if (config.limits.outbound === formatNumber(0n, deployment.decimals)) {
+    if (
+      checkNumberFormatting(config.limits.outbound, deployment.decimals) &&
+      formatNumber(0n, deployment.decimals) === config.limits.outbound
+    ) {
       console.warn(colors.yellow(`${chain} has an outbound limit of 0`));
     }
     for (const [c, limit] of Object.entries(config.limits.inbound)) {
       if (!checkNumberFormatting(limit, deployment.decimals)) {
         console.error(
-          `ERROR: ${chain} has an inbound limit with the wrong number of decimals for ${c} (${limit}). The number should have ${deployment.decimals} decimals.`
+          `ERROR: ${chain} has an invalid inbound limit for ${c} (${limit}). Expected a decimal number with at most ${deployment.decimals} decimals.`
         );
         fatal++;
       }
-      if (limit === formatNumber(0n, deployment.decimals)) {
+      if (
+        checkNumberFormatting(limit, deployment.decimals) &&
+        formatNumber(0n, deployment.decimals) === limit
+      ) {
         console.warn(
           colors.yellow(`${chain} has an inbound limit of 0 from ${c}`)
         );
