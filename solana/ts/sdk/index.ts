@@ -9,7 +9,12 @@ import { register as registerDefinitions } from "@wormhole-foundation/sdk-defini
 import "./side-effects";
 
 /** Explicitly register Solana NTT protocols. Idempotent — safe to call multiple times. */
-export function register(): void {
+export function register(topLevel = false): void {
+  if (topLevel) {
+    console.warn(
+      "@wormhole-foundation/sdk-solana-ntt: auto-registration on import is deprecated. Import { register } and call it explicitly."
+    );
+  }
   registerDefinitions();
   if (!protocolIsRegistered(_platform, "Ntt")) {
     registerProtocol(_platform, "Ntt", SolanaNtt);
@@ -21,7 +26,7 @@ export function register(): void {
 
 // Backward-compatible: auto-register on import
 // TODO: remove this next time we are cool with a major version bump and are OK requiring integrators to make code changes
-register();
+register(true);
 
 export * from "./ntt.js";
 export * from "./nttWithExecutor.js";
