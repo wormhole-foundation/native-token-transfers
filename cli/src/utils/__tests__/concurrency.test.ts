@@ -15,7 +15,10 @@ const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  */
 function concurrencyTracker<T, R>(
   fn: (item: T, index: number) => Promise<R>
-): { task: (item: T, index: number) => Promise<R>; peakConcurrency: () => number } {
+): {
+  task: (item: T, index: number) => Promise<R>;
+  peakConcurrency: () => number;
+} {
   let inflight = 0;
   let peak = 0;
   const task = async (item: T, index: number): Promise<R> => {
@@ -58,10 +61,12 @@ describe("runTaskPool", () => {
 
   test("concurrency is respected", async () => {
     const items = Array.from({ length: 12 }, (_, i) => i);
-    const { task, peakConcurrency } = concurrencyTracker(async (item: number) => {
-      await delay(20);
-      return item;
-    });
+    const { task, peakConcurrency } = concurrencyTracker(
+      async (item: number) => {
+        await delay(20);
+        return item;
+      }
+    );
     await runTaskPool(items, 3, task);
     expect(peakConcurrency()).toBeLessThanOrEqual(3);
     // With 12 items and sufficient delay, we should actually hit 3.
@@ -70,10 +75,12 @@ describe("runTaskPool", () => {
 
   test("concurrency capped to item count when items < concurrency", async () => {
     const items = [1, 2];
-    const { task, peakConcurrency } = concurrencyTracker(async (item: number) => {
-      await delay(20);
-      return item;
-    });
+    const { task, peakConcurrency } = concurrencyTracker(
+      async (item: number) => {
+        await delay(20);
+        return item;
+      }
+    );
     await runTaskPool(items, 10, task);
     expect(peakConcurrency()).toBe(2);
   });
@@ -173,10 +180,12 @@ describe("runTaskPoolWithSequential", () => {
 
   test("all items parallel", async () => {
     const items = [30, 10, 20];
-    const { task, peakConcurrency } = concurrencyTracker(async (item: number) => {
-      await delay(item);
-      return item;
-    });
+    const { task, peakConcurrency } = concurrencyTracker(
+      async (item: number) => {
+        await delay(item);
+        return item;
+      }
+    );
     const result = await runTaskPoolWithSequential(
       items,
       5,
