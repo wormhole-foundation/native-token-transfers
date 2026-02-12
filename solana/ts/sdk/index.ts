@@ -1,19 +1,22 @@
-import { registerProtocol } from "@wormhole-foundation/sdk-definitions";
+import {
+  registerProtocol,
+  protocolIsRegistered,
+} from "@wormhole-foundation/sdk-definitions";
 import { _platform } from "@wormhole-foundation/sdk-solana";
 import { SolanaNtt } from "./ntt.js";
 import { SolanaNttWithExecutor } from "./nttWithExecutor.js";
 import { register as registerDefinitions } from "@wormhole-foundation/sdk-definitions-ntt";
 import "./side-effects";
 
-let _registered = false;
-
 /** Explicitly register Solana NTT protocols. Idempotent — safe to call multiple times. */
 export function register(): void {
-  if (_registered) return;
-  _registered = true;
   registerDefinitions();
-  registerProtocol(_platform, "Ntt", SolanaNtt);
-  registerProtocol(_platform, "NttWithExecutor", SolanaNttWithExecutor);
+  if (!protocolIsRegistered(_platform, "Ntt")) {
+    registerProtocol(_platform, "Ntt", SolanaNtt);
+  }
+  if (!protocolIsRegistered(_platform, "NttWithExecutor")) {
+    registerProtocol(_platform, "NttWithExecutor", SolanaNttWithExecutor);
+  }
 }
 
 // Backward-compatible: auto-register on import

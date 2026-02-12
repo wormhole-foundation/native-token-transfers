@@ -1,17 +1,25 @@
-import { registerPayloadTypes } from "@wormhole-foundation/sdk-definitions";
+import {
+  registerPayloadTypes,
+  payloadFactory,
+  composeLiteral,
+} from "@wormhole-foundation/sdk-definitions";
 import {
   multiTokenNttNamedPayloads,
   nttNamedPayloads,
 } from "./layouts/index.js";
 
-let _registered = false;
-
 /** Explicitly register NTT payload types. Idempotent — safe to call multiple times. */
 export function register(): void {
-  if (_registered) return;
-  _registered = true;
-  registerPayloadTypes("Ntt", nttNamedPayloads);
-  registerPayloadTypes("MultiTokenNtt", multiTokenNttNamedPayloads);
+  if (!payloadFactory.has(composeLiteral("Ntt", nttNamedPayloads[0]![0]))) {
+    registerPayloadTypes("Ntt", nttNamedPayloads);
+  }
+  if (
+    !payloadFactory.has(
+      composeLiteral("MultiTokenNtt", multiTokenNttNamedPayloads[0]![0])
+    )
+  ) {
+    registerPayloadTypes("MultiTokenNtt", multiTokenNttNamedPayloads);
+  }
 }
 
 // Backward-compatible: auto-register on import
