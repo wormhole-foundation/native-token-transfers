@@ -59,6 +59,17 @@ jobs:
       - name: Run size test
         run: make size-test
 
+      - name: Build with via-ir for cache
+        run: forge build --via-ir
+
+      - name: Save forge build cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            evm/out
+            evm/cache
+          key: forge-via-ir-${{ hashFiles('evm/src/**/*.sol', 'evm/script/**/*.sol', 'evm/foundry.toml') }}
+
   echidna:
     name: echidna
     runs-on: ubuntu-latest

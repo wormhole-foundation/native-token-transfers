@@ -1,7 +1,7 @@
 import { assertChain, chains, type Chain } from "@wormhole-foundation/sdk";
 import * as yargs from "yargs";
 import fs from "fs";
-import { ensureNttRoot } from ".";
+import { ensureNttRoot } from "./validation";
 import { colors } from "./colors.js";
 
 // We support project-local and global configuration.

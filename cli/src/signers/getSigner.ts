@@ -1,6 +1,6 @@
 import solana from "@wormhole-foundation/sdk/platforms/solana";
-import * as myEvmSigner from "./evmsigner.js";
-import * as mySuiSigner from "./suisigner.js";
+import * as myEvmSigner from "../evm/signer.js";
+import * as mySuiSigner from "../sui/signer.js";
 import {
   ChainContext,
   Wormhole,
