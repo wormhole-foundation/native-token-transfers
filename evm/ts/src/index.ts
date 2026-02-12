@@ -19,7 +19,7 @@ export function register(): void {
   registerProtocol(
     _platform,
     "MultiTokenNttWithExecutor",
-    EvmMultiTokenNttWithExecutor,
+    EvmMultiTokenNttWithExecutor
   );
 }
 
