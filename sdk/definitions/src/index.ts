@@ -4,8 +4,19 @@ import {
   nttNamedPayloads,
 } from "./layouts/index.js";
 
-registerPayloadTypes("Ntt", nttNamedPayloads);
-registerPayloadTypes("MultiTokenNtt", multiTokenNttNamedPayloads);
+let _registered = false;
+
+/** Explicitly register NTT payload types. Idempotent — safe to call multiple times. */
+export function register(): void {
+  if (_registered) return;
+  _registered = true;
+  registerPayloadTypes("Ntt", nttNamedPayloads);
+  registerPayloadTypes("MultiTokenNtt", multiTokenNttNamedPayloads);
+}
+
+// Backward-compatible: auto-register on import
+// TODO: remove this next time we are cool with a major version bump and are OK requiring integrators to make code changes
+register();
 
 export * from "./ntt.js";
 export * from "./nttWithExecutor.js";
