@@ -1410,7 +1410,11 @@ yargs(hideBin(process.argv))
         failures,
       }: {
         deps: Partial<{ [C in Chain]: Deployment<Chain> }>;
-        failures: { chain: Chain; reason: "missing-transceiver" | "error"; message?: string }[];
+        failures: {
+          chain: Chain;
+          reason: "missing-transceiver" | "error";
+          message?: string;
+        }[];
       } = await pullDeployments(deployments, network, verbose, maxConcurrent);
 
       let changed = false;
@@ -1514,7 +1518,11 @@ yargs(hideBin(process.argv))
         }
         return false;
       };
-      const { deps, failures } = await pullDeployments(deployments, network, verbose);
+      const { deps, failures } = await pullDeployments(
+        deployments,
+        network,
+        verbose
+      );
       const relevantFailures = failures.filter(
         (failure) => !shouldSkipChain(failure.chain)
       );
@@ -1676,9 +1684,10 @@ yargs(hideBin(process.argv))
         deps: depsAfterRegistrations,
         failures: failuresAfterRegistrations,
       } = await pullDeployments(deployments, network, verbose);
-      const relevantFailuresAfterRegistrations = failuresAfterRegistrations.filter(
-        (failure) => !shouldSkipChain(failure.chain)
-      );
+      const relevantFailuresAfterRegistrations =
+        failuresAfterRegistrations.filter(
+          (failure) => !shouldSkipChain(failure.chain)
+        );
       if (relevantFailuresAfterRegistrations.length > 0) {
         console.error(
           "Push aborted after peer registration due to chain fetch failures:"
@@ -4909,7 +4918,11 @@ async function pullDeployments(
   concurrency: number = 1
 ): Promise<{
   deps: Partial<{ [C in Chain]: Deployment<Chain> }>;
-  failures: { chain: Chain; reason: "missing-transceiver" | "error"; message?: string }[];
+  failures: {
+    chain: Chain;
+    reason: "missing-transceiver" | "error";
+    message?: string;
+  }[];
 }> {
   let deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
   type PullDeploymentResult =
@@ -4994,7 +5007,9 @@ async function pullDeployments(
       });
     } else {
       const msg =
-        result.error instanceof Error ? result.error.message : String(result.error);
+        result.error instanceof Error
+          ? result.error.message
+          : String(result.error);
       console.error(`Failed to fetch deployment for ${result.chain}: ${msg}`);
       failures.push({ chain: result.chain, reason: "error", message: msg });
     }
