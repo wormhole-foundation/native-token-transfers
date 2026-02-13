@@ -1416,8 +1416,13 @@ yargs(hideBin(process.argv))
       const network = deployments.network as Network;
       const path = argv["path"];
       const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
-      const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose, maxConcurrent);
+      const {
+        deps,
+        failures,
+      }: {
+        deps: Partial<{ [C in Chain]: Deployment<Chain> }>;
+        failures: { chain: Chain; reason: "missing-transceiver" | "error"; message?: string }[];
+      } = await pullDeployments(deployments, network, verbose, maxConcurrent);
 
       let changed = false;
       for (const [chain, deployment] of Object.entries(deps)) {
@@ -1445,6 +1450,16 @@ yargs(hideBin(process.argv))
           deployments.chains[chain] = preservedConfig;
         }
       }
+      if (failures.length > 0) {
+        console.error("Pull incomplete due to chain fetch failures:");
+        for (const failure of failures) {
+          console.error(
+            `  ${failure.chain}: ${failure.message ?? failure.reason}`
+          );
+        }
+        process.exit(1);
+      }
+
       const inboundResult = await configureInboundLimitsForPull(
         deployments,
         Boolean(argv["yes"])
@@ -1504,8 +1519,32 @@ yargs(hideBin(process.argv))
       const deployments: Config = loadConfig(argv["path"]);
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
-      const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose);
+      const skipChains = (argv["skip-chain"] as string[]) || [];
+      const onlyChains = (argv["only-chain"] as string[]) || [];
+      const shouldSkipChain = (chain: string) => {
+        if (onlyChains.length > 0) {
+          if (!onlyChains.includes(chain)) {
+            return true;
+          }
+        }
+        if (skipChains.includes(chain)) {
+          return true;
+        }
+        return false;
+      };
+      const { deps, failures } = await pullDeployments(deployments, network, verbose);
+      const relevantFailures = failures.filter(
+        (failure) => !shouldSkipChain(failure.chain)
+      );
+      if (relevantFailures.length > 0) {
+        console.error("Push aborted due to chain fetch failures:");
+        for (const failure of relevantFailures) {
+          console.error(
+            `  ${failure.chain}: ${failure.message ?? failure.reason}`
+          );
+        }
+        process.exit(1);
+      }
       const signerType = argv["signer-type"] as SignerType;
       const depsChains = Object.keys(deps) as Chain[];
       const needsSolanaPayer = depsChains.some(
@@ -1521,19 +1560,6 @@ yargs(hideBin(process.argv))
         (message) => console.warn(colors.yellow(message))
       );
       const gasEstimateMultiplier = argv["gas-estimate-multiplier"];
-      const skipChains = (argv["skip-chain"] as string[]) || [];
-      const onlyChains = (argv["only-chain"] as string[]) || [];
-      const shouldSkipChain = (chain: string) => {
-        if (onlyChains.length > 0) {
-          if (!onlyChains.includes(chain)) {
-            return true;
-          }
-        }
-        if (skipChains.includes(chain)) {
-          return true;
-        }
-        return false;
-      };
       const missing = await collectMissingConfigs(deps, verbose);
 
       if (checkConfigErrors(deps)) {
@@ -1664,9 +1690,24 @@ yargs(hideBin(process.argv))
       }
 
       // pull deps again
-      const depsAfterRegistrations: Partial<{
-        [C in Chain]: Deployment<Chain>;
-      }> = await pullDeployments(deployments, network, verbose);
+      const {
+        deps: depsAfterRegistrations,
+        failures: failuresAfterRegistrations,
+      } = await pullDeployments(deployments, network, verbose);
+      const relevantFailuresAfterRegistrations = failuresAfterRegistrations.filter(
+        (failure) => !shouldSkipChain(failure.chain)
+      );
+      if (relevantFailuresAfterRegistrations.length > 0) {
+        console.error(
+          "Push aborted after peer registration due to chain fetch failures:"
+        );
+        for (const failure of relevantFailuresAfterRegistrations) {
+          console.error(
+            `  ${failure.chain}: ${failure.message ?? failure.reason}`
+          );
+        }
+        process.exit(1);
+      }
 
       for (const [chain, deployment] of Object.entries(
         depsAfterRegistrations
@@ -1715,8 +1756,12 @@ yargs(hideBin(process.argv))
       const network = deployments.network as Network;
       const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
 
-      let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose, maxConcurrent);
+      const { deps, failures } = await pullDeployments(
+        deployments,
+        network,
+        verbose,
+        maxConcurrent
+      );
 
       let fixable = 0;
 
@@ -1779,6 +1824,16 @@ yargs(hideBin(process.argv))
             )
           );
         }
+      }
+
+      if (failures.length > 0) {
+        console.error("Status incomplete due to chain fetch failures:");
+        for (const failure of failures) {
+          console.error(
+            `  ${failure.chain}: ${failure.message ?? failure.reason}`
+          );
+        }
+        process.exit(1);
       }
 
       if (fixable > 0) {
@@ -4837,11 +4892,15 @@ async function pullDeployments(
   network: Network,
   verbose: boolean,
   concurrency: number = 1
-): Promise<Partial<{ [C in Chain]: Deployment<Chain> }>> {
+): Promise<{
+  deps: Partial<{ [C in Chain]: Deployment<Chain> }>;
+  failures: { chain: Chain; reason: "missing-transceiver" | "error"; message?: string }[];
+}> {
   let deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
   type PullDeploymentResult =
     | { chain: Chain; status: "missing-manager" }
     | { chain: Chain; status: "missing-transceiver" }
+    | { chain: Chain; status: "error"; error: unknown }
     | { chain: Chain; status: "ok"; deployment: Deployment<Chain> };
   const entries = Object.entries(deployments.chains);
   const fetchDeployment = async (
@@ -4856,48 +4915,40 @@ async function pullDeployments(
     if (managerAddress === undefined) {
       return { chain, status: "missing-manager" };
     }
-    const [remote, ctx, ntt, decimals] = await pullChainConfig(
-      network,
-      { chain, address: toUniversal(chain, managerAddress) },
-      overrides
-    );
-    const local = deployments.chains[chain];
+    try {
+      const [remote, ctx, ntt, decimals] = await pullChainConfig(
+        network,
+        { chain, address: toUniversal(chain, managerAddress) },
+        overrides
+      );
+      const local = deployments.chains[chain];
 
-    // TODO: what if it's not index 0...
-    // we should check that the address of this transceiver matches the
-    // address in the config. currently we just assume that ix 0 is the wormhole one
-    const whTransceiver = await ntt.getTransceiver(0);
-    if (whTransceiver === null) {
-      return { chain, status: "missing-transceiver" };
-    }
+      // TODO: what if it's not index 0...
+      // we should check that the address of this transceiver matches the
+      // address in the config. currently we just assume that ix 0 is the wormhole one
+      const whTransceiver = await ntt.getTransceiver(0);
+      if (whTransceiver === null) {
+        return { chain, status: "missing-transceiver" };
+      }
 
-    return {
-      chain,
-      status: "ok",
-      deployment: {
-        ctx,
-        ntt,
-        decimals,
-        manager: { chain, address: toUniversal(chain, managerAddress) },
-        whTransceiver,
-        config: {
-          remote,
-          local,
+      return {
+        chain,
+        status: "ok",
+        deployment: {
+          ctx,
+          ntt,
+          decimals,
+          manager: { chain, address: toUniversal(chain, managerAddress) },
+          whTransceiver,
+          config: {
+            remote,
+            local,
+          },
         },
-      },
-    };
-  };
-  const handleResult = (result: PullDeploymentResult): boolean => {
-    if (result.status === "ok") {
-      deps[result.chain] = result.deployment;
-      return false;
+      };
+    } catch (e) {
+      return { chain, status: "error", error: e };
     }
-    if (result.status === "missing-manager") {
-      console.error(`manager field not found for chain ${result.chain}`);
-      return false;
-    }
-    console.error(`Wormhole transceiver not found for ${result.chain}`);
-    return true;
   };
   const results = await runTaskPoolWithSequential(
     entries as [string, ChainConfig][],
@@ -4909,14 +4960,29 @@ async function pullDeployments(
     },
     fetchDeployment
   );
-  let shouldExit = false;
+  const failures: {
+    chain: Chain;
+    reason: "missing-transceiver" | "error";
+    message?: string;
+  }[] = [];
   for (const result of results) {
-    if (handleResult(result)) {
-      shouldExit = true;
+    if (result.status === "ok") {
+      deps[result.chain] = result.deployment;
+    } else if (result.status === "missing-manager") {
+      console.error(`manager field not found for chain ${result.chain}`);
+    } else if (result.status === "missing-transceiver") {
+      console.error(`Wormhole transceiver not found for ${result.chain}`);
+      failures.push({
+        chain: result.chain,
+        reason: "missing-transceiver",
+        message: "Wormhole transceiver not found",
+      });
+    } else {
+      const msg =
+        result.error instanceof Error ? result.error.message : String(result.error);
+      console.error(`Failed to fetch deployment for ${result.chain}: ${msg}`);
+      failures.push({ chain: result.chain, reason: "error", message: msg });
     }
-  }
-  if (shouldExit) {
-    process.exit(1);
   }
 
   const config = Object.fromEntries(
@@ -4926,7 +4992,7 @@ async function pullDeployments(
     Object.entries(deps).map(([k, v]) => [k, v.ntt])
   );
   await pullInboundLimits(ntts, config, verbose, concurrency);
-  return deps;
+  return { deps, failures };
 }
 
 async function pullChainConfig<N extends Network, C extends Chain>(
@@ -5161,9 +5227,8 @@ async function pullInboundLimits(
       console.error(`Chain ${chain} not found in deployment`);
       process.exit(1);
     }
-    if (chainConf.limits?.inbound === undefined) {
-      chainConf.limits.inbound = {};
-    }
+    chainConf.limits ??= { outbound: "0", inbound: {} };
+    chainConf.limits.inbound ??= {};
   }
   await runTaskPoolWithSequential(
     entries,
