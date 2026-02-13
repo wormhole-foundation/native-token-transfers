@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")"/..
+
+failed=0
+tag=""
+require_newer_than_latest_tag=false
+
+usage() {
+    echo "Usage: $0 [--tag vX.Y.Z+evm] [--require-newer-than-latest-tag]" >&2
+}
+
+is_semver() {
+    [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+}
+
+version_gt() {
+    local left="$1"
+    local right="$2"
+    local l1 l2 l3 r1 r2 r3
+
+    IFS='.' read -r l1 l2 l3 <<< "$left"
+    IFS='.' read -r r1 r2 r3 <<< "$right"
+
+    if (( l1 > r1 )); then return 0; fi
+    if (( l1 < r1 )); then return 1; fi
+    if (( l2 > r2 )); then return 0; fi
+    if (( l2 < r2 )); then return 1; fi
+    if (( l3 > r3 )); then return 0; fi
+    return 1
+}
+
+latest_evm_tag_version() {
+    local latest_version=""
+    local tag_name
+    local tag_version
+
+    while IFS= read -r tag_name; do
+        tag_version="${tag_name#v}"
+        tag_version="${tag_version%%+*}"
+
+        if ! is_semver "$tag_version"; then
+            continue
+        fi
+
+        if [[ -z "$latest_version" ]] || version_gt "$tag_version" "$latest_version"; then
+            latest_version="$tag_version"
+        fi
+    done < <(git tag --list 'v*+evm')
+
+    echo "$latest_version"
+}
+
+extract_version() {
+    local file="$1"
+    local constant="$2"
+    local matches
+    local match_count
+
+    if [[ ! -f "$file" ]]; then
+        echo "Error: $file not found" >&2
+        return 1
+    fi
+
+    matches=$(
+        sed -nE \
+            "s/^[[:space:]]*string[[:space:]]+public[[:space:]]+constant[[:space:]]+$constant[[:space:]]*=[[:space:]]*\"([^\"]+)\";[[:space:]]*$/\\1/p" \
+            "$file"
+    )
+
+    if [[ -z "$matches" ]]; then
+        echo "Error: could not parse $constant in $file" >&2
+        echo "  Expected format: string public constant $constant = \"X.Y.Z\";" >&2
+        return 1
+    fi
+
+    match_count=$(printf '%s\n' "$matches" | wc -l | tr -d ' ')
+    if [[ "$match_count" -ne 1 ]]; then
+        echo "Error: found multiple $constant definitions in $file" >&2
+        return 1
+    fi
+
+    echo "$matches"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --tag)
+            if [[ -n "$tag" ]]; then
+                echo "Error: --tag specified multiple times" >&2
+                usage
+                exit 1
+            fi
+            tag="${2:-}"
+            if [[ -z "$tag" ]]; then
+                echo "Error: --tag requires a tag name argument (e.g. v1.2.0+evm)" >&2
+                usage
+                exit 1
+            fi
+            shift 2
+            ;;
+        --require-newer-than-latest-tag)
+            require_newer_than_latest_tag=true
+            shift
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -n "$tag" && "$require_newer_than_latest_tag" == true ]]; then
+    echo "Error: --tag and --require-newer-than-latest-tag cannot be used together" >&2
+    usage
+    exit 1
+fi
+
+manager_version=$(extract_version \
+    "src/NttManager/NttManager.sol" \
+    "NTT_MANAGER_VERSION")
+
+transceiver_version=$(extract_version \
+    "src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol" \
+    "WORMHOLE_TRANSCEIVER_VERSION")
+
+echo "NttManager version:          $manager_version"
+echo "WormholeTransceiver version: $transceiver_version"
+
+if [[ "$manager_version" != "$transceiver_version" ]]; then
+    echo "Error: NttManager version ($manager_version) does not match WormholeTransceiver version ($transceiver_version)" >&2
+    failed=$((failed + 1))
+fi
+
+if [[ "$require_newer_than_latest_tag" == true ]]; then
+    latest_version="$(latest_evm_tag_version)"
+
+    if [[ -z "$latest_version" ]]; then
+        echo "Error: no EVM tags found matching v*+evm" >&2
+        echo "  Ensure tags are fetched (e.g. actions/checkout with fetch-depth: 0)" >&2
+        failed=$((failed + 1))
+    elif ! is_semver "$manager_version"; then
+        echo "Error: contract version is not a valid semver: $manager_version" >&2
+        failed=$((failed + 1))
+    elif ! version_gt "$manager_version" "$latest_version"; then
+        echo "Error: contract version ($manager_version) is not newer than latest EVM tag version ($latest_version)" >&2
+        echo "  Bump NTT_MANAGER_VERSION and WORMHOLE_TRANSCEIVER_VERSION after each EVM release" >&2
+        failed=$((failed + 1))
+    else
+        echo "Contract version is newer than latest EVM tag version: $latest_version"
+    fi
+fi
+
+if [[ -n "$tag" ]]; then
+    if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\+.+)?$ ]]; then
+        echo "Error: invalid tag format: $tag" >&2
+        echo "  Expected format: vX.Y.Z or vX.Y.Z+suffix (e.g. v1.2.0+evm)" >&2
+        failed=$((failed + 1))
+    else
+        tag_version="${tag#v}"
+        tag_version="${tag_version%%+*}"
+
+        if [[ "$manager_version" != "$tag_version" ]]; then
+            echo "Error: Contract version ($manager_version) does not match tag version ($tag_version)" >&2
+            echo "  Update NTT_MANAGER_VERSION in NttManager.sol to \"$tag_version\"" >&2
+            echo "  Update WORMHOLE_TRANSCEIVER_VERSION in WormholeTransceiver.sol to \"$tag_version\"" >&2
+            failed=$((failed + 1))
+        else
+            echo "Tag version matches: $tag_version"
+        fi
+    fi
+fi
+
+if [[ $failed -gt 0 ]]; then
+    echo ""
+    echo "Version check failed with $failed error(s)" >&2
+    exit 1
+fi
+
+echo ""
+echo "Version check passed"

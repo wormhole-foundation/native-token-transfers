@@ -6,6 +6,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*+evm"
 
 env:
   FOUNDRY_PROFILE: ci
@@ -20,6 +22,22 @@ defaults:
     working-directory: ./evm
 
 jobs:
+  # Ensure contract version constants stay in sync and are bumped after release
+  check-version:
+    name: Check version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            ./scripts/check-version --tag "${GITHUB_REF_NAME}"
+          else
+            ./scripts/check-version --require-newer-than-latest-tag
+          fi
+
   # Fast lint check - no build needed, runs in parallel with other jobs
   lint:
     name: forge fmt
