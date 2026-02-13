@@ -35,7 +35,14 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             ./scripts/check-version --tag "${GITHUB_REF_NAME}"
           else
-            ./scripts/check-version --require-newer-than-latest-tag
+            # On main/PR runs, allow equality only when this exact commit is already
+            # tagged as an EVM release (e.g. tag created on main HEAD).
+            head_evm_tag="$(git tag --points-at HEAD --list 'v*+evm' | head -n1)"
+            if [[ -n "${head_evm_tag}" ]]; then
+              ./scripts/check-version --tag "${head_evm_tag}"
+            else
+              ./scripts/check-version --require-newer-than-latest-tag
+            fi
           fi
 
   # Fast lint check - no build needed, runs in parallel with other jobs
