@@ -4,6 +4,7 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
+    "test": "bun test src/utils/__tests__",
     "typecheck": "tsc --noEmit",
     "prettier": "prettier --write ./src"
   },
