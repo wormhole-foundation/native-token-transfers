@@ -5262,6 +5262,9 @@ async function pullInboundLimits(
     toChain: Chain;
     fromNtt: Ntt<Network, Chain>;
   };
+  type InboundResult =
+    | { fromChain: Chain; toChain: Chain; status: "ok"; formatted: string }
+    | { fromChain: Chain; toChain: Chain; status: "error"; error: unknown };
   const tasks: InboundTask[] = [];
   for (const [fromChain, fromNtt] of entries) {
     assertChain(fromChain);
@@ -5273,35 +5276,66 @@ async function pullInboundLimits(
       tasks.push({ fromChain, toChain, fromNtt });
     }
   }
-  const runTask = async (task: InboundTask) => {
+  const runTask = async (task: InboundTask): Promise<InboundResult> => {
     const { fromChain, toChain, fromNtt } = task;
     if (verbose) {
       process.stdout.write(
         `Fetching inbound limit for ${fromChain} -> ${toChain}.......\n`
       );
     }
-    const peer = await retryWithExponentialBackoff(
-      () => fromNtt.getPeer(toChain),
-      5,
-      5000
-    );
-    const limit = peer?.inboundLimit ?? 0n;
-    const decimals = decimalsByChain[fromChain];
-    if (decimals === undefined) {
-      console.error(`Token decimals not found for chain ${fromChain}`);
-      process.exit(1);
+    try {
+      const peer = await retryWithExponentialBackoff(
+        () => fromNtt.getPeer(toChain),
+        5,
+        5000
+      );
+      const limit = peer?.inboundLimit ?? 0n;
+      const decimals = decimalsByChain[fromChain];
+      if (decimals === undefined) {
+        return {
+          fromChain,
+          toChain,
+          status: "error",
+          error: new Error(`Token decimals not found for chain ${fromChain}`),
+        };
+      }
+      return {
+        fromChain,
+        toChain,
+        status: "ok",
+        formatted: formatNumber(limit, decimals),
+      };
+    } catch (e) {
+      return { fromChain, toChain, status: "error", error: e };
     }
-    config[fromChain]!.limits!.inbound![toChain] = formatNumber(
-      limit,
-      decimals
-    );
   };
-  await runTaskPoolWithSequential(
+  const results = await runTaskPoolWithSequential(
     tasks,
     concurrency,
     (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
     runTask
   );
+  const errors: { fromChain: Chain; toChain: Chain; error: unknown }[] = [];
+  for (const result of results) {
+    if (result.status === "ok") {
+      config[result.fromChain]!.limits!.inbound![result.toChain] =
+        result.formatted;
+    } else {
+      errors.push({
+        fromChain: result.fromChain,
+        toChain: result.toChain,
+        error: result.error,
+      });
+    }
+  }
+  if (errors.length > 0) {
+    for (const { fromChain, toChain, error } of errors) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(
+        `Failed to fetch inbound limit for ${fromChain} -> ${toChain}: ${msg}`
+      );
+    }
+  }
 }
 
 async function patchSolanaBinary(
