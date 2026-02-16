@@ -35,11 +35,14 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             ./scripts/check-version --tag "${GITHUB_REF_NAME}"
           else
-            # On main/PR runs, allow equality only when this exact commit is already
-            # tagged as an EVM release (e.g. tag created on main HEAD).
+            # If this exact commit is already tagged as an EVM release, verify the
+            # tag matches. Otherwise, require a version bump only when src/ changed.
             head_evm_tag="$(git tag --points-at HEAD --list 'v*+evm' | head -n1)"
             if [[ -n "${head_evm_tag}" ]]; then
               ./scripts/check-version --tag "${head_evm_tag}"
+            elif git diff --quiet "origin/${GITHUB_BASE_REF:-main}...HEAD" -- src/; then
+              echo "No EVM source changes; skipping version-bump requirement"
+              ./scripts/check-version
             else
               ./scripts/check-version --require-newer-than-latest-tag
             fi
