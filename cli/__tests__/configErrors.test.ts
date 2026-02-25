@@ -73,7 +73,9 @@ describe("checkConfigErrors", () => {
 
     expect(result).toBe(0);
     expect(warnSpy).toHaveBeenCalledTimes(2);
-    expect((warnSpy.mock.calls[0] as any[])[0]).toContain("outbound limit of 0");
+    expect((warnSpy.mock.calls[0] as any[])[0]).toContain(
+      "outbound limit of 0"
+    );
     expect((warnSpy.mock.calls[1] as any[])[0]).toContain("inbound limit of 0");
   });
 

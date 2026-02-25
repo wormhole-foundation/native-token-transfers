@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatNumber, checkNumberFormatting } from "../query";
+import { formatNumber, checkNumberFormatting } from "../limitFormatting";
 
 describe("formatNumber", () => {
   test("formats zero with full precision", () => {
