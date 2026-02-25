@@ -96,7 +96,7 @@ describe("collectMissingInboundGroups", () => {
     ]);
 
     expect(warnSpy).toHaveBeenCalled();
-    const warningMessage = (warnSpy.mock.calls[0] as any[])[0] as string;
+    const warningMessage = warnSpy!.mock.calls[0][0] as string;
     expect(warningMessage).toContain("Skipping Solana");
   });
 

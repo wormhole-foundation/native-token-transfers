@@ -489,6 +489,13 @@ describe("E2E: NTT deployment on Anvil forks", () => {
         ],
         { stdout: "pipe", stderr: "pipe" }
       );
+      const exitCode = await proc.exited;
+      if (exitCode !== 0) {
+        const stderr = await new Response(proc.stderr).text();
+        throw new Error(
+          `cast call hasRole failed (exit ${exitCode}): ${stderr}`
+        );
+      }
       const out = (await new Response(proc.stdout).text()).trim();
       expect(out).toBe("true");
     }
@@ -541,6 +548,7 @@ describe("E2E: NTT deployment on Anvil forks", () => {
       console.error("status stdout:", result.stdout);
       console.error("status stderr:", result.stderr);
     }
+    expect(result.exitCode).toBe(0);
     expect(output).toContain("up to date");
   }, 120_000);
 
