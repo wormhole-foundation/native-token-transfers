@@ -10,6 +10,7 @@ export { createPushCommand } from "./push";
 export { createSetMintAuthorityCommand } from "./set-mint-authority";
 export { createSolanaCommand } from "./solana";
 export { createStatusCommand } from "./status";
+export { createSuiCommand } from "./sui";
 export { createTransferOwnershipCommand } from "./transfer-ownership";
 export { createUpdateCommand } from "./update";
 export { createUpgradeCommand } from "./upgrade";
