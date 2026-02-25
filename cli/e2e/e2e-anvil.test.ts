@@ -58,9 +58,6 @@ const DEFAULT_ADMIN_ROLE =
 const SEPOLIA_CORE_BRIDGE = "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78";
 const BASE_SEPOLIA_CORE_BRIDGE = "0x79A1027a6A159502049F10906D333EC57E95F083";
 
-// CCL contract on Sepolia testnet
-const SEPOLIA_CCL_CONTRACT = "0x6A4B4A882F5F0a447078b4Fd0b4B571A82371ec2";
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -98,7 +95,7 @@ async function setCoreBridgeFee(
   rpcUrl: string,
   coreBridge: string
 ): Promise<void> {
-  await fetch(rpcUrl, {
+  const res = await fetch(rpcUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -112,6 +109,17 @@ async function setCoreBridgeFee(
       id: 1,
     }),
   });
+  if (!res.ok) {
+    throw new Error(
+      `anvil_setStorageAt failed for ${coreBridge}: HTTP ${res.status}`
+    );
+  }
+  const json = (await res.json()) as { error?: { message: string } };
+  if (json.error) {
+    throw new Error(
+      `anvil_setStorageAt failed for ${coreBridge}: ${json.error.message}`
+    );
+  }
 }
 
 /** Grant a role on an AccessControl token using anvil impersonation. */
@@ -151,7 +159,11 @@ async function grantRoleImpersonated(
     ],
     { stdout: "pipe", stderr: "pipe" }
   );
-  await proc.exited;
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text();
+    throw new Error(`cast send grantRole failed (exit ${exitCode}): ${stderr}`);
+  }
 
   // Stop impersonation
   await fetch(rpcUrl, {
@@ -189,20 +201,23 @@ async function ntt(
     proc.stdin.end();
   }
 
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-
   const timeout = opts?.timeout ?? 300_000;
-  const exitCode = await Promise.race([
-    proc.exited,
-    new Promise<number>((_, reject) =>
-      setTimeout(() => reject(new Error(`ntt ${args[0]} timed out`)), timeout)
+  const stdoutP = new Response(proc.stdout).text();
+  const stderrP = new Response(proc.stderr).text();
+
+  const result = await Promise.race([
+    Promise.all([stdoutP, stderrP, proc.exited]).then(
+      ([stdout, stderr, exitCode]) => ({ stdout, stderr, exitCode })
+    ),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => {
+        proc.kill();
+        reject(new Error(`ntt ${args[0]} timed out after ${timeout}ms`));
+      }, timeout)
     ),
   ]);
 
-  return { stdout, stderr, exitCode: exitCode as number };
+  return { ...result, exitCode: result.exitCode as number };
 }
 
 // ---------------------------------------------------------------------------

@@ -63,6 +63,7 @@ jobs:
 
       - name: Run EVM E2E tests
         env:
+          NTT_EVM_CACHE_DIR: ${{ github.workspace }}/evm
           SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
           BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
         run: bun run --cwd cli test:e2e
