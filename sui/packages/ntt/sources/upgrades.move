@@ -1,6 +1,13 @@
 module ntt::upgrades {
     use ntt::state::State;
 
+    /// IMPORTANT: This constant MUST be incremented in the new bytecode for
+    /// every package upgrade. `commit_upgrade` writes this value into the NTT
+    /// State, and `check_version` compares against it. If VERSION is not
+    /// incremented, the old (potentially vulnerable) package's functions will
+    /// continue to pass version checks alongside the new package.
+    ///
+    /// Before publishing an upgrade, verify that VERSION > previous VERSION.
     const VERSION: u64 = 0;
 
     public struct UpgradeCap has key, store {
