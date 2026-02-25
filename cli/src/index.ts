@@ -66,6 +66,12 @@ import {
 } from "@wormhole-foundation/sdk-solana";
 import { type SuiChains } from "@wormhole-foundation/sdk-sui";
 import { registerSolanaTransceiver } from "./solanaHelpers";
+import {
+  discoverNttAddresses,
+  writePublishedTomls,
+  buildAndPublishGovernance,
+  transferCapsToGovernance,
+} from "./suiGovernance";
 
 import { colorizeDiff, diffObjects } from "./diff";
 import { forgeSignerArgs, getSigner, type SignerType } from "./getSigner";
@@ -2718,6 +2724,227 @@ yargs(hideBin(process.argv))
           }
 
           await enableBigBlocks(isTestnet, !argv["disable"]);
+        }
+      )
+      .demandCommand();
+  })
+  .command(["sui"], "Sui commands", (yargs) => {
+    yargs
+      .command(
+        "deploy-governance <state-id>",
+        "Deploy the NTT governance package against an existing NTT deployment",
+        (yargs) =>
+          yargs
+            .positional("state-id", {
+              describe: "NTT State object ID",
+              type: "string",
+              demandOption: true,
+            })
+            .option("network", {
+              ...options.network,
+            })
+            .option("admin-cap", {
+              describe:
+                "AdminCap object ID (auto-discovered from State if omitted)",
+              type: "string",
+            })
+            .option("upgrade-cap", {
+              describe:
+                "UpgradeCap object ID (auto-discovered from State if omitted)",
+              type: "string",
+            })
+            .option("gas-budget", {
+              describe: "Gas budget for transactions",
+              type: "number",
+              default: 500000000,
+            })
+            .option("package-path", {
+              describe:
+                "Path to project root containing sui/packages/ (default: cwd)",
+              type: "string",
+            })
+            .option("skip-receive", {
+              describe:
+                "Just publish the governance package, skip transferring caps",
+              type: "boolean",
+              default: false,
+            }),
+        async (argv) => {
+          const stateId = argv["state-id"];
+          const network = argv["network"];
+          const gasBudget = argv["gas-budget"] ?? 500000000;
+          const packagePath = argv["package-path"] || ".";
+          const skipReceive = argv["skip-receive"] ?? false;
+
+          if (!isNetwork(network)) {
+            console.error("Invalid network");
+            process.exit(1);
+          }
+
+          if (network === "Devnet") {
+            console.error(
+              "Devnet is not supported for governance deployment"
+            );
+            process.exit(1);
+          }
+
+          console.log(colors.blue("Deploying NTT Governance on Sui"));
+          console.log(`NTT State: ${stateId}`);
+          console.log(`Network: ${network}`);
+          console.log(`Gas budget: ${gasBudget}`);
+
+          const wh = new Wormhole(
+            network,
+            [sui.Platform],
+            overrides
+          );
+          const ch = wh.getChain("Sui");
+          const pwd = path.resolve(packagePath);
+
+          await withSuiEnv(pwd, ch, async () => {
+            const signer = await getSigner(ch, "privateKey");
+            const suiSigner = signer.signer as any;
+            const client = suiSigner.client;
+
+            // ── Step 1: Discover addresses from State object ──
+
+            console.log("Discovering package addresses from State object...");
+            const addresses = await discoverNttAddresses(client, stateId);
+            console.log(`NTT Package: ${addresses.nttPackageId}`);
+            console.log(`NTT Common Package: ${addresses.nttCommonPackageId}`);
+
+            const adminCapId =
+              argv["admin-cap"] || addresses.adminCapId;
+            const upgradeCapId =
+              argv["upgrade-cap"] || addresses.upgradeCapId;
+
+            if (!skipReceive) {
+              if (!adminCapId) {
+                console.error(
+                  "Could not discover AdminCap ID from State object. " +
+                    "Provide it with --admin-cap or use --skip-receive."
+                );
+                process.exit(1);
+              }
+              if (!upgradeCapId) {
+                console.error(
+                  "Could not discover UpgradeCap ID from State object. " +
+                    "Provide it with --upgrade-cap or use --skip-receive."
+                );
+                process.exit(1);
+              }
+              console.log(`AdminCap: ${adminCapId}`);
+              console.log(`UpgradeCap: ${upgradeCapId}`);
+            }
+
+            // ── Step 2: Generate Published.toml files ──
+
+            const chainIdentifier = execSync(
+              "sui client chain-identifier",
+              { encoding: "utf8", env: process.env }
+            ).trim();
+            console.log(`Chain identifier: ${chainIdentifier}`);
+
+            const buildEnv =
+              network === "Mainnet" ? "mainnet" : "testnet";
+            const packagesPath = `${pwd}/sui/packages`;
+
+            const cleanupPublishedTomls = writePublishedTomls(
+              packagesPath,
+              buildEnv,
+              chainIdentifier,
+              addresses.nttPackageId,
+              addresses.nttCommonPackageId
+            );
+
+            try {
+              // ── Step 3 & 4: Build and publish governance ──
+
+              const { govPackageId, govStateId, govUpgradeCapId } =
+                buildAndPublishGovernance(
+                  packagesPath,
+                  buildEnv,
+                  gasBudget
+                );
+
+              console.log(
+                colors.green(
+                  `Governance package published at: ${govPackageId}`
+                )
+              );
+              console.log(`GovernanceState created at: ${govStateId}`);
+              if (govUpgradeCapId) {
+                console.log(
+                  `Governance UpgradeCap: ${govUpgradeCapId} ` +
+                    colors.yellow(
+                      "(secure this — it controls governance package upgrades)"
+                    )
+                );
+              }
+
+              // ── Step 5: Transfer and receive caps ──
+
+              if (!skipReceive) {
+                await transferCapsToGovernance(
+                  client,
+                  suiSigner._signer,
+                  govPackageId,
+                  govStateId,
+                  adminCapId!,
+                  upgradeCapId!,
+                  gasBudget
+                );
+                console.log(
+                  colors.green(
+                    "Caps received into GovernanceState successfully"
+                  )
+                );
+              }
+
+              // ── Summary ──
+
+              console.log(
+                "\n" +
+                  colors.green(
+                    "Governance deployment completed successfully!"
+                  )
+              );
+              console.log(
+                `Governance Package ID: ${govPackageId}`
+              );
+              console.log(`GovernanceState ID:    ${govStateId}`);
+              if (govUpgradeCapId) {
+                console.log(
+                  `Governance UpgradeCap: ${govUpgradeCapId}`
+                );
+              }
+              if (!skipReceive) {
+                console.log(
+                  `AdminCap + UpgradeCap transferred to GovernanceState`
+                );
+              } else {
+                console.log(
+                  colors.yellow(
+                    "\nSkipped cap transfer. To complete setup manually:"
+                  )
+                );
+                console.log(
+                  `  1. Transfer AdminCap (${adminCapId || "<id>"}) to ${govStateId}`
+                );
+                console.log(
+                  `  2. Transfer UpgradeCap (${upgradeCapId || "<id>"}) to ${govStateId}`
+                );
+                console.log(
+                  `  3. Call ${govPackageId}::governance::receive_admin_cap`
+                );
+                console.log(
+                  `  4. Call ${govPackageId}::governance::receive_upgrade_cap`
+                );
+              }
+            } finally {
+              cleanupPublishedTomls();
+            }
+          });
         }
       )
       .demandCommand();

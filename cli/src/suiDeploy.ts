@@ -58,11 +58,16 @@ export function buildSuiPackage(
   }
 }
 
+export interface SuiPublishResult {
+  packageId: string;
+  objectChanges: any[];
+}
+
 export function publishSuiPackage(
   packagesPath: string,
   packageName: string,
   gasBudget: number
-): void {
+): SuiPublishResult {
   console.log(`Publishing ${packageName} package...`);
   const result = execFileSync(
     "sui",
@@ -80,7 +85,11 @@ export function publishSuiPackage(
   const packageId = deploy.objectChanges.find(
     (c: any) => c.type === "published"
   )?.packageId;
+  if (!packageId) {
+    throw new Error(`Could not find package ID for ${packageName} in publish result`);
+  }
   console.log(`${packageName} deployed at: ${packageId}`);
+  return { packageId, objectChanges: deploy.objectChanges };
 }
 
 /**
@@ -98,6 +107,18 @@ export function findCreatedObject(
       c.objectType?.includes(typeSubstring) &&
       (!shared || c.owner?.Shared)
   )?.objectId;
+}
+
+/**
+ * Generate Published.toml content for a Sui package.
+ * Tells the build system the package is already published at the given address.
+ */
+export function generatePublishedToml(
+  env: string,
+  chainId: string,
+  packageId: string
+): string {
+  return `[published.${env}]\nchain-id = "${chainId}"\npublished-at = "${packageId}"\noriginal-id = "${packageId}"\nversion = 1\n`;
 }
 
 export function parsePublishedToml(
