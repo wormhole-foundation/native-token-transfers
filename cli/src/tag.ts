@@ -1,6 +1,7 @@
 import type { Platform } from "@wormhole-foundation/sdk";
 import { execSync } from "child_process";
 import fs from "fs";
+import path from "path";
 import { colors } from "./colors.js";
 import { askForConfirmation } from "./prompts.js";
 
@@ -83,12 +84,10 @@ export function createWorkTree(platform: Platform, version: string): string {
 
   // NOTE: we create this symlink whether or not the file exists.
   // this way, if it's created later, the symlink will be correct
-  execSync(
-    `ln -fs $(pwd)/overrides.json $(pwd)/${worktreeName}/overrides.json`,
-    {
-      stdio: "inherit",
-    }
-  );
+  const overridesSrc = path.resolve("overrides.json");
+  const overridesDst = path.resolve(worktreeName, "overrides.json");
+  fs.rmSync(overridesDst, { force: true });
+  fs.symlinkSync(overridesSrc, overridesDst);
 
   console.log(
     colors.green(`Created worktree at ${worktreeName} from tag ${tag}`)
