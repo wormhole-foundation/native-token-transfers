@@ -14,8 +14,10 @@ import {
   EXCLUDED_DIFF_PATHS,
   getNestedValue,
   setNestedValue,
+  resolveRpcConcurrency,
 } from "./shared";
 import { pullDeployments, askForConfirmation } from "../index";
+import { configureInboundLimitsForPull } from "../limits.js";
 import type { Deployment } from "../validation";
 
 export function createPullCommand(overrides: WormholeConfigOverrides<Network>) {
@@ -27,6 +29,7 @@ export function createPullCommand(overrides: WormholeConfigOverrides<Network>) {
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 pull",
           "Pull the latest configuration from the blockchain for all chains"
@@ -40,8 +43,14 @@ export function createPullCommand(overrides: WormholeConfigOverrides<Network>) {
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
       const path = argv["path"];
-      const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose, overrides);
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
+      const { deps, failures } = await pullDeployments(
+        deployments,
+        network,
+        verbose,
+        maxConcurrent,
+        overrides
+      );
 
       let changed = false;
       for (const [chain, deployment] of Object.entries(deps)) {
@@ -69,8 +78,24 @@ export function createPullCommand(overrides: WormholeConfigOverrides<Network>) {
           deployments.chains[chain] = preservedConfig;
         }
       }
-      if (!changed) {
-        console.log(`${path} is already up to date`);
+      if (failures.length > 0) {
+        console.error("Pull incomplete due to chain fetch failures:");
+        for (const failure of failures) {
+          console.error(
+            `  ${failure.chain}: ${failure.message ?? failure.reason}`
+          );
+        }
+        process.exit(1);
+      }
+      const inboundResult = await configureInboundLimitsForPull(
+        deployments,
+        Boolean(argv["yes"])
+      );
+      const shouldWrite = changed || inboundResult.updated;
+      if (!shouldWrite) {
+        if (!inboundResult.hadMissing) {
+          console.log(`${path} is already up to date`);
+        }
         process.exit(0);
       }
 

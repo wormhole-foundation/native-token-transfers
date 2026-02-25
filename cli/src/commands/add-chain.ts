@@ -29,6 +29,7 @@ import {
   parseCclFlag,
   confirmCustomFinality,
 } from "../index";
+import { configureInboundLimitsForNewChain } from "../limits.js";
 
 export function createAddChainCommand(
   overrides: WormholeConfigOverrides<Network>
@@ -326,6 +327,11 @@ export function createAddChainCommand(
       }
 
       deployments.chains[chain] = config;
+      await configureInboundLimitsForNewChain(
+        deployments,
+        chain,
+        Boolean(argv["yes"])
+      );
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
       console.log(`Added ${chain} to ${path}`);
     },

@@ -40,6 +40,7 @@ import {
 } from "./query";
 import { askForConfirmation } from "./prompts.js";
 import { upgrade } from "./deploy";
+import { runTaskPoolWithSequential } from "./utils/concurrency";
 
 export async function pushDeployment<C extends Chain>(
   deployment: Deployment<C>,
@@ -235,48 +236,110 @@ export async function pullDeployments(
   deployments: Config,
   network: Network,
   verbose: boolean,
+  concurrency: number = 1,
   overrides?: WormholeConfigOverrides<Network>
-): Promise<Partial<{ [C in Chain]: Deployment<Chain> }>> {
+): Promise<{
+  deps: Partial<{ [C in Chain]: Deployment<Chain> }>;
+  failures: {
+    chain: Chain;
+    reason: "missing-transceiver" | "error";
+    message?: string;
+  }[];
+}> {
   let deps: Partial<{ [C in Chain]: Deployment<Chain> }> = {};
 
-  for (const [chain, deployment] of Object.entries(deployments.chains)) {
+  type PullDeploymentResult =
+    | { chain: Chain; status: "missing-manager" }
+    | { chain: Chain; status: "missing-transceiver" }
+    | { chain: Chain; status: "error"; error: unknown }
+    | { chain: Chain; status: "ok"; deployment: Deployment<Chain> };
+
+  const entries = Object.entries(deployments.chains);
+
+  const fetchDeployment = async (
+    entry: [string, ChainConfig]
+  ): Promise<PullDeploymentResult> => {
+    const [chain, deployment] = entry;
     if (verbose) {
       process.stdout.write(`Fetching config for ${chain}......\n`);
     }
     assertChain(chain);
     const managerAddress: string | undefined = deployment.manager;
     if (managerAddress === undefined) {
-      console.error(`manager field not found for chain ${chain}`);
-      // process.exit(1);
-      continue;
+      return { chain, status: "missing-manager" };
     }
-    const [remote, ctx, ntt, decimals] = await pullChainConfig(
-      network,
-      { chain, address: toUniversal(chain, managerAddress) },
-      overrides
-    );
-    const local = deployments.chains[chain];
+    try {
+      const [remote, ctx, ntt, decimals] = await pullChainConfig(
+        network,
+        { chain, address: toUniversal(chain, managerAddress) },
+        overrides
+      );
+      const local = deployments.chains[chain];
 
-    // TODO: what if it's not index 0...
-    // we should check that the address of this transceiver matches the
-    // address in the config. currently we just assume that ix 0 is the wormhole one
-    const whTransceiver = await ntt.getTransceiver(0);
-    if (whTransceiver === null) {
-      console.error(`Wormhole transceiver not found for ${chain}`);
-      process.exit(1);
+      // TODO: what if it's not index 0...
+      // we should check that the address of this transceiver matches the
+      // address in the config. currently we just assume that ix 0 is the wormhole one
+      const whTransceiver = await ntt.getTransceiver(0);
+      if (whTransceiver === null) {
+        return { chain, status: "missing-transceiver" };
+      }
+
+      return {
+        chain,
+        status: "ok",
+        deployment: {
+          ctx,
+          ntt,
+          decimals,
+          manager: { chain, address: toUniversal(chain, managerAddress) },
+          whTransceiver,
+          config: {
+            remote,
+            local,
+          },
+        },
+      };
+    } catch (e) {
+      return { chain, status: "error", error: e };
     }
+  };
 
-    deps[chain] = {
-      ctx,
-      ntt,
-      decimals,
-      manager: { chain, address: toUniversal(chain, managerAddress) },
-      whTransceiver,
-      config: {
-        remote,
-        local,
-      },
-    };
+  const results = await runTaskPoolWithSequential(
+    entries as [string, ChainConfig][],
+    concurrency,
+    (entry) => {
+      const [chain] = entry;
+      assertChain(chain);
+      return chainToPlatform(chain) === "Solana";
+    },
+    fetchDeployment
+  );
+
+  const failures: {
+    chain: Chain;
+    reason: "missing-transceiver" | "error";
+    message?: string;
+  }[] = [];
+  for (const result of results) {
+    if (result.status === "ok") {
+      deps[result.chain] = result.deployment;
+    } else if (result.status === "missing-manager") {
+      console.error(`manager field not found for chain ${result.chain}`);
+    } else if (result.status === "missing-transceiver") {
+      console.error(`Wormhole transceiver not found for ${result.chain}`);
+      failures.push({
+        chain: result.chain,
+        reason: "missing-transceiver",
+        message: "Wormhole transceiver not found",
+      });
+    } else {
+      const msg =
+        result.error instanceof Error
+          ? result.error.message
+          : String(result.error);
+      console.error(`Failed to fetch deployment for ${result.chain}: ${msg}`);
+      failures.push({ chain: result.chain, reason: "error", message: msg });
+    }
   }
 
   const config = Object.fromEntries(
@@ -285,8 +348,8 @@ export async function pullDeployments(
   const ntts = Object.fromEntries(
     Object.entries(deps).map(([k, v]) => [k, v.ntt])
   );
-  await pullInboundLimits(ntts, config, verbose);
-  return deps;
+  await pullInboundLimits(ntts, config, verbose, concurrency);
+  return { deps, failures };
 }
 
 export async function pullChainConfig<N extends Network, C extends Chain>(

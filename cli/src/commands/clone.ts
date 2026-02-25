@@ -2,6 +2,7 @@ import fs from "fs";
 import {
   assertChain,
   chains,
+  chainToPlatform,
   toUniversal,
   UniversalAddress,
   isNetwork,
@@ -11,10 +12,12 @@ import {
 import type { WormholeConfigOverrides } from "@wormhole-foundation/sdk-connect";
 import type { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 import type { Argv } from "yargs";
-import { options } from "./shared";
+import { colors } from "../colors.js";
+import { options, resolveRpcConcurrency } from "./shared";
 import { loadConfig, type ChainConfig } from "../deployments";
 import { retryWithExponentialBackoff } from "../validation";
 import { pullChainConfig, pullInboundLimits } from "../index";
+import { runTaskPoolWithSequential } from "../utils/concurrency";
 import type { Config } from "../deployments";
 
 export function createCloneCommand(
@@ -30,6 +33,7 @@ export function createCloneCommand(
         .positional("address", options.address)
         .option("path", options.deploymentPath)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 clone Testnet Ethereum 0x5678...",
           "Clone an existing Ethereum deployment on Testnet"
@@ -46,6 +50,7 @@ export function createCloneCommand(
 
       const path = argv["path"];
       const verbose = argv["verbose"];
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
       // check if the file exists
       if (fs.existsSync(path)) {
         console.error(`Deployment file already exists at ${path}`);
@@ -89,24 +94,57 @@ export function createCloneCommand(
         [chain]: config,
       };
 
+      let lastStatusLineLength = 0;
+      const updateStatusLine = (message: string) => {
+        if (!process.stdout.isTTY) {
+          return;
+        }
+        const padded = message.padEnd(lastStatusLineLength, " ");
+        process.stdout.write(`\r${padded}`);
+        lastStatusLineLength = Math.max(lastStatusLineLength, message.length);
+      };
+      const finishStatusLine = () => {
+        if (!process.stdout.isTTY) {
+          return;
+        }
+        if (lastStatusLineLength > 0) {
+          process.stdout.write("\n");
+        }
+      };
+      const formatError = (error: unknown) =>
+        error instanceof Error ? error.message : String(error);
+
       // discover peers
-      let count = 0;
-      for (const c of chains) {
-        process.stdout.write(
-          `[${count}/${chains.length - 1}] Fetching peer config for ${c}`
-        );
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        count++;
+      type PeerResult =
+        | {
+            chain: Chain;
+            status: "ok";
+            config: ChainConfig;
+            ntt: Ntt<Network, Chain>;
+          }
+        | { chain: Chain; status: "none" }
+        | {
+            chain: Chain;
+            status: "error";
+            stage: "peer" | "config";
+            error: unknown;
+          };
+      const peerChains = chains.filter((c) => c !== chain);
+      const total = peerChains.length;
 
-        const peer = await retryWithExponentialBackoff(
-          () => ntt.getPeer(c),
-          5,
-          5000
-        );
-
-        process.stdout.write(`\n`);
+      const fetchPeerConfig = async (c: Chain): Promise<PeerResult> => {
+        let peer: Awaited<ReturnType<typeof ntt.getPeer>> | null = null;
+        try {
+          peer = await retryWithExponentialBackoff(
+            () => ntt.getPeer(c),
+            5,
+            5000
+          );
+        } catch (e) {
+          return { chain: c, status: "error", stage: "peer", error: e };
+        }
         if (peer === null) {
-          continue;
+          return { chain: c, status: "none" };
         }
         const address: UniversalAddress =
           peer.address.address.toUniversalAddress();
@@ -116,11 +154,53 @@ export function createCloneCommand(
             { chain: c, address },
             overrides
           );
-          ntts[c] = peerNtt as any;
-          configs[c] = peerConfig;
+          return {
+            chain: c,
+            status: "ok",
+            config: peerConfig,
+            ntt: peerNtt as any,
+          };
         } catch (e) {
-          console.error(`Failed to pull config for ${c}:`, e);
-          continue;
+          return { chain: c, status: "error", stage: "config", error: e };
+        }
+      };
+
+      let completed = 0;
+      const peerResults = await runTaskPoolWithSequential(
+        peerChains,
+        maxConcurrent,
+        (item) => chainToPlatform(item) === "Solana",
+        async (item) => {
+          const result = await fetchPeerConfig(item);
+          completed++;
+          updateStatusLine(
+            `[${completed}/${total}] Fetched peer config for ${item}`
+          );
+          return result;
+        }
+      );
+      updateStatusLine(
+        `[${total}/${total}] Completed attempt fetching peer config for ${total} chain${
+          total === 1 ? "" : "s"
+        }.`
+      );
+      finishStatusLine();
+
+      const peerErrors: {
+        chain: Chain;
+        stage: "peer" | "config";
+        error: unknown;
+      }[] = [];
+      for (const result of peerResults) {
+        if (result.status === "ok") {
+          ntts[result.chain] = result.ntt as any;
+          configs[result.chain] = result.config;
+        } else if (result.status === "error") {
+          peerErrors.push({
+            chain: result.chain,
+            stage: result.stage,
+            error: result.error,
+          });
         }
       }
 
@@ -136,13 +216,33 @@ export function createCloneCommand(
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // now loop through the chains, and query their peer information to get the inbound limits
-      await pullInboundLimits(ntts, sorted, verbose);
+      await pullInboundLimits(ntts, sorted, verbose, maxConcurrent);
 
       const deployment: Config = {
         network: argv["network"],
         chains: sorted,
       };
       fs.writeFileSync(path, JSON.stringify(deployment, null, 2));
+
+      if (peerErrors.length > 0) {
+        const chainsWithErrors = Array.from(
+          new Set(peerErrors.map((entry) => entry.chain))
+        ).sort((a, b) => a.localeCompare(b));
+        console.error(
+          `Completed with errors for ${chainsWithErrors.length} chain(s): ${chainsWithErrors.join(", ")}`
+        );
+        if (verbose) {
+          for (const { chain: errorChain, stage, error } of peerErrors) {
+            console.warn(`  - ${errorChain} (${stage}): ${formatError(error)}`);
+          }
+        } else {
+          console.warn("Run with --verbose to see details.");
+        }
+      } else {
+        console.log(
+          colors.green(`Deployment file created successfully: ${path}`)
+        );
+      }
     },
   };
 }

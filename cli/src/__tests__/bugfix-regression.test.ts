@@ -1,13 +1,27 @@
-import { describe, expect, test, spyOn, afterEach } from "bun:test";
+import { describe, expect, test, spyOn, beforeEach, afterEach } from "bun:test";
 import fs from "fs";
 import path from "path";
-import { checkConfigErrors, validateChain } from "../validation";
+import { checkConfigErrors } from "../configErrors";
+import { validateChain } from "../validation";
 
 const SRC_DIR = path.resolve(import.meta.dir, "..");
 
 // ─── Fix #15: checkConfigErrors guards ──────────────────────────────────────
 
 describe("Fix #15: checkConfigErrors — undefined local config / limits", () => {
+  let errorSpy: ReturnType<typeof spyOn>;
+  let warnSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy?.mockRestore();
+    warnSpy?.mockRestore();
+  });
+
   test("handles undefined config.local without TypeError", () => {
     // Before fix: `deployment.config.local!` → access .limits on undefined → TypeError
     const deps = {
@@ -49,8 +63,8 @@ describe("Fix #15: checkConfigErrors — undefined local config / limits", () =>
         config: {
           local: {
             limits: {
-              outbound: "1000.0",
-              inbound: { BaseSepolia: "500.0" },
+              outbound: "1000.000000000000000000",
+              inbound: { BaseSepolia: "500.000000000000000000" },
             },
           },
         },

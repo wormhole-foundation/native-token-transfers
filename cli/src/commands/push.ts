@@ -65,8 +65,40 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
       const deployments: Config = loadConfig(argv["path"]);
       const verbose = argv["verbose"];
       const network = deployments.network as Network;
-      const deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose, overrides);
+      const skipChains = (argv["skip-chain"] as string[]) || [];
+      const onlyChains = (argv["only-chain"] as string[]) || [];
+      const shouldSkipChain = (chain: string) => {
+        if (onlyChains.length > 0) {
+          if (!onlyChains.includes(chain)) {
+            return true;
+          }
+        }
+        if (skipChains.includes(chain)) {
+          return true;
+        }
+        return false;
+      };
+
+      const { deps, failures } = await pullDeployments(
+        deployments,
+        network,
+        verbose,
+        1,
+        overrides
+      );
+      const relevantFailures = failures.filter(
+        (failure) => !shouldSkipChain(failure.chain)
+      );
+      if (relevantFailures.length > 0) {
+        console.error("Push aborted due to chain fetch failures:");
+        for (const failure of relevantFailures) {
+          console.error(
+            `  ${failure.chain}: ${failure.message ?? failure.reason}`
+          );
+        }
+        process.exit(1);
+      }
+
       const signerType = argv["signer-type"] as SignerType;
       const depsChains = Object.keys(deps) as Chain[];
       const needsSolanaPayer = depsChains.some(
@@ -82,19 +114,6 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
         (message) => console.warn(colors.yellow(message))
       );
       const gasEstimateMultiplier = argv["gas-estimate-multiplier"];
-      const skipChains = (argv["skip-chain"] as string[]) || [];
-      const onlyChains = (argv["only-chain"] as string[]) || [];
-      const shouldSkipChain = (chain: string) => {
-        if (onlyChains.length > 0) {
-          if (!onlyChains.includes(chain)) {
-            return true;
-          }
-        }
-        if (skipChains.includes(chain)) {
-          return true;
-        }
-        return false;
-      };
       const missing = await collectMissingConfigs(deps, verbose);
 
       if (checkConfigErrors(deps)) {
@@ -224,10 +243,26 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
         }
       }
 
-      // pull deps again
-      const depsAfterRegistrations: Partial<{
-        [C in Chain]: Deployment<Chain>;
-      }> = await pullDeployments(deployments, network, verbose, overrides);
+      // pull deps again after registrations
+      const {
+        deps: depsAfterRegistrations,
+        failures: failuresAfterRegistrations,
+      } = await pullDeployments(deployments, network, verbose, 1, overrides);
+      const relevantFailuresAfterRegistrations =
+        failuresAfterRegistrations.filter(
+          (failure) => !shouldSkipChain(failure.chain)
+        );
+      if (relevantFailuresAfterRegistrations.length > 0) {
+        console.error(
+          "Push aborted after peer registration due to chain fetch failures:"
+        );
+        for (const failure of relevantFailuresAfterRegistrations) {
+          console.error(
+            `  ${failure.chain}: ${failure.message ?? failure.reason}`
+          );
+        }
+        process.exit(1);
+      }
 
       for (const [chain, deployment] of Object.entries(
         depsAfterRegistrations

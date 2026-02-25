@@ -16,7 +16,7 @@ import { loadConfig, type Config } from "../deployments";
 import { collectMissingConfigs, printMissingConfigReport } from "../validation";
 import type { Deployment } from "../validation";
 
-import { options, EXCLUDED_DIFF_PATHS } from "./shared";
+import { options, EXCLUDED_DIFF_PATHS, resolveRpcConcurrency } from "./shared";
 import {
   pullDeployments,
   checkConfigErrors,
@@ -34,6 +34,7 @@ export function createStatusCommand(
       yargs
         .option("path", options.deploymentPath)
         .option("verbose", options.verbose)
+        .option("rpc-concurrency", options.rpcConcurrency)
         .example(
           "$0 status",
           "Check the status of the deployment across all chains"
@@ -49,9 +50,15 @@ export function createStatusCommand(
       const deployments: Config = loadConfig(path);
 
       const network = deployments.network as Network;
+      const maxConcurrent = resolveRpcConcurrency(argv["rpc-concurrency"]);
 
-      let deps: Partial<{ [C in Chain]: Deployment<Chain> }> =
-        await pullDeployments(deployments, network, verbose, overrides);
+      const { deps, failures } = await pullDeployments(
+        deployments,
+        network,
+        verbose,
+        maxConcurrent,
+        overrides
+      );
 
       let fixable = 0;
 
@@ -93,7 +100,7 @@ export function createStatusCommand(
       }
 
       // verify peers
-      const missing = await collectMissingConfigs(deps, verbose);
+      const missing = await collectMissingConfigs(deps, verbose, maxConcurrent);
 
       const hasMissingConfigs = printMissingConfigReport(missing);
       if (hasMissingConfigs) {

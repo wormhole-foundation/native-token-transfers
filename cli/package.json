@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "prettier": "prettier --write ./src",
-    "test": "bun test"
+    "test": "bun test src/ __tests__/",
+    "test:e2e": "bun test e2e/ --timeout 600000"
   },
   "devDependencies": {
     "@types/bun": "latest",

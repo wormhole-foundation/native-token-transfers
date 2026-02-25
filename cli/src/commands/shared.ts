@@ -9,6 +9,11 @@ import {
 import { colors } from "../colors.js";
 import { promptYesNo } from "../prompts.js";
 
+// Cap for the parallel lane of read-only RPC calls; the sequential Solana lane
+// runs alongside it, so total in-flight can be this value + 1.
+// Override with --rpc-concurrency.
+export const DEFAULT_PARALLEL_CONCURRENCY = 6;
+
 // Reusable yargs option definitions shared across commands
 export const options = {
   network: {
@@ -96,6 +101,12 @@ export const options = {
     describe: "Only do these chains (can be skipped)",
     type: "array",
     choices: chains,
+  },
+  rpcConcurrency: {
+    describe:
+      "Max concurrent read-only RPC calls for the parallel lane (sequential chains like Solana run alongside it, so total in-flight can be +1)",
+    type: "number",
+    default: DEFAULT_PARALLEL_CONCURRENCY,
   },
 } as const;
 
@@ -223,4 +234,21 @@ ${colors.yellow("By proceeding, you affirm that you understand, and are comforta
 
   console.log(warningMessage);
   return await promptYesNo("Do you want to proceed?", { defaultYes: false });
+}
+
+/** Resolve and validate the --rpc-concurrency flag. */
+export function resolveRpcConcurrency(raw: unknown): number {
+  if (Array.isArray(raw)) {
+    console.error("--rpc-concurrency may only be specified once");
+    process.exit(1);
+  }
+  if (raw === undefined) {
+    return DEFAULT_PARALLEL_CONCURRENCY;
+  }
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    console.error("--rpc-concurrency must be a positive number");
+    process.exit(1);
+  }
+  return Math.max(1, Math.floor(value));
 }

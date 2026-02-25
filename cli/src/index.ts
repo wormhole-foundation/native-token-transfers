@@ -113,7 +113,10 @@ export {
 } from "./query";
 
 // Re-exports from validation.ts
-export { ensureNttRoot, validateChain, checkConfigErrors } from "./validation";
+export { ensureNttRoot, validateChain } from "./validation";
+
+// Re-exports from configErrors.ts
+export { checkConfigErrors } from "./configErrors";
 
 // Re-exports from solana/helpers.ts
 export { checkSvmValidSplMultisig } from "./solana/helpers";
@@ -139,3 +142,19 @@ export {
   pullDeployments,
   pullChainConfig,
 } from "./config-mgmt";
+
+// Re-exports from limitFormatting.ts
+export {
+  getDecimalsFromLimit,
+  isZeroLimit,
+  isValidLimit,
+} from "./limitFormatting";
+
+// Re-exports from limits.ts
+export {
+  configureInboundLimitsForNewChain,
+  configureInboundLimitsForPull,
+} from "./limits";
+
+// Re-exports from utils/concurrency.ts
+export { runTaskPool, runTaskPoolWithSequential } from "./utils/concurrency";

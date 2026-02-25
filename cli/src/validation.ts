@@ -17,8 +17,7 @@ import type {
 import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { ChainConfig } from "./deployments";
-import { colors } from "./colors.js";
-import { formatNumber, checkNumberFormatting } from "./query";
+import { runTaskPoolWithSequential } from "./utils/concurrency";
 
 export function ensureNttRoot(pwd: string = ".") {
   if (
@@ -59,6 +58,8 @@ export type MissingImplicitConfig = {
   solanaWormholeTransceiver: boolean;
   solanaUpdateLUT: boolean;
 };
+
+const PLACEHOLDER_PUBKEY = new PublicKey(0);
 
 /** Ensure the selected chain runs on a platform the CLI supports. */
 export function ensurePlatformSupported(
@@ -180,23 +181,29 @@ export function printMissingConfigReport(
 /** Collect missing implicit config across deployments (peers, Solana LUT/transceiver). */
 export async function collectMissingConfigs(
   deps: Partial<{ [C in Chain]: Deployment<Chain> }>,
-  verbose: boolean
+  verbose: boolean,
+  concurrency: number = 1
 ): Promise<Partial<{ [C in Chain]: MissingImplicitConfig }>> {
   const missingConfigs: Partial<{ [C in Chain]: MissingImplicitConfig }> = {};
+  const entries = Object.entries(deps).filter(
+    ([, deployment]) => deployment !== undefined
+  ) as [string, Deployment<Chain>][];
 
-  for (const [fromChain, from] of Object.entries(deps)) {
-    if (!from) {
-      continue;
-    }
-    let count = 0;
+  const missingByChain: Partial<{ [C in Chain]: MissingImplicitConfig }> = {};
+  const missingCounts: Partial<Record<Chain, number>> = {};
+
+  // Initialize per-chain structures and handle Solana-specific checks (sequential)
+  for (const [fromChain, from] of entries) {
     assertChain(fromChain);
 
-    let missing: MissingImplicitConfig = {
+    const missing: MissingImplicitConfig = {
       managerPeers: [],
       transceiverPeers: [],
       solanaWormholeTransceiver: false,
       solanaUpdateLUT: false,
     };
+    missingByChain[fromChain] = missing;
+    missingCounts[fromChain] = 0;
 
     if (chainToPlatform(fromChain) === "Solana") {
       const solanaNtt = from.ntt as SolanaNtt<Network, SolanaChains>;
@@ -212,86 +219,113 @@ export async function collectMissingConfigs(
         5000
       );
       if (registeredSelfTransceiver === null) {
-        count++;
+        missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
         missing.solanaWormholeTransceiver = true;
       }
 
+      // Placeholder key is only used for address derivation in this check.
       const updateLUT = solanaNtt.initializeOrUpdateLUT({
-        payer: new PublicKey(0),
-        owner: new PublicKey(0),
+        payer: PLACEHOLDER_PUBKEY,
+        owner: PLACEHOLDER_PUBKEY,
       });
       if (!(await updateLUT.next()).done) {
-        count++;
+        missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
         missing.solanaUpdateLUT = true;
       }
     }
+  }
 
-    for (const [toChain, to] of Object.entries(deps)) {
-      if (!to) {
-        continue;
-      }
+  // Build pair tasks for parallel peer verification
+  type PairTask = {
+    fromChain: Chain;
+    toChain: Chain;
+    from: Deployment<Chain>;
+    to: Deployment<Chain>;
+  };
+  const tasks: PairTask[] = [];
+  for (const [fromChain, from] of entries) {
+    assertChain(fromChain);
+    for (const [toChain, to] of entries) {
       assertChain(toChain);
       if (fromChain === toChain) {
         continue;
       }
-      if (verbose) {
-        process.stdout.write(
-          `Verifying registration for ${fromChain} -> ${toChain}......\n`
-        );
-      }
-      const peer = await retryWithExponentialBackoff(
-        () => from.ntt.getPeer(toChain),
-        5,
-        5000
-      );
-      if (peer === null) {
-        const configLimit = from.config.local?.limits?.inbound?.[
-          toChain
-        ]?.replace(".", "");
-        count++;
-        missing.managerPeers.push({
-          address: to.manager,
-          tokenDecimals: to.decimals,
-          inboundLimit: BigInt(configLimit ?? 0),
-        });
-      } else {
-        if (
-          !Buffer.from(peer.address.address.address.toString()).equals(
-            Buffer.from(to.manager.address.address.toString())
-          )
-        ) {
-          console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
-        }
-        if (peer.tokenDecimals !== to.decimals) {
-          console.error(
-            `Peer decimals mismatch for ${fromChain} -> ${toChain}`
-          );
-        }
-      }
+      tasks.push({ fromChain, toChain, from, to });
+    }
+  }
 
-      const transceiverPeer = await retryWithExponentialBackoff(
-        () => from.whTransceiver.getPeer(toChain),
-        5,
-        5000
+  const runTask = async (task: PairTask) => {
+    const { fromChain, toChain, from, to } = task;
+    const missing = missingByChain[fromChain];
+    if (!missing) {
+      return;
+    }
+    if (verbose) {
+      process.stdout.write(
+        `Verifying registration for ${fromChain} -> ${toChain}......\n`
       );
-      const transceiverAddress = await to.whTransceiver.getAddress();
-      if (transceiverPeer === null) {
-        count++;
-        missing.transceiverPeers.push(transceiverAddress);
-      } else {
-        if (
-          !Buffer.from(transceiverPeer.address.address.toString()).equals(
-            Buffer.from(transceiverAddress.address.address.toString())
-          )
-        ) {
-          console.error(
-            `Transceiver peer address mismatch for ${fromChain} -> ${toChain}`
-          );
-        }
+    }
+    const peer = await retryWithExponentialBackoff(
+      () => from.ntt.getPeer(toChain),
+      5,
+      5000
+    );
+    if (peer === null) {
+      const configLimit = from.config.local?.limits?.inbound?.[
+        toChain
+      ]?.replace(/\./g, "");
+      missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
+      missing.managerPeers.push({
+        address: to.manager,
+        tokenDecimals: to.decimals,
+        inboundLimit: BigInt(configLimit ?? 0),
+      });
+    } else {
+      if (
+        !Buffer.from(peer.address.address.address.toString()).equals(
+          Buffer.from(to.manager.address.address.toString())
+        )
+      ) {
+        console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);
+      }
+      if (peer.tokenDecimals !== to.decimals) {
+        console.error(`Peer decimals mismatch for ${fromChain} -> ${toChain}`);
       }
     }
-    if (count > 0) {
-      missingConfigs[fromChain] = missing;
+
+    const transceiverPeer = await retryWithExponentialBackoff(
+      () => from.whTransceiver.getPeer(toChain),
+      5,
+      5000
+    );
+    const transceiverAddress = await to.whTransceiver.getAddress();
+    if (transceiverPeer === null) {
+      missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
+      missing.transceiverPeers.push(transceiverAddress);
+    } else {
+      if (
+        !Buffer.from(transceiverPeer.address.address.toString()).equals(
+          Buffer.from(transceiverAddress.address.address.toString())
+        )
+      ) {
+        console.error(
+          `Transceiver peer address mismatch for ${fromChain} -> ${toChain}`
+        );
+      }
+    }
+  };
+
+  await runTaskPoolWithSequential(
+    tasks,
+    concurrency,
+    (task) => chainToPlatform(task.fromChain) === "Solana",
+    runTask
+  );
+
+  for (const [chain, missing] of Object.entries(missingByChain)) {
+    assertChain(chain);
+    if ((missingCounts[chain] ?? 0) > 0) {
+      missingConfigs[chain] = missing!;
     }
   }
   return missingConfigs;
@@ -342,53 +376,4 @@ export function validateChain<N extends Network, C extends Chain>(
       process.exit(1);
     }
   }
-}
-
-export function checkConfigErrors(
-  deps: Partial<{ [C in Chain]: Deployment<Chain> }>
-): number {
-  let fatal = 0;
-  for (const [chain, deployment] of Object.entries(deps)) {
-    assertChain(chain);
-    const config = deployment.config.local;
-    if (!config) {
-      console.error(`ERROR: ${chain} has no local config`);
-      fatal++;
-      continue;
-    }
-    if (!config.limits) {
-      console.error(`ERROR: ${chain} has no limits configured`);
-      fatal++;
-      continue;
-    }
-    if (!checkNumberFormatting(config.limits.outbound, deployment.decimals)) {
-      console.error(
-        `ERROR: ${chain} has an invalid outbound limit (${config.limits.outbound}). Expected a decimal number with at most ${deployment.decimals} decimals.`
-      );
-      fatal++;
-    }
-    if (
-      checkNumberFormatting(config.limits.outbound, deployment.decimals) &&
-      formatNumber(0n, deployment.decimals) === config.limits.outbound
-    ) {
-      console.warn(colors.yellow(`${chain} has an outbound limit of 0`));
-    }
-    for (const [c, limit] of Object.entries(config.limits.inbound)) {
-      if (!checkNumberFormatting(limit, deployment.decimals)) {
-        console.error(
-          `ERROR: ${chain} has an invalid inbound limit for ${c} (${limit}). Expected a decimal number with at most ${deployment.decimals} decimals.`
-        );
-        fatal++;
-      }
-      if (
-        checkNumberFormatting(limit, deployment.decimals) &&
-        formatNumber(0n, deployment.decimals) === limit
-      ) {
-        console.warn(
-          colors.yellow(`${chain} has an inbound limit of 0 from ${c}`)
-        );
-      }
-    }
-  }
-  return fatal;
 }

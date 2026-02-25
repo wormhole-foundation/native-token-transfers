@@ -13,9 +13,10 @@ import type {
 import type { EvmChains } from "@wormhole-foundation/sdk-evm";
 import { type SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
-import { formatUnits, parseUnits } from "ethers";
 import type { Config } from "./deployments";
+import { formatNumber } from "./limitFormatting";
 import { retryWithExponentialBackoff } from "./validation";
+import { runTaskPoolWithSequential } from "./utils/concurrency";
 
 export async function getImmutables<N extends Network, C extends Chain>(
   chain: C,
@@ -151,62 +152,130 @@ export async function nttFromManager<N extends Network, C extends Chain>(
   return { ntt, addresses };
 }
 
-export function formatNumber(num: bigint, decimals: number): string {
-  return formatUnits(num, decimals);
-}
-
-export function checkNumberFormatting(
-  formatted: string,
-  decimals: number
-): boolean {
-  try {
-    parseUnits(formatted, decimals);
-    return true;
-  } catch {
-    return false;
-  }
-}
+export { formatNumber, checkNumberFormatting } from "./limitFormatting";
 
 // NOTE: modifies the config object in place
 // TODO: maybe introduce typestate for having pulled inbound limits?
 export async function pullInboundLimits(
   ntts: Partial<{ [C in Chain]: Ntt<Network, C> }>,
   config: Config["chains"],
-  verbose: boolean
+  verbose: boolean,
+  concurrency: number = 1
 ) {
-  for (const [c1, ntt1] of Object.entries(ntts)) {
-    assertChain(c1);
-    const chainConf = config[c1];
+  const entries = Object.entries(ntts).filter(
+    ([, ntt]) => ntt !== undefined
+  ) as [string, Ntt<Network, Chain>][];
+
+  const decimalsByChain: Partial<Record<Chain, number>> = {};
+
+  // Ensure config structures exist before parallel writes
+  for (const [chain] of entries) {
+    assertChain(chain);
+    const chainConf = config[chain];
     if (!chainConf) {
-      console.error(`Chain ${c1} not found in deployment`);
+      console.error(`Chain ${chain} not found in deployment`);
       process.exit(1);
     }
-    const decimals = await ntt1.getTokenDecimals();
-    for (const [c2, ntt2] of Object.entries(ntts)) {
-      assertChain(c2);
-      if (ntt1 === ntt2) {
+    chainConf.limits ??= { outbound: "0", inbound: {} };
+    chainConf.limits.inbound ??= {};
+  }
+
+  // Phase 1: fetch token decimals for each chain
+  await runTaskPoolWithSequential(
+    entries,
+    concurrency,
+    ([chain]) => {
+      assertChain(chain);
+      return chainToPlatform(chain) === "Solana";
+    },
+    async ([chain, ntt]) => {
+      assertChain(chain);
+      decimalsByChain[chain] = await ntt.getTokenDecimals();
+    }
+  );
+
+  // Phase 2: fetch inbound limits for each pair
+  type InboundTask = {
+    fromChain: Chain;
+    toChain: Chain;
+    fromNtt: Ntt<Network, Chain>;
+  };
+  type InboundResult =
+    | { fromChain: Chain; toChain: Chain; status: "ok"; formatted: string }
+    | { fromChain: Chain; toChain: Chain; status: "error"; error: unknown };
+
+  const tasks: InboundTask[] = [];
+  for (const [fromChain, fromNtt] of entries) {
+    assertChain(fromChain);
+    for (const [toChain, toNtt] of entries) {
+      assertChain(toChain);
+      if (fromNtt === toNtt) {
         continue;
       }
-      if (verbose) {
-        process.stdout.write(
-          `Fetching inbound limit for ${c1} -> ${c2}.......\n`
-        );
-      }
+      tasks.push({ fromChain, toChain, fromNtt });
+    }
+  }
+
+  const runTask = async (task: InboundTask): Promise<InboundResult> => {
+    const { fromChain, toChain, fromNtt } = task;
+    if (verbose) {
+      process.stdout.write(
+        `Fetching inbound limit for ${fromChain} -> ${toChain}.......\n`
+      );
+    }
+    try {
       const peer = await retryWithExponentialBackoff(
-        () => ntt1.getPeer(c2),
+        () => fromNtt.getPeer(toChain),
         5,
         5000
       );
-      if (!chainConf.limits) {
-        chainConf.limits = { outbound: "0", inbound: {} };
-      }
-      if (chainConf.limits.inbound === undefined) {
-        chainConf.limits.inbound = {};
-      }
-
       const limit = peer?.inboundLimit ?? 0n;
+      const decimals = decimalsByChain[fromChain];
+      if (decimals === undefined) {
+        return {
+          fromChain,
+          toChain,
+          status: "error",
+          error: new Error(`Token decimals not found for chain ${fromChain}`),
+        };
+      }
+      return {
+        fromChain,
+        toChain,
+        status: "ok",
+        formatted: formatNumber(limit, decimals),
+      };
+    } catch (e) {
+      return { fromChain, toChain, status: "error", error: e };
+    }
+  };
 
-      chainConf.limits.inbound[c2] = formatNumber(limit, decimals);
+  const results = await runTaskPoolWithSequential(
+    tasks,
+    concurrency,
+    (task) => chainToPlatform(task.fromChain) === "Solana",
+    runTask
+  );
+
+  const errors: { fromChain: Chain; toChain: Chain; error: unknown }[] = [];
+  for (const result of results) {
+    if (result.status === "ok") {
+      config[result.fromChain]!.limits!.inbound![result.toChain] =
+        result.formatted;
+    } else {
+      errors.push({
+        fromChain: result.fromChain,
+        toChain: result.toChain,
+        error: result.error,
+      });
+    }
+  }
+  if (errors.length > 0) {
+    for (const { fromChain, toChain, error } of errors) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(
+        `Failed to fetch inbound limit for ${fromChain} -> ${toChain}: ${msg}`
+      );
     }
   }
 }

@@ -13,6 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test-cli-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.4"
+      - run: bun ci
+      - run: bun run --filter '@wormhole-foundation/ntt-cli' test
+
   # EVM tests - native runner with forge build cache from evm.yml
   test-evm:
     runs-on: ubuntu-latest
@@ -44,12 +54,18 @@ jobs:
       - name: Install NTT CLI
         run: ./cli/install.sh
 
-      - name: Run EVM tests
+      - name: Run EVM shell tests
         env:
           NTT_EVM_CACHE_DIR: ${{ github.workspace }}/evm
           BSC_RPC_URL: ${{ secrets.BSC_RPC_URL }}
           SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
         run: ./cli/test/sepolia-bsc.sh
+
+      - name: Run EVM E2E tests
+        env:
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
+        run: bun run --cwd cli test:e2e
 
   # Build Solana contracts (v1.0.0 and v2.0.0 in parallel)
   # Artifacts are cached based on version tag + build script hash
