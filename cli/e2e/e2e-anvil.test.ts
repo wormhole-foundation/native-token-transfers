@@ -11,10 +11,11 @@
  * Uses custom finality (instant + 1 block) on Sepolia for fast VAAs.
  *
  * Prerequisites: anvil, cast, forge (foundry toolchain), bun
+ *
+ * Run: bun test cli/e2e/ --timeout 600000
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { $ } from "bun";
 import fs from "fs";
 import path from "path";
 
@@ -22,7 +23,7 @@ import path from "path";
 // Constants
 // ---------------------------------------------------------------------------
 
-const CLI = path.resolve(import.meta.dir, "../index.ts");
+const CLI = path.resolve(import.meta.dir, "../src/index.ts");
 
 const SEPOLIA_PORT = 18545;
 const BASE_SEPOLIA_PORT = 18546;
@@ -165,29 +166,6 @@ async function grantRoleImpersonated(
   });
 }
 
-/** Transfer ETH from Anvil's funded account to another address. */
-async function fundAddress(
-  rpcUrl: string,
-  to: string,
-  ethAmount: string
-): Promise<void> {
-  const proc = Bun.spawn(
-    [
-      "cast",
-      "send",
-      to,
-      "--value",
-      ethAmount,
-      "--private-key",
-      ANVIL_PRIVATE_KEY,
-      "--rpc-url",
-      rpcUrl,
-    ],
-    { stdout: "pipe", stderr: "pipe" }
-  );
-  await proc.exited;
-}
-
 /** Run the local NTT CLI from the test project directory. */
 async function ntt(
   args: string[],
@@ -231,10 +209,20 @@ async function ntt(
 // Tests
 // ---------------------------------------------------------------------------
 
-const hasAnvil = Bun.which("anvil") !== null;
-
-describe.skipIf(!hasAnvil)("E2E: NTT deployment on Anvil forks", () => {
+describe("E2E: NTT deployment on Anvil forks", () => {
   beforeAll(async () => {
+    // Require foundry toolchain
+    if (!Bun.which("anvil")) {
+      throw new Error(
+        "anvil not found. Install foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup"
+      );
+    }
+    if (!Bun.which("cast")) {
+      throw new Error(
+        "cast not found. Install foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup"
+      );
+    }
+
     // 1. Start Anvil forks
     anvilSepolia = Bun.spawn(
       [
@@ -322,6 +310,7 @@ describe.skipIf(!hasAnvil)("E2E: NTT deployment on Anvil forks", () => {
       fs.rmSync(testDir, { recursive: true, force: true });
     }
   });
+
   test("create NTT project and initialize for Testnet", async () => {
     // ntt new must run from outside a git repo
     const proc = Bun.spawn(["bun", "run", CLI, "new", "ntt-project"], {

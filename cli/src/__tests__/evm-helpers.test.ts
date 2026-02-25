@@ -2,36 +2,19 @@ import { describe, expect, test } from "bun:test";
 import { getSlowFlag, getGasMultiplier } from "../evm/helpers";
 
 describe("getSlowFlag", () => {
-  test("returns --slow for Mezo", () => {
-    expect(getSlowFlag("Mezo")).toBe("--slow");
+  const slowChains = ["Mezo", "HyperEVM", "XRPLEVM", "CreditCoin"] as const;
+  const normalChains = ["Ethereum", "Sepolia", "Base", "Arbitrum"] as const;
+
+  test("returns --slow for known slow chains", () => {
+    for (const chain of slowChains) {
+      expect(getSlowFlag(chain)).toBe("--slow");
+    }
   });
 
-  test("returns --slow for HyperEVM", () => {
-    expect(getSlowFlag("HyperEVM")).toBe("--slow");
-  });
-
-  test("returns --slow for XRPLEVM", () => {
-    expect(getSlowFlag("XRPLEVM")).toBe("--slow");
-  });
-
-  test("returns --slow for CreditCoin", () => {
-    expect(getSlowFlag("CreditCoin")).toBe("--slow");
-  });
-
-  test("returns empty string for Ethereum", () => {
-    expect(getSlowFlag("Ethereum")).toBe("");
-  });
-
-  test("returns empty string for Sepolia", () => {
-    expect(getSlowFlag("Sepolia")).toBe("");
-  });
-
-  test("returns empty string for Base", () => {
-    expect(getSlowFlag("Base")).toBe("");
-  });
-
-  test("returns empty string for Arbitrum", () => {
-    expect(getSlowFlag("Arbitrum")).toBe("");
+  test("returns empty string for normal chains", () => {
+    for (const chain of normalChains) {
+      expect(getSlowFlag(chain)).toBe("");
+    }
   });
 });
 

@@ -1,48 +1,39 @@
 import { describe, it, expect } from "bun:test";
 
 describe("Module Exports", () => {
-  it("configuration.ts exports command builder and get", async () => {
-    const mod = await import("../configuration");
-    expect(mod.command).toBeDefined();
-    expect(typeof mod.command).toBe("function");
-    expect(mod.get).toBeDefined();
-    expect(typeof mod.get).toBe("function");
-  });
+  it("core modules export expected functions", async () => {
+    const config = await import("../configuration");
+    expect(typeof config.command).toBe("function");
+    expect(typeof config.get).toBe("function");
 
-  it("token-transfer.ts exports createTokenTransferCommand", async () => {
-    const mod = await import("../commands/token-transfer");
-    expect(mod.createTokenTransferCommand).toBeDefined();
-    expect(typeof mod.createTokenTransferCommand).toBe("function");
-  });
+    const deployments = await import("../deployments");
+    expect(typeof deployments.loadConfig).toBe("function");
 
-  it("tokenTransfer command has valid yargs shape", async () => {
-    const { createTokenTransferCommand } = await import(
-      "../commands/token-transfer"
-    );
-    const cmd = createTokenTransferCommand({});
-    expect(cmd).toHaveProperty("command");
-    expect(cmd).toHaveProperty("describe");
-    expect(cmd).toHaveProperty("builder");
-    expect(cmd).toHaveProperty("handler");
-  });
+    const error = await import("../error");
+    expect(error.isRpcConnectionError).toBeDefined();
+    expect(error.handleDeploymentError).toBeDefined();
+    expect(error.logRpcError).toBeDefined();
 
-  it("deployments.ts exports loadConfig", async () => {
-    const mod = await import("../deployments");
-    expect(mod.loadConfig).toBeDefined();
-    expect(typeof mod.loadConfig).toBe("function");
-  });
+    const diff = await import("../diff");
+    expect(diff.diffObjects).toBeDefined();
+    expect(diff.colorizeDiff).toBeDefined();
 
-  it("error.ts exports error handlers", async () => {
-    const mod = await import("../error");
-    expect(mod.isRpcConnectionError).toBeDefined();
-    expect(mod.handleDeploymentError).toBeDefined();
-    expect(mod.logRpcError).toBeDefined();
-  });
+    const colors = await import("../colors");
+    expect(colors.colors).toBeDefined();
+    expect(colors.colors.red).toBeDefined();
+    expect(colors.colors.green).toBeDefined();
 
-  it("diff.ts exports diffObjects and colorizeDiff", async () => {
-    const mod = await import("../diff");
-    expect(mod.diffObjects).toBeDefined();
-    expect(mod.colorizeDiff).toBeDefined();
+    const prompts = await import("../prompts");
+    expect(prompts.promptLine).toBeDefined();
+    expect(prompts.promptYesNo).toBeDefined();
+
+    const overrides = await import("../overrides");
+    expect(overrides.loadOverrides).toBeDefined();
+    expect(overrides.promptSolanaMainnetOverridesIfNeeded).toBeDefined();
+
+    const tag = await import("../tag");
+    expect(tag.getAvailableVersions).toBeDefined();
+    expect(tag.getGitTagName).toBeDefined();
   });
 
   it("validation.ts exports validators and ensureNttRoot", async () => {
@@ -52,53 +43,22 @@ describe("Module Exports", () => {
     expect(mod.normalizeRpcArgs).toBeDefined();
     expect(mod.retryWithExponentialBackoff).toBeDefined();
     expect(mod.SUPPORTED_PLATFORMS).toBeDefined();
-    expect(mod.ensureNttRoot).toBeDefined();
     expect(typeof mod.ensureNttRoot).toBe("function");
   });
 
-  it("getSigner.ts exports getSigner and forgeSignerArgs", async () => {
-    const mod = await import("../signers/getSigner");
-    expect(mod.getSigner).toBeDefined();
-    expect(mod.forgeSignerArgs).toBeDefined();
+  it("signer and EVM modules export expected functions", async () => {
+    const signer = await import("../signers/getSigner");
+    expect(signer.getSigner).toBeDefined();
+    expect(signer.forgeSignerArgs).toBeDefined();
+
+    const ssw = await import("../signers/signSendWait");
+    expect(ssw.newSignSendWaiter).toBeDefined();
+
+    const hl = await import("../evm/hyperliquid");
+    expect(hl.enableBigBlocks).toBeDefined();
   });
 
-  it("colors.ts exports colors object", async () => {
-    const mod = await import("../colors");
-    expect(mod.colors).toBeDefined();
-    expect(mod.colors.red).toBeDefined();
-    expect(mod.colors.green).toBeDefined();
-    expect(mod.colors.blue).toBeDefined();
-  });
-
-  it("prompts.ts exports prompt functions", async () => {
-    const mod = await import("../prompts");
-    expect(mod.promptLine).toBeDefined();
-    expect(mod.promptYesNo).toBeDefined();
-  });
-
-  it("overrides.ts exports loadOverrides", async () => {
-    const mod = await import("../overrides");
-    expect(mod.loadOverrides).toBeDefined();
-    expect(mod.promptSolanaMainnetOverridesIfNeeded).toBeDefined();
-  });
-
-  it("signSendWait.ts exports newSignSendWaiter", async () => {
-    const mod = await import("../signers/signSendWait");
-    expect(mod.newSignSendWaiter).toBeDefined();
-  });
-
-  it("tag.ts exports version helpers", async () => {
-    const mod = await import("../tag");
-    expect(mod.getAvailableVersions).toBeDefined();
-    expect(mod.getGitTagName).toBeDefined();
-  });
-
-  it("hyperliquid.ts exports enableBigBlocks", async () => {
-    const mod = await import("../evm/hyperliquid");
-    expect(mod.enableBigBlocks).toBeDefined();
-  });
-
-  it("commands/shared.ts exports options and shared types", async () => {
+  it("commands/shared.ts exports options and utilities", async () => {
     const mod = await import("../commands/shared");
     expect(mod.options).toBeDefined();
     expect(mod.options.network).toBeDefined();
@@ -109,21 +69,29 @@ describe("Module Exports", () => {
     expect(mod.setNestedValue).toBeDefined();
   });
 
-  it("commands that don't depend on index.ts export valid creators", async () => {
-    const config = await import("../commands/config");
-    expect(typeof config.createConfigCommand).toBe("function");
-    const cmd = config.createConfigCommand();
-    expect(cmd).toHaveProperty("command");
-    expect(cmd).toHaveProperty("builder");
+  it("safe command creators have valid yargs shape", async () => {
+    const { createTokenTransferCommand } = await import(
+      "../commands/token-transfer"
+    );
+    const ttCmd = createTokenTransferCommand({});
+    expect(ttCmd).toHaveProperty("command");
+    expect(ttCmd).toHaveProperty("describe");
+    expect(ttCmd).toHaveProperty("builder");
+    expect(ttCmd).toHaveProperty("handler");
 
-    const update = await import("../commands/update");
-    expect(typeof update.createUpdateCommand).toBe("function");
+    const { createConfigCommand } = await import("../commands/config");
+    const cfgCmd = createConfigCommand();
+    expect(cfgCmd).toHaveProperty("command");
+    expect(cfgCmd).toHaveProperty("builder");
 
-    const newCmd = await import("../commands/new");
-    expect(typeof newCmd.createNewCommand).toBe("function");
+    const { createUpdateCommand } = await import("../commands/update");
+    expect(typeof createUpdateCommand).toBe("function");
 
-    const init = await import("../commands/init");
-    expect(typeof init.createInitCommand).toBe("function");
+    const { createNewCommand } = await import("../commands/new");
+    expect(typeof createNewCommand).toBe("function");
+
+    const { createInitCommand } = await import("../commands/init");
+    expect(typeof createInitCommand).toBe("function");
   });
 
   // commands/index.ts barrel re-exports commands that import from ../index.ts,
@@ -136,7 +104,6 @@ describe("Module Exports", () => {
 
   // index.ts has side effects on import (yargs.parse() runs immediately),
   // so we can't import it in a test without triggering the CLI.
-  // ensureNttRoot is now tested via the validation.ts test above.
   it.skip("index.ts re-exports ensureNttRoot (skip: side-effect on import)", async () => {
     const mod = await import("../index");
     expect(mod.ensureNttRoot).toBeDefined();
