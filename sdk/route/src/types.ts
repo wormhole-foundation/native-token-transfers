@@ -547,13 +547,12 @@ export namespace MultiTokenNttRoute {
     };
   }
 
-  export async function complete<N extends Network, R extends TransferReceipt>(
-    signer: Signer,
-    chain: ChainContext<N>,
-    receipt: R
-  ): Promise<R> {
+  export async function buildCompleteXfer<
+    N extends Network,
+    R extends TransferReceipt,
+  >(chain: ChainContext<N>, receipt: R) {
     if (!isAttested(receipt) && !isFailed(receipt)) {
-      if (isRedeemed(receipt)) return receipt;
+      if (isRedeemed(receipt)) return null;
       throw new Error(
         "The source must be finalized in order to complete the transfer"
       );
@@ -579,19 +578,45 @@ export namespace MultiTokenNttRoute {
 
     const wormholeAttested = await ntt.transceiverAttestedToMessage(
       receipt.from,
-      receipt.attestation.attestation.payload.nttManagerPayload,
+      (receipt as any).attestation.attestation.payload.nttManagerPayload,
       wormhole.index
     );
     if (wormholeAttested) {
       // already attested by the wormhole transceiver
-      return receipt;
+      return null;
     }
 
-    const completeXfer = ntt.redeem(receipt.attestation.attestation);
+    return ntt.redeem((receipt as any).attestation.attestation);
+  }
 
-    await signSendWait(chain, completeXfer, signer);
+  export async function complete<N extends Network, R extends TransferReceipt>(
+    signer: Signer,
+    chain: ChainContext<N>,
+    receipt: R
+  ): Promise<R> {
+    const xfer = await buildCompleteXfer(chain, receipt);
+    if (!xfer) return receipt;
+
+    await signSendWait(chain, xfer, signer);
 
     return receipt;
+  }
+
+  export async function buildFinalizeXfer<
+    N extends Network,
+    R extends TransferReceipt,
+  >(chain: ChainContext<N>, receipt: R) {
+    const {
+      attestation: { attestation: vaa },
+    } = receipt as any;
+
+    const ntt = await chain.getProtocol("MultiTokenNtt", {
+      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
+    });
+    return ntt.completeInboundQueuedTransfer(
+      receipt.from,
+      vaa.payload.nttManagerPayload
+    );
   }
 
   export async function finalize<N extends Network, R extends TransferReceipt>(
@@ -605,18 +630,8 @@ export namespace MultiTokenNttRoute {
       );
     }
 
-    const {
-      attestation: { attestation: vaa },
-    } = receipt;
-
-    const ntt = await chain.getProtocol("MultiTokenNtt", {
-      multiTokenNtt: receipt.params.normalizedParams.destinationContracts,
-    });
-    const completeTransfer = ntt.completeInboundQueuedTransfer(
-      receipt.from,
-      vaa.payload.nttManagerPayload
-    );
-    const finalizeTxids = await signSendWait(chain, completeTransfer, signer);
+    const xfer = await buildFinalizeXfer(chain, receipt);
+    const finalizeTxids = await signSendWait(chain, xfer, signer);
     return {
       ...receipt,
       state: TransferState.DestinationFinalized,
