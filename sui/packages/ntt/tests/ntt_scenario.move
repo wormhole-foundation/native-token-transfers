@@ -1,4 +1,5 @@
 #[test_only]
+#[allow(deprecated_usage)]
 /// This module implements ways to initialize NTT in a test scenario.
 /// It provides common setup functions and test utilities.
 module ntt::ntt_scenario {

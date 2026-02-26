@@ -2,7 +2,6 @@ import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import {
-  signSendWait,
   type Chain,
   type ChainContext,
   type Network,
@@ -11,12 +10,51 @@ import type { SuiChains } from "@wormhole-foundation/sdk-sui";
 import type { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
 import { Transaction } from "@mysten/sui/transactions";
 
+const MIN_SUI_VERSION = "1.63.0";
+
+function parseVersion(version: string): number[] {
+  return version.split(".").map(Number);
+}
+
+function versionAtLeast(current: string, minimum: string): boolean {
+  const cur = parseVersion(current);
+  const min = parseVersion(minimum);
+  for (let i = 0; i < min.length; i++) {
+    if ((cur[i] ?? 0) > min[i]) return true;
+    if ((cur[i] ?? 0) < min[i]) return false;
+  }
+  return true;
+}
+
+export function checkSuiVersion(): void {
+  let output: string;
+  try {
+    output = execFileSync("sui", ["--version"], { encoding: "utf8" }).trim();
+  } catch {
+    throw new Error("Could not run 'sui --version'. Is the Sui CLI installed?");
+  }
+  // Output format: "sui 1.63.2-abc123"
+  const match = output.match(/sui\s+(\d+\.\d+\.\d+)/);
+  if (!match) {
+    throw new Error(`Could not parse Sui version from: ${output}`);
+  }
+  const version = match[1];
+  if (!versionAtLeast(version, MIN_SUI_VERSION)) {
+    throw new Error(
+      `Sui CLI version ${version} is too old. Minimum required: ${MIN_SUI_VERSION}. ` +
+        `Please update with: cargo install --locked --git https://github.com/MystenLabs/sui.git sui`
+    );
+  }
+  console.log(`Sui CLI version: ${version}`);
+}
+
 // Setup Sui environment for consistent CLI usage with automatic cleanup
 export async function withSuiEnv<N extends Network, C extends Chain, T>(
   pwd: string,
   ch: ChainContext<N, C>,
   fn: () => Promise<T>
 ): Promise<T> {
+  checkSuiVersion();
   console.log("Setting up Sui environment...");
 
   // Store original environment variable
@@ -123,73 +161,6 @@ active_address: ~
   }
 }
 
-// Helper function to update Move.toml files for network-specific dependencies
-export function updateMoveTomlForNetwork(
-  packagesPath: string,
-  networkType: Network
-): { restore: () => void } {
-  const packages = ["ntt_common", "ntt", "wormhole_transceiver"];
-  const backups: { [key: string]: string } = {};
-
-  // Determine the correct revisions based on network (with environment variable overrides)
-  const wormholeRev =
-    process.env.WORMHOLE_REV ||
-    (networkType === "Mainnet" ? "sui/mainnet" : "sui/testnet");
-
-  // Devnet / localhost not supported — local validator setup is not yet implemented
-  if (networkType === "Devnet") {
-    throw new Error("devnet not supported yet");
-  }
-
-  console.log(`Updating Move.toml files for ${networkType} network...`);
-  console.log(`  Wormhole revision: ${wormholeRev}`);
-
-  for (const packageName of packages) {
-    const moveTomlPath = `${packagesPath}/${packageName}/Move.toml`;
-
-    try {
-      // Backup original content
-      const originalContent = fs.readFileSync(moveTomlPath, "utf8");
-      backups[moveTomlPath] = originalContent;
-
-      let content = originalContent;
-
-      // Update Wormhole revision
-      content = content.replace(
-        /rev = "sui\/(testnet|mainnet)"/g,
-        `rev = "${wormholeRev}"`
-      );
-
-      // Only write if content actually changed
-      if (content !== originalContent) {
-        fs.writeFileSync(moveTomlPath, content, "utf8");
-        console.log(`  Updated ${packageName}/Move.toml`);
-      } else {
-        console.log(`  No changes needed for ${packageName}/Move.toml`);
-      }
-    } catch (error) {
-      console.warn(
-        `  Warning: Could not update ${packageName}/Move.toml: ${error}`
-      );
-      // Don't throw error here to allow deployment to continue
-    }
-  }
-
-  // Return restore function
-  return {
-    restore: () => {
-      console.log("Restoring original Move.toml files...");
-      for (const [filePath, content] of Object.entries(backups)) {
-        try {
-          fs.writeFileSync(filePath, content, "utf8");
-        } catch (error) {
-          console.warn(`  Warning: Could not restore ${filePath}: ${error}`);
-        }
-      }
-    },
-  };
-}
-
 // Helper function to perform complete package upgrade in a single PTB
 export async function performPackageUpgradeInPTB<
   N extends Network,
@@ -200,14 +171,25 @@ export async function performPackageUpgradeInPTB<
   upgradeCapId: string,
   ntt: SuiNtt<N, C>
 ): Promise<any> {
+  // Determine build environment for Sui 1.63+ package system
+  const buildEnv = ctx.network === "Mainnet" ? "mainnet" : "testnet";
+
   // Get build output with dependencies using the correct sui command
   console.log(
-    `Running sui move build --dump-bytecode-as-base64 for ${packagePath}...`
+    `Running sui move build --dump-bytecode-as-base64 -e ${buildEnv} for ${packagePath}...`
   );
 
   const buildOutput = execFileSync(
     "sui",
-    ["move", "build", "--dump-bytecode-as-base64", "--path", packagePath],
+    [
+      "move",
+      "build",
+      "--dump-bytecode-as-base64",
+      "-e",
+      buildEnv,
+      "--path",
+      packagePath,
+    ],
     {
       encoding: "utf-8",
       env: process.env,
@@ -262,4 +244,134 @@ export async function performPackageUpgradeInPTB<
     transaction: tx,
     description: "Package Upgrade PTB",
   };
+}
+
+export function buildSuiPackage(
+  packagesPath: string,
+  packageName: string,
+  buildEnv: string
+): void {
+  console.log(`Building ${packageName} package...`);
+  try {
+    execFileSync("sui", ["move", "build", "-e", buildEnv], {
+      cwd: path.join(packagesPath, packageName),
+      stdio: "inherit",
+      env: process.env,
+    });
+  } catch (e) {
+    console.error(`Failed to build ${packageName} package`);
+    throw e;
+  }
+}
+
+export function publishSuiPackage(
+  packagesPath: string,
+  packageName: string,
+  gasBudget: number
+): void {
+  console.log(`Publishing ${packageName} package...`);
+  const result = execFileSync(
+    "sui",
+    ["client", "publish", "--gas-budget", String(gasBudget), "--json"],
+    {
+      cwd: path.join(packagesPath, packageName),
+      encoding: "utf8",
+      env: process.env,
+    }
+  );
+  const deploy = JSON.parse(result.substring(result.indexOf("{")));
+  if (!deploy.objectChanges) {
+    throw new Error(`Failed to deploy ${packageName} package`);
+  }
+  const packageId = deploy.objectChanges.find(
+    (c: any) => c.type === "published"
+  )?.packageId;
+  console.log(`${packageName} deployed at: ${packageId}`);
+}
+
+/**
+ * Find a created object in transaction objectChanges by type substring.
+ * If `shared` is true, only matches shared objects.
+ */
+export function findCreatedObject(
+  objectChanges: any[],
+  typeSubstring: string,
+  shared?: boolean
+): string | undefined {
+  return objectChanges.find(
+    (c: any) =>
+      c.type === "created" &&
+      c.objectType?.includes(typeSubstring) &&
+      (!shared || c.owner?.Shared)
+  )?.objectId;
+}
+
+export function parsePublishedToml(
+  filePath: string,
+  env: string
+): { packageId: string; upgradeCap: string } {
+  const content = fs.readFileSync(filePath, "utf8");
+  const section = content.match(
+    new RegExp(`\\[published\\.${env}\\][\\s\\S]*?(?=\\[|$)`)
+  );
+  if (!section) throw new Error(`No [published.${env}] section in ${filePath}`);
+  const publishedAt = section[0].match(/published-at\s*=\s*"(0x[0-9a-f]+)"/);
+  const upgradeCap = section[0].match(
+    /upgrade-capability\s*=\s*"(0x[0-9a-f]+)"/
+  );
+  if (!publishedAt?.[1])
+    throw new Error(`No published-at in [published.${env}] of ${filePath}`);
+  if (!upgradeCap?.[1])
+    throw new Error(
+      `No upgrade-capability in [published.${env}] of ${filePath}`
+    );
+  return {
+    packageId: publishedAt[1],
+    upgradeCap: upgradeCap[1],
+  };
+}
+
+export function movePublishedTomlToMainTree(
+  packagesPath: string,
+  mainTreePackagesPath: string,
+  packageNames: string[]
+): void {
+  for (const pkg of packageNames) {
+    const worktreePath = `${packagesPath}/${pkg}/Published.toml`;
+    const mainTreePath = `${mainTreePackagesPath}/${pkg}/Published.toml`;
+
+    if (
+      fs.existsSync(worktreePath) &&
+      !fs.lstatSync(worktreePath).isSymbolicLink()
+    ) {
+      fs.copyFileSync(worktreePath, mainTreePath);
+      fs.unlinkSync(worktreePath);
+      fs.rmSync(worktreePath, { force: true });
+      fs.symlinkSync(path.resolve(mainTreePath), path.resolve(worktreePath));
+      console.log(`Moved Published.toml for ${pkg} to ${mainTreePath}`);
+    }
+  }
+}
+
+export interface SuiSetupProgress {
+  nttStateId?: string;
+  nttAdminCapId?: string;
+  transceiverStateId?: string;
+  whTransceiverAdminCapId?: string;
+  transceiverRegistered?: boolean;
+}
+
+export function readSetupProgress(filePath: string): SuiSetupProgress {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+export function saveSetupProgress(
+  filePath: string,
+  progress: SuiSetupProgress
+): void {
+  fs.writeFileSync(filePath, JSON.stringify(progress, null, 2));
 }
