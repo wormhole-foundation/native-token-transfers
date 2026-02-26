@@ -1,7 +1,7 @@
 // NOTE: We rely on the Wormhole TypeScript SDK for cross-chain execution logic:
 // https://github.com/wormhole-foundation/wormhole-sdk-ts
 
-import { colors } from "./colors.js";
+import { colors } from "../colors.js";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
@@ -28,8 +28,8 @@ import type { QuoteWarning } from "@wormhole-foundation/sdk-connect";
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
-import { getSigner, type SignerStuff } from "./getSigner";
-import { isRpcConnectionError, logRpcError } from "./error";
+import { getSigner, type SignerStuff } from "../signers/getSigner";
+import { isRpcConnectionError, logRpcError } from "../error";
 import {
   NttExecutorRoute,
   NttRoute,
@@ -42,7 +42,7 @@ import type {
 import "@wormhole-foundation/sdk-evm-ntt";
 import "@wormhole-foundation/sdk-solana-ntt";
 import "@wormhole-foundation/sdk-sui-ntt";
-import { loadConfig, type ChainConfig, type Config } from "./deployments";
+import { loadConfig, type ChainConfig, type Config } from "../deployments";
 import fs from "fs";
 import readline from "readline";
 import {
@@ -50,7 +50,7 @@ import {
   normalizeRpcArgs,
   validatePayerOption,
   validateTimeout,
-} from "./validation";
+} from "../validation";
 
 type TokenTransferArgs = {
   network: string;

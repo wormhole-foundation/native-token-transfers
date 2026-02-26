@@ -1,3 +1,4 @@
+import { describe, it, expect, spyOn, afterEach } from "bun:test";
 import { collectMissingInboundGroups } from "../src/limits";
 import type { Config } from "../src/deployments";
 
@@ -5,8 +6,10 @@ describe("collectMissingInboundGroups", () => {
   const asChainsConfig = (chains: object): Config["chains"] =>
     chains as Config["chains"];
 
+  let warnSpy: ReturnType<typeof spyOn> | undefined;
+
   afterEach(() => {
-    jest.restoreAllMocks();
+    warnSpy?.mockRestore();
   });
 
   it("returns empty when new chain is not in config", () => {
@@ -70,9 +73,7 @@ describe("collectMissingInboundGroups", () => {
   });
 
   it("warns and skips destinations with malformed outbound limits", () => {
-    const warnSpy = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    warnSpy = spyOn(console, "warn").mockImplementation(() => undefined);
 
     const chainsConfig = asChainsConfig({
       Solana: {
@@ -95,8 +96,7 @@ describe("collectMissingInboundGroups", () => {
     ]);
 
     expect(warnSpy).toHaveBeenCalled();
-    expect(warnSpy.mock.calls[0]?.[0]).toBeDefined();
-    const warningMessage = warnSpy.mock.calls[0][0] as string;
+    const warningMessage = warnSpy!.mock.calls[0][0] as string;
     expect(warningMessage).toContain("Skipping Solana");
   });
 

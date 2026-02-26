@@ -20,6 +20,11 @@ export function checkConfigErrors(
       errorCount++;
       continue;
     }
+    if (!localConfig.limits) {
+      console.error(`ERROR: ${chain} has no limits configured.`);
+      errorCount++;
+      continue;
+    }
     if (
       !checkNumberFormatting(localConfig.limits.outbound, deployment.decimals)
     ) {

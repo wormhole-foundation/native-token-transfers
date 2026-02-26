@@ -4,7 +4,7 @@
 
 import { ethers, Signature } from "ethers";
 import { encode as msgpackEncode } from "@msgpack/msgpack";
-import { colors } from "./colors.js";
+import { colors } from "../colors.js";
 
 const HYPERLIQUID_API = {
   testnet: "https://api.hyperliquid-testnet.xyz",
