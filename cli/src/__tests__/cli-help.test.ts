@@ -145,6 +145,10 @@ describe("CLI Help Output", () => {
 
     const { stdout: hypeHelp } = await runCli("hype", "--help");
     expect(hypeHelp).toContain("set-big-blocks");
+    expect(hypeHelp).toContain("link");
+    expect(hypeHelp).toContain("bridge-in");
+    expect(hypeHelp).toContain("bridge-out");
+    expect(hypeHelp).toContain("status");
   });
 });
 
