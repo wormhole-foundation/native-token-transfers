@@ -138,14 +138,22 @@ describe("CLI Help Output", () => {
     SUBPROCESS_TIMEOUT
   );
 
-  it("manual and hype subcommands are listed", async () => {
-    if (!cliAvailable) return;
-    const { stdout: manualHelp } = await runCli("manual", "--help");
-    expect(manualHelp).toContain("set-peer");
+  it(
+    "manual and hype subcommands are listed",
+    async () => {
+      if (!cliAvailable) return;
+      const { stdout: manualHelp } = await runCli("manual", "--help");
+      expect(manualHelp).toContain("set-peer");
 
-    const { stdout: hypeHelp } = await runCli("hype", "--help");
-    expect(hypeHelp).toContain("set-big-blocks");
-  });
+      const { stdout: hypeHelp } = await runCli("hype", "--help");
+      expect(hypeHelp).toContain("set-big-blocks");
+      expect(hypeHelp).toContain("link");
+      expect(hypeHelp).toContain("bridge-in");
+      expect(hypeHelp).toContain("bridge-out");
+      expect(hypeHelp).toContain("status");
+    },
+    SUBPROCESS_TIMEOUT
+  );
 });
 
 describe("Command-specific options", () => {
