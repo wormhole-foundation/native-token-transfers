@@ -112,8 +112,7 @@ export function createHypeCommand(overrides: WormholeConfigOverrides<Network>) {
               })
               .option("path", options.deploymentPath)
               .option("testnet", {
-                describe:
-                  "Use HyperLiquid testnet (overrides deployment.json)",
+                describe: "Use HyperLiquid testnet (overrides deployment.json)",
                 type: "boolean",
               })
               .check((argv: any) => {
@@ -358,9 +357,7 @@ export function createHypeCommand(overrides: WormholeConfigOverrides<Network>) {
             const hyperEvmChain = deployments.chains["HyperEVM"];
             if (!hyperEvmChain?.token) {
               console.error(
-                colors.red(
-                  "No HyperEVM chain config found in deployment.json."
-                )
+                colors.red("No HyperEVM chain config found in deployment.json.")
               );
               process.exit(1);
               return;
@@ -443,8 +440,7 @@ export function createHypeCommand(overrides: WormholeConfigOverrides<Network>) {
               })
               .option("path", options.deploymentPath)
               .option("testnet", {
-                describe:
-                  "Use HyperLiquid testnet (overrides deployment.json)",
+                describe: "Use HyperLiquid testnet (overrides deployment.json)",
                 type: "boolean",
               })
               .example(
@@ -550,8 +546,7 @@ export function createHypeCommand(overrides: WormholeConfigOverrides<Network>) {
             yargs
               .option("path", options.deploymentPath)
               .option("testnet", {
-                describe:
-                  "Use HyperLiquid testnet (overrides deployment.json)",
+                describe: "Use HyperLiquid testnet (overrides deployment.json)",
                 type: "boolean",
               })
               .example(

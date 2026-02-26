@@ -20,6 +20,30 @@ const HYPEREVM_RPC = {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+const FETCH_TIMEOUT_MS = 30_000;
+
+/**
+ * fetch() wrapper that aborts and throws after `timeoutMs` milliseconds.
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = FETCH_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Compute the EIP-712 connection-id hash for an L1 action.
  *
@@ -80,7 +104,7 @@ async function sendL1Action(
   );
 
   // vaultAddress is omitted entirely (not sent as null) to avoid HTTP 422
-  const res = await fetch(`${apiUrl}/exchange`, {
+  const res = await fetchWithTimeout(`${apiUrl}/exchange`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -143,7 +167,7 @@ export async function setHyperEvmBigBlocks(
       )
     );
 
-    const res = await fetch(`${apiUrl}/exchange`, {
+    const res = await fetchWithTimeout(`${apiUrl}/exchange`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -319,7 +343,7 @@ export async function spotSend(
   const sig = Signature.from(await wallet.signTypedData(domain, types, value));
 
   // vaultAddress omitted entirely — never send as null
-  const res = await fetch(`${apiUrl}/exchange`, {
+  const res = await fetchWithTimeout(`${apiUrl}/exchange`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -449,7 +473,7 @@ export async function getSpotTokenString(
 ): Promise<string> {
   const apiUrl = isTestnet ? HYPERLIQUID_API.testnet : HYPERLIQUID_API.mainnet;
 
-  const res = await fetch(`${apiUrl}/info`, {
+  const res = await fetchWithTimeout(`${apiUrl}/info`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ type: "spotMeta" }),
