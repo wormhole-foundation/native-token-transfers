@@ -1,0 +1,9 @@
+[package]
+name = "ntt_governance"
+version = "1.0.0"
+edition = "2024.beta"
+
+[dependencies]
+# After wormhole PR #4639 merges, switch to: rev = "main"
+wormhole = { git = "https://github.com/wormholelabs-xyz/wormhole.git", subdir = "sui/wormhole", rev = "sui-package-update" }
+ntt = { local = "../ntt" }

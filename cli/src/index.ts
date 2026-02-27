@@ -24,6 +24,7 @@ import {
   createSetMintAuthorityCommand,
   createSolanaCommand,
   createStatusCommand,
+  createSuiCommand,
   createTransferOwnershipCommand,
   createUpdateCommand,
   createUpgradeCommand,
@@ -72,6 +73,7 @@ yargs(hideBin(process.argv))
   .command(createSolanaCommand(overrides))
   .command(createHypeCommand(overrides))
   .command(createManualCommand(overrides))
+  .command(createSuiCommand(overrides))
   .help()
   .strict()
   .demandCommand()

@@ -261,6 +261,11 @@ export class SuiNtt<N extends Network, C extends SuiChains>
         "AddressOwner" in adminCap.data.owner
       ) {
         ownerAddress = adminCap.data.owner.AddressOwner;
+      } else if (
+        typeof adminCap.data.owner === "object" &&
+        "ObjectOwner" in adminCap.data.owner
+      ) {
+        ownerAddress = adminCap.data.owner.ObjectOwner;
       } else if (typeof adminCap.data.owner === "string") {
         ownerAddress = adminCap.data.owner;
       } else {
