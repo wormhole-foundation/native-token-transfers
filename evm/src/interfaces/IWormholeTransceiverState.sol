@@ -31,6 +31,12 @@ interface IWormholeTransceiverState {
     /// @param chainId The chain ID to set.
     event SetIsSpecialRelayingEnabled(uint16 chainId, bool isRelayingEnabled);
 
+    /// @notice Emitted when subsidized relaying is enabled or disabled.
+    /// @dev Topic0
+    ///      0x1df7b0a641c11c6a0b6c1d1dbd5ed0a9f2e5f9df58f9cb6d3a15d5c7c80d9f15.
+    /// @param isEnabled A boolean indicating whether subsidized relaying is enabled.
+    event SetIsSubsidizedRelayingEnabled(bool isEnabled);
+
     /// @notice Emitted when the chain is EVM compatible.
     /// @dev Topic0
     ///      0x4add57d97a7bf5035340ea1212aeeb3d4d3887eb1faf3821a8224c3a6956a10c.

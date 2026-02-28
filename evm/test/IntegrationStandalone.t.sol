@@ -297,6 +297,38 @@ contract TestEndToEndBase is Test, IRateLimiterEvents {
         }
     }
 
+    function test_subsidizedRelaying_allowsZeroValueTransfer() public {
+        vm.chainId(chainId1);
+
+        wormholeTransceiverChain1.setIsSubsidizedRelayingEnabled(true);
+
+        // Fund the transceiver so it can pay Wormhole fees itself.
+        vm.deal(address(this), 1 ether);
+        (bool funded,) = address(wormholeTransceiverChain1).call{value: 0.5 ether}("");
+        require(funded, "funding failed");
+
+        DummyToken token1 = DummyToken(nttManagerChain1.token());
+        uint8 decimals = token1.decimals();
+        uint256 sendingAmount = 5 * 10 ** decimals;
+        token1.mintDummy(address(userA), sendingAmount);
+
+        bytes memory instructions = encodeTransceiverInstruction(true);
+        uint256 totalQuote = nttManagerChain1.quoteDeliveryPrice(chainId2, instructions);
+        require(totalQuote == 0, "expected zero quote with subsidized relaying");
+
+        vm.startPrank(userA);
+        token1.approve(address(nttManagerChain1), sendingAmount);
+        nttManagerChain1.transfer(
+            sendingAmount,
+            chainId2,
+            bytes32(uint256(uint160(userB))),
+            bytes32(uint256(uint160(userA))),
+            false,
+            instructions
+        );
+        vm.stopPrank();
+    }
+
     function test_lotsOfReverts() public {
         vm.chainId(chainId1);
 

@@ -113,6 +113,9 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     bytes32 private constant WORMHOLE_EVM_CHAIN_IDS =
         bytes32(uint256(keccak256("whTransceiver.evmChainIds")) - 1);
 
+    bytes32 private constant SUBSIDIZED_RELAYING_SLOT =
+        bytes32(uint256(keccak256("whTransceiver.subsidizedRelaying")) - 1);
+
     // =============== Storage Setters/Getters ========================================
 
     function _getWormholeConsumedVAAsStorage()
@@ -170,6 +173,17 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         }
     }
 
+    function _getSubsidizedRelayingStorage()
+        internal
+        pure
+        returns (BooleanFlag storage $)
+    {
+        uint256 slot = uint256(SUBSIDIZED_RELAYING_SLOT);
+        assembly ("memory-safe") {
+            $.slot := slot
+        }
+    }
+
     // =============== Public Getters ======================================================
 
     /// @inheritdoc IWormholeTransceiverState
@@ -205,6 +219,10 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         uint16 chainId
     ) public view returns (bool) {
         return _getWormholeEvmChainIdsStorage()[chainId].toBool();
+    }
+
+    function isSubsidizedRelayingEnabled() public view returns (bool) {
+        return _getSubsidizedRelayingStorage().toBool();
     }
 
     // =============== Admin ===============================================================
@@ -271,6 +289,11 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         _getSpecialRelayingEnabledChainsStorage()[chainId] = isEnabled.toWord();
 
         emit SetIsSpecialRelayingEnabled(chainId, isEnabled);
+    }
+
+    function setIsSubsidizedRelayingEnabled(bool isEnabled) external onlyOwner {
+        _getSubsidizedRelayingStorage().setTo(isEnabled);
+        emit SetIsSubsidizedRelayingEnabled(isEnabled);
     }
 
     // ============= Internal ===============================================================

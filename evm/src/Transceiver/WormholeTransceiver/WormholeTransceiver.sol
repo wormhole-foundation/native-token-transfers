@@ -35,6 +35,8 @@ contract WormholeTransceiver is
 
     string public constant WORMHOLE_TRANSCEIVER_VERSION = "1.3.1";
 
+    error InsufficientSubsidyBalance(uint256 required, uint256 available);
+
     constructor(
         address nttManager,
         address wormholeCoreBridge,
@@ -52,6 +54,8 @@ contract WormholeTransceiver is
             _gasLimit
         )
     {}
+
+    receive() external payable {}
 
     // ==================== External Interface ===============================================
 
@@ -152,6 +156,16 @@ contract WormholeTransceiver is
         uint16 targetChain,
         TransceiverStructs.TransceiverInstruction memory instruction
     ) internal view override returns (uint256 nativePriceQuote) {
+        if (isSubsidizedRelayingEnabled()) {
+            return 0;
+        }
+        return _computeDeliveryPayment(targetChain, instruction);
+    }
+
+    function _computeDeliveryPayment(
+        uint16 targetChain,
+        TransceiverStructs.TransceiverInstruction memory instruction
+    ) internal view returns (uint256 nativePriceQuote) {
         // Check the special instruction up front to see if we should skip sending via a relayer
         WormholeTransceiverInstruction memory weIns =
             parseWormholeTransceiverInstruction(instruction.payload);
@@ -184,6 +198,14 @@ contract WormholeTransceiver is
         TransceiverStructs.TransceiverInstruction memory instruction,
         bytes memory nttManagerMessage
     ) internal override {
+        uint256 deliveryPaymentToUse = deliveryPayment;
+        if (isSubsidizedRelayingEnabled()) {
+            deliveryPaymentToUse = _computeDeliveryPayment(recipientChain, instruction);
+            uint256 available = address(this).balance;
+            if (available < deliveryPaymentToUse) {
+                revert InsufficientSubsidyBalance(deliveryPaymentToUse, available);
+            }
+        }
         (
             TransceiverStructs.TransceiverMessage memory transceiverMessage,
             bytes memory encodedTransceiverPayload
@@ -206,7 +228,7 @@ contract WormholeTransceiver is
             bytes32 refundRecipient = refundAddress;
             uint16 destinationChain = recipientChain;
 
-            wormholeRelayer.sendToEvm{value: deliveryPayment}(
+            wormholeRelayer.sendToEvm{value: deliveryPaymentToUse}(
                 destinationChain,
                 fromWormholeFormat(getWormholePeer(destinationChain)),
                 encodedTransceiverPayload,
@@ -220,27 +242,27 @@ contract WormholeTransceiver is
                 consistencyLevel
             );
 
-            emit RelayingInfo(uint8(RelayingType.Standard), refundAddress, deliveryPayment);
+            emit RelayingInfo(uint8(RelayingType.Standard), refundAddress, deliveryPaymentToUse);
         } else if (!weIns.shouldSkipRelayerSend && isSpecialRelayingEnabled(recipientChain)) {
             uint256 wormholeFee = wormhole.messageFee();
             uint64 sequence = wormhole.publishMessage{value: wormholeFee}(
                 0, encodedTransceiverPayload, consistencyLevel
             );
-            specialRelayer.requestDelivery{value: deliveryPayment - wormholeFee}(
+            specialRelayer.requestDelivery{value: deliveryPaymentToUse - wormholeFee}(
                 getNttManagerToken(), recipientChain, 0, sequence
             );
 
             // NOTE: specialized relaying does not currently support refunds. The zero address
             // is used as a placeholder for the refund address until support is added.
-            emit RelayingInfo(uint8(RelayingType.Special), bytes32(0), deliveryPayment);
+            emit RelayingInfo(uint8(RelayingType.Special), bytes32(0), deliveryPaymentToUse);
         } else {
-            wormhole.publishMessage{value: deliveryPayment}(
+            wormhole.publishMessage{value: deliveryPaymentToUse}(
                 0, encodedTransceiverPayload, consistencyLevel
             );
 
             // NOTE: manual relaying does not currently support refunds. The zero address
             // is used as refundAddress.
-            emit RelayingInfo(uint8(RelayingType.Manual), bytes32(0), deliveryPayment);
+            emit RelayingInfo(uint8(RelayingType.Manual), bytes32(0), deliveryPaymentToUse);
         }
 
         emit SendTransceiverMessage(recipientChain, transceiverMessage);
