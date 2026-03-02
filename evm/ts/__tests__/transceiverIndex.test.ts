@@ -31,6 +31,25 @@ function buildNttStub(opts: {
 }
 
 describe("transceiver index handling", () => {
+  describe("constructor", () => {
+    it("should not throw when contracts.ntt.transceiver is missing", () => {
+      const ntt = new EvmNtt(
+        "Testnet" as any,
+        "Sepolia" as any,
+        {} as any,
+        {
+          ntt: {
+            manager: "0x0000000000000000000000000000000000000001",
+            token: "0x0000000000000000000000000000000000000002",
+          },
+        } as any,
+        "2.0.0"
+      );
+
+      expect(ntt.xcvrs).toHaveLength(0);
+    });
+  });
+
   describe("initTransceiverIndices", () => {
     it("should set registeredIndex from on-chain getTransceiverInfo", async () => {
       const xcvr = mockXcvr("0xb58477e074265bdc7f7ca6100ed0f7de264f74a2");
@@ -45,9 +64,7 @@ describe("transceiver index handling", () => {
             ]),
           getTransceivers: jest
             .fn()
-            .mockResolvedValue([
-              "0xb58477e074265bdc7f7ca6100ed0f7de264f74a2",
-            ]),
+            .mockResolvedValue(["0xb58477e074265bdc7f7ca6100ed0f7de264f74a2"]),
         },
       });
 
@@ -69,9 +86,7 @@ describe("transceiver index handling", () => {
             ]),
           getTransceivers: jest
             .fn()
-            .mockResolvedValue([
-              "0xb58477e074265bdc7f7ca6100ed0f7de264f74a2",
-            ]),
+            .mockResolvedValue(["0xb58477e074265bdc7f7ca6100ed0f7de264f74a2"]),
         },
       });
 
@@ -89,9 +104,7 @@ describe("transceiver index handling", () => {
         manager: {
           getTransceivers: jest
             .fn()
-            .mockResolvedValue([
-              "0xb58477e074265bdc7f7ca6100ed0f7de264f74a2",
-            ]),
+            .mockResolvedValue(["0xb58477e074265bdc7f7ca6100ed0f7de264f74a2"]),
         },
       });
 
@@ -116,6 +129,32 @@ describe("transceiver index handling", () => {
       await ntt.initTransceiverIndices();
 
       expect(xcvr.registeredIndex).toBe(0);
+    });
+
+    it("should retry initialization after a transient failure", async () => {
+      const xcvr = mockXcvr("0xaaaa");
+
+      const getTransceiverInfo = jest
+        .fn()
+        .mockRejectedValueOnce(new Error("temporary rpc error"))
+        .mockResolvedValueOnce([
+          { registered: true, enabled: true, index: 7n },
+        ]);
+
+      const ntt = buildNttStub({
+        xcvrs: [xcvr],
+        manager: {
+          getTransceiverInfo,
+          getTransceivers: jest.fn().mockResolvedValue(["0xaaaa"]),
+        },
+      });
+
+      await ntt.initTransceiverIndices();
+      expect(xcvr.registeredIndex).toBe(0);
+
+      await ntt.initTransceiverIndices();
+      expect(xcvr.registeredIndex).toBe(7);
+      expect(getTransceiverInfo).toHaveBeenCalledTimes(2);
     });
 
     it("should only initialize once (idempotent)", async () => {
@@ -229,9 +268,9 @@ describe("transceiver index handling", () => {
   describe("quoteDeliveryPrice", () => {
     it("should call transceiver quoteDeliveryPrice directly (not manager)", async () => {
       const xcvr = mockXcvr("0xaaaa", 1);
-      (xcvr.transceiver.quoteDeliveryPrice as unknown as jest.Mock).mockResolvedValue(
-        42000n
-      );
+      (
+        xcvr.transceiver.quoteDeliveryPrice as unknown as jest.Mock
+      ).mockResolvedValue(42000n);
 
       const managerQuote = jest.fn();
 
@@ -266,12 +305,12 @@ describe("transceiver index handling", () => {
     it("should sum quotes from multiple transceivers", async () => {
       const xcvrA = mockXcvr("0xaaaa", 2);
       const xcvrB = mockXcvr("0xbbbb", 5);
-      (xcvrA.transceiver.quoteDeliveryPrice as unknown as jest.Mock).mockResolvedValue(
-        100n
-      );
-      (xcvrB.transceiver.quoteDeliveryPrice as unknown as jest.Mock).mockResolvedValue(
-        200n
-      );
+      (
+        xcvrA.transceiver.quoteDeliveryPrice as unknown as jest.Mock
+      ).mockResolvedValue(100n);
+      (
+        xcvrB.transceiver.quoteDeliveryPrice as unknown as jest.Mock
+      ).mockResolvedValue(200n);
 
       const ntt = buildNttStub({
         xcvrs: [xcvrA, xcvrB],
@@ -303,10 +342,14 @@ describe("transceiver index handling", () => {
       });
 
       // Each transceiver should receive an instruction with its own registered index
-      const callA = (xcvrA.transceiver.quoteDeliveryPrice as unknown as jest.Mock).mock.calls[0]!;
+      const callA = (
+        xcvrA.transceiver.quoteDeliveryPrice as unknown as jest.Mock
+      ).mock.calls[0]!;
       expect(callA[1].index).toBe(2);
 
-      const callB = (xcvrB.transceiver.quoteDeliveryPrice as unknown as jest.Mock).mock.calls[0]!;
+      const callB = (
+        xcvrB.transceiver.quoteDeliveryPrice as unknown as jest.Mock
+      ).mock.calls[0]!;
       expect(callB[1].index).toBe(5);
     });
   });
@@ -315,9 +358,7 @@ describe("transceiver index handling", () => {
     it("should correctly encode instructions for a transceiver at index 1", async () => {
       // Simulate: old transceiver was at index 0, removed.
       // New transceiver registered at index 1.
-      const newXcvr = mockXcvr(
-        "0xb58477e074265bdc7f7ca6100ed0f7de264f74a2"
-      );
+      const newXcvr = mockXcvr("0xb58477e074265bdc7f7ca6100ed0f7de264f74a2");
 
       const ntt = buildNttStub({
         xcvrs: [newXcvr],
@@ -329,9 +370,7 @@ describe("transceiver index handling", () => {
             ]),
           getTransceivers: jest
             .fn()
-            .mockResolvedValue([
-              "0xb58477e074265bdc7f7ca6100ed0f7de264f74a2",
-            ]),
+            .mockResolvedValue(["0xb58477e074265bdc7f7ca6100ed0f7de264f74a2"]),
         },
       });
 

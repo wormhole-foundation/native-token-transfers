@@ -250,13 +250,16 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     );
 
     this.xcvrs = [];
+    const configuredTransceivers = contracts.ntt.transceiver;
     if (
-      "wormhole" in contracts.ntt.transceiver &&
-      contracts.ntt.transceiver["wormhole"]
+      configuredTransceivers &&
+      typeof configuredTransceivers === "object" &&
+      "wormhole" in configuredTransceivers &&
+      configuredTransceivers["wormhole"]
     ) {
       const transceiverTypes = [
         "wormhole", // wormhole xcvr should be ix 0
-        ...Object.keys(contracts.ntt.transceiver).filter((transceiverType) => {
+        ...Object.keys(configuredTransceivers).filter((transceiverType) => {
           transceiverType !== "wormhole";
         }),
       ];
@@ -270,7 +273,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
         this.xcvrs.push(
           new EvmNttWormholeTranceiver(
             this,
-            contracts.ntt!.transceiver[transceiverType]!,
+            configuredTransceivers[transceiverType]!,
             abiBindings!
           )
         );
@@ -307,12 +310,11 @@ export class EvmNtt<N extends Network, C extends EvmChains>
           xcvr.registeredIndex = Number(transceiverInfos[addrIndex]!.index);
         }
       }
+      this._transceiverIndicesInitialized = true;
     } catch {
-      // Fallback: if the contract doesn't support getTransceiverInfo (old version),
-      // keep the default index (0) for backwards compatibility
+      // Do not mark initialized on failure: retry on next call so transient
+      // RPC/provider errors don't permanently pin indices to default 0.
     }
-
-    this._transceiverIndicesInitialized = true;
   }
 
   async getTransceiver(ix: number): Promise<NttTransceiver<N, C, any> | null> {
@@ -458,7 +460,13 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       throw new Error(`Network mismatch: ${conf.network} != ${network}`);
 
     const version = await EvmNtt.getVersion(provider, conf.contracts);
-    const ntt = new EvmNtt(network as N, chain, provider, conf.contracts, version);
+    const ntt = new EvmNtt(
+      network as N,
+      chain,
+      provider,
+      conf.contracts,
+      version
+    );
     await ntt.initTransceiverIndices();
     return ntt;
   }
