@@ -259,9 +259,9 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     ) {
       const transceiverTypes = [
         "wormhole", // wormhole xcvr should be ix 0
-        ...Object.keys(configuredTransceivers).filter((transceiverType) => {
-          transceiverType !== "wormhole";
-        }),
+        ...Object.keys(configuredTransceivers).filter(
+          (transceiverType) => transceiverType !== "wormhole"
+        ),
       ];
       transceiverTypes.map((transceiverType) => {
         // we currently only support wormhole transceivers

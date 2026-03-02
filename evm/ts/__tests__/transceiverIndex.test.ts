@@ -48,6 +48,28 @@ describe("transceiver index handling", () => {
 
       expect(ntt.xcvrs).toHaveLength(0);
     });
+
+    it("should throw on unsupported transceiver types", () => {
+      expect(
+        () =>
+          new EvmNtt(
+            "Testnet" as any,
+            "Sepolia" as any,
+            {} as any,
+            {
+              ntt: {
+                manager: "0x0000000000000000000000000000000000000001",
+                token: "0x0000000000000000000000000000000000000002",
+                transceiver: {
+                  wormhole: "0x0000000000000000000000000000000000000003",
+                  axelar: "0x0000000000000000000000000000000000000004",
+                },
+              },
+            } as any,
+            "2.0.0"
+          )
+      ).toThrow("Unsupported transceiver type: axelar");
+    });
   });
 
   describe("initTransceiverIndices", () => {
