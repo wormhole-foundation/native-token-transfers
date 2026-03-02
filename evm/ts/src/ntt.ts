@@ -770,6 +770,11 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       );
       if (wormholeTransceiverAddr) break;
     }
+    // Backward-compatible fallback for manager-only discovery flows (e.g. CLI pull):
+    // if no local xcvr is configured, default to the first enabled transceiver.
+    if (!wormholeTransceiverAddr && enabledTransceivers.length > 0) {
+      wormholeTransceiverAddr = enabledTransceivers[0];
+    }
 
     const remote: Partial<Ntt.Contracts> = {
       manager: this.managerAddress,

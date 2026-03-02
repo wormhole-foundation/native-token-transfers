@@ -24,9 +24,12 @@ function buildNttStub(opts: {
     xcvrs: opts.xcvrs,
     manager: opts.manager,
     _transceiverIndicesInitialized: false,
+    managerAddress: "0xmanager",
+    tokenAddress: "0xtoken",
     initTransceiverIndices: EvmNtt.prototype.initTransceiverIndices,
     encodeOptions: EvmNtt.prototype.encodeOptions,
     quoteDeliveryPrice: EvmNtt.prototype.quoteDeliveryPrice,
+    verifyAddresses: EvmNtt.prototype.verifyAddresses,
   };
 }
 
@@ -411,6 +414,26 @@ describe("transceiver index handling", () => {
       const encoded = Ntt.encodeTransceiverInstructions(instructions);
       expect(encoded[0]).toBe(1); // 1 instruction
       expect(encoded[1]).toBe(1); // index = 1, not 0
+    });
+  });
+
+  describe("verifyAddresses", () => {
+    it("should fall back to first enabled transceiver for manager-only discovery", async () => {
+      const ntt = buildNttStub({
+        xcvrs: [],
+        manager: {
+          token: jest.fn().mockResolvedValue("0xtoken"),
+          getTransceivers: jest.fn().mockResolvedValue(["0xabc"]),
+        },
+      });
+
+      const diff = await ntt.verifyAddresses();
+
+      expect(diff).toEqual({
+        transceiver: {
+          wormhole: "0xabc",
+        },
+      });
     });
   });
 });
