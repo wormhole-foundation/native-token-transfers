@@ -22,6 +22,7 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      id-token: write
       actions: read
     steps:
       - name: Resolve PR head SHA for issue_comment events
