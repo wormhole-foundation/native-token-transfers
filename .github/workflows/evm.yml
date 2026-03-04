@@ -91,7 +91,7 @@ jobs:
         run: forge build --via-ir
 
       - name: Save forge build cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             evm/out
