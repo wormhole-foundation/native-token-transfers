@@ -21,6 +21,8 @@ minimumReleaseAgeExcludes = [
   "@wormhole-foundation/sdk-aptos-core",
   "@wormhole-foundation/sdk-aptos-tokenbridge",
   "@wormhole-foundation/sdk-base",
+  "@wormhole-foundation/sdk-btc",
+  "@wormhole-foundation/sdk-base",
   "@wormhole-foundation/sdk-connect",
   "@wormhole-foundation/sdk-cosmwasm",
   "@wormhole-foundation/sdk-cosmwasm-core",
@@ -50,6 +52,7 @@ minimumReleaseAgeExcludes = [
   "@wormhole-foundation/sdk-sui-core",
   "@wormhole-foundation/sdk-sui-ntt",
   "@wormhole-foundation/sdk-sui-tokenbridge",
+  "@wormhole-foundation/sdk-xrpl",
   "@wormhole-foundation/wormhole-connect",
   # @wormhole-labs packages
   "@wormhole-labs/cctp-executor-route",
