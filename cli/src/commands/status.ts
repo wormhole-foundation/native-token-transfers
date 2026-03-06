@@ -23,6 +23,7 @@ import {
   getImmutables,
   getPdas,
 } from "../index";
+import { formatNttVersion } from "../version.js";
 
 export function createStatusCommand(
   overrides: WormholeConfigOverrides<Network>
@@ -44,6 +45,8 @@ export function createStatusCommand(
           "Check the status with detailed output"
         ),
     handler: async (argv: any) => {
+      console.log(formatNttVersion());
+
       const path = argv["path"];
       const verbose = argv["verbose"];
       // TODO: I don't like the variable names here

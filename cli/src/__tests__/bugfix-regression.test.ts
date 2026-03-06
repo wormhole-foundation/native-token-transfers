@@ -189,6 +189,20 @@ describe("Fix #14: sui/helpers.ts — execFileSync only, no execSync", () => {
   });
 });
 
+// ─── tag.ts — no shell symlink (spaces in path) ─────────────────────────────
+
+describe("tag.ts — symlink uses fs.symlinkSync, not ln -fs", () => {
+  test("does not shell out for symlink creation", () => {
+    const source = fs.readFileSync(
+      path.join(SRC_DIR, "tag.ts"),
+      "utf-8"
+    );
+    // Before fix: execSync(`ln -fs $(pwd)/...`) — breaks with spaces in path
+    expect(source).not.toMatch(/ln -fs/);
+    expect(source).toMatch(/fs\.symlinkSync/);
+  });
+});
+
 // ─── Fix #11: config-mgmt.ts — no contradictory ?. + ! ──────────────────────
 
 describe("Fix #11: config-mgmt.ts — no diff[k]?.push! pattern", () => {
