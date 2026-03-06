@@ -9,7 +9,9 @@ export function nttVersion(): {
   const nttDir = `${process.env.HOME}/.ntt-cli`;
   try {
     const versionFile = fs.readFileSync(`${nttDir}/version`).toString().trim();
-    const [commit, installPath, version, remote] = versionFile.split("\n");
+    const parts = versionFile.split("\n");
+    if (parts.length < 4) return null;
+    const [commit, installPath, version, remote] = parts;
     return { version, commit, path: installPath, remote };
   } catch {
     return null;
