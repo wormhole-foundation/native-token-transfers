@@ -101,7 +101,8 @@ const nttTransceivers = {
   wormhole: getTransceiverProgram(
     $.connection,
     WH_TRANSCEIVER_ADDRESS.toBase58(),
-    VERSION
+    VERSION,
+    !SOLANA_WORMHOLE_SHIMS
   ),
 };
 
@@ -246,9 +247,9 @@ describe("example-native-token-transfers", () => {
       const outboxItemInfo = await ntt.program.account.outboxItem.fetch(
         outboxItem.publicKey
       );
-      expect(outboxItemInfo.released.map.bitLength()).toBe(
-        Object.keys(nttTransceivers).length
-      );
+      assert
+        .bn(outboxItemInfo.released.map)
+        .setBits(Object.keys(nttTransceivers).length);
 
       // parse event and instruction data to re-build message
       const [data] = await testWormholePostMessageShim.getMessageData(txId);

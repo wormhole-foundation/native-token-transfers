@@ -56,6 +56,20 @@ export const assert = {
         )
       ).toBeTruthy();
     },
+    /**
+     * Asserts `actual` has `expectedSetBits` bits set
+     * @param expectedSetBits Expected number of set bits
+     */
+    setBits: (expectedSetBits: number) => {
+      // Brian Kernighan's bit counting algorithm
+      let count = 0;
+      let temp = actual.clone();
+      while (!temp.isZero()) {
+        temp = temp.and(temp.subn(1));
+        ++count;
+      }
+      expect(count).toEqual(expectedSetBits);
+    },
   }),
 
   /**
