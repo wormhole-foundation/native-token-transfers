@@ -86,7 +86,11 @@ export function createWorkTree(platform: Platform, version: string): string {
   // this way, if it's created later, the symlink will be correct
   const target = path.resolve("overrides.json");
   const linkPath = path.resolve(worktreeName, "overrides.json");
-  try { fs.unlinkSync(linkPath); } catch (e: any) { if (e.code !== "ENOENT") throw e; }
+  try {
+    fs.unlinkSync(linkPath);
+  } catch (e: any) {
+    if (e.code !== "ENOENT") throw e;
+  }
   fs.symlinkSync(target, linkPath);
 
   console.log(

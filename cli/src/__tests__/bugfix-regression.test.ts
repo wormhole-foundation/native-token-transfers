@@ -193,10 +193,7 @@ describe("Fix #14: sui/helpers.ts — execFileSync only, no execSync", () => {
 
 describe("tag.ts — symlink uses fs.symlinkSync, not ln -fs", () => {
   test("does not shell out for symlink creation", () => {
-    const source = fs.readFileSync(
-      path.join(SRC_DIR, "tag.ts"),
-      "utf-8"
-    );
+    const source = fs.readFileSync(path.join(SRC_DIR, "tag.ts"), "utf-8");
     // Before fix: execSync(`ln -fs $(pwd)/...`) — breaks with spaces in path
     expect(source).not.toMatch(/ln -fs/);
     expect(source).toMatch(/fs\.symlinkSync/);
