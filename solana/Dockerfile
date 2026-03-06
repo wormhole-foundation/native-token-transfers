@@ -73,6 +73,7 @@ COPY bunfig.toml bunfig.toml
 COPY sdk sdk
 COPY cli/package.json cli/package.json
 COPY sui/ts/package.json sui/ts/package.json
+COPY xrpl/ts/package.json xrpl/ts/package.json
 COPY evm/ts/package.json evm/ts/package.json
 COPY solana/package.json solana/package.json
 
