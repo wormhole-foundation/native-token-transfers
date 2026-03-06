@@ -39,9 +39,13 @@ import type {
   Ntt,
   NttWithExecutor,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import "@wormhole-foundation/sdk-evm-ntt";
-import "@wormhole-foundation/sdk-solana-ntt";
-import "@wormhole-foundation/sdk-sui-ntt";
+import { register as registerEvm } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerSolana } from "@wormhole-foundation/sdk-solana-ntt";
+import { register as registerSui } from "@wormhole-foundation/sdk-sui-ntt";
+
+registerEvm();
+registerSolana();
+registerSui();
 import { loadConfig, type ChainConfig, type Config } from "../deployments";
 import fs from "fs";
 import readline from "readline";
