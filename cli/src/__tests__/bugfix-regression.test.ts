@@ -1,7 +1,10 @@
 import { describe, expect, test, spyOn, beforeEach, afterEach } from "bun:test";
+import { execSync } from "child_process";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { checkConfigErrors } from "../configErrors";
+import { createWorkTree } from "../tag";
 import { validateChain } from "../validation";
 
 const SRC_DIR = path.resolve(import.meta.dir, "..");
@@ -189,14 +192,36 @@ describe("Fix #14: sui/helpers.ts — execFileSync only, no execSync", () => {
   });
 });
 
-// ─── tag.ts — no shell symlink (spaces in path) ─────────────────────────────
+// ─── tag.ts — symlink creation handles spaces in path ────────────────────────
 
-describe("tag.ts — symlink uses fs.symlinkSync, not ln -fs", () => {
-  test("does not shell out for symlink creation", () => {
-    const source = fs.readFileSync(path.join(SRC_DIR, "tag.ts"), "utf-8");
-    // Before fix: execSync(`ln -fs $(pwd)/...`) — breaks with spaces in path
-    expect(source).not.toMatch(/ln -fs/);
-    expect(source).toMatch(/fs\.symlinkSync/);
+describe("tag.ts — symlink creation with spaces in cwd", () => {
+  test("createWorkTree creates overrides.json symlink to the source file", () => {
+    const originalCwd = process.cwd();
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ntt-symlink-test-"));
+    const repoDir = path.join(tempRoot, "dir with spaces");
+    fs.mkdirSync(repoDir);
+
+    try {
+      process.chdir(repoDir);
+      execSync("git init -q");
+      execSync("git config user.email test@example.com");
+      execSync("git config user.name test");
+      fs.writeFileSync("overrides.json", "{}\n");
+      execSync("git add overrides.json");
+      execSync("git -c commit.gpgsign=false commit -qm init");
+      execSync("git tag v1.2.3+evm");
+
+      const worktree = createWorkTree("Evm", "1.2.3");
+      const symlinkPath = path.resolve(worktree, "overrides.json");
+
+      expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
+
+      const symlinkTarget = fs.readlinkSync(symlinkPath);
+      expect(path.resolve(symlinkTarget)).toBe(path.resolve("overrides.json"));
+    } finally {
+      process.chdir(originalCwd);
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
 

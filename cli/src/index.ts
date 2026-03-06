@@ -2,7 +2,6 @@
 import "./side-effects"; // doesn't quite work for silencing the bigint error message. why?
 import type { Network } from "@wormhole-foundation/sdk-connect";
 import type { WormholeConfigOverrides } from "@wormhole-foundation/sdk-connect";
-import fs from "fs";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import "@wormhole-foundation/sdk-evm-ntt";
@@ -29,6 +28,7 @@ import {
   createUpgradeCommand,
 } from "./commands";
 import { loadOverrides } from "./overrides.js";
+import { formatNttVersion, nttVersion } from "./version.js";
 
 // TODO: check if manager can mint the token in burning mode (on solana it's
 // simple. on evm we need to simulate with prank)
@@ -39,20 +39,8 @@ yargs(hideBin(process.argv))
   .scriptName("ntt")
   .version(
     (() => {
-      const ver = nttVersion();
-      if (!ver) {
-        return "unknown";
-      }
-      const { version, commit, path, remote } = ver;
-      const defaultPath = `${process.env.HOME}/.ntt-cli/.checkout`;
-      const remoteString = remote.includes("wormhole-foundation")
-        ? ""
-        : `${remote}@`;
-      if (path === defaultPath) {
-        return `ntt v${version} (${remoteString}${commit})`;
-      } else {
-        return `ntt v${version} (${remoteString}${commit}) from ${path}`;
-      }
+      if (!nttVersion()) return "unknown";
+      return formatNttVersion();
     })()
   )
   // Commands (extracted to individual files in commands/)
@@ -76,22 +64,6 @@ yargs(hideBin(process.argv))
   .strict()
   .demandCommand()
   .parse();
-
-function nttVersion(): {
-  version: string;
-  commit: string;
-  path: string;
-  remote: string;
-} | null {
-  const nttDir = `${process.env.HOME}/.ntt-cli`;
-  try {
-    const versionFile = fs.readFileSync(`${nttDir}/version`).toString().trim();
-    const [commit, installPath, version, remote] = versionFile.split("\n");
-    return { version, commit, path: installPath, remote };
-  } catch {
-    return null;
-  }
-}
 
 // ── Re-exports for backward compatibility ────────────────────────────
 // Commands import from "../index" — keep these re-exports so nothing breaks.
