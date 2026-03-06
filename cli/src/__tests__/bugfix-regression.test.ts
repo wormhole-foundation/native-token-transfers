@@ -197,7 +197,9 @@ describe("Fix #14: sui/helpers.ts — execFileSync only, no execSync", () => {
 describe("tag.ts — symlink creation with spaces in cwd", () => {
   test("createWorkTree creates overrides.json symlink to the source file", () => {
     const originalCwd = process.cwd();
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ntt-symlink-test-"));
+    const tempRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "ntt-symlink-test-")
+    );
     const repoDir = path.join(tempRoot, "dir with spaces");
     fs.mkdirSync(repoDir);
 
