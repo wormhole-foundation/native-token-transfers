@@ -4,10 +4,13 @@ import type { Network } from "@wormhole-foundation/sdk-connect";
 import type { WormholeConfigOverrides } from "@wormhole-foundation/sdk-connect";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import "@wormhole-foundation/sdk-evm-ntt";
-import "@wormhole-foundation/sdk-solana-ntt";
-import "@wormhole-foundation/sdk-sui-ntt";
-import "@wormhole-foundation/sdk-definitions-ntt";
+import { register as registerEvm } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerSolana } from "@wormhole-foundation/sdk-solana-ntt";
+import { register as registerSui } from "@wormhole-foundation/sdk-sui-ntt";
+
+registerEvm();
+registerSolana();
+registerSui();
 
 import { createTokenTransferCommand } from "./commands/token-transfer";
 import {
