@@ -1,15 +1,9 @@
 import type { Chain, Network } from "@wormhole-foundation/sdk-base";
 import {
-  encoding,
-  serializeLayout,
-  toChainId,
-} from "@wormhole-foundation/sdk-base";
-import {
   AccountAddress,
   ChainAddress,
   ChainsConfig,
   Contracts,
-  toUniversal,
   UnsignedTransaction,
 } from "@wormhole-foundation/sdk-definitions";
 import { Ntt, NttTransceiver } from "@wormhole-foundation/sdk-definitions-ntt";
@@ -17,9 +11,10 @@ import {
   XrplChains,
   XrplPlatform,
   XrplPlatformType,
+  XrplUnsignedTransaction,
 } from "@wormhole-foundation/sdk-xrpl";
-import { Client, SubmittableTransaction } from "xrpl";
-import { nttTransferLayout } from "./layouts.js";
+import { Client } from "xrpl";
+import { buildNttPayment, universalToXrplAddress } from "./utils.js";
 
 export class XrplNtt<N extends Network, C extends XrplChains>
   implements Ntt<N, C>
@@ -101,7 +96,7 @@ export class XrplNtt<N extends Network, C extends XrplChains>
   }
 
   async getCustodyAddress(): Promise<string> {
-    return this.contracts.ntt!["manager"];
+    return universalToXrplAddress(this.contracts.ntt!["manager"]);
   }
 
   // Admin Methods
@@ -159,80 +154,20 @@ export class XrplNtt<N extends Network, C extends XrplChains>
     destination: ChainAddress,
     options: Ntt.TransferOptions
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
-    // TODO: handle IOU and MPT
-    if (this.contracts.ntt!["token"] !== "native") {
-      throw new Error("Not implemented for non-XRP tokens");
-    }
+    const { payment } = await buildNttPayment({
+      sender,
+      amount,
+      destination,
+      contracts: this.contracts,
+      getTokenDecimals: () => this.getTokenDecimals(),
+    });
 
-    // NOTE: this code currently only properly handles XRP
-
-    const peer = this.contracts.ntt!.peers?.[destination.chain];
-    if (!peer) {
-      throw new Error(`No peer configured for chain: ${destination.chain}`);
-    }
-
-    const Destination = this.contracts.ntt!["manager"];
-
-    // Convert destination address to bytes
-    // TODO: do this address handling stuff properly, copied from Sui
-    let destinationAddressBytes: Uint8Array;
-    try {
-      if (typeof destination.address.toUint8Array === "function") {
-        destinationAddressBytes = destination.address.toUint8Array();
-      } else if (typeof destination.address.toUniversalAddress === "function") {
-        const universalAddr = destination.address.toUniversalAddress();
-        if (!universalAddr) {
-          throw new Error("toUniversalAddress() returned null or undefined");
-        }
-        destinationAddressBytes = universalAddr.toUint8Array();
-      } else {
-        throw new Error(
-          `destination.address does not have expected methods. Type: ${typeof destination.address}`
-        );
-      }
-    } catch (error) {
-      throw new Error(
-        `Failed to convert destination address to bytes: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-    const recipientManagerAddress = toUniversal(
-      destination.chain,
-      peer.manager
-    ).toUint8Array();
-    if (peer.tokenDecimals === undefined) {
-      throw new Error("No token decimals configured for peer");
-    }
-
-    const memoData = encoding.hex.encode(
-      new Uint8Array(
-        serializeLayout(nttTransferLayout, {
-          recipient_ntt_manager_address: recipientManagerAddress,
-          recipient_address: destinationAddressBytes,
-          recipient_chain: toChainId(destination.chain),
-          from_decimals: await this.getTokenDecimals(),
-          to_decimals: peer.tokenDecimals,
-        })
-      )
+    yield new XrplUnsignedTransaction(
+      payment,
+      this.network,
+      this.chain,
+      "NTT transfer"
     );
-
-    const payment: SubmittableTransaction = {
-      TransactionType: "Payment",
-      Account: sender.toString(),
-      Destination,
-      Amount: amount.toString(), // XRP in drops
-      Memos: [
-        {
-          Memo: {
-            MemoFormat: encoding.hex.encode("application/x-ntt-transfer"),
-            MemoData: memoData,
-          },
-        },
-      ],
-    };
-
-    return payment;
   }
 
   async *redeem(
