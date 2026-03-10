@@ -9,7 +9,6 @@ import {
   ChainAddress,
   ChainsConfig,
   Contracts,
-  toUniversal,
   UnsignedTransaction,
 } from "@wormhole-foundation/sdk-definitions";
 import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
@@ -17,19 +16,12 @@ import {
   XrplChains,
   XrplPlatform,
   XrplPlatformType,
+  XrplUnsignedTransaction,
 } from "@wormhole-foundation/sdk-xrpl";
-import {
-  Client,
-  SubmittableTransaction,
-  decodeAccountID,
-  encodeAccountID,
-} from "xrpl";
-import {
-  nttTransferLayout,
-  executorRequestLayout,
-  requestForExecutionLayout,
-} from "./layouts.js";
+import { Client, SubmittableTransaction, decodeAccountID } from "xrpl";
+import { executorRequestLayout, requestForExecutionLayout } from "./layouts.js";
 import { XrplNtt } from "./ntt.js";
+import { buildNttPayment, universalToXrplAddress } from "./utils.js";
 
 export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
   implements NttWithExecutor<N, C>
@@ -81,80 +73,27 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
     ntt: XrplNtt<N, C>,
     _wrapNative: boolean = false
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
-    if (this.contracts.ntt!["token"] !== "native") {
-      throw new Error("Not implemented for non-XRP tokens");
-    }
+    const { payment: nttPayment, recipientManagerAddress } =
+      await buildNttPayment({
+        sender,
+        amount,
+        destination,
+        contracts: this.contracts,
+        getTokenDecimals: () => ntt.getTokenDecimals(),
+      });
 
-    const peer = this.contracts.ntt!.peers?.[destination.chain];
-    if (!peer) {
-      throw new Error(`No peer configured for chain: ${destination.chain}`);
-    }
-    if (peer.tokenDecimals === undefined) {
-      throw new Error("No token decimals configured for peer");
-    }
-
-    const recipientManagerAddress = toUniversal(
-      destination.chain,
-      peer.manager
-    ).toUint8Array();
-
-    // Convert destination address to bytes
-    // TODO: do this address handling stuff properly, copied from Sui
-    let destinationAddressBytes: Uint8Array;
-    try {
-      if (typeof destination.address.toUint8Array === "function") {
-        destinationAddressBytes = destination.address.toUint8Array();
-      } else if (typeof destination.address.toUniversalAddress === "function") {
-        const universalAddr = destination.address.toUniversalAddress();
-        if (!universalAddr) {
-          throw new Error("toUniversalAddress() returned null or undefined");
-        }
-        destinationAddressBytes = universalAddr.toUint8Array();
-      } else {
-        throw new Error(
-          `destination.address does not have expected methods. Type: ${typeof destination.address}`
-        );
-      }
-    } catch (error) {
-      throw new Error(
-        `Failed to convert destination address to bytes: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-
-    const nttMemoData = encoding.hex.encode(
-      new Uint8Array(
-        serializeLayout(nttTransferLayout, {
-          recipient_ntt_manager_address: recipientManagerAddress,
-          recipient_address: destinationAddressBytes,
-          recipient_chain: toChainId(destination.chain),
-          from_decimals: await ntt.getTokenDecimals(),
-          to_decimals: peer.tokenDecimals,
-        })
-      )
-    );
-
-    // Transaction 1: NTT transfer payment (same as manual route)
-    const nttPayment: SubmittableTransaction = {
-      TransactionType: "Payment",
-      Account: sender.toString(),
-      Destination: this.contracts.ntt!["manager"],
-      Amount: amount.toString(), // XRP in drops
-      Memos: [
-        {
-          Memo: {
-            MemoFormat: encoding.hex.encode("application/x-ntt-transfer"),
-            MemoData: nttMemoData,
-          },
-        },
-      ],
-    };
-
-    yield nttPayment as unknown as UnsignedTransaction<N, C>;
+    yield new XrplUnsignedTransaction(
+      nttPayment,
+      this.network,
+      this.chain,
+      "NTT transfer"
+    ) as unknown as UnsignedTransaction<N, C>;
 
     // After the NTT payment is submitted and confirmed, look up the result
     // to compute the messageId = (ledgerIndex << 32) | txIndex
+    if (!this.provider.isConnected()) {
+      await this.provider.connect();
+    }
     const senderAddr = sender.toString();
     const accountTx = await this.provider.request({
       command: "account_tx",
@@ -168,16 +107,21 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
       throw new Error("Could not retrieve NTT transfer transaction result");
     }
 
-    const ledgerIndex = lastTx.tx_blob
-      ? lastTx.validated
-        ? (lastTx as any).ledger_index
-        : undefined
-      : (lastTx.tx as any)?.ledger_index;
-    const txIndex = (lastTx.meta as any).TransactionIndex;
+    // account_tx response shape varies by API version:
+    // v1: { tx: { ledger_index, ... }, meta: { TransactionIndex, ... } }
+    // v2: { tx_json: { ledger_index, ... }, meta: { TransactionIndex, ... }, ledger_index }
+    const entry = lastTx as any;
+    const ledgerIndex =
+      entry.ledger_index ??
+      entry.tx_json?.ledger_index ??
+      entry.tx?.ledger_index;
+    const txIndex = (entry.meta as any)?.TransactionIndex;
 
     if (ledgerIndex === undefined || txIndex === undefined) {
       throw new Error(
-        "Could not determine ledgerIndex or txIndex from NTT transfer result"
+        `Could not determine ledgerIndex or txIndex from NTT transfer result. ` +
+          `Keys: ${Object.keys(entry).join(", ")}, ` +
+          `meta keys: ${typeof entry.meta === "object" ? Object.keys(entry.meta).join(", ") : "N/A"}`
       );
     }
 
@@ -185,10 +129,10 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
     const messageId = (BigInt(ledgerIndex) << 32n) | BigInt(txIndex);
 
     // Build the ERN1 requestBytes
-    const srcManager = toUniversal(
-      this.chain,
-      this.contracts.ntt!["manager"]
-    ).toUint8Array();
+    // Manager address is already in universal hex format (0x-prefixed 32 bytes)
+    const srcManager = encoding.hex.decode(
+      this.contracts.ntt!["manager"].replace(/^0x/, "")
+    );
 
     const requestBytes = new Uint8Array(
       serializeLayout(executorRequestLayout, {
@@ -215,8 +159,10 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
 
     const executorMemoData = encoding.hex.encode(executorPayload);
 
-    // The payee address from the executor quote is a 20-byte XRPL account ID
-    const payeeAddress = encodeAccountID(Buffer.from(quote.payeeAddress));
+    // The payee address is a 32-byte universal address; convert to r-address
+    const payeeAddress = universalToXrplAddress(
+      encoding.hex.encode(new Uint8Array(quote.payeeAddress))
+    );
 
     // Transaction 2: Executor request payment
     const executorPayment: SubmittableTransaction = {
@@ -234,7 +180,12 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
       ],
     };
 
-    return executorPayment;
+    yield new XrplUnsignedTransaction(
+      executorPayment,
+      this.network,
+      this.chain,
+      "Executor request"
+    ) as unknown as UnsignedTransaction<N, C>;
   }
 
   async estimateMsgValueAndGasLimit(
