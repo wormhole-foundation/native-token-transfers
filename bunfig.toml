@@ -22,7 +22,6 @@ minimumReleaseAgeExcludes = [
   "@wormhole-foundation/sdk-aptos-tokenbridge",
   "@wormhole-foundation/sdk-base",
   "@wormhole-foundation/sdk-btc",
-  "@wormhole-foundation/sdk-base",
   "@wormhole-foundation/sdk-connect",
   "@wormhole-foundation/sdk-cosmwasm",
   "@wormhole-foundation/sdk-cosmwasm-core",
