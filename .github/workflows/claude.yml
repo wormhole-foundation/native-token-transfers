@@ -40,6 +40,32 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Debug trigger payload
+        run: |
+          event_name="$GITHUB_EVENT_NAME"
+          comment_body=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH")
+          comment_assoc=$(jq -r '.comment.author_association // ""' "$GITHUB_EVENT_PATH")
+          review_body=$(jq -r '.review.body // ""' "$GITHUB_EVENT_PATH")
+          review_assoc=$(jq -r '.review.author_association // ""' "$GITHUB_EVENT_PATH")
+          pr_assoc=$(jq -r '.pull_request.author_association // ""' "$GITHUB_EVENT_PATH")
+          has_issue_pr=$(jq -r 'if .issue.pull_request then "true" else "false" end' "$GITHUB_EVENT_PATH")
+          issue_comment_trigger=$(jq -r '(.comment.body // "" | contains("@claude")) and ((.comment.author_association // "") as $a | ["OWNER","MEMBER","COLLABORATOR"] | index($a) != null) and (.issue.pull_request != null)' "$GITHUB_EVENT_PATH")
+          review_comment_trigger=$(jq -r '(.comment.body // "" | contains("@claude")) and ((.comment.author_association // "") as $a | ["OWNER","MEMBER","COLLABORATOR"] | index($a) != null)' "$GITHUB_EVENT_PATH")
+          review_trigger=$(jq -r '(.review.body // "" | contains("@claude")) and ((.review.author_association // "") as $a | ["OWNER","MEMBER","COLLABORATOR"] | index($a) != null)' "$GITHUB_EVENT_PATH")
+          trusted_event_guard=$(jq -r '((.comment.author_association // "") as $c | ["OWNER","MEMBER","COLLABORATOR"] | index($c) != null) or ((.review.author_association // "") as $r | ["OWNER","MEMBER","COLLABORATOR"] | index($r) != null)' "$GITHUB_EVENT_PATH")
+
+          echo "event_name=$event_name"
+          echo "comment_author_association=$comment_assoc"
+          echo "review_author_association=$review_assoc"
+          echo "pull_request_author_association=$pr_assoc"
+          echo "issue_has_pull_request=$has_issue_pr"
+          echo "comment_body=$comment_body"
+          echo "review_body=$review_body"
+          echo "issue_comment_trigger=$issue_comment_trigger"
+          echo "review_comment_trigger=$review_comment_trigger"
+          echo "review_trigger=$review_trigger"
+          echo "trusted_event_guard=$trusted_event_guard"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@ade221fd1c400376a4799977d683a4eda09f9d7c # v1.0.60
