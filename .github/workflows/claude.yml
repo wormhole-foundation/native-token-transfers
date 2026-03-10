@@ -16,11 +16,9 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association))
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read
+      contents: read # Required to checkout and read repository files
+      pull-requests: write # Required to post PR review comments and inline review feedback
+      issues: write # Required to post issue-style comments on PR threads via issue_comment events
     steps:
       - name: Resolve PR head SHA for issue_comment events
         id: pr-sha
@@ -43,6 +41,7 @@ jobs:
         uses: anthropics/claude-code-action@ade221fd1c400376a4799977d683a4eda09f9d7c # v1.0.60
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
 
           claude_args: |
             --model claude-opus-4-6
