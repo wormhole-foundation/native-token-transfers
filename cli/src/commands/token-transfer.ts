@@ -793,7 +793,7 @@ function buildExecutorRouteConfig(
   };
 }
 
-type ReferrerFeeConfig = NonNullable<NttExecutorRoute.Config["referrerFee"]>;
+type ReferrerFeeConfig = NttExecutorRoute.ReferrerFeeConfig;
 type PerTokenOverrides = NonNullable<
   NonNullable<ReferrerFeeConfig["perTokenOverrides"]>[Chain]
 >;
