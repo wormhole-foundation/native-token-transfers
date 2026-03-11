@@ -4,10 +4,18 @@ import type {
 } from "@wormhole-foundation/sdk-connect";
 import {
   chains,
+  chainToPlatform,
   isNetwork,
   toUniversal,
   type Chain,
+  type UnsignedTransaction,
 } from "@wormhole-foundation/sdk";
+import * as solanaWeb3 from "@solana/web3.js";
+import {
+  SolanaAddress,
+  type SolanaChains,
+} from "@wormhole-foundation/sdk-solana";
+import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
@@ -237,6 +245,127 @@ export function createManualCommand(
                 }
               }
 
+              process.exit(1);
+            }
+          }
+        )
+        .command(
+          "claim-ownership",
+          "Claim ownership of a Solana NTT program after a 2-step ownership transfer",
+          (yargs: any) =>
+            yargs
+              .option("chain", {
+                describe: "Solana chain where ownership will be claimed",
+                type: "string",
+                choices: chains,
+                demandOption: true,
+              })
+              .option("path", options.deploymentPath)
+              .option("network", options.network)
+              .option("signer-type", options.signerType)
+              .example(
+                "$0 manual claim-ownership --chain Solana --network Mainnet",
+                "Claim ownership of the Solana NTT program"
+              ),
+          async (argv: any) => {
+            const path = argv["path"];
+            const deployments: Config = loadConfig(path);
+            const chain: Chain = argv["chain"];
+            const network = argv["network"];
+            const signerType = argv["signer-type"] as SignerType;
+
+            if (!isNetwork(network)) {
+              console.error("Invalid network");
+              process.exit(1);
+            }
+
+            if (chainToPlatform(chain) !== "Solana") {
+              console.error(
+                `claim-ownership is only supported on Solana chains, got ${chain}`
+              );
+              process.exit(1);
+            }
+
+            const chainConfig = deployments.chains[chain];
+            if (!chainConfig) {
+              console.error(
+                `Chain ${chain} not found in deployment configuration`
+              );
+              process.exit(1);
+            }
+
+            console.log(colors.blue("🔑 Manual claimOwnership Operation"));
+            console.log(`Chain: ${colors.yellow(chain)}`);
+
+            try {
+              const manager = {
+                chain,
+                address: toUniversal(chain, chainConfig.manager),
+              };
+              const [, ctx, ntt] = await pullChainConfig(
+                network,
+                manager,
+                overrides
+              );
+
+              const solanaNtt = ntt as SolanaNtt<
+                typeof ctx.config.network,
+                SolanaChains
+              >;
+
+              const signer = await getSigner(ctx, signerType);
+              const newOwner = new SolanaAddress(
+                signer.address.address
+              ).unwrap();
+
+              console.log(
+                `Signer/New Owner: ${colors.yellow(newOwner.toBase58())}`
+              );
+              console.log(
+                "\n" +
+                  colors.blue("Executing claimOwnership transaction...")
+              );
+
+              const ix = await NTT.createClaimOwnershipInstruction(
+                solanaNtt.program,
+                { newOwner }
+              );
+
+              const tx = new solanaWeb3.Transaction();
+              tx.add(ix);
+              tx.feePayer = newOwner;
+
+              const txs = (async function* () {
+                yield solanaNtt.createUnsignedTx(
+                  { transaction: tx },
+                  "Claim ownership"
+                ) as UnsignedTransaction<any, any>;
+              })();
+
+              const signSendWaitFunc = newSignSendWaiter(undefined);
+              const results = await signSendWaitFunc(
+                ctx,
+                txs,
+                signer.signer
+              );
+
+              console.log(
+                `Transaction Hash: ${colors.green(
+                  results[0]?.txid || results[0] || "Transaction completed"
+                )}`
+              );
+              console.log(
+                colors.green(
+                  "\n✅ claimOwnership operation completed successfully!"
+                )
+              );
+            } catch (error) {
+              console.error(
+                colors.red("\n❌ claimOwnership operation failed:")
+              );
+              console.error(
+                error instanceof Error ? error.message : String(error)
+              );
               process.exit(1);
             }
           }
