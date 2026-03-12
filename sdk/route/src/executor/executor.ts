@@ -57,7 +57,7 @@ import { getDefaultReferrerAddress } from "./consts.js";
 export namespace NttExecutorRoute {
   export type Config = {
     ntt: NttRoute.Config;
-    // TODO: kept for backwards compatibility, consider removing in favor of getReferrerFee
+    // May be deprecated in the future in favor of getReferrerFee
     referrerFee?: ReferrerFeeConfig;
     // Takes priority over referrerFee if defined
     getReferrerFee?: ReferrerFeeCallback;
