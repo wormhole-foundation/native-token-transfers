@@ -24,14 +24,14 @@ function min(
     return a < b ? a : b;
 }
 
-// @dev Count the number of set bits in a uint64
+// @dev Count the number of set bits in a uint64 using parallel bit counting.
 function countSetBits(
     uint64 x
-) pure returns (uint8 count) {
-    while (x != 0) {
-        x &= x - 1;
-        count++;
+) pure returns (uint8) {
+    unchecked {
+        x = x - ((x >> 1) & 0x5555555555555555);
+        x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
+        x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0f;
+        return uint8((x * 0x0101010101010101) >> 56);
     }
-
-    return count;
 }

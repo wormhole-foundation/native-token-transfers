@@ -4,8 +4,8 @@ pragma solidity >=0.8.8 <0.9.0;
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "wormhole-solidity-sdk/Utils.sol";
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/Utils.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import "../libraries/RateLimiter.sol";
 
@@ -41,7 +41,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     using TrimmedAmountLib for uint256;
     using TrimmedAmountLib for TrimmedAmount;
 
-    string public constant NTT_MANAGER_VERSION = "2.0.0";
+    string public constant NTT_MANAGER_VERSION = "2.1.0";
 
     // =============== Setup =================================================================
 
@@ -245,7 +245,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         TrimmedAmount nativeTransferAmount =
             (nativeTokenTransfer.amount.untrim(toDecimals)).trim(toDecimals, toDecimals);
 
-        address transferRecipient = fromWormholeFormat(nativeTokenTransfer.to);
+        address transferRecipient = fromUniversalAddress(nativeTokenTransfer.to);
 
         bool enqueued = _enqueueOrConsumeInboundRateLimit(
             digest, sourceChainId, nativeTransferAmount, transferRecipient
@@ -551,7 +551,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bytes memory encodedNttManagerPayload = TransceiverStructs.encodeNttManagerMessage(
             TransceiverStructs.NttManagerMessage(
                 bytes32(uint256(seq)),
-                toWormholeFormat(sender),
+                toUniversalAddress(sender),
                 TransceiverStructs.encodeNativeTokenTransfer(ntt)
             )
         );
@@ -609,7 +609,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bytes32 // refundAddress
     ) internal virtual returns (TransceiverStructs.NativeTokenTransfer memory) {
         return TransceiverStructs.NativeTokenTransfer(
-            amount, toWormholeFormat(token), recipient, recipientChain, ""
+            amount, toUniversalAddress(token), recipient, recipientChain, ""
         );
     }
 

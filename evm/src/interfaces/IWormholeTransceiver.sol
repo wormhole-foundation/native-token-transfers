@@ -48,7 +48,7 @@ interface IWormholeTransceiver is IWormholeTransceiverState {
     /// to the transceiver NttManager contract.
     /// @param encodedMessage The attested message.
     function receiveMessage(
-        bytes memory encodedMessage
+        bytes calldata encodedMessage
     ) external;
 
     /// @notice Parses the encoded instruction and returns the instruction struct.
