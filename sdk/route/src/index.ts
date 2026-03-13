@@ -4,3 +4,7 @@ export * from "./automatic.js";
 export * from "./multiTokenManual.js";
 export * from "./executor/executor.js";
 export * from "./executor/multiToken.js";
+export {
+  fetchCapabilities,
+  type CapabilitiesResponse,
+} from "./executor/utils.js";
