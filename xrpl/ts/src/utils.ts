@@ -9,7 +9,12 @@ import {
   toUniversal,
 } from "@wormhole-foundation/sdk-definitions";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
-import { encodeAccountID, SubmittableTransaction } from "xrpl";
+import {
+  Amount,
+  encodeAccountID,
+  MPTAmount,
+  SubmittableTransaction,
+} from "xrpl";
 import { nttTransferLayout } from "./layouts.js";
 
 /**
@@ -50,6 +55,46 @@ export function destinationAddressToBytes(
   }
 }
 
+/**
+ * Convert a bigint amount in the smallest unit to a decimal string
+ * representation for XRPL IOU amounts.
+ * e.g. toDecimalValue(1000n, 9) => "0.000001"
+ */
+export function toDecimalValue(amount: bigint, decimals: number): string {
+  if (decimals === 0) return amount.toString();
+
+  const str = amount.toString().padStart(decimals + 1, "0");
+  const intPart = str.slice(0, str.length - decimals);
+  const fracPart = str.slice(str.length - decimals).replace(/0+$/, "");
+
+  return fracPart.length > 0 ? `${intPart}.${fracPart}` : intPart;
+}
+
+export function prepareAmount(
+  amount: bigint,
+  contracts: Contracts & { ntt?: Ntt.Contracts },
+  decimals: number
+): Amount | MPTAmount {
+  const token: string = contracts.ntt!["token"];
+
+  if (token === "native") {
+    return amount.toString();
+  }
+
+  // IOU token: "CURRENCY.rIssuerAddress"
+  if (token.includes(".")) {
+    const [currency, issuer] = token.split(".", 2) as [string, string];
+    return { currency, issuer, value: toDecimalValue(amount, decimals) };
+  }
+
+  // MPT token: hex issuance ID (e.g. "00ef0c086c...")
+  if (/^[0-9a-fA-F]{48}$/.test(token)) {
+    return { mpt_issuance_id: token, value: amount.toString() };
+  }
+
+  throw new Error(`unsupported token: ${token}`);
+}
+
 /** Build the NTT Payment transaction and return it along with the recipientManagerAddress. */
 export async function buildNttPayment(opts: {
   sender: { toString(): string };
@@ -62,10 +107,6 @@ export async function buildNttPayment(opts: {
   recipientManagerAddress: Uint8Array;
 }> {
   const { sender, amount, destination, contracts } = opts;
-
-  if (contracts.ntt!["token"] !== "native") {
-    throw new Error("Not implemented for non-XRP tokens");
-  }
 
   const peer = contracts.ntt!.peers?.[destination.chain];
   if (!peer) {
@@ -100,7 +141,7 @@ export async function buildNttPayment(opts: {
     TransactionType: "Payment",
     Account: sender.toString(),
     Destination,
-    Amount: amount.toString(),
+    Amount: prepareAmount(amount, contracts, await opts.getTokenDecimals()),
     Memos: [
       {
         Memo: {
