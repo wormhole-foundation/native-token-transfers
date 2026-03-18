@@ -1,4 +1,10 @@
-import { toDecimalValue, prepareAmount } from "../utils.js";
+import {
+  toDecimalValue,
+  prepareAmount,
+  toXrplAddress,
+  xrplAddressToUniversalBytes,
+} from "../utils.js";
+import { encoding } from "@wormhole-foundation/sdk-base";
 import type { Contracts } from "@wormhole-foundation/sdk-definitions";
 import type { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
@@ -93,5 +99,58 @@ describe("prepareAmount", () => {
     expect(() => prepareAmount(1n, makeContracts("abcdef1234"), 6)).toThrow(
       "unsupported token"
     );
+  });
+});
+
+describe("toXrplAddress", () => {
+  it("converts a known hex to the expected r-address", () => {
+    const rAddr = "rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny";
+    const hex = "0x" + encoding.hex.encode(xrplAddressToUniversalBytes(rAddr));
+    expect(toXrplAddress(hex)).toBe(rAddr);
+  });
+
+  it("returns an r-address unchanged", () => {
+    const rAddr = "rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny";
+    expect(toXrplAddress(rAddr)).toBe(rAddr);
+  });
+
+  it("handles hex without 0x prefix", () => {
+    const hex =
+      "00000000000000000000000049cc1fc419e6e4a3c1a135db3baee3b01adaf84b";
+    const result = toXrplAddress(hex);
+    expect(result).toMatch(/^r[1-9A-HJ-NP-Za-km-z]+$/);
+  });
+
+  it("produces the same r-address from hex and r-address round-trip", () => {
+    const hex =
+      "0x00000000000000000000000049cc1fc419e6e4a3c1a135db3baee3b01adaf84b";
+    const fromHex = toXrplAddress(hex);
+    expect(toXrplAddress(fromHex)).toBe(fromHex);
+  });
+});
+
+describe("xrplAddressToUniversalBytes", () => {
+  it("converts an r-address to 32 zero-padded bytes", () => {
+    const rAddr = "rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny";
+    const bytes = xrplAddressToUniversalBytes(rAddr);
+    expect(bytes.length).toBe(32);
+    // First 12 bytes should be zero padding
+    expect(bytes.slice(0, 12)).toEqual(new Uint8Array(12));
+  });
+
+  it("converts a hex universal address to raw bytes", () => {
+    const hex =
+      "0x00000000000000000000000049cc1fc419e6e4a3c1a135db3baee3b01adaf84b";
+    const bytes = xrplAddressToUniversalBytes(hex);
+    expect(bytes.length).toBe(32);
+    expect(encoding.hex.encode(bytes)).toBe(hex.replace(/^0x/, ""));
+  });
+
+  it("round-trips: r-address -> universal bytes -> r-address", () => {
+    const rAddr = "rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny";
+    const bytes = xrplAddressToUniversalBytes(rAddr);
+    const hex = encoding.hex.encode(bytes);
+    const result = toXrplAddress(hex);
+    expect(result).toBe(rAddr);
   });
 });

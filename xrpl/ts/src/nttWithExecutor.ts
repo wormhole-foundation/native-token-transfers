@@ -21,7 +21,11 @@ import {
 import { Client, SubmittableTransaction, decodeAccountID } from "xrpl";
 import { executorRequestLayout, requestForExecutionLayout } from "./layouts.js";
 import { XrplNtt } from "./ntt.js";
-import { buildNttPayment, universalToXrplAddress } from "./utils.js";
+import {
+  buildNttPayment,
+  toXrplAddress,
+  xrplAddressToUniversalBytes,
+} from "./utils.js";
 
 export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
   implements NttWithExecutor<N, C>
@@ -129,9 +133,9 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
     const messageId = (BigInt(ledgerIndex) << 32n) | BigInt(txIndex);
 
     // Build the ERN1 requestBytes
-    // Manager address is already in universal hex format (0x-prefixed 32 bytes)
-    const srcManager = encoding.hex.decode(
-      this.contracts.ntt!["manager"].replace(/^0x/, "")
+    // Manager address may be a universal hex string or a native r-address
+    const srcManager = xrplAddressToUniversalBytes(
+      this.contracts.ntt!["manager"]
     );
 
     const requestBytes = new Uint8Array(
@@ -160,7 +164,7 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
     const executorMemoData = encoding.hex.encode(executorPayload);
 
     // The payee address is a 32-byte universal address; convert to r-address
-    const payeeAddress = universalToXrplAddress(
+    const payeeAddress = toXrplAddress(
       encoding.hex.encode(new Uint8Array(quote.payeeAddress))
     );
 

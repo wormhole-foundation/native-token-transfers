@@ -11,21 +11,41 @@ import {
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   Amount,
+  decodeAccountID,
   encodeAccountID,
+  isValidClassicAddress,
   MPTAmount,
   SubmittableTransaction,
 } from "xrpl";
 import { nttTransferLayout } from "./layouts.js";
 
 /**
- * Convert a universal/hex manager address (32 bytes, 0x-prefixed)
- * to a native XRPL r-address. The XRPL account ID occupies the
- * last 20 bytes of the 32-byte universal address.
+ * Convert an address to a native XRPL r-address.
+ * Accepts either a universal hex address (32 bytes, optionally 0x-prefixed)
+ * or a native XRPL r-address (returned as-is).
  */
-export function universalToXrplAddress(hexAddress: string): string {
-  const bytes = encoding.hex.decode(hexAddress.replace(/^0x/, ""));
+export function toXrplAddress(address: string): string {
+  if (isValidClassicAddress(address)) {
+    return address;
+  }
+  const bytes = encoding.hex.decode(address.replace(/^0x/, ""));
   const accountId = bytes.slice(bytes.length - 20);
   return encodeAccountID(Buffer.from(accountId));
+}
+
+/**
+ * Convert an address to a 32-byte universal representation.
+ * Accepts either a hex universal address (returned as raw bytes)
+ * or a native XRPL r-address (decoded and zero-padded to 32 bytes).
+ */
+export function xrplAddressToUniversalBytes(address: string): Uint8Array {
+  if (isValidClassicAddress(address)) {
+    const accountId = decodeAccountID(address);
+    const universal = new Uint8Array(32);
+    universal.set(accountId, 32 - accountId.length);
+    return universal;
+  }
+  return encoding.hex.decode(address.replace(/^0x/, ""));
 }
 
 /** Convert a ChainAddress destination to its 32-byte representation. */
@@ -135,7 +155,7 @@ export async function buildNttPayment(opts: {
     )
   );
 
-  const Destination = universalToXrplAddress(contracts.ntt!["manager"]);
+  const Destination = toXrplAddress(contracts.ntt!["manager"]);
 
   const payment: SubmittableTransaction = {
     TransactionType: "Payment",

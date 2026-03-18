@@ -14,7 +14,7 @@ import {
   XrplUnsignedTransaction,
 } from "@wormhole-foundation/sdk-xrpl";
 import { Client } from "xrpl";
-import { buildNttPayment, universalToXrplAddress } from "./utils.js";
+import { buildNttPayment, toXrplAddress } from "./utils.js";
 
 export class XrplNtt<N extends Network, C extends XrplChains>
   implements Ntt<N, C>
@@ -96,7 +96,7 @@ export class XrplNtt<N extends Network, C extends XrplChains>
   }
 
   async getCustodyAddress(): Promise<string> {
-    return universalToXrplAddress(this.contracts.ntt!["manager"]);
+    return toXrplAddress(this.contracts.ntt!["manager"]);
   }
 
   // Admin Methods
