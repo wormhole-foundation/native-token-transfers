@@ -52,6 +52,8 @@ export class EvmNttWormholeTranceiver<N extends Network, C extends EvmChains>
     EvmNttTransceiver<N, C, WormholeNttTransceiver.VAA>
 {
   transceiver: NttTransceiverBindings.NttTransceiver;
+  /** The on-chain registered index for this transceiver in the NttManager's TransceiverRegistry. */
+  registeredIndex: number = 0;
   constructor(
     readonly manager: EvmNtt<N, C>,
     readonly address: string,
@@ -221,6 +223,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
   manager: NttManagerBindings.NttManager;
   xcvrs: EvmNttWormholeTranceiver<N, C>[];
   managerAddress: string;
+  private _transceiverIndicesInitialized = false;
 
   constructor(
     readonly network: N,
@@ -247,15 +250,18 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     );
 
     this.xcvrs = [];
+    const configuredTransceivers = contracts.ntt.transceiver;
     if (
-      "wormhole" in contracts.ntt.transceiver &&
-      contracts.ntt.transceiver["wormhole"]
+      configuredTransceivers &&
+      typeof configuredTransceivers === "object" &&
+      "wormhole" in configuredTransceivers &&
+      configuredTransceivers["wormhole"]
     ) {
       const transceiverTypes = [
         "wormhole", // wormhole xcvr should be ix 0
-        ...Object.keys(contracts.ntt.transceiver).filter((transceiverType) => {
-          transceiverType !== "wormhole";
-        }),
+        ...Object.keys(configuredTransceivers).filter(
+          (transceiverType) => transceiverType !== "wormhole"
+        ),
       ];
       transceiverTypes.map((transceiverType) => {
         // we currently only support wormhole transceivers
@@ -267,11 +273,47 @@ export class EvmNtt<N extends Network, C extends EvmChains>
         this.xcvrs.push(
           new EvmNttWormholeTranceiver(
             this,
-            contracts.ntt!.transceiver[transceiverType]!,
+            configuredTransceivers[transceiverType]!,
             abiBindings!
           )
         );
       });
+    }
+  }
+
+  /**
+   * Fetches on-chain registered indices for each transceiver via getTransceiverInfo()
+   * and caches them on the xcvr objects. This is needed because the on-chain registered
+   * index may differ from the SDK array position (e.g. after removing and re-adding
+   * a transceiver, the new one gets a higher index since indices are monotonically
+   * increasing and never reused).
+   */
+  async initTransceiverIndices(): Promise<void> {
+    if (this._transceiverIndicesInitialized) return;
+
+    try {
+      if (!("getTransceiverInfo" in this.manager)) {
+        // getTransceiverInfo not available on ABI < 1.0.0, fall back to default (0)
+        this._transceiverIndicesInitialized = true;
+        return;
+      }
+
+      const transceiverInfos = await this.manager.getTransceiverInfo();
+      const transceiverAddresses = await this.manager.getTransceivers();
+
+      // Both arrays are ordered the same way (enabled transceivers list)
+      for (const xcvr of this.xcvrs) {
+        const addrIndex = transceiverAddresses.findIndex(
+          (addr: string) => addr.toLowerCase() === xcvr.address.toLowerCase()
+        );
+        if (addrIndex !== -1 && addrIndex < transceiverInfos.length) {
+          xcvr.registeredIndex = Number(transceiverInfos[addrIndex]!.index);
+        }
+      }
+      this._transceiverIndicesInitialized = true;
+    } catch {
+      // Do not mark initialized on failure: retry on next call so transient
+      // RPC/provider errors don't permanently pin indices to default 0.
     }
   }
 
@@ -418,18 +460,31 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       throw new Error(`Network mismatch: ${conf.network} != ${network}`);
 
     const version = await EvmNtt.getVersion(provider, conf.contracts);
-    return new EvmNtt(network as N, chain, provider, conf.contracts, version);
+    const ntt = new EvmNtt(
+      network as N,
+      chain,
+      provider,
+      conf.contracts,
+      version
+    );
+    await ntt.initTransceiverIndices();
+    return ntt;
   }
 
   encodeOptions(options: Ntt.TransferOptions): Ntt.TransceiverInstruction[] {
     const ixs: Ntt.TransceiverInstruction[] = [];
 
-    ixs.push({
-      index: 0,
-      payload: this.xcvrs[0]!.encodeFlags({
-        skipRelay: !options.automatic,
-      }),
-    });
+    for (const xcvr of this.xcvrs) {
+      ixs.push({
+        index: xcvr.registeredIndex,
+        payload: xcvr.encodeFlags({
+          skipRelay: !options.automatic,
+        }),
+      });
+    }
+
+    // On-chain parseTransceiverInstructions requires strictly increasing indices
+    ixs.sort((a, b) => a.index - b.index);
 
     return ixs;
   }
@@ -469,10 +524,29 @@ export class EvmNtt<N extends Network, C extends EvmChains>
     dstChain: Chain,
     options: Ntt.TransferOptions
   ): Promise<bigint> {
-    const [, totalPrice] = await this.manager.quoteDeliveryPrice(
-      toChainId(dstChain),
-      Ntt.encodeTransceiverInstructions(this.encodeOptions(options))
-    );
+    await this.initTransceiverIndices();
+
+    // Bypass the manager's quoteDeliveryPrice because it has a bug: it sizes the
+    // transceiver instructions array using enabledTransceivers.length instead of
+    // numRegisteredTransceivers, causing an out-of-bounds access when the active
+    // transceiver's registered index >= number of enabled transceivers.
+    // Instead, we call each transceiver's quoteDeliveryPrice directly.
+    const instructions = this.encodeOptions(options);
+    let totalPrice = 0n;
+
+    for (const xcvr of this.xcvrs) {
+      const ix = instructions.find((i) => i.index === xcvr.registeredIndex);
+      const instruction = ix ?? {
+        index: xcvr.registeredIndex,
+        payload: new Uint8Array(),
+      };
+      const price = await xcvr.transceiver.quoteDeliveryPrice(
+        toChainId(dstChain),
+        instruction
+      );
+      totalPrice += price;
+    }
+
     return totalPrice;
   }
 
@@ -685,11 +759,28 @@ export class EvmNtt<N extends Network, C extends EvmChains>
       // TODO: what about the quoter?
     };
 
+    // Match the on-chain wormhole transceiver by address rather than assuming
+    // it is at array index 0, since enabled transceiver ordering can change
+    // after remove/re-add operations.
+    const enabledTransceivers = await this.manager.getTransceivers();
+    let wormholeTransceiverAddr: string | undefined;
+    for (const xcvr of this.xcvrs) {
+      wormholeTransceiverAddr = enabledTransceivers.find(
+        (addr: string) => addr.toLowerCase() === xcvr.address.toLowerCase()
+      );
+      if (wormholeTransceiverAddr) break;
+    }
+    // Backward-compatible fallback for manager-only discovery flows (e.g. CLI pull):
+    // if no local xcvr is configured, default to the first enabled transceiver.
+    if (!wormholeTransceiverAddr && enabledTransceivers.length > 0) {
+      wormholeTransceiverAddr = enabledTransceivers[0];
+    }
+
     const remote: Partial<Ntt.Contracts> = {
       manager: this.managerAddress,
       token: await this.manager.token(),
       transceiver: {
-        wormhole: (await this.manager.getTransceivers())[0]!, // TODO: make this more generic
+        ...(wormholeTransceiverAddr && { wormhole: wormholeTransceiverAddr }),
       },
     };
 

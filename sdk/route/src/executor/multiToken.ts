@@ -7,10 +7,12 @@ import {
   TokenId,
   TransactionId,
   TransferState,
+  UnsignedTransaction,
   Wormhole,
   amount,
   canonicalAddress,
   finality,
+  isDestinationQueued,
   isNative,
   nativeTokenId,
   routes,
@@ -36,6 +38,7 @@ import {
 import {
   calculateReferrerFee,
   Capabilities,
+  collectTransactions,
   fetchCapabilities,
   fetchSignedQuote,
   fetchStatus,
@@ -497,19 +500,17 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     return { deliveryPrice, transceiverInstructions };
   }
 
-  async initiate(
+  async _buildInitiateXfer(
     request: routes.RouteTransferRequest<N>,
-    signer: Signer,
-    quote: Q,
-    to: ChainAddress
-  ): Promise<R> {
+    sender: ChainAddress,
+    to: ChainAddress,
+    quote: Q
+  ) {
     if (!quote.details) {
       throw new Error("Missing quote details");
     }
 
     const { details, params } = quote;
-
-    const { fromChain } = request;
 
     const relayInstructions = deserializeLayout(
       relayInstructionsLayout,
@@ -526,23 +527,54 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       }
     });
 
-    const sender = Wormhole.parseAddress(signer.chain(), signer.address());
+    const senderAddress = Wormhole.parseAddress(
+      sender.chain,
+      sender.address.toString()
+    );
 
-    const multiTokenNttWithExecutor = await fromChain.getProtocol(
+    const multiTokenNttWithExecutor = await request.fromChain.getProtocol(
       "MultiTokenNttWithExecutor",
       {
         multiTokenNtt: params.normalizedParams.sourceContracts,
       }
     );
 
-    const initTransfer = multiTokenNttWithExecutor.transfer(
-      sender,
+    return multiTokenNttWithExecutor.transfer(
+      senderAddress,
       to,
       request.source.id,
       amount.units(params.normalizedParams.amount),
       details
     );
-    const txids = await signSendWait(fromChain, initTransfer, signer);
+  }
+
+  async buildInitiateTransactions(
+    request: routes.RouteTransferRequest<N>,
+    sender: ChainAddress,
+    recipient: ChainAddress,
+    quote: Q
+  ): Promise<UnsignedTransaction<N, Chain>[]> {
+    const xfer = await this._buildInitiateXfer(
+      request,
+      sender,
+      recipient,
+      quote
+    );
+    const txs = await collectTransactions(xfer);
+    return txs as UnsignedTransaction<N, Chain>[];
+  }
+
+  async initiate(
+    request: routes.RouteTransferRequest<N>,
+    signer: Signer,
+    quote: Q,
+    to: ChainAddress
+  ): Promise<R> {
+    const sender = Wormhole.chainAddress(signer.chain(), signer.address());
+    const xfer = await this._buildInitiateXfer(request, sender, to, quote);
+
+    const { fromChain } = request;
+    const txids = await signSendWait(fromChain, xfer, signer);
 
     // Status the transfer immediately before returning
     let statusAttempts = 0;
@@ -577,9 +609,22 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       to: to.chain,
       state: TransferState.SourceInitiated,
       originTxs: txids,
-      params,
+      params: quote.params,
       trackingInfo: { transceiverAttested: {} },
     };
+  }
+
+  async buildCompleteTransactions(
+    sender: ChainAddress,
+    receipt: R
+  ): Promise<UnsignedTransaction<N, Chain>[]> {
+    const xfer = await MultiTokenNttRoute.buildCompleteXfer(
+      this.wh.getChain(receipt.to),
+      receipt
+    );
+    if (!xfer) return [];
+    const txs = await collectTransactions(xfer);
+    return txs as UnsignedTransaction<N, Chain>[];
   }
 
   async complete(signer: Signer, receipt: R): Promise<R> {
@@ -600,6 +645,24 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       this.wh,
       this.staticConfig.contracts
     );
+  }
+
+  async buildFinalizeTransactions(
+    sender: ChainAddress,
+    receipt: R
+  ): Promise<UnsignedTransaction<N, Chain>[]> {
+    if (!isDestinationQueued(receipt)) {
+      throw new Error(
+        "The transfer must be destination queued in order to finalize"
+      );
+    }
+
+    const xfer = await MultiTokenNttRoute.buildFinalizeXfer(
+      this.wh.getChain(receipt.to),
+      receipt
+    );
+    const txs = await collectTransactions(xfer);
+    return txs as UnsignedTransaction<N, Chain>[];
   }
 
   async finalize(signer: Signer, receipt: R): Promise<R> {

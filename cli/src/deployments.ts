@@ -22,6 +22,12 @@ export type ChainConfig = {
   managerVariant?: string;
 };
 
+export type HyperCoreConfig = {
+  tokenIndex: number;
+  szDecimals?: number;
+  weiDecimals?: number;
+};
+
 export type Config = {
   network: Network;
   chains: Partial<{
@@ -30,6 +36,7 @@ export type Config = {
   defaultLimits?: {
     outbound: string;
   };
+  hypercore?: HyperCoreConfig;
 };
 
 export function loadConfig(path: string): Config {

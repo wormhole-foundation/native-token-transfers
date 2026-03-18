@@ -3,6 +3,7 @@ import fs from "fs";
 import {
   assertChain,
   chainToPlatform,
+  chains,
   type Chain,
   type ChainAddress,
   type ChainContext,
@@ -17,6 +18,16 @@ import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 import type { ChainConfig } from "./deployments";
 import { runTaskPoolWithSequential } from "./utils/concurrency";
+
+export function ensureNttRoot(pwd: string = ".") {
+  if (
+    !fs.existsSync(`${pwd}/evm/foundry.toml`) ||
+    !fs.existsSync(`${pwd}/solana/Anchor.toml`)
+  ) {
+    console.error("Run this command from the root of an NTT project.");
+    process.exit(1);
+  }
+}
 
 export type ErrorFactory = (message: string) => Error;
 
@@ -177,9 +188,11 @@ export async function collectMissingConfigs(
   const entries = Object.entries(deps).filter(
     ([, deployment]) => deployment !== undefined
   ) as [string, Deployment<Chain>][];
+
   const missingByChain: Partial<{ [C in Chain]: MissingImplicitConfig }> = {};
   const missingCounts: Partial<Record<Chain, number>> = {};
 
+  // Initialize per-chain structures and handle Solana-specific checks (sequential)
   for (const [fromChain, from] of entries) {
     assertChain(fromChain);
 
@@ -221,6 +234,8 @@ export async function collectMissingConfigs(
       }
     }
   }
+
+  // Build pair tasks for parallel peer verification
   type PairTask = {
     fromChain: Chain;
     toChain: Chain;
@@ -235,14 +250,10 @@ export async function collectMissingConfigs(
       if (fromChain === toChain) {
         continue;
       }
-      tasks.push({
-        fromChain,
-        toChain,
-        from,
-        to,
-      });
+      tasks.push({ fromChain, toChain, from, to });
     }
   }
+
   const runTask = async (task: PairTask) => {
     const { fromChain, toChain, from, to } = task;
     const missing = missingByChain[fromChain];
@@ -303,10 +314,11 @@ export async function collectMissingConfigs(
       }
     }
   };
+
   await runTaskPoolWithSequential(
     tasks,
     concurrency,
-    (task) => chainToPlatform(task.fromChain) === "Solana", // Solana RPC: run sequentially to avoid rate limits.
+    (task) => chainToPlatform(task.fromChain) === "Solana",
     runTask
   );
 
@@ -343,4 +355,25 @@ export function retryWithExponentialBackoff<T>(
     }
   };
   return attempt(0);
+}
+
+export function validateChain<N extends Network, C extends Chain>(
+  network: N,
+  chain: C
+) {
+  if (network === "Testnet") {
+    if (chain === "Ethereum") {
+      console.error(
+        "Ethereum is deprecated on Testnet. Use EthereumSepolia instead."
+      );
+      process.exit(1);
+    }
+    // if on testnet, and the chain has a *Sepolia counterpart, use that instead
+    if (chains.find((c) => c === `${chain}Sepolia`)) {
+      console.error(
+        `Chain ${chain} is deprecated. Use ${chain}Sepolia instead.`
+      );
+      process.exit(1);
+    }
+  }
 }

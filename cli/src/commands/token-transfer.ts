@@ -1,7 +1,7 @@
 // NOTE: We rely on the Wormhole TypeScript SDK for cross-chain execution logic:
 // https://github.com/wormhole-foundation/wormhole-sdk-ts
 
-import { colors } from "./colors.js";
+import { colors } from "../colors.js";
 import type { Argv, CommandModule } from "yargs";
 import {
   Wormhole,
@@ -28,8 +28,8 @@ import type { QuoteWarning } from "@wormhole-foundation/sdk-connect";
 import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 import sui from "@wormhole-foundation/sdk/platforms/sui";
-import { getSigner, type SignerStuff } from "./getSigner";
-import { isRpcConnectionError, logRpcError } from "./error";
+import { getSigner, type SignerStuff } from "../signers/getSigner";
+import { isRpcConnectionError, logRpcError } from "../error";
 import {
   NttExecutorRoute,
   NttRoute,
@@ -39,10 +39,14 @@ import type {
   Ntt,
   NttWithExecutor,
 } from "@wormhole-foundation/sdk-definitions-ntt";
-import "@wormhole-foundation/sdk-evm-ntt";
-import "@wormhole-foundation/sdk-solana-ntt";
-import "@wormhole-foundation/sdk-sui-ntt";
-import { loadConfig, type ChainConfig, type Config } from "./deployments";
+import { register as registerEvm } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerSolana } from "@wormhole-foundation/sdk-solana-ntt";
+import { register as registerSui } from "@wormhole-foundation/sdk-sui-ntt";
+
+registerEvm();
+registerSolana();
+registerSui();
+import { loadConfig, type ChainConfig, type Config } from "../deployments";
 import fs from "fs";
 import readline from "readline";
 import {
@@ -50,7 +54,7 @@ import {
   normalizeRpcArgs,
   validatePayerOption,
   validateTimeout,
-} from "./validation";
+} from "../validation";
 
 type TokenTransferArgs = {
   network: string;
@@ -789,7 +793,7 @@ function buildExecutorRouteConfig(
   };
 }
 
-type ReferrerFeeConfig = NonNullable<NttExecutorRoute.Config["referrerFee"]>;
+type ReferrerFeeConfig = NttExecutorRoute.ReferrerFeeConfig;
 type PerTokenOverrides = NonNullable<
   NonNullable<ReferrerFeeConfig["perTokenOverrides"]>[Chain]
 >;
