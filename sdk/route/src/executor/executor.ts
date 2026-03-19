@@ -721,6 +721,15 @@ export class NttExecutorRoute<N extends Network>
           ),
         };
         yield receipt;
+      } else if (chainToPlatform(receipt.to) === "Xrpl") {
+        // XRPL has no on-chain state to verify redemption; the executor
+        // status is the only source of truth.  If the relay didn't fail,
+        // treat the transfer as finalized.
+        receipt = {
+          ...receipt,
+          state: TransferState.DestinationFinalized,
+        } satisfies CompletedTransferReceipt<NttRoute.ManualAttestationReceipt> as R;
+        yield receipt;
       }
     }
 
