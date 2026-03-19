@@ -227,11 +227,14 @@ export class XrplNtt<N extends Network, C extends XrplChains>
     return 0n;
   }
 
-  // Transfer Status
+  // IMPORTANT: XRPL has no on-chain state to query for approval
+  // Transfer approval is tracked via the executor status API instead (see track() in executor.ts)
   async getIsApproved(attestation: Ntt.Attestation): Promise<boolean> {
     return false;
   }
 
+  // IMPORTANT: XRPL has no on-chain state to query for execution
+  // Transfer execution is tracked via the executor status API instead (see track() in executor.ts)
   async getIsExecuted(attestation: Ntt.Attestation): Promise<boolean> {
     return false;
   }
