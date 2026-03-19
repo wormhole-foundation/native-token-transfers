@@ -36,8 +36,9 @@ import {
   NttWithExecutor,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
+  type CapabilitiesResponse,
+  type Capabilities,
   calculateReferrerFee,
-  Capabilities,
   collectTransactions,
   fetchCapabilities,
   fetchSignedQuote,
@@ -51,6 +52,10 @@ export namespace MultiTokenNttExecutorRoute {
     contracts: MultiTokenNtt.Contracts[];
     referrerFee?: ReferrerFeeConfig;
     axelarGasMultiplier?: number | "auto";
+    executor?: {
+      /** Override the default capabilities fetcher (e.g. to cache or use a custom endpoint). */
+      getCapabilities?: (network: Network) => Promise<CapabilitiesResponse>;
+    };
   };
 
   export type ReferrerFeeConfig = NttExecutorRoute.ReferrerFeeConfig;
@@ -349,7 +354,9 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     sourceCapabilities: Capabilities;
     destinationCapabilities: Capabilities;
   }> {
-    const capabilities = await fetchCapabilities(fromChain.network);
+    const capabilities = this.staticConfig.executor?.getCapabilities
+      ? await this.staticConfig.executor.getCapabilities(fromChain.network)
+      : await fetchCapabilities(fromChain.network);
     const sourceCapabilities = capabilities[toChainId(fromChain.chain)];
     if (!sourceCapabilities) {
       throw new Error("Unsupported source chain");

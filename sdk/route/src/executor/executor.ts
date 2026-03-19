@@ -39,6 +39,7 @@ import {
 import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "../types.js";
 import {
+  type CapabilitiesResponse,
   calculateReferrerFee,
   collectTransactions,
   fetchCapabilities,
@@ -61,6 +62,10 @@ export namespace NttExecutorRoute {
     referrerFee?: ReferrerFeeConfig;
     // Takes priority over referrerFee if defined
     getReferrerFee?: ReferrerFeeCallback;
+    executor?: {
+      /** Override the default capabilities fetcher (e.g. to cache or use a custom endpoint). */
+      getCapabilities?: (network: Network) => Promise<CapabilitiesResponse>;
+    };
   };
 
   export type ReferrerFeeConfig = {
@@ -379,7 +384,9 @@ export class NttExecutorRoute<N extends Network>
       throw new Error("Amount after fee <= 0");
     }
 
-    const capabilities = await fetchCapabilities(fromChain.network);
+    const capabilities = this.staticConfig.executor?.getCapabilities
+      ? await this.staticConfig.executor.getCapabilities(fromChain.network)
+      : await fetchCapabilities(fromChain.network);
     const srcCapabilities = capabilities[toChainId(fromChain.chain)];
     if (!srcCapabilities) {
       throw new Error("Unsupported source chain");
