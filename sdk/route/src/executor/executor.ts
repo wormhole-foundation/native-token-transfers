@@ -3,7 +3,6 @@ import {
   Chain,
   ChainAddress,
   ChainContext,
-  ChainId,
   CompletedTransferReceipt,
   DestinationQueuedTransferReceipt,
   Network,
@@ -32,7 +31,6 @@ import {
   routes,
   serializeLayout,
   signSendWait,
-  chainIdToChain,
   toChainId,
   Platform,
   chainToPlatform,
@@ -52,27 +50,7 @@ import {
   relayInstructionsLayout,
   signedQuoteLayout,
 } from "@wormhole-foundation/sdk-definitions";
-import {
-  getDefaultReferrerAddress,
-  XRPL_EXECUTOR_MEMO_FORMAT_HEX,
-  xrplExecutorRequestLayout,
-  xrplRequestForExecutionLayout,
-} from "./consts.js";
-
-// Minimal XRPL types for the track() function.
-// We only need to read transaction memos from the RPC,
-// so we added just the fields we use rather than depending on the xrpl package.
-type XrplMemo = {
-  Memo: { MemoFormat?: string; MemoData?: string };
-};
-type XrplRpc = {
-  isConnected(): boolean;
-  connect(): Promise<void>;
-  request(req: {
-    command: string;
-    transaction: string;
-  }): Promise<{ result: { Memos?: XrplMemo[] } }>;
-};
+import { getDefaultReferrerAddress } from "./consts.js";
 
 export namespace NttExecutorRoute {
   export type Config = {
@@ -697,54 +675,13 @@ export class NttExecutorRoute<N extends Network>
   public override async *track(receipt: R, timeout?: number) {
     // First we fetch the attestation (VAA) for the transfer
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      const { txid } = receipt.originTxs.at(-1)!;
-      let vaa;
-
-      if (chainToPlatform(receipt.from) === "Xrpl") {
-        // On XRPL, originTxs contains two transactions:
-        //   [0] NTT payment (produces the Wormhole message, indexed by Wormholescan)
-        //   [1] Executor request (contains VAA coordinates in the memo)
-        // Wormholescan only indexes the NTT payment, so we extract the
-        // WormholeMessageId from the executor request memo instead.
-        const fromChain = this.wh.getChain(receipt.from);
-        const rpc = (await fromChain.getRpc()) as XrplRpc;
-        if (!rpc.isConnected()) {
-          await rpc.connect();
-        }
-
-        const txResponse = await rpc.request({
-          command: "tx",
-          transaction: txid,
-        });
-
-        const memos = txResponse.result?.Memos ?? [];
-        const executorMemo = memos.find(
-          (m) =>
-            m.Memo?.MemoFormat?.toUpperCase() === XRPL_EXECUTOR_MEMO_FORMAT_HEX
-        );
-
-        if (executorMemo?.Memo.MemoData) {
-          const reqForExecution = deserializeLayout(
-            xrplRequestForExecutionLayout,
-            encoding.hex.decode(executorMemo.Memo.MemoData)
-          );
-          const req = deserializeLayout(
-            xrplExecutorRequestLayout,
-            reqForExecution.requestBytes
-          );
-
-          const msgId: WormholeMessageId = {
-            chain: chainIdToChain(req.srcChain as ChainId),
-            emitter: new UniversalAddress(req.srcManager),
-            sequence: req.messageId,
-          };
-
-          vaa = await this.wh.getVaa(msgId, "Ntt:WormholeTransfer", timeout);
-        }
-      } else {
-        vaa = await this.wh.getVaa(txid, "Ntt:WormholeTransfer", timeout);
-      }
-
+      // On XRPL, originTxs[0] is the NTT payment (Wormhole message) and
+      // originTxs[1] is the executor request. Wormholescan only indexes the
+      // NTT payment, so use originTxs[0] for XRPL.
+      const { txid } = receipt.originTxs.at(
+        chainToPlatform(receipt.from) === "Xrpl" ? 0 : -1
+      )!;
+      const vaa = await this.wh.getVaa(txid, "Ntt:WormholeTransfer", timeout);
       if (!vaa) throw new Error("No VAA found for transaction: " + txid);
 
       const msgId: WormholeMessageId = {
