@@ -14,9 +14,7 @@ import evm from "@wormhole-foundation/sdk/evm";
 // register protocol implementations
 import "@wormhole-foundation/sdk-evm-ntt";
 
-import {
-  MultiTokenNttExecutorRoute,
-} from "@wormhole-foundation/sdk-route-ntt";
+import { MultiTokenNttExecutorRoute } from "@wormhole-foundation/sdk-route-ntt";
 
 // Monad Bridge mainnet contracts
 const config: MultiTokenNttExecutorRoute.Config = {
@@ -123,5 +121,12 @@ function monadBridgeExecutorRoute(
   // Get a quote
   const quote = await bestRoute.quote(tr, validated.params);
   if (!quote.success) throw quote.error;
-  console.log("Quote:", JSON.stringify(quote, (_, v) => typeof v === "bigint" ? v.toString() : v, 2));
+  console.log(
+    "Quote:",
+    JSON.stringify(
+      quote,
+      (_, v) => (typeof v === "bigint" ? v.toString() : v),
+      2
+    )
+  );
 })();
