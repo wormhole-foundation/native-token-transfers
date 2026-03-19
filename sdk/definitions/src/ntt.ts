@@ -38,6 +38,7 @@ export namespace Ntt {
   export type Mode = "locking" | "burning";
   export type Contracts = {
     token: string;
+    tokenDecimals?: number;
     manager: string;
     transceiver: {
       [type: string]: string;
@@ -49,6 +50,13 @@ export namespace Ntt {
     };
     /** Estimated time of arrival in milliseconds */
     eta?: number;
+    /** Peer NTT manager info by chain, for chains without on-chain peer state */
+    peers?: {
+      [chain: string]: {
+        manager: string;
+        tokenDecimals?: number;
+      };
+    };
   };
 
   export const DEFAULT_SVM_SHIM_ADDRESSES: {

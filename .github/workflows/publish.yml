@@ -41,6 +41,7 @@ jobs:
           npm publish --access public --tag $tag \
             --workspace sdk/definitions \
             --workspace evm/ts \
+            --workspace xrpl/ts \
             --workspace solana \
             --workspace sui \
             --workspace sdk/route
