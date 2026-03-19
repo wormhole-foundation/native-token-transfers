@@ -229,11 +229,11 @@ export class XrplNtt<N extends Network, C extends XrplChains>
 
   // Transfer Status
   async getIsApproved(attestation: Ntt.Attestation): Promise<boolean> {
-    throw new Error("Not implemented");
+    return false;
   }
 
   async getIsExecuted(attestation: Ntt.Attestation): Promise<boolean> {
-    throw new Error("Not implemented");
+    return false;
   }
 
   async getIsTransferInboundQueued(
