@@ -9,13 +9,10 @@ import {INttManager} from "../src/interfaces/INttManager.sol";
 import {IWormholeTransceiver} from "../src/interfaces/IWormholeTransceiver.sol";
 import "../src/interfaces/IManagerBase.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
 import {NttManager} from "../src/NttManager/NttManager.sol";
 import {NttManagerNoRateLimiting} from "../src/NttManager/NttManagerNoRateLimiting.sol";
 import {NttManagerWethUnwrap} from "../src/NttManager/NttManagerWethUnwrap.sol";
-
-interface IWormhole {
-    function chainId() external view returns (uint16);
-}
 
 contract DeployWormholeNtt is Script, DeployWormholeNttBase {
     function run() public {
@@ -32,7 +29,7 @@ contract DeployWormholeNtt is Script, DeployWormholeNttBase {
             modeUint == 0 ? IManagerBase.Mode.LOCKING : IManagerBase.Mode.BURNING;
         string memory managerVariant = vm.envOr("MANAGER_VARIANT", string("standard"));
 
-        IWormhole wh = IWormhole(wormhole);
+        ICoreBridge wh = ICoreBridge(wormhole);
 
         // sanity check decimals
         (bool success, bytes memory queriedDecimals) =
