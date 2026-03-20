@@ -38,7 +38,7 @@ tilt-devnet2 = [ "wormhole-transceiver", "tilt-devnet", "wormhole-svm-definition
 workspace = true
 
 [dependencies]
-anchor-lang.workspace = true
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 cfg-if.workspace = true
 solana-program.workspace = true
