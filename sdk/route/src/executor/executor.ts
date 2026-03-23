@@ -65,7 +65,7 @@ export namespace NttExecutorRoute {
 
   export type ReferrerFeeConfig = {
     // Referrer Fee in *tenths* of basis points - e.g. 10 = 1 basis point (0.01%)
-    feeDbps: bigint;
+    feeDbps?: bigint;
     // The address to which the referrer fee will be sent
     referrerAddresses?: Partial<Record<Platform, string>>;
     perTokenOverrides?: Partial<
@@ -242,7 +242,7 @@ export class NttExecutorRoute<N extends Network>
         result.referrerAddress
       );
     } else if (this.staticConfig.referrerFee) {
-      referrerFeeDbps = this.staticConfig.referrerFee.feeDbps;
+      referrerFeeDbps = this.staticConfig.referrerFee.feeDbps ?? 0n;
       if (this.staticConfig.referrerFee.perTokenOverrides) {
         const srcTokenAddress = canonicalAddress(request.source.id);
         const override =

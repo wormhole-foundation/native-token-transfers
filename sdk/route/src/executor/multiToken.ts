@@ -313,7 +313,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
   getReferrerFeeDbps(request: routes.RouteTransferRequest<N>): bigint {
     let referrerFeeDbps = 0n;
     if (this.staticConfig.referrerFee) {
-      referrerFeeDbps = this.staticConfig.referrerFee.feeDbps;
+      referrerFeeDbps = this.staticConfig.referrerFee.feeDbps ?? 0n;
       if (this.staticConfig.referrerFee.perTokenOverrides) {
         const sourceTokenAddress = canonicalAddress(request.source.id);
         const override =

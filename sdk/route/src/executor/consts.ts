@@ -15,12 +15,12 @@ export const apiBaseUrl: Partial<Record<Network, string>> = {
 export const getDefaultReferrerAddress = (chain: Chain): ChainAddress => {
   let address = "";
   if (chainToPlatform(chain) === "Evm") {
-    address = "0x9b2A3B92b1D86938D3Ed37B0519952C227bA6D09";
+    address = "0x82d9A407f99a95db4671e7021D625CBd0787a407";
   } else if (chainToPlatform(chain) === "Solana") {
-    address = "9q2q3EtP1VNdyaxzju1CGfh3EDj7heGABgxAJNyQDXgT";
+    address = "14MtvNdzYPKM3kYrBya51fsjbh5WLKot8fZu7szbgC66";
   } else if (chainToPlatform(chain) === "Sui") {
     address =
-      "0xbfa1240e48c622d97881473953be730091161b7931d89bd6afe667841cf69ef4";
+      "0x1047ebae522f969bdb62930f38407b2a178f2fcba00285c4ba4abe415fe159ad";
   } else {
     throw new Error(`No referrer address for chain ${chain}`);
   }
