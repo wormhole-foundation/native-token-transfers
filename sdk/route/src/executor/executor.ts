@@ -781,7 +781,12 @@ export class NttExecutorRoute<N extends Network>
   public override async *track(receipt: R, timeout?: number) {
     // First we fetch the attestation (VAA) for the transfer
     if (isSourceInitiated(receipt) || isSourceFinalized(receipt)) {
-      const { txid } = receipt.originTxs.at(-1)!;
+      // On XRPL, originTxs[0] is the NTT payment (Wormhole message) and
+      // originTxs[1] is the executor request. Wormholescan only indexes the
+      // NTT payment, so use originTxs[0] for XRPL.
+      const { txid } = receipt.originTxs.at(
+        chainToPlatform(receipt.from) === "Xrpl" ? 0 : -1
+      )!;
       const vaa = await this.wh.getVaa(txid, "Ntt:WormholeTransfer", timeout);
       if (!vaa) throw new Error("No VAA found for transaction: " + txid);
 
@@ -826,6 +831,15 @@ export class NttExecutorRoute<N extends Network>
             `Relay failed with status: ${relayStatus}`
           ),
         };
+        yield receipt;
+      } else if (chainToPlatform(receipt.to) === "Xrpl") {
+        // XRPL has no on-chain state to verify redemption; the executor
+        // status is the only source of truth.  If the relay didn't fail,
+        // treat the transfer as finalized.
+        receipt = {
+          ...receipt,
+          state: TransferState.DestinationFinalized,
+        } satisfies CompletedTransferReceipt<NttRoute.ManualAttestationReceipt> as R;
         yield receipt;
       }
     }

@@ -34,6 +34,7 @@ import {
   NttExecutorRoute,
   NttRoute,
   nttExecutorRoute,
+  nttManualRoute,
 } from "@wormhole-foundation/sdk-route-ntt";
 import type {
   Ntt,
@@ -67,6 +68,7 @@ type TokenTransferArgs = {
   "deployment-path"?: string;
   timeout?: number;
   rpc?: string[];
+  manual?: boolean;
 };
 
 class TokenTransferError extends Error {
@@ -144,6 +146,11 @@ export function createTokenTransferCommand(
         .option("timeout", {
           describe: "Attestation wait timeout in seconds",
           type: "number",
+        })
+        .option("manual", {
+          describe: "Only initiate the transfer (via the Manual route).",
+          type: "boolean",
+          default: false,
         })
         .check((argv) => {
           if (argv["source-chain"] === argv["destination-chain"]) {
@@ -364,7 +371,9 @@ async function executeTokenTransfer(
   );
 
   ensureChainSupported(wh, sourceChainInput, "source");
-  ensureChainSupported(wh, destinationChainInput, "destination");
+  if (!argv.manual) {
+    ensureChainSupported(wh, destinationChainInput, "destination");
+  }
 
   let sourceCtx: ChainContext<Network, Chain>;
   let destinationCtx: ChainContext<Network, Chain>;
@@ -485,8 +494,10 @@ async function executeTokenTransfer(
       )
     );
   }
-  const ExecutorRoute = nttExecutorRoute(executorConfig);
-  const routeInstance = new ExecutorRoute(wh);
+  const Route = argv.manual
+    ? nttManualRoute(executorConfig.ntt)
+    : nttExecutorRoute(executorConfig);
+  const routeInstance = new Route(wh);
 
   const transferRequest = await routes.RouteTransferRequest.create(wh, {
     source: tokenId,
@@ -495,6 +506,9 @@ async function executeTokenTransfer(
 
   const validation = await routeInstance.validate(transferRequest, {
     amount: amountInput,
+    options: argv.manual
+      ? { automatic: false, skipDstRateLimitCheck: true }
+      : undefined,
   });
   if (!validation.valid) {
     const reason =
@@ -503,9 +517,9 @@ async function executeTokenTransfer(
         : "Unknown validation error";
     throw new TokenTransferError(`Transfer validation failed: ${reason}`);
   }
-  const validatedParams = validation.params as NttExecutorRoute.ValidatedParams;
-
-  let quoteResult;
+  const validatedParams = validation.params as NttRoute.ValidatedParams &
+    NttExecutorRoute.ValidatedParams;
+  let quoteResult: any;
   try {
     quoteResult = await routeInstance.quote(transferRequest, validatedParams);
   } catch (error) {
@@ -527,7 +541,7 @@ async function executeTokenTransfer(
   }
 
   const executorQuoteDetails = quoteResult.details;
-  if (!isExecutorQuote(executorQuoteDetails)) {
+  if (!argv.manual && !isExecutorQuote(executorQuoteDetails)) {
     fail(
       "Executor quote did not include relay details",
       new Error("Missing executor quote details")
@@ -575,35 +589,37 @@ async function executeTokenTransfer(
       )}`
     );
   }
-  console.log(
-    `Executor referrer fee: ${formatAmount(
-      executorQuote.referrerFee,
-      decimals
-    )} (${executorQuote.referrerFeeDbps.toString()} dBps)`
-  );
-  console.log(
-    `Estimated execution cost (${sourceChainInput} native): ${formatAmount(
-      executorQuote.estimatedCost,
-      sourceCtx.config.nativeTokenDecimals
-    )}`
-  );
-  if (executorQuote.gasDropOff > 0n) {
+  if (!argv.manual) {
     console.log(
-      `Destination gas drop-off (${destinationChainInput} native): ${formatAmount(
-        executorQuote.gasDropOff,
-        destinationCtx.config.nativeTokenDecimals
+      `Executor referrer fee: ${formatAmount(
+        executorQuote.referrerFee,
+        decimals
+      )} (${executorQuote.referrerFeeDbps.toString()} dBps)`
+    );
+    console.log(
+      `Estimated execution cost (${sourceChainInput} native): ${formatAmount(
+        executorQuote.estimatedCost,
+        sourceCtx.config.nativeTokenDecimals
       )}`
     );
-  }
-  const expiresAt = quoteResult.expires ?? executorQuote.expires;
-  if (expiresAt) {
-    console.log(`Quote expires at ${expiresAt.toISOString()}`);
-  }
-  if (quoteResult.provider) {
-    console.log(`Route provider: ${quoteResult.provider}`);
-  }
-  if (quoteResult.eta) {
-    console.log(`Estimated relay ETA: ${quoteResult.eta} seconds`);
+    if (executorQuote.gasDropOff > 0n) {
+      console.log(
+        `Destination gas drop-off (${destinationChainInput} native): ${formatAmount(
+          executorQuote.gasDropOff,
+          destinationCtx.config.nativeTokenDecimals
+        )}`
+      );
+    }
+    const expiresAt = quoteResult.expires ?? executorQuote.expires;
+    if (expiresAt) {
+      console.log(`Quote expires at ${expiresAt.toISOString()}`);
+    }
+    if (quoteResult.provider) {
+      console.log(`Route provider: ${quoteResult.provider}`);
+    }
+    if (quoteResult.eta) {
+      console.log(`Estimated relay ETA: ${quoteResult.eta} seconds`);
+    }
   }
 
   if (network === "Mainnet") {
@@ -620,14 +636,16 @@ async function executeTokenTransfer(
   }
 
   console.log(`Submitting transfer on ${sourceChainInput}...`);
-  let receipt: NttExecutorRoute.TransferReceipt;
+  let receipt:
+    | NttRoute.ManualTransferReceipt
+    | NttExecutorRoute.TransferReceipt;
   try {
-    receipt = (await routeInstance.initiate(
+    receipt = await routeInstance.initiate(
       transferRequest,
       sourceSigner.signer,
       quoteResult,
       destinationAddress
-    )) as NttExecutorRoute.TransferReceipt;
+    );
   } catch (error) {
     if (sourcePlatform === "Sui" && isUnsupportedSuiDestinationError(error)) {
       throw new TokenTransferError(
@@ -683,7 +701,9 @@ async function executeTokenTransfer(
 
   console.log(
     colors.green(
-      "Transfer submitted. The Wormhole Executor will relay the transfer automatically once finalized."
+      argv.manual
+        ? "Transfer initiated. This will need to be manually redeemed on the destination chain."
+        : "Transfer submitted. The Wormhole Executor will relay the transfer automatically once finalized."
     )
   );
   console.log(

@@ -49,6 +49,7 @@ export namespace NttRoute {
     manager: string;
     transceiver: TransceiverConfig[];
     quoter?: string;
+    tokenDecimals?: number;
     isWrappedGasToken?: boolean;
     unwrapsOnRedeem?: boolean;
     svmShims?: {
@@ -67,6 +68,7 @@ export namespace NttRoute {
   /** Options for Per-TransferRequest settings */
   export interface Options {
     automatic: boolean;
+    skipDstRateLimitCheck?: boolean;
   }
 
   export const ManualOptions: Options = {
@@ -210,6 +212,7 @@ export namespace NttRoute {
           return {
             srcContracts: {
               token: srcFound.token,
+              tokenDecimals: srcFound.tokenDecimals,
               manager: srcFound.manager,
               transceiver: {
                 wormhole: srcFound.transceiver.find(
@@ -219,9 +222,16 @@ export namespace NttRoute {
               quoter: srcFound.quoter,
               svmShims: srcFound.svmShims,
               eta: srcFound.eta,
+              peers: {
+                [dstFound.chain]: {
+                  manager: dstFound.manager,
+                  tokenDecimals: dstFound.tokenDecimals,
+                },
+              },
             },
             dstContracts: {
               token: dstFound.token,
+              tokenDecimals: dstFound.tokenDecimals,
               manager: dstFound.manager,
               transceiver: {
                 wormhole: dstFound.transceiver.find(
@@ -229,6 +239,12 @@ export namespace NttRoute {
                 )!.address,
               },
               svmShims: dstFound.svmShims,
+              peers: {
+                [srcFound.chain]: {
+                  manager: srcFound.manager,
+                  tokenDecimals: srcFound.tokenDecimals,
+                },
+              },
             },
           };
         }
@@ -252,7 +268,7 @@ export namespace NttRoute {
           tc.chain === srcManager.chain
       );
       if (found) {
-        const remote = tokens.find((tc) => tc.chain === dstChain);
+        const remote = tokens.find((tc: TokenConfig) => tc.chain === dstChain);
         if (!remote) {
           throw new Error(
             `Cannot find destination Ntt contracts in config for: ${address}`
@@ -260,6 +276,7 @@ export namespace NttRoute {
         }
         return {
           token: remote.unwrapsOnRedeem ? "native" : remote.token,
+          tokenDecimals: remote.tokenDecimals,
           manager: remote.manager,
           transceiver: {
             wormhole: remote.transceiver.find((v) => v.type === "wormhole")!
@@ -267,6 +284,12 @@ export namespace NttRoute {
           },
           quoter: remote.quoter,
           svmShims: remote.svmShims,
+          peers: {
+            [found.chain]: {
+              manager: found.manager,
+              tokenDecimals: found.tokenDecimals,
+            },
+          },
         };
       }
     }
