@@ -108,7 +108,7 @@ abstract contract ManagerBase is
 
         TransceiverStructs.TransceiverInstruction[] memory instructions =
             TransceiverStructs.parseTransceiverInstructions(
-                transceiverInstructions, enabledTransceivers.length
+                transceiverInstructions, _getRegisteredTransceiversStorage().length
             );
 
         return _quoteDeliveryPrice(recipientChain, instructions, enabledTransceivers);
