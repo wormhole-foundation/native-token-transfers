@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeAll } from "bun:test";
+import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test";
 import path from "path";
 
 const CLI = path.resolve(import.meta.dir, "../index.ts");
 const SUBPROCESS_TIMEOUT = 30_000; // generous timeout for spawning multiple bun processes
+
+setDefaultTimeout(SUBPROCESS_TIMEOUT);
 
 async function runCli(
   ...args: string[]
@@ -67,7 +69,7 @@ beforeAll(async () => {
   if (exitCode !== 0 && stderr.includes("Cannot find module")) {
     cliAvailable = false;
   }
-}, SUBPROCESS_TIMEOUT);
+});
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -82,78 +84,62 @@ describe("CLI Help Output", () => {
     }
   });
 
-  it(
-    "every top-level command --help exits with 0",
-    async () => {
-      if (!cliAvailable) return;
-      const results = await Promise.all(
-        EXPECTED_COMMANDS.map(async (cmd) => {
-          const { exitCode, stdout } = await runCli(cmd, "--help");
-          return { cmd, exitCode, hasOutput: stdout.length > 0 };
-        })
-      );
-      const failures = results.filter((r) => r.exitCode !== 0 || !r.hasOutput);
-      expect(failures).toEqual([]);
-    },
-    SUBPROCESS_TIMEOUT
-  );
+  it("every top-level command --help exits with 0", async () => {
+    if (!cliAvailable) return;
+    const results = await Promise.all(
+      EXPECTED_COMMANDS.map(async (cmd) => {
+        const { exitCode, stdout } = await runCli(cmd, "--help");
+        return { cmd, exitCode, hasOutput: stdout.length > 0 };
+      })
+    );
+    const failures = results.filter((r) => r.exitCode !== 0 || !r.hasOutput);
+    expect(failures).toEqual([]);
+  });
 
-  it(
-    "solana subcommands are listed and their --help exits with 0",
-    async () => {
-      if (!cliAvailable) return;
-      const { stdout: solanaHelp } = await runCli("solana", "--help");
-      for (const sub of SOLANA_SUBCOMMANDS) {
-        expect(solanaHelp).toContain(sub);
-      }
-      const results = await Promise.all(
-        SOLANA_SUBCOMMANDS.map(async (sub) => {
-          const { exitCode, stdout } = await runCli("solana", sub, "--help");
-          return { sub, exitCode, hasOutput: stdout.length > 0 };
-        })
-      );
-      const failures = results.filter((r) => r.exitCode !== 0 || !r.hasOutput);
-      expect(failures).toEqual([]);
-    },
-    SUBPROCESS_TIMEOUT
-  );
+  it("solana subcommands are listed and their --help exits with 0", async () => {
+    if (!cliAvailable) return;
+    const { stdout: solanaHelp } = await runCli("solana", "--help");
+    for (const sub of SOLANA_SUBCOMMANDS) {
+      expect(solanaHelp).toContain(sub);
+    }
+    const results = await Promise.all(
+      SOLANA_SUBCOMMANDS.map(async (sub) => {
+        const { exitCode, stdout } = await runCli("solana", sub, "--help");
+        return { sub, exitCode, hasOutput: stdout.length > 0 };
+      })
+    );
+    const failures = results.filter((r) => r.exitCode !== 0 || !r.hasOutput);
+    expect(failures).toEqual([]);
+  });
 
-  it(
-    "config subcommands are listed and their --help exits with 0",
-    async () => {
-      if (!cliAvailable) return;
-      const { stdout: configHelp } = await runCli("config", "--help");
-      for (const sub of CONFIG_SUBCOMMANDS) {
-        expect(configHelp).toContain(sub);
-      }
-      const results = await Promise.all(
-        CONFIG_SUBCOMMANDS.map(async (sub) => {
-          const { exitCode, stdout } = await runCli("config", sub, "--help");
-          return { sub, exitCode, hasOutput: stdout.length > 0 };
-        })
-      );
-      const failures = results.filter((r) => r.exitCode !== 0 || !r.hasOutput);
-      expect(failures).toEqual([]);
-    },
-    SUBPROCESS_TIMEOUT
-  );
+  it("config subcommands are listed and their --help exits with 0", async () => {
+    if (!cliAvailable) return;
+    const { stdout: configHelp } = await runCli("config", "--help");
+    for (const sub of CONFIG_SUBCOMMANDS) {
+      expect(configHelp).toContain(sub);
+    }
+    const results = await Promise.all(
+      CONFIG_SUBCOMMANDS.map(async (sub) => {
+        const { exitCode, stdout } = await runCli("config", sub, "--help");
+        return { sub, exitCode, hasOutput: stdout.length > 0 };
+      })
+    );
+    const failures = results.filter((r) => r.exitCode !== 0 || !r.hasOutput);
+    expect(failures).toEqual([]);
+  });
 
-  it(
-    "manual and hype subcommands are listed",
-    async () => {
-      if (!cliAvailable) return;
-      const { stdout: manualHelp } = await runCli("manual", "--help");
-      expect(manualHelp).toContain("set-peer");
+  it("manual and hype subcommands are listed", async () => {
+    if (!cliAvailable) return;
+    const { stdout: manualHelp } = await runCli("manual", "--help");
+    expect(manualHelp).toContain("set-peer");
 
-      const { stdout: hypeHelp } = await runCli("hype", "--help");
-      expect(hypeHelp).toContain("set-big-blocks");
-      expect(hypeHelp).toContain("link");
-      expect(hypeHelp).toContain("bridge-in");
-      expect(hypeHelp).toContain("bridge-out");
-      expect(hypeHelp).toContain("status");
-    },
-    SUBPROCESS_TIMEOUT
-  );
+    const { stdout: hypeHelp } = await runCli("hype", "--help");
+    expect(hypeHelp).toContain("set-big-blocks");
+    expect(hypeHelp).toContain("link");
+    expect(hypeHelp).toContain("bridge-in");
+    expect(hypeHelp).toContain("bridge-out");
+    expect(hypeHelp).toContain("status");
+  });
 });
 
 describe("Command-specific options", () => {
