@@ -67,7 +67,7 @@ beforeAll(async () => {
   if (exitCode !== 0 && stderr.includes("Cannot find module")) {
     cliAvailable = false;
   }
-});
+}, SUBPROCESS_TIMEOUT);
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
