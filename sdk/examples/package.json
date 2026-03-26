@@ -24,7 +24,8 @@
     "route": "tsx src/route.ts",
     "demo": "tsx src/index.ts",
     "prettier": "prettier --write ./src",
-    "multiToken": "tsx src/multiToken.ts"
+    "multiToken": "tsx src/multiToken.ts",
+    "monadBridge": "tsx src/monadBridge.ts"
   },
   "devDependencies": {
     "dotenv": "^16.4.5",
