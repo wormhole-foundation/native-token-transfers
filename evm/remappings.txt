@@ -1,0 +1,2 @@
+wormhole-solidity-sdk/=lib/wormhole-solidity-sdk/src/
+wormhole-sdk/=lib/wormhole-solidity-sdk/src/
