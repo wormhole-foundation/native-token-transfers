@@ -29,8 +29,8 @@ type OmitGenerics<T> = {
   [P in keyof T]: T[P] extends Record<"generics", any>
     ? never
     : T[P] extends object
-    ? OmitGenerics<T[P]>
-    : T[P];
+      ? OmitGenerics<T[P]>
+      : T[P];
 };
 
 export type WormholeGovernance = OmitGenerics<RawWormholeGovernance>;
