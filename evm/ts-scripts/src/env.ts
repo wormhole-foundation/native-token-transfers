@@ -15,19 +15,7 @@ export type Deployment = {
 };
 
 export type ContractsJson = {
-  WormholeCoreContracts: Deployment[];
-  WormholeRelayers: Deployment[];
-  SpecializedRelayers: Deployment[];
-
-  NttManagerProxies: Deployment[];
-  NttManagerImplementations: Deployment[];
-
   NttTransceiverProxies: Deployment[];
-  NttTransceiverImplementations: Deployment[];
-
-  TransceiverStructsLibs: Deployment[];
-  TrimmedAmountLibs: Deployment[];
-
   GeneralPurposeGovernances: Deployment[];
 };
 
