@@ -53,7 +53,7 @@
       "description": "MegaETH",
       "evmNetworkId": 4326,
       "chainId": 64,
-      "rpc": "http://localhost:50444"
+      "rpc": "https://mainnet.megaeth.com/rpc"
     }
   ]
 }
