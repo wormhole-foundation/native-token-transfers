@@ -363,6 +363,13 @@ export function movePublishedTomlToMainTree(
     const worktreePath = `${packagesPath}/${pkg}/Published.toml`;
     const mainTreePath = `${mainTreePackagesPath}/${pkg}/Published.toml`;
 
+    // When building locally (not from a versioned worktree), both paths resolve
+    // to the same file. Skip the move/symlink to avoid a self-referencing link.
+    if (path.resolve(worktreePath) === path.resolve(mainTreePath)) {
+      console.log(`Published.toml for ${pkg} already in main tree (local mode)`);
+      continue;
+    }
+
     if (
       fs.existsSync(worktreePath) &&
       !fs.lstatSync(worktreePath).isSymbolicLink()

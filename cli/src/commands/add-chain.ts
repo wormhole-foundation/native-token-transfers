@@ -316,7 +316,8 @@ export function createAddChainCommand(
       const [config, _ctx, _ntt, decimals] = await pullChainConfig(
         network,
         deployedManager,
-        overrides
+        overrides,
+        { waitForTransceiver: true }
       );
 
       console.log("token decimals:", colors.yellow(decimals));

@@ -209,10 +209,11 @@ export async function deploySui<N extends Network, C extends Chain>(
         } catch {}
         console.log("Deleted Published.toml files. Redeploying...");
       } else {
-        // Re-create symlinks from worktree → main tree
+        // Re-create symlinks from worktree → main tree (skip in local mode)
         for (const p of suiPackageNames) {
           const mainPath = `${mainTreePackagesPath}/${p}/Published.toml`;
           const wtPath = `${packagesPath}/${p}/Published.toml`;
+          if (path.resolve(mainPath) === path.resolve(wtPath)) continue;
           if (fs.existsSync(mainPath)) {
             fs.rmSync(wtPath, { force: true });
             fs.symlinkSync(path.resolve(mainPath), path.resolve(wtPath));
