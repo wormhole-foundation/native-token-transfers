@@ -16,7 +16,7 @@ import { NTTGovernance } from "./governance";
 
 const governanceVaasFileName = process.env.GOVERNANCE_VAAS_FILE_PATH;
 if (!governanceVaasFileName) {
-  throw new Error("GOVERNANCE_VAAS_FILE_NAME is required.");
+  throw new Error("GOVERNANCE_VAAS_FILE_PATH is required.");
 }
 
 (async () => {

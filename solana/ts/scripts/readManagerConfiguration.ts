@@ -20,6 +20,6 @@ import { NTT } from "../sdk";
     console.log("Account not found.");
     return;
   }
-  console.log("pared account info", accountInfo.value.data);
+  console.log("parsed account info", accountInfo.value.data);
   console.log("Success.");
 })();
