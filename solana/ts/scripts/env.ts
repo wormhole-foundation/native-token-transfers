@@ -39,11 +39,6 @@ export const connectionCommitmentLevel = (process.env.SOLANA_COMMITMENT ||
 
 export const connection = new Connection(rpcUrl, connectionCommitmentLevel);
 
-export type NttConfig = {
-  outboundLimit: string;
-  mode: "locking" | "burning";
-};
-
 export type Programs = {
   mintProgramId: string;
   nttProgramId: string;
@@ -55,10 +50,6 @@ export type Programs = {
 export type GovernanceVaa = {
   vaa: string;
 };
-
-export function getNttConfiguration(): NttConfig {
-  return loadScriptConfig("ntt");
-}
 
 export function getProgramAddresses(): Programs {
   return loadScriptConfig("programs");
