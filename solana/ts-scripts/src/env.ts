@@ -60,9 +60,7 @@ export function getGovernanceVaa(): GovernanceVaa {
 }
 
 export function loadScriptConfig(filename: string): any {
-  const configFile = fs.readFileSync(
-    `./config/${env}/${filename}.json`
-  );
+  const configFile = fs.readFileSync(`./config/${env}/${filename}.json`);
   const config = JSON.parse(configFile.toString());
   if (!config) {
     throw Error("Failed to pull config file!");

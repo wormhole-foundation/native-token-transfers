@@ -14,9 +14,6 @@ import {
 type ManagerConfig = {
   token: string;
   chainId: ChainId;
-  threshold: number;
-  outboundLimit: string;
-  inboundLimit: { chainId: ChainId; limit: string }[];
 };
 
 function loadGuardianKey(): string {
