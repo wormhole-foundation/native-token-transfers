@@ -12,7 +12,7 @@ import {
   getGovernanceVaa,
 } from "./env_short";
 import { postVaaSolana } from "@certusone/wormhole-sdk";
-import { NTTGovernance } from "../sdk/governance";
+import { NTTGovernance } from "./governance";
 import fs from "fs";
 
 (async () => {

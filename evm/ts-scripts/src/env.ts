@@ -177,11 +177,7 @@ export function getProvider(
     throw new Error("Failed to find a provider RPC for chain " + chain.chainId);
   }
 
-  let provider = new ethers.providers.StaticJsonRpcProvider(
-    providerRpc,  
-  );
-
-  return provider;
+  return new ethers.providers.StaticJsonRpcProvider(providerRpc);
 }
 
 let contracts: ContractsJson;

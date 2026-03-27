@@ -3,7 +3,7 @@ import { PublicKey } from "@solana/web3.js";
 import { connection, getSigner, getProgramAddresses } from "./env";
 import { NTT } from "../sdk";
 import { ledgerSignAndSend } from "./helpers";
-import { NTTGovernance } from "../sdk/governance";
+import { NTTGovernance } from "./governance";
 
 (async () => {
   const { nttProgramId, wormholeProgramId, governanceProgramId } = getProgramAddresses();

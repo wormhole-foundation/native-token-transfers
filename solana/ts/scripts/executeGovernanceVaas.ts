@@ -12,7 +12,7 @@ import {
 } from "./env";
 import { addLedgerSignature, ledgerSignAndSend } from "./helpers";
 import { postVaaSolana } from "@certusone/wormhole-sdk";
-import { NTTGovernance } from "../sdk/governance";
+import { NTTGovernance } from "./governance";
 
 const governanceVaasFileName = process.env.GOVERNANCE_VAAS_FILE_PATH;
 if (!governanceVaasFileName) {

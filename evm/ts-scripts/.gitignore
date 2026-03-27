@@ -1,4 +1,5 @@
 output
 contract-bindings
+.env
 .env.testnet
 .env.mainnet
