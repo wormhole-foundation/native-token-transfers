@@ -15,7 +15,6 @@ export type Deployment = {
 };
 
 export type ContractsJson = {
-  NttTransceiverProxies: Deployment[];
   GeneralPurposeGovernances: Deployment[];
 };
 

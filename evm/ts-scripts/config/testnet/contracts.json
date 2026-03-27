@@ -1,22 +1,4 @@
 {
-  "NttTransceiverProxies": [
-    {
-      "address": "0x649fF7B32C2DE771043ea105c4aAb2D724497238",
-      "chainId": 10002
-    },
-    {
-      "address": "0xfA42603152E4f133F5F3DA610CDa91dF5821d8bc",
-      "chainId": 10003
-    },
-    {
-      "address": "0xeCF0496DE01e9Aa4ADB50ae56dB550f52003bdB7",
-      "chainId": 10005
-    },
-    {
-      "address": "0x149987472333cD48ac6D28293A338a1EEa6Be7EE",
-      "chainId": 10004
-    }
-  ],
   "GeneralPurposeGovernances": [
     {
       "address": "0x574B7864119C9223A9870Ea614dC91A8EE09E512",
