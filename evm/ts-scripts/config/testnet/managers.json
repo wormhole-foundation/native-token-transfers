@@ -1,0 +1,62 @@
+[
+  {
+    "token": "0x738141EFf659625F2eAD4feECDfCD94155C67f18",
+    "mode": 1,
+    "chainId": 10002,
+    "rateLimitDuration": 3600,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 4000000000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "1000000000000000000000" },
+      { "chainId": 10003, "limit": "120000000000000000000000" },
+      { "chainId": 10004, "limit": "40000000000000000000000000" },
+      { "chainId": 10005, "limit": "1500000000000000000000000" }
+    ]
+  },
+  {
+    "token": "0x395D3C74232D12916ecA8952BA352b4d27818035",
+    "mode": 1,
+    "chainId": 10003,
+    "rateLimitDuration": 3600,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 100000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "1500000000000000000000000" },
+      { "chainId": 10002, "limit": "1000000000000000000000000" },
+      { "chainId": 10004, "limit": "335000000000000000000000" },
+      { "chainId": 10005, "limit": "100000000000000000000000" }
+    ]
+  },
+  {
+    "token": "0x1d30E78B7C7fbbcef87ae6e97B5389b2e470CA4a",
+    "mode": 1,
+    "chainId": 10004,
+    "rateLimitDuration": 3600,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 1700000000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "135000000000000000000000" },
+      { "chainId": 10002, "limit": "440000000000000000000000" },
+      { "chainId": 10003, "limit": "140000000000000000000000" },
+      { "chainId": 10005, "limit": "240000000000000000000000" }
+    ]
+  },
+  {
+    "token": "0xdDFeABcCf2063CD66f53a1218e23c681Ba6e7962",
+    "mode": 1,
+    "chainId": 10005,
+    "rateLimitDuration": 3600,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 544000000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "35000000000000000000000" },
+      { "chainId": 10002, "limit": "200000000000000000000000" },
+      { "chainId": 10003, "limit": "140000000000000000000000" },
+      { "chainId": 10004, "limit": "60000000000000000000000" }
+    ]
+  }
+]

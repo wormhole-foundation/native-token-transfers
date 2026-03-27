@@ -10,8 +10,8 @@ import { ParsedVaa } from "@certusone/wormhole-sdk";
 import { derivePostedVaaKey } from "@certusone/wormhole-sdk/lib/cjs/solana/wormhole";
 
 import { encoding } from "@wormhole-foundation/sdk-base";
-import { type WormholeGovernance as RawWormholeGovernance } from "../../../target/types/wormhole_governance";
-import IDL from "../../../target/idl/wormhole_governance.json";
+import { type WormholeGovernance as RawWormholeGovernance } from "../../target/types/wormhole_governance";
+import IDL from "../../target/idl/wormhole_governance.json";
 
 type Seed = Uint8Array | string;
 function derivePda(seeds: Seed | readonly Seed[], programId: PublicKey) {

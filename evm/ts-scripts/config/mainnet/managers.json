@@ -1,0 +1,62 @@
+[
+  {
+    "token": "0xB0fFa8000886e57F86dd5264b9582b2Ad87b2b91",
+    "mode": 1,
+    "chainId": 2,
+    "rateLimitDuration": 86400,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 4000000000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "5500000000000000000000000" },
+      { "chainId": 23, "limit": "1500000000000000000000000" },
+      { "chainId": 24, "limit": "40000000000000000000000" },
+      { "chainId": 30, "limit": "120000000000000000000000" }
+    ]
+  },
+  {
+    "token": "0xB0fFa8000886e57F86dd5264b9582b2Ad87b2b91",
+    "mode": 1,
+    "chainId": 23,
+    "rateLimitDuration": 86400,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 2300000000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "1500000000000000000000000" },
+      { "chainId": 2, "limit": "1000000000000000000000000" },
+      { "chainId": 24, "limit": "335000000000000000000000" },
+      { "chainId": 30, "limit": "100000000000000000000000" }
+    ]
+  },
+  {
+    "token": "0xB0fFa8000886e57F86dd5264b9582b2Ad87b2b91",
+    "mode": 1,
+    "chainId": 24,
+    "rateLimitDuration": 86400,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 544000000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "35000000000000000000000" },
+      { "chainId": 2, "limit": "200000000000000000000000" },
+      { "chainId": 23, "limit": "60000000000000000000000" },
+      { "chainId": 30, "limit": "140000000000000000000000" }
+    ]
+  },
+  {
+    "token": "0xB0fFa8000886e57F86dd5264b9582b2Ad87b2b91",
+    "mode": 1,
+    "chainId": 30,
+    "rateLimitDuration": 86400,
+    "skipRateLimit": false,
+    "threshold": 1,
+    "outboundLimit": 1700000000000000000000000,
+    "inboundLimit": [
+      { "chainId": 1, "limit": "135000000000000000000000" },
+      { "chainId": 2, "limit": "440000000000000000000000" },
+      { "chainId": 23, "limit": "140000000000000000000000" },
+      { "chainId": 24, "limit": "240000000000000000000000" }
+    ]
+  }
+]
