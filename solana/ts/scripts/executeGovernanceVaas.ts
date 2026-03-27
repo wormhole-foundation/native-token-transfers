@@ -20,10 +20,10 @@ if (!governanceVaasFileName) {
 }
 
 (async () => {
-
-  const vaas: { id: string, vaa: string }[] = loadScriptConfig(governanceVaasFileName);
-  const { wormholeProgramId, governanceProgramId } =
-    getProgramAddresses();
+  const vaas: { id: string; vaa: string }[] = loadScriptConfig(
+    governanceVaasFileName
+  );
+  const { wormholeProgramId, governanceProgramId } = getProgramAddresses();
 
   const governance = new NTTGovernance(connection, {
     programId: governanceProgramId as any,
@@ -43,13 +43,13 @@ if (!governanceVaasFileName) {
 
     console.log(`Posting VAA ${vaa.id} to Solana...`);
     console.log(`Vaa: ${vaa.vaa}`);
-  
+
     await postVaaSolana(
       connection,
       sign,
       new PublicKey(wormholeProgramId),
       signerPk,
-      vaaBuff,
+      vaaBuff
     );
 
     console.log("VAA post succeeded");
@@ -63,7 +63,7 @@ if (!governanceVaasFileName) {
     });
 
     console.log("Parsed VAA Payload", parsedVaa.payload.toString("hex"));
-    instructions.push(governanceIx)
+    instructions.push(governanceIx);
   }
 
   console.log(`Executing governance instructions.`, instructions);

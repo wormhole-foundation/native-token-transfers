@@ -11,8 +11,7 @@ export function getEnv(key: string): string {
   return process.env[key]!;
 }
 
-export const rpcUrl =
-  process.env.SOLANA_RPC_URL || "INSERT_RPC_URL";
+export const rpcUrl = process.env.SOLANA_RPC_URL || "INSERT_RPC_URL";
 
 export const connectionCommitmentLevel = (process.env.SOLANA_COMMITMENT ||
   "confirmed") as Commitment;
@@ -25,11 +24,11 @@ export type Programs = {
   wormholeProgramId: string;
   quoterProgramId: string;
   governanceProgramId: string;
-}
+};
 
 export type GovernanceVaa = {
   vaa: string;
-}
+};
 
 export function getProgramAddresses(): Programs {
   return loadScriptConfig("programs");
@@ -49,4 +48,3 @@ export function loadScriptConfig(filename: string): any {
   }
   return config;
 }
-

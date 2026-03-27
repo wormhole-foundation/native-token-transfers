@@ -42,7 +42,7 @@ export const connection = new Connection(rpcUrl, connectionCommitmentLevel);
 export type NttConfig = {
   outboundLimit: string;
   mode: "locking" | "burning";
-}
+};
 
 export type Programs = {
   mintProgramId: string;
@@ -50,11 +50,11 @@ export type Programs = {
   wormholeProgramId: string;
   quoterProgramId: string;
   governanceProgramId: string;
-}
+};
 
 export type GovernanceVaa = {
   vaa: string;
-}
+};
 
 export function getNttConfiguration(): NttConfig {
   return loadScriptConfig("ntt");

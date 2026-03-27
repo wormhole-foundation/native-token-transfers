@@ -19,11 +19,12 @@ import { ledgerSignAndSend } from "./helpers";
     owner: signerPk,
   });
 
-  console.log(`Account ${signerPk.toBase58()} is claiming ownership of NTT Program ${nttProgramId}.`);
+  console.log(
+    `Account ${signerPk.toBase58()} is claiming ownership of NTT Program ${nttProgramId}.`
+  );
 
   const tx = await ledgerSignAndSend([claimOwnershipIx], []);
 
   await connection.confirmTransaction(tx);
   console.log("Success.");
 })();
-

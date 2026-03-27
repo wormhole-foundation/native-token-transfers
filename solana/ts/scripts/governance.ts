@@ -1,5 +1,5 @@
 import { Program } from "@coral-xyz/anchor";
-import { 
+import {
   PublicKey,
   type Connection,
   SystemProgram,
@@ -14,14 +14,12 @@ import { type WormholeGovernance as RawWormholeGovernance } from "../../../targe
 import IDL from "../../../target/idl/wormhole_governance.json";
 
 type Seed = Uint8Array | string;
-function derivePda(
-  seeds: Seed | readonly Seed[],
-  programId: PublicKey
-) {
-  const toBytes = (s: string | Uint8Array) => typeof s === "string" ? encoding.bytes.encode(s) : s;
+function derivePda(seeds: Seed | readonly Seed[], programId: PublicKey) {
+  const toBytes = (s: string | Uint8Array) =>
+    typeof s === "string" ? encoding.bytes.encode(s) : s;
   return PublicKey.findProgramAddressSync(
     Array.isArray(seeds) ? seeds.map(toBytes) : [toBytes(seeds as Seed)],
-    programId,
+    programId
   )[0];
 }
 
@@ -70,25 +68,35 @@ export class NTTGovernance {
     emitterChain.writeUInt16BE(args.vaa.emitterChain);
     const sequence = Buffer.alloc(8);
     sequence.writeBigUInt64BE(BigInt(args.vaa.sequence));
-    const [governanceProgramId, ixData] = verifyGovernanceHeader(args.vaa.payload);
+    const [governanceProgramId, ixData] = verifyGovernanceHeader(
+      args.vaa.payload
+    );
     const ix = deserializeInstruction(ixData);
-  
-    const governanceIx = await this.program.methods.governance()
+
+    const governanceIx = await this.program.methods
+      .governance()
       .accountsStrict({
         payer: args.payer,
-        governance: derivePda('governance', this.program.programId),
+        governance: derivePda("governance", this.program.programId),
         vaa: vaaKey,
         program: ix.programId,
-        replay: derivePda(['replay', emitterChain, args.vaa.emitterAddress, sequence], this.program.programId),
+        replay: derivePda(
+          ["replay", emitterChain, args.vaa.emitterAddress, sequence],
+          this.program.programId
+        ),
         systemProgram: SystemProgram.programId,
-      }).instruction();
-  
+      })
+      .instruction();
+
     // add extra instructions
-    governanceIx.keys = governanceIx.keys.concat(ix.keys.map(k => { return { ...k, isSigner: false }; }));
+    governanceIx.keys = governanceIx.keys.concat(
+      ix.keys.map((k) => {
+        return { ...k, isSigner: false };
+      })
+    );
     return governanceIx;
   }
 }
-
 
 function deserializeInstruction(data: Buffer): TransactionInstruction {
   let offset = 0;

@@ -40,7 +40,7 @@ async function run() {
     if (!result) {
       continue;
     }
-    
+
     if ("error" in result) {
       console.error(
         `${processName} failed for chain ${result.chainId}: ${inspect(result.error)}`
@@ -52,12 +52,13 @@ async function run() {
   }
 }
 
-async function executeGovernance(
-  chain: ChainInfo,
-) {
+async function executeGovernance(chain: ChainInfo) {
   const log = (...args: any[]) => console.log(`[${chain.chainId}]`, ...args);
-  const { vaa } = await getChainConfig<GovernanceConfig>("governance-vaas", chain.chainId);
-  
+  const { vaa } = await getChainConfig<GovernanceConfig>(
+    "governance-vaas",
+    chain.chainId
+  );
+
   const governanceContract = await getGovernanceContract(chain);
 
   const vaaHex = Buffer.from(vaa, "base64").toString("hex");
@@ -79,6 +80,9 @@ run().then(() => console.log("Done!"));
 
 async function getGovernanceContract(chain: ChainInfo) {
   const signer = await getSigner(chain);
-  const governanceAddress = await getContractAddress("GeneralPurposeGovernances", chain.chainId);
+  const governanceAddress = await getContractAddress(
+    "GeneralPurposeGovernances",
+    chain.chainId
+  );
   return Governance__factory.connect(governanceAddress, signer);
 }

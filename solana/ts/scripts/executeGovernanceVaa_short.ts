@@ -6,22 +6,18 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import { parseVaa } from "@certusone/wormhole-sdk";
-import {
-  connection,
-  getProgramAddresses,
-  getGovernanceVaa,
-} from "./env_short";
+import { connection, getProgramAddresses, getGovernanceVaa } from "./env_short";
 import { postVaaSolana } from "@certusone/wormhole-sdk";
 import { NTTGovernance } from "./governance";
 import fs from "fs";
 
 (async () => {
-	const { vaa } = getGovernanceVaa();
+  const { vaa } = getGovernanceVaa();
 
   const { nttProgramId, wormholeProgramId, governanceProgramId } =
     getProgramAddresses();
 
-	const governance = new NTTGovernance(connection, {
+  const governance = new NTTGovernance(connection, {
     programId: governanceProgramId as any,
   });
 
@@ -82,4 +78,3 @@ import fs from "fs";
 
   console.log("success:", txSig);
 })();
-

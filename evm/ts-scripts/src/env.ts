@@ -58,9 +58,12 @@ export function loadScriptConfig(filename: string): any {
 
 type ChainConfig = {
   chainId: ChainId;
-}
+};
 
-export async function getChainConfig<T extends ChainConfig>(filename: string, chainId: ChainId): Promise<T> {
+export async function getChainConfig<T extends ChainConfig>(
+  filename: string,
+  chainId: ChainId
+): Promise<T> {
   const scriptConfig: T[] = await loadScriptConfig(filename);
 
   const chainConfig = scriptConfig.find((x) => x.chainId == chainId);
@@ -71,7 +74,6 @@ export async function getChainConfig<T extends ChainConfig>(filename: string, ch
 
   return chainConfig;
 }
-
 
 export function loadOperatingChains(): ChainInfo[] {
   const allChains = loadChains();
@@ -171,7 +173,8 @@ With ledger devices the path needs to be specified in env var 'LEDGER_BIP32_PATH
 export function getProvider(
   chain: ChainInfo
 ): ethers.providers.StaticJsonRpcProvider {
-  const providerRpc = loadChains().find((x: any) => x.chainId == chain.chainId)?.rpc || "";
+  const providerRpc =
+    loadChains().find((x: any) => x.chainId == chain.chainId)?.rpc || "";
 
   if (!providerRpc) {
     throw new Error("Failed to find a provider RPC for chain " + chain.chainId);
@@ -205,8 +208,13 @@ export async function getAllContracts(contractName: ContractTypes) {
   return (await loadContracts())[contractName];
 }
 
-export async function getContractAddress(contractName: ContractTypes, chainId: ChainId): Promise<string> {
-  const contract = (await getAllContracts(contractName))?.find((c) => c.chainId === chainId)?.address;
+export async function getContractAddress(
+  contractName: ContractTypes,
+  chainId: ChainId
+): Promise<string> {
+  const contract = (await getAllContracts(contractName))?.find(
+    (c) => c.chainId === chainId
+  )?.address;
 
   if (!contract) {
     throw new Error(`No ${contractName} contract found for chain ${chainId}`);
@@ -214,4 +222,3 @@ export async function getContractAddress(contractName: ContractTypes, chainId: C
 
   return contract;
 }
-

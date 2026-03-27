@@ -6,7 +6,8 @@ import { ledgerSignAndSend } from "./helpers";
 import { NTTGovernance } from "./governance";
 
 (async () => {
-  const { nttProgramId, wormholeProgramId, governanceProgramId } = getProgramAddresses();
+  const { nttProgramId, wormholeProgramId, governanceProgramId } =
+    getProgramAddresses();
 
   const ntt = new NTT(connection, {
     nttId: nttProgramId as any,
@@ -19,7 +20,7 @@ import { NTTGovernance } from "./governance";
 
   const signer = await getSigner();
   const signerPk = new PublicKey(await signer.getAddress());
-  
+
   const governancePda = governance.governanceAccountAddress();
 
   const transferOwnershipIx = await ntt.createTransferOwnershipInstruction({
@@ -27,7 +28,9 @@ import { NTTGovernance } from "./governance";
     newOwner: governancePda,
   });
 
-  console.log(`Transferring NTT Program ${nttProgramId} ownership to ${governancePda.toBase58()} derived from(${governanceProgramId}).`);
+  console.log(
+    `Transferring NTT Program ${nttProgramId} ownership to ${governancePda.toBase58()} derived from(${governanceProgramId}).`
+  );
 
   const tx = await ledgerSignAndSend([transferOwnershipIx], []);
 
@@ -35,4 +38,3 @@ import { NTTGovernance } from "./governance";
   await connection.confirmTransaction(tx);
   console.log("Success.");
 })();
-

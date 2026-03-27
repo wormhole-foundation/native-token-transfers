@@ -9,8 +9,13 @@ import { NTT } from "../sdk";
   });
 
   // console.log("outbox rate limit account:", await ntt.outboxRateLimitAccountAddress());
-  console.log("mintAccountAddress", (await ntt.mintAccountAddress()).toString());
-  const accountInfo = await connection.getParsedAccountInfo(await ntt.mintAccountAddress())
+  console.log(
+    "mintAccountAddress",
+    (await ntt.mintAccountAddress()).toString()
+  );
+  const accountInfo = await connection.getParsedAccountInfo(
+    await ntt.mintAccountAddress()
+  );
   if (accountInfo.value === null) {
     console.log("Account not found.");
     return;
@@ -18,4 +23,3 @@ import { NTT } from "../sdk";
   console.log("pared account info", accountInfo.value.data);
   console.log("Success.");
 })();
-
