@@ -1,27 +1,7 @@
+import { Commitment, Connection } from "@solana/web3.js";
 import fs from "fs";
-import { Connection, Commitment } from "@solana/web3.js";
-import { SolanaLedgerSigner } from "@xlabs-xyz/ledger-signer-solana";
 
-if (!process.env.LEDGER_DERIVATION_PATH) {
-  throw new Error("LEDGER_DERIVATION_PATH is not set");
-}
-
-if (!process.env.ENV) {
-  throw new Error("ENV not set");
-}
-
-const env = process.env.ENV;
-
-const derivationPath = process.env.LEDGER_DERIVATION_PATH! as string;
-
-let signer;
-export async function getSigner(): Promise<SolanaLedgerSigner> {
-  if (!signer) {
-    signer = await SolanaLedgerSigner.create(derivationPath);
-  }
-
-  return signer;
-}
+const env = "mainnet"; // Or devnet
 
 export function getEnv(key: string): string {
   if (!process.env[key]) {
@@ -31,8 +11,7 @@ export function getEnv(key: string): string {
   return process.env[key]!;
 }
 
-export const rpcUrl =
-  process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
+export const rpcUrl = process.env.SOLANA_RPC_URL || "INSERT_RPC_URL";
 
 export const connectionCommitmentLevel = (process.env.SOLANA_COMMITMENT ||
   "confirmed") as Commitment;
@@ -61,15 +40,11 @@ export function getGovernanceVaa(): GovernanceVaa {
 
 export function loadScriptConfig(filename: string): any {
   const configFile = fs.readFileSync(
-    `./ts/scripts/config/${env}/${filename}.json`
+    `./config/${env}/${filename}.json`
   );
   const config = JSON.parse(configFile.toString());
   if (!config) {
     throw Error("Failed to pull config file!");
   }
   return config;
-}
-
-export function getGuardianKey(): string {
-  return getEnv("GUARDIAN_KEY");
 }
