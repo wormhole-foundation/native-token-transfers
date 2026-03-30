@@ -127,15 +127,6 @@ export function loadPrivateKey(): string {
   return privateKey;
 }
 
-export function loadGuardianSetIndex(): number {
-  const chainFile = fs.readFileSync(`./ts-scripts/config/${env}/chains.json`);
-  const chains = JSON.parse(chainFile.toString());
-  if (chains.guardianSetIndex == undefined) {
-    throw Error("Failed to pull guardian set index from the chains file!");
-  }
-  return chains.guardianSetIndex;
-}
-
 export function writeOutputFiles(output: any, processName: string) {
   fs.mkdirSync(`./ts-scripts/output/${env}/${processName}`, {
     recursive: true,
