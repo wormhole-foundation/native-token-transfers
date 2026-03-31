@@ -44,7 +44,8 @@ type R = NttRoute.AutomaticTransferReceipt;
  * @deprecated Use {@link nttExecutorRoute} instead.
  * When the source chain is EVM, this route relies on on-chain special/standard relayer pricing
  * which is no longer maintained. Older EVM transceiver deployments may return stale or inflated
- * delivery quotes.
+ * delivery quotes. Messages sent via the Standard Relayer will not be automatically delivered
+ * to the destination chain past April 1st, 2026.
  */
 export function nttAutomaticRoute(config: NttRoute.Config) {
   class NttRouteImpl<N extends Network> extends NttAutomaticRoute<N> {
@@ -57,7 +58,8 @@ export function nttAutomaticRoute(config: NttRoute.Config) {
  * @deprecated Use {@link NttExecutorRoute} instead.
  * When the source chain is EVM, this route relies on on-chain special/standard relayer pricing
  * which is no longer maintained. Older EVM transceiver deployments may return stale or inflated
- * delivery quotes.
+ * delivery quotes. Messages sent via the Standard Relayer will not be automatically delivered
+ * to the destination chain past April 1st, 2026.
  */
 export class NttAutomaticRoute<N extends Network>
   extends routes.AutomaticRoute<N, Op, Vp, R>

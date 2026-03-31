@@ -529,6 +529,7 @@ export class EvmNtt<N extends Network, C extends EvmChains>
         "EvmNtt.quoteDeliveryPrice with automatic: true queries on-chain " +
           "special/standard relayer pricing which is no longer maintained " +
           "and may return inflated fees. " +
+          "Any messages sent via the Standard Relayer will not be automatically delivered to the destination chain past April 1st, 2026. " +
           "For automatic EVM transfers, use nttExecutorRoute and obtain quotes via route.quote() instead."
       );
     }
