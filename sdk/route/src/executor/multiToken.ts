@@ -39,7 +39,6 @@ import {
   calculateReferrerFee,
   Capabilities,
   collectTransactions,
-  fetchCapabilities,
   fetchSignedQuote,
   fetchStatus,
 } from "./utils.js";
@@ -349,7 +348,7 @@ export class MultiTokenNttExecutorRoute<N extends Network>
     sourceCapabilities: Capabilities;
     destinationCapabilities: Capabilities;
   }> {
-    const capabilities = await fetchCapabilities(fromChain.network);
+    const capabilities = await this.wh.getExecutorCapabilities();
     const sourceCapabilities = capabilities[toChainId(fromChain.chain)];
     if (!sourceCapabilities) {
       throw new Error("Unsupported source chain");

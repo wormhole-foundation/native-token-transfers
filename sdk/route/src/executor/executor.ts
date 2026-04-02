@@ -41,7 +41,6 @@ import { NttRoute } from "../types.js";
 import {
   calculateReferrerFee,
   collectTransactions,
-  fetchCapabilities,
   fetchSignedQuote,
   fetchStatus,
   isRelayStatusFailed,
@@ -379,7 +378,7 @@ export class NttExecutorRoute<N extends Network>
       throw new Error("Amount after fee <= 0");
     }
 
-    const capabilities = await fetchCapabilities(fromChain.network);
+    const capabilities = await this.wh.getExecutorCapabilities();
     const srcCapabilities = capabilities[toChainId(fromChain.chain)];
     if (!srcCapabilities) {
       throw new Error("Unsupported source chain");

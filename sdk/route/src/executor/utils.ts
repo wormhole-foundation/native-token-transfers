@@ -66,22 +66,7 @@ export type Capabilities = {
   maxMsgValue: string; // the maximum msgValue, inclusive of the gasDropOffLimit
 };
 
-export interface CapabilitiesResponse {
-  [chainId: string]: Capabilities;
-}
 
-export async function fetchCapabilities(
-  network: Network
-): Promise<CapabilitiesResponse> {
-  const url = `${apiBaseUrl[network]}/v0/capabilities`;
-
-  try {
-    const response = await axios.get<CapabilitiesResponse>(url);
-    return response.data;
-  } catch (error) {
-    throw new Error(`Failed to fetch capabilities for network: ${network}.`);
-  }
-}
 
 export interface QuoteResponse {
   signedQuote: `0x${string}`;
