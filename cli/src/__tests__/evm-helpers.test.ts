@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { getSlowFlag, getGasMultiplier } from "../evm/helpers";
 
 describe("getSlowFlag", () => {
-  const slowChains = ["Mezo", "HyperEVM", "XRPLEVM", "CreditCoin"] as const;
+  const slowChains = ["Mezo", "HyperEVM", "XRPLEVM", "CreditCoin", "Tempo"] as const;
   const normalChains = ["Ethereum", "Sepolia", "Base", "Arbitrum"] as const;
 
   test("returns --slow for known slow chains", () => {
