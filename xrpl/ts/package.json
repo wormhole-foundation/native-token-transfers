@@ -58,8 +58,8 @@
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.16.0",
-    "@wormhole-foundation/sdk-definitions": "^4.16.0",
-    "@wormhole-foundation/sdk-xrpl": "^4.16.0"
+    "@wormhole-foundation/sdk-base": "^4.17.0",
+    "@wormhole-foundation/sdk-definitions": "^4.17.0",
+    "@wormhole-foundation/sdk-xrpl": "^4.17.0"
   }
 }
