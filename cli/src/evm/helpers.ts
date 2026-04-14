@@ -141,7 +141,8 @@ export function getSlowFlag(chain: Chain): string {
   return chain === "Mezo" ||
     chain === "HyperEVM" ||
     chain == "XRPLEVM" ||
-    chain === "CreditCoin"
+    chain === "CreditCoin" ||
+    chain === "Tempo"
     ? "--slow"
     : "";
 }
