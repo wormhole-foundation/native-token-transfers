@@ -16,7 +16,7 @@ build: cargo-build anchor-build
 
 
 cargo-build:
-	BPF_OUT_DIR="$(pwd)/target/deploy" cargo build-sbf
+	BPF_OUT_DIR="$(pwd)/target/deploy" cargo build-sbf --features "mainnet"
 
 # After building, remove the generics from the idl file. This is necessary as of anchor 0.29.0,
 # because the javascript library does not support generics yet, and just panics
@@ -75,7 +75,7 @@ cargo-test:
 	cargo build-sbf --features "mainnet"
 	cargo test-sbf -p "example-native-token-transfers" --features "mainnet"
 	cargo test-sbf -p "ntt-transceiver" --features "mainnet,testing"
-	cargo test
+	cargo test --features "mainnet"
 
 anchor-test: idl sdk node_modules
 	anchor test --skip-build
@@ -89,8 +89,8 @@ lint: cargo-lint anchor-lint
 
 cargo-lint:
 	cargo fmt --check --all --manifest-path Cargo.toml
-	cargo check --workspace --tests --manifest-path Cargo.toml
-	cargo clippy --workspace --tests --manifest-path Cargo.toml -- -Dclippy::cast_possible_truncation
+	cargo check --workspace --tests --manifest-path Cargo.toml --features mainnet
+	cargo clippy --workspace --tests --manifest-path Cargo.toml --features mainnet -- -Dclippy::cast_possible_truncation
 
 # Run anchor's linter on all Rust files in the current directory via `anchor idl parse`
 # Results written to /dev/null because we're just calling parse for the linting capabilities and we don't care about

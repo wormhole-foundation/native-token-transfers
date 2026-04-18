@@ -3,11 +3,16 @@
 
 use anchor_lang::{system_program::System, Id};
 use example_native_token_transfers::error::NTTError;
-use ntt_messages::mode::Mode;
+use ntt_messages::{chain_id::ChainId, mode::Mode};
+use ntt_transceiver::peer::TransceiverPeer;
 use solana_program_test::*;
 use solana_sdk::{instruction::InstructionError, signer::Signer, transaction::TransactionError};
 use test_utils::{
-    common::submit::Submittable,
+    common::{
+        fixtures::{ANOTHER_TRANSCEIVER, OTHER_CHAIN, OTHER_TRANSCEIVER},
+        query::GetAccountDataAnchor,
+        submit::Submittable,
+    },
     helpers::{assert_threshold, assert_transceiver_id, setup},
     sdk::{
         accounts::good_ntt,
@@ -15,7 +20,12 @@ use test_utils::{
             deregister_transceiver, register_transceiver, set_threshold, DeregisterTransceiver,
             RegisterTransceiver, SetThreshold,
         },
-        transceivers::accounts::{good_ntt_transceiver, NTTTransceiverAccounts},
+        transceivers::{
+            accounts::{good_ntt_transceiver, NTTTransceiverAccounts},
+            instructions::admin::{
+                set_transceiver_peer, SetTransceiverPeer, SetTransceiverPeerArgs,
+            },
+        },
     },
 };
 use wormhole_svm_definitions::solana::{POST_MESSAGE_SHIM_PROGRAM_ID, VERIFY_VAA_SHIM_PROGRAM_ID};
@@ -205,4 +215,38 @@ async fn test_deregister_last_enabled_transceiver() {
             InstructionError::Custom(NTTError::ZeroThreshold.into())
         )
     );
+}
+
+#[tokio::test]
+async fn test_update_transceiver_peer() {
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    // verify initial setup values
+    let peer: TransceiverPeer = ctx
+        .get_account_data_anchor(good_ntt_transceiver.transceiver_peer(OTHER_CHAIN))
+        .await;
+    assert_eq!(peer.address, OTHER_TRANSCEIVER);
+
+    // update peer for the same chain to a different address
+    set_transceiver_peer(
+        &good_ntt,
+        &good_ntt_transceiver,
+        SetTransceiverPeer {
+            payer: ctx.payer.pubkey(),
+            owner: test_data.program_owner.pubkey(),
+        },
+        SetTransceiverPeerArgs {
+            chain_id: ChainId { id: OTHER_CHAIN },
+            address: ANOTHER_TRANSCEIVER,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+    .await
+    .unwrap();
+
+    // verify peer address was updated
+    let peer: TransceiverPeer = ctx
+        .get_account_data_anchor(good_ntt_transceiver.transceiver_peer(OTHER_CHAIN))
+        .await;
+    assert_eq!(peer.address, ANOTHER_TRANSCEIVER);
 }

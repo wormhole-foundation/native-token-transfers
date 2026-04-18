@@ -2,18 +2,24 @@
 #![feature(type_changing_struct_update)]
 
 use anchor_lang::{system_program::System, Id};
-use example_native_token_transfers::error::NTTError;
-use ntt_messages::mode::Mode;
+use example_native_token_transfers::{
+    error::NTTError, instructions::SetPeerArgs, peer::NttManagerPeer, queue::inbox::InboxRateLimit,
+};
+use ntt_messages::{chain_id::ChainId, mode::Mode};
 use solana_program_test::*;
 use solana_sdk::{instruction::InstructionError, signer::Signer, transaction::TransactionError};
 use test_utils::{
-    common::submit::Submittable,
+    common::{
+        fixtures::{ANOTHER_MANAGER, INBOUND_LIMIT, OTHER_CHAIN, OTHER_MANAGER},
+        query::GetAccountDataAnchor,
+        submit::Submittable,
+    },
     helpers::{assert_threshold, assert_transceiver_id, setup},
     sdk::{
-        accounts::good_ntt,
+        accounts::{good_ntt, NTTAccounts},
         instructions::admin::{
-            deregister_transceiver, register_transceiver, set_threshold, DeregisterTransceiver,
-            RegisterTransceiver, SetThreshold,
+            deregister_transceiver, register_transceiver, set_peer, set_threshold,
+            DeregisterTransceiver, RegisterTransceiver, SetPeer, SetThreshold,
         },
         transceivers::accounts::{good_ntt_transceiver, NTTTransceiverAccounts},
     },
@@ -248,4 +254,50 @@ async fn test_threshold_too_high() {
             InstructionError::Custom(NTTError::ThresholdTooHigh.into())
         )
     );
+}
+
+#[tokio::test]
+async fn test_update_peer() {
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+
+    // verify initial setup values
+    let peer: NttManagerPeer = ctx
+        .get_account_data_anchor(good_ntt.peer(OTHER_CHAIN))
+        .await;
+    assert_eq!(peer.address, OTHER_MANAGER);
+    assert_eq!(peer.token_decimals, 7);
+    let inbox_rate_limit: InboxRateLimit = ctx
+        .get_account_data_anchor(good_ntt.inbox_rate_limit(OTHER_CHAIN))
+        .await;
+    assert_eq!(inbox_rate_limit.limit, INBOUND_LIMIT);
+
+    // update peer for the same chain to a different address, decimals, and limit
+    set_peer(
+        &good_ntt,
+        SetPeer {
+            payer: ctx.payer.pubkey(),
+            owner: test_data.program_owner.pubkey(),
+        },
+        SetPeerArgs {
+            chain_id: ChainId { id: OTHER_CHAIN },
+            address: ANOTHER_MANAGER,
+            limit: 0,
+            token_decimals: 9,
+        },
+    )
+    .submit_with_signers(&[&test_data.program_owner], &mut ctx)
+    .await
+    .unwrap();
+
+    // verify peer address, decimals, and limit were updated
+    let peer: NttManagerPeer = ctx
+        .get_account_data_anchor(good_ntt.peer(OTHER_CHAIN))
+        .await;
+    assert_eq!(peer.address, ANOTHER_MANAGER);
+    assert_eq!(peer.token_decimals, 9);
+    let inbox_rate_limit: InboxRateLimit = ctx
+        .get_account_data_anchor(good_ntt.inbox_rate_limit(OTHER_CHAIN))
+        .await;
+    assert_eq!(inbox_rate_limit.limit, 0);
+    assert_eq!(inbox_rate_limit.capacity_at_last_tx, 0);
 }

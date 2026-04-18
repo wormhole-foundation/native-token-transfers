@@ -14,7 +14,10 @@ import {
   serialize,
   serializePayload,
 } from "@wormhole-foundation/sdk";
-import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import {
+  Ntt,
+  register as registerDefinitions,
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import * as testing from "@wormhole-foundation/sdk-definitions/testing";
 import {
   SolanaAddress,
@@ -25,7 +28,12 @@ import {
   SolanaWormholeCore,
   utils,
 } from "@wormhole-foundation/sdk-solana-core";
-import { IdlVersion, NTT, getTransceiverProgram } from "../../ts/index.js";
+import {
+  IdlVersion,
+  NTT,
+  getTransceiverProgram,
+  register as registerSolana,
+} from "../../ts/index.js";
 import { SolanaNtt } from "../../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
@@ -35,6 +43,9 @@ import {
   assert,
   signSendWait,
 } from "./utils/helpers.js";
+
+registerDefinitions();
+registerSolana();
 
 /**
  * Test Config Constants
