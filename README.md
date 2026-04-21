@@ -10,7 +10,7 @@ Wormhole’s Native Token Transfers (NTT) is an open, flexible, and composable f
 
 ## Design
 
-There are two basic components to NTT:
+There are two basic to NTT:
 
 (1) **Transceiver**: This contract is responsible for sending NTT transfers forwarded through the `NttManager` on the source chain and delivered to a corresponding peer `NttManager` on the recipient chain. Transceivers should follow the `ITransceiver` interface. Transceivers can be defined independently of Wormhole core and can be modified to support any verification backend. See [docs/Transceiver.md](./docs/Transceiver.md) for more info.
 
