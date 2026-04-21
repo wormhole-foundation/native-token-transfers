@@ -106,13 +106,16 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
 
     let gasLimit: bigint;
 
-    // Specialized for Mantle and Arbitrum Sepolia
+    // Per-chain gas limit overrides where the default 500k is insufficient
     switch (chain) {
       case "Mantle":
         gasLimit = 2600_000_000_000n;
         break;
       case "ArbitrumSepolia":
         gasLimit = 4_000_000n;
+        break;
+      case "Tempo":
+        gasLimit = 2_000_000n;
         break;
       default:
         // default gas limit
