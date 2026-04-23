@@ -263,7 +263,15 @@ ${simulateArg} \
   // we attempt to deploy with simulation first, then without if it fails
   let out = await deploy(true);
   if (out.includes("Simulated execution failed")) {
-    if (out.includes("OpcodeNotFound") || out.includes("StaticcallFailed")) {
+    if (out.includes("NotActivated")) {
+      console.error(
+        "Simulation failed, likely because the token contract is compiled against a different EVM version. It's probably safe to continue without simulation."
+      );
+      await askForConfirmation(
+        "Do you want to proceed with the deployment without simulation?"
+      );
+      out = await deploy(false);
+    } else if (out.includes("OpcodeNotFound") || out.includes("StaticcallFailed")) {
       // Precompile/system contract token — Forge's local EVM can't handle the
       // token's bytecode. Generate transactions via dry-run, fix gas limits
       // using eth_estimateGas from the actual RPC, then broadcast with --resume.
@@ -282,14 +290,6 @@ ${simulateArg} \
         gasEstimateMultiplier,
         buildForgeEnv
       );
-    } else if (out.includes("NotActivated")) {
-      console.error(
-        "Simulation failed, likely because the token contract is compiled against a different EVM version. It's probably safe to continue without simulation."
-      );
-      await askForConfirmation(
-        "Do you want to proceed with the deployment without simulation?"
-      );
-      out = await deploy(false);
     } else {
       console.error(
         "Simulation failed. Please read the error message carefully, and proceed with caution."
