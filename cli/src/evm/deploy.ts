@@ -271,7 +271,10 @@ ${simulateArg} \
         "Do you want to proceed with the deployment without simulation?"
       );
       out = await deploy(false);
-    } else if (out.includes("OpcodeNotFound") || out.includes("StaticcallFailed")) {
+    } else if (
+      out.includes("OpcodeNotFound") ||
+      out.includes("StaticcallFailed")
+    ) {
       // Precompile/system contract token — Forge's local EVM can't handle the
       // token's bytecode. Generate transactions via dry-run, fix gas limits
       // using eth_estimateGas from the actual RPC, then broadcast with --resume.
