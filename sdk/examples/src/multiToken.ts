@@ -8,7 +8,11 @@ import {
 import evm from "@wormhole-foundation/sdk/evm";
 
 // register protocol implementations
-import "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerDefinitionsNtt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { register as registerEvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
+
+registerDefinitionsNtt();
+registerEvmNtt();
 
 import {
   MultiTokenNttExecutorRoute,

@@ -14,7 +14,10 @@ import {
   serialize,
   serializePayload,
 } from "@wormhole-foundation/sdk";
-import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
+import {
+  Ntt,
+  register as registerDefinitionsNtt,
+} from "@wormhole-foundation/sdk-definitions-ntt";
 import * as testing from "@wormhole-foundation/sdk-definitions/testing";
 import {
   SolanaAddress,
@@ -26,7 +29,10 @@ import {
   utils,
 } from "@wormhole-foundation/sdk-solana-core";
 import { IdlVersion, NTT, getTransceiverProgram } from "../../ts/index.js";
-import { SolanaNtt } from "../../ts/sdk/index.js";
+import {
+  SolanaNtt,
+  register as registerSolanaNtt,
+} from "../../ts/sdk/index.js";
 import {
   TestDummyTransferHook,
   TestHelper,
@@ -35,6 +41,10 @@ import {
   assert,
   signSendWait,
 } from "./utils/helpers.js";
+
+// v5 NTT SDKs require explicit register() calls; auto-registration on import was removed.
+registerDefinitionsNtt();
+registerSolanaNtt();
 
 /**
  * Test Config Constants
