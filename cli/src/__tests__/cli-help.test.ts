@@ -52,6 +52,7 @@ const SOLANA_SUBCOMMANDS = [
   "ata",
   "create-spl-multisig",
   "build",
+  "cancel-ownership-transfer",
 ];
 
 const CONFIG_SUBCOMMANDS = ["set-chain", "unset-chain", "get-chain"];
