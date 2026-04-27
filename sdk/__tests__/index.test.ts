@@ -1,9 +1,18 @@
 import { web3 } from "@coral-xyz/anchor";
 import { chainToPlatform } from "@wormhole-foundation/sdk-connect";
 
+import { register as registerDefinitionsNtt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { register as registerEvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerSolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
+
 import { registerRelayers } from "./accountant.js";
 import { Ctx, setMessageFee, testHub } from "./utils.js";
 import { ethers } from "ethers";
+
+// v5 NTT SDKs require explicit register() calls; auto-registration on import was removed.
+registerDefinitionsNtt();
+registerEvmNtt();
+registerSolanaNtt();
 
 // Note: Currently, in order for this to run, the evm bindings with extra contracts must be build
 // To do that, at the root, run `bun run generate:test`
