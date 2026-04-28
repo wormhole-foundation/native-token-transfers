@@ -36,7 +36,6 @@ import {
   Platform,
   chainToPlatform,
 } from "@wormhole-foundation/sdk-connect";
-import "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "../types.js";
 import {
   calculateReferrerFee,
@@ -46,7 +45,16 @@ import {
   fetchStatus,
   isRelayStatusFailed,
 } from "./utils.js";
-import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
+import {
+  Ntt,
+  NttWithExecutor,
+  register as registerDefinitionsNtt,
+} from "@wormhole-foundation/sdk-definitions-ntt";
+
+// Ensure NTT payload layouts are registered before any route is constructed.
+// In v4 this happened via the side-effect of importing sdk-definitions-ntt;
+// in v5 the auto-register was removed, so the route SDK has to call it.
+registerDefinitionsNtt();
 import {
   isNative,
   relayInstructionsLayout,

@@ -25,3 +25,31 @@ bun add @wormhole-foundation/sdk-route-ntt
 ## Usage
 
 For an example of using the NTT Route, refer to the [route example](examples/src/route.ts). To interact directly with the NTT protocol, see the [protocol example](examples/src/index.ts). You can also test an NTT deployment by following the demo available [here](https://github.com/wormhole-foundation/demo-ntt-ts-sdk).
+
+## v5 NTT SDK Migration Guide (from 4.x)
+
+**Breaking change:** Auto-registration on import has been removed from `sdk-definitions-ntt`, `sdk-evm-ntt`, `sdk-solana-ntt`, `sdk-sui-ntt`, and `sdk-xrpl-ntt`. Consumers must now call `register()` explicitly before using NTT route factories or touching NTT protocols.
+
+### Before (4.x)
+
+```ts
+import { nttAutomaticRoute } from "@wormhole-foundation/sdk-route-ntt";
+// Protocols auto-registered by side-effect of importing the NTT platform packages
+```
+
+### After (5.x)
+
+```ts
+import { register as registerDefinitions } from "@wormhole-foundation/sdk-definitions-ntt";
+import { register as registerEvm } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerSolana } from "@wormhole-foundation/sdk-solana-ntt";
+import { register as registerSui } from "@wormhole-foundation/sdk-sui-ntt";
+
+registerDefinitions();
+registerEvm();
+registerSolana();
+registerSui();
+// then use NTT routes normally
+```
+
+Each `register()` is idempotent; safe to call multiple times. Only register the platforms you actually use.

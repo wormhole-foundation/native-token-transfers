@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-solana-ntt",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/native-token-transfers.git"
@@ -54,7 +54,7 @@
     "@coral-xyz/borsh": "0.29.0",
     "@solana/spl-token": "0.4.0",
     "@solana/web3.js": "^1.95.8",
-    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
+    "@wormhole-foundation/sdk-definitions-ntt": "5.0.0",
     "bn.js": "5.2.1"
   },
   "type": "module",

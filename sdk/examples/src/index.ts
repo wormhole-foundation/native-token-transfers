@@ -8,8 +8,13 @@ import evm from "@wormhole-foundation/sdk/platforms/evm";
 import solana from "@wormhole-foundation/sdk/platforms/solana";
 
 // register protocol implementations
-import "@wormhole-foundation/sdk-evm-ntt";
-import "@wormhole-foundation/sdk-solana-ntt";
+import { register as registerDefinitionsNtt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { register as registerEvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerSolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
+
+registerDefinitionsNtt();
+registerEvmNtt();
+registerSolanaNtt();
 
 import { TEST_NTT_SPL22_TOKENS, TEST_NTT_TOKENS } from "./consts.js";
 import { getSigner } from "./helpers.js";

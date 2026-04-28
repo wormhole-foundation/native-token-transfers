@@ -4,9 +4,13 @@ import {
   type Network,
 } from "@wormhole-foundation/sdk-connect";
 
-import "@wormhole-foundation/sdk-definitions-ntt";
-import "@wormhole-foundation/sdk-evm-ntt";
-import "@wormhole-foundation/sdk-solana-ntt";
+import { register as registerDefinitionsNtt } from "@wormhole-foundation/sdk-definitions-ntt";
+import { register as registerEvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerSolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
+
+registerDefinitionsNtt();
+registerEvmNtt();
+registerSolanaNtt();
 
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
