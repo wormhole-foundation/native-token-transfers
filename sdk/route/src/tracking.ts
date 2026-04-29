@@ -2,9 +2,9 @@ import {
   Network,
   TransferState,
   isFailed,
-  routes,
   isAttested,
 } from "@wormhole-foundation/sdk-connect";
+import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { MultiTokenNttRoute } from "./types.js";
 import {
   getAxelarTransactionStatus,

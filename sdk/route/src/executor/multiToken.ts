@@ -15,7 +15,6 @@ import {
   isDestinationQueued,
   isNative,
   nativeTokenId,
-  routes,
   signSendWait,
   relayInstructionsLayout,
   deserializeLayout,
@@ -27,7 +26,7 @@ import {
   signedQuoteLayout,
   toChainId,
 } from "@wormhole-foundation/sdk-connect";
-import "@wormhole-foundation/sdk-definitions-ntt";
+import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { MultiTokenNttRoute, NttRoute } from "../types.js";
 import {
   MultiTokenNtt,

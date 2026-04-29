@@ -24,16 +24,10 @@ import {
   isRedeemed,
   isSourceFinalized,
   isSourceInitiated,
-  routes,
   signSendWait,
 } from "@wormhole-foundation/sdk-connect";
-import { register as registerDefinitionsNtt } from "@wormhole-foundation/sdk-definitions-ntt";
+import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { NttRoute } from "./types.js";
-
-// Ensure NTT payload layouts are registered before any route is constructed.
-// In v4 this happened via the side-effect of importing sdk-definitions-ntt;
-// in v5 the auto-register was removed, so the route SDK has to call it.
-registerDefinitionsNtt();
 
 type Op = NttRoute.Options;
 type Tp = routes.TransferParams<Op>;
