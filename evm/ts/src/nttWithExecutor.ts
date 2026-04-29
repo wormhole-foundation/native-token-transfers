@@ -71,6 +71,7 @@ const nttManagerWithExecutorAddresses: Partial<
     Mezo: "0x484b5593BbB90383f94FB299470F09427cf6cfE2",
     Moca: "0x47f26bF9253Eb398fBAf825D7565FE975D839a71",
     ZeroGravity: "0xA8CA118f4C8d44Ab651Dad52B5E1a212e5d5c55b",
+    Nexus: "0x5C2768b4aF4483ffeB2B8de8D8b14829C0F19c9E",
   },
 };
 
