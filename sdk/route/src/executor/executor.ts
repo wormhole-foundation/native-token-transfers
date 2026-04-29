@@ -29,13 +29,13 @@ import {
   isSourceFinalized,
   isSourceInitiated,
   nativeTokenId,
-  routes,
   serializeLayout,
   signSendWait,
   toChainId,
   Platform,
   chainToPlatform,
 } from "@wormhole-foundation/sdk-connect";
+import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { NttRoute } from "../types.js";
 import {
   calculateReferrerFee,

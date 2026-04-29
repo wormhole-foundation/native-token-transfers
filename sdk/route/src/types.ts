@@ -25,10 +25,10 @@ import {
   isSourceFinalized,
   isSourceInitiated,
   nativeTokenId,
-  routes,
   signSendWait,
   toUniversal,
 } from "@wormhole-foundation/sdk-connect";
+import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { MultiTokenNtt, Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 import { trackAxelar, trackExecutor } from "./tracking.js";
 

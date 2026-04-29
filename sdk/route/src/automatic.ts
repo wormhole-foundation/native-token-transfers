@@ -24,9 +24,9 @@ import {
   isRedeemed,
   isSourceFinalized,
   isSourceInitiated,
-  routes,
   signSendWait,
 } from "@wormhole-foundation/sdk-connect";
+import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { register as registerDefinitionsNtt } from "@wormhole-foundation/sdk-definitions-ntt";
 import { NttRoute } from "./types.js";
 

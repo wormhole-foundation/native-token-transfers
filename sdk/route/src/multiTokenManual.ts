@@ -9,12 +9,12 @@ import {
   TransferState,
   Wormhole,
   amount,
-  routes,
   signSendWait,
   finality,
   guardians,
   isNative,
 } from "@wormhole-foundation/sdk-connect";
+import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import {
   MultiTokenNtt,
   register as registerDefinitionsNtt,
