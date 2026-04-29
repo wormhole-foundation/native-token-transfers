@@ -45,10 +45,7 @@ import {
   fetchStatus,
   isRelayStatusFailed,
 } from "./utils.js";
-import {
-  Ntt,
-  NttWithExecutor,
-} from "@wormhole-foundation/sdk-definitions-ntt";
+import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   isNative,
   relayInstructionsLayout,
