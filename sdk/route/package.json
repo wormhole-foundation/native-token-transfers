@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-route-ntt",
-  "version": "5.0.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/native-token-transfers.git"
@@ -46,9 +46,9 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-definitions-ntt": "5.0.0",
-    "@wormhole-foundation/sdk-evm-ntt": "5.0.0",
-    "@wormhole-foundation/sdk-solana-ntt": "5.0.0"
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
+    "@wormhole-foundation/sdk-evm-ntt": "1.0.0",
+    "@wormhole-foundation/sdk-solana-ntt": "1.0.0"
   },
   "peerDependencies": {
     "@wormhole-foundation/sdk-connect": "^4.18.0",

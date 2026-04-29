@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-xrpl-ntt",
-  "version": "5.0.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/native-token-transfers.git"
@@ -41,7 +41,7 @@
     "test": "jest --config ./jest.config.ts"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-definitions-ntt": "5.0.0",
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
     "xrpl": "^4.6.0"
   },
   "type": "module",

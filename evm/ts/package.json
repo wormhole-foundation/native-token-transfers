@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-evm-ntt",
-  "version": "5.0.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/native-token-transfers.git"
@@ -46,7 +46,7 @@
     "prettier": "prettier --write ./src ./__tests__"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-definitions-ntt": "5.0.0",
+    "@wormhole-foundation/sdk-definitions-ntt": "1.0.0",
     "ethers": "^6.5.1"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "name": "@wormhole-foundation/sdk-definitions-ntt",
-  "version": "5.0.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wormhole-foundation/native-token-transfers.git"
