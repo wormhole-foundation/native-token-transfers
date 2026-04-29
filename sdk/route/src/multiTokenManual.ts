@@ -15,16 +15,8 @@ import {
   isNative,
 } from "@wormhole-foundation/sdk-connect";
 import * as routes from "@wormhole-foundation/sdk-connect/routes";
-import {
-  MultiTokenNtt,
-  register as registerDefinitionsNtt,
-} from "@wormhole-foundation/sdk-definitions-ntt";
+import { MultiTokenNtt } from "@wormhole-foundation/sdk-definitions-ntt";
 import { MultiTokenNttRoute, NttRoute } from "./types.js";
-
-// Ensure NTT payload layouts are registered before any route is constructed.
-// In v4 this happened via the side-effect of importing sdk-definitions-ntt;
-// in v5 the auto-register was removed, so the route SDK has to call it.
-registerDefinitionsNtt();
 
 type Op = routes.Options;
 type Tp = routes.TransferParams<Op>;
