@@ -85,9 +85,11 @@ const gasLimitOverrides: Partial<
     CreditCoin: 1_500_000n,
     Monad: 1_000_000n,
     MegaETH: 1_000_000n,
+    Seievm: 1_000_000n,
   },
   Testnet: {
     ArbitrumSepolia: 800_000n,
+    Seievm: 1_000_000n,
   },
 };
 
