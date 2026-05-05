@@ -176,9 +176,11 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
     )
   );
 
-  // Push Hub to Spoke registrations
+  // Push Hub to Spoke registrations first.
+  // The accountant requires the hub to pre-register each spoke before the
+  // spoke can inherit the hub (wormhole-foundation/wormhole#4756).
   const hubToSpokeRegistrations = registrations.filter(
-    ([_, peer]) => peer === hubChain
+    ([target, _]) => target === hubChain
   );
   for (const [, , vaa] of hubToSpokeRegistrations) {
     console.log(
@@ -192,7 +194,7 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
 
   // Push Spoke to Hub registrations
   const spokeToHubRegistrations = registrations.filter(
-    ([target, _]) => target === hubChain
+    ([_, peer]) => peer === hubChain
   );
   for (const [, , vaa] of spokeToHubRegistrations) {
     console.log(
