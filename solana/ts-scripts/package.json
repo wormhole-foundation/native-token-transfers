@@ -1,0 +1,19 @@
+{
+  "name": "solana-ts-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Governance scripts for Solana NTT",
+  "type": "module",
+  "scripts": {},
+  "devDependencies": {
+    "@certusone/wormhole-sdk": "^0.10.11",
+    "@coral-xyz/anchor": "0.29.0",
+    "@solana/web3.js": "^1.95.8",
+    "@types/node": "^20.11.22",
+    "@wormhole-foundation/sdk-base": "^4.12.2",
+    "@xlabs-xyz/ledger-signer-solana": "^0.0.1",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5"
+  }
+}
