@@ -39,7 +39,7 @@ jobs:
     outputs:
       image: ${{ steps.result.outputs.image }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
 
       - name: Extract Anchor version from Anchor.toml
         id: anchor
