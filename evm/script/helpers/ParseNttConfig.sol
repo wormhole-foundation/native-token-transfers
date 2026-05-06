@@ -6,6 +6,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 
 import "../../src/interfaces/INttManager.sol";
 import "../../src/interfaces/IWormholeTransceiver.sol";
+import {toUniversalAddress, fromUniversalAddress} from "wormhole-sdk/Utils.sol";
 
 contract ParseNttConfig is Script {
     using stdJson for string;
@@ -24,24 +25,6 @@ contract ParseNttConfig is Script {
     }
 
     mapping(uint16 => bool) duplicateChainIds;
-
-    function toUniversalAddress(
-        address evmAddr
-    ) internal pure returns (bytes32 converted) {
-        assembly ("memory-safe") {
-            converted := and(0xffffffffffffffffffffffffffffffffffffffff, evmAddr)
-        }
-    }
-
-    function fromUniversalAddress(
-        bytes32 universalAddr
-    ) internal pure returns (address converted) {
-        require(bytes12(universalAddr) == 0, "Address overflow");
-
-        assembly ("memory-safe") {
-            converted := universalAddr
-        }
-    }
 
     function _parseAndValidateConfigFile(
         uint16 wormholeChainId

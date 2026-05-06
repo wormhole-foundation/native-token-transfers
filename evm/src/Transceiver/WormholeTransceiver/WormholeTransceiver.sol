@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
-import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
-
+import "wormhole-sdk/libraries/BytesParsing.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {CoreBridgeLib} from "wormhole-sdk/libraries/CoreBridge.sol";
+import {VaaLib} from "wormhole-sdk/libraries/VaaLib.sol";
 import "../../libraries/TransceiverHelpers.sol";
 import "../../libraries/TransceiverStructs.sol";
-import "../../libraries/ConfigMakers.sol";
 
 import "../../interfaces/IWormholeTransceiver.sol";
 import "../../interfaces/INttManager.sol";
-import "../../interfaces/ICustomConsistencyLevel.sol";
 
 import "./WormholeTransceiverState.sol";
 
@@ -29,7 +28,7 @@ import "./WormholeTransceiverState.sol";
 contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
     using BytesParsing for bytes;
 
-    string public constant WORMHOLE_TRANSCEIVER_VERSION = "2.0.0";
+    string public constant WORMHOLE_TRANSCEIVER_VERSION = "2.1.0";
 
     constructor(
         address nttManager,
@@ -57,11 +56,9 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
 
     /// @inheritdoc IWormholeTransceiver
     function receiveMessage(
-        bytes memory encodedMessage
+        bytes calldata encodedMessage
     ) external {
-        uint16 sourceChainId;
-        bytes memory payload;
-        (sourceChainId, payload) = _verifyMessage(encodedMessage);
+        (uint16 sourceChainId, bytes calldata payload) = _verifyMessage(encodedMessage);
 
         // parse the encoded Transceiver payload
         TransceiverStructs.TransceiverMessage memory parsedTransceiverMessage;
@@ -90,8 +87,8 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
         }
 
         uint256 offset = 0;
-        (instruction.shouldSkipRelayerSend, offset) = encoded.asBoolUnchecked(offset);
-        encoded.checkLength(offset);
+        (instruction.shouldSkipRelayerSend, offset) = encoded.asBoolMemUnchecked(offset);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 
     /// @inheritdoc IWormholeTransceiver
@@ -124,7 +121,7 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
             bytes memory encodedTransceiverPayload
         ) = TransceiverStructs.buildAndEncodeTransceiverMessage(
             WH_TRANSCEIVER_PAYLOAD_PREFIX,
-            toWormholeFormat(caller),
+            toUniversalAddress(caller),
             recipientNttManagerAddress,
             nttManagerMessage,
             new bytes(0)
@@ -141,38 +138,36 @@ contract WormholeTransceiver is IWormholeTransceiver, WormholeTransceiverState {
     }
 
     function _verifyMessage(
-        bytes memory encodedMessage
-    ) internal returns (uint16, bytes memory) {
-        // verify VAA against Wormhole Core Bridge contract
-        (IWormhole.VM memory vm, bool valid, string memory reason) =
-            wormhole.parseAndVerifyVM(encodedMessage);
+        bytes calldata encodedMessage
+    ) internal returns (uint16, bytes calldata) {
+        checkFork(wormholeTransceiver_evmChainId);
 
-        // ensure that the VAA is valid
-        if (!valid) {
-            revert InvalidVaa(reason);
-        }
+        // Verify VAA using client-side verification (gas-optimized vs CoreBridge external call).
+        // The calldata variant avoids copying the entire VAA into memory.
+        (
+            ,,
+            uint16 emitterChainId,
+            bytes32 emitterAddress,
+            uint64 sequence,,
+            bytes calldata payload
+        ) = CoreBridgeLib.decodeAndVerifyVaaCd(address(wormhole), encodedMessage);
 
         // ensure that the message came from a registered peer contract
-        if (!_verifyBridgeVM(vm)) {
-            revert InvalidWormholePeer(vm.emitterChainId, vm.emitterAddress);
+        if (getWormholePeer(emitterChainId) != emitterAddress) {
+            revert InvalidWormholePeer(emitterChainId, emitterAddress);
         }
 
-        // save the VAA hash in storage to protect against replay attacks.
-        if (isVAAConsumed(vm.hash)) {
-            revert TransferAlreadyCompleted(vm.hash);
+        // Replay protection using the same double-keccak digest as the old CoreBridge
+        // parseAndVerifyVM (backward compatible across upgrades). Computed directly from
+        // calldata using the SDK's optimized keccak utilities (no abi.encodePacked allocation).
+        bytes32 vaaDigest = VaaLib.calcVaaDoubleHashCd(encodedMessage);
+        if (isVAAConsumed(vaaDigest)) {
+            revert TransferAlreadyCompleted(vaaDigest);
         }
-        _setVAAConsumed(vm.hash);
+        _setVAAConsumed(vaaDigest);
 
-        // emit `ReceivedMessage` event
-        emit ReceivedMessage(vm.hash, vm.emitterChainId, vm.emitterAddress, vm.sequence);
+        emit ReceivedMessage(vaaDigest, emitterChainId, emitterAddress, sequence);
 
-        return (vm.emitterChainId, vm.payload);
-    }
-
-    function _verifyBridgeVM(
-        IWormhole.VM memory vm
-    ) internal view returns (bool) {
-        checkFork(wormholeTransceiver_evmChainId);
-        return getWormholePeer(vm.emitterChainId) == vm.emitterAddress;
+        return (emitterChainId, payload);
     }
 }
