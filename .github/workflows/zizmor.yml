@@ -25,6 +25,8 @@ jobs:
         uses: zizmorcore/zizmor-action@71321a20a9ded102f6e9ce5718a2fcec2c4f70d8 # v0.5.2
         with:
           advanced-security: false
+          version: 1.24.1
+          min-severity: high
           min-confidence: medium
           # TODO: Harden tilt.yml and tilt-images.yml in a dedicated PR. Those
           # workflows push GHCR images, so modifying them here makes PR checks
