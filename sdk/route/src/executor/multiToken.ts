@@ -20,6 +20,7 @@ import {
   deserializeLayout,
   guardians,
   UniversalAddress,
+  Platform,
   chainToPlatform,
   encoding,
   serializeLayout,
@@ -32,7 +33,6 @@ import {
   MultiTokenNtt,
   MultiTokenNttWithExecutor,
   Ntt,
-  NttWithExecutor,
 } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   calculateReferrerFee,
@@ -43,7 +43,6 @@ import {
   fetchStatus,
 } from "./utils.js";
 import { getDefaultReferrerAddress } from "./consts.js";
-import { NttExecutorRoute } from "./executor.js";
 
 export namespace MultiTokenNttExecutorRoute {
   export type Config = {
@@ -52,7 +51,23 @@ export namespace MultiTokenNttExecutorRoute {
     axelarGasMultiplier?: number | "auto";
   };
 
-  export type ReferrerFeeConfig = NttExecutorRoute.ReferrerFeeConfig;
+  export type ReferrerFeeConfig = {
+    feeDbps: bigint;
+    referrerAddresses?: Partial<Record<Platform, string>>;
+    perTokenOverrides?: Partial<
+      Record<
+        Chain,
+        Record<
+          string,
+          {
+            referrerFeeDbps?: bigint;
+            gasLimit?: bigint;
+            msgValue?: bigint;
+          }
+        >
+      >
+    >;
+  };
 }
 
 type Op = MultiTokenNttRoute.Options;
@@ -387,17 +402,21 @@ export class MultiTokenNttExecutorRoute<N extends Network>
   async fetchExecutorQuote(
     request: routes.RouteTransferRequest<N>,
     params: Vp
-  ): Promise<NttWithExecutor.Quote> {
+  ): Promise<
+    Omit<
+      MultiTokenNttWithExecutor.Quote,
+      "deliveryPrice" | "transceiverInstructions"
+    >
+  > {
     const { fromChain, toChain } = request;
 
     const referrer = this.getReferrerAddress(fromChain);
 
-    const { referrerFee, remainingAmount, referrerFeeDbps } =
-      calculateReferrerFee(
-        params.normalizedParams.amount,
-        params.normalizedParams.referrerFeeDbps ?? 0n,
-        request.destination.decimals
-      );
+    const { remainingAmount, referrerFeeDbps } = calculateReferrerFee(
+      params.normalizedParams.amount,
+      params.normalizedParams.referrerFeeDbps ?? 0n,
+      request.destination.decimals
+    );
     if (remainingAmount <= 0n) {
       throw new Error("Amount after fee <= 0");
     }
@@ -464,7 +483,6 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       estimatedCost,
       payeeAddress: signedQuote.quote.payeeAddress,
       referrer,
-      referrerFee,
       remainingAmount,
       referrerFeeDbps,
       expires: signedQuote.quote.expiryTime,
