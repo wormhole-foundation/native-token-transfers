@@ -31,6 +31,56 @@ import type {
 } from "ethers";
 import { NonceManager, Wallet } from "ethers";
 
+// Default gas limit for the catch-all chain branch. Raised from 500k because
+// NttWithExecutor.transfer bundles token escrow + Wormhole message publish +
+// Executor relay instructions in a single transaction, realistically using
+// ~1.2-1.5M gas on mainnet EVM chains. The previous 500k default caused
+// silent out-of-gas reverts in token-transfer flows.
+const DEFAULT_GAS_LIMIT = 3_000_000n;
+
+// gasPrice floor used when the provider's EIP-1559 fee derivation is broken
+// (see EIP1559_FEE_SANITY_FLOOR below). 1 gwei is 20x BSC's 0.05 gwei node
+// minimum and remains inexpensive on every chain that hits this path.
+const LEGACY_FALLBACK_GAS_PRICE = 1_000_000_000n; // 1 gwei
+
+// Threshold (in wei) below which we treat the provider's maxFeePerGas as
+// nonsense and fall back to a legacy (type 0) transaction. The canonical
+// case is BSC post-Lorentz hardfork (mainnet, April 2025) where
+// baseFeePerGas = 0; ethers' getFeeData() then returns maxFeePerGas = 1 wei
+// and the node rejects with:
+//   [private transaction service] require GasPrice=50000000, Provide=1
+// Detecting by content (not by chain name) keeps this forward-compatible
+// with any future chain that exhibits the same shape.
+const EIP1559_FEE_SANITY_FLOOR = 50_000_000n; // 0.05 gwei
+
+type FeeData = {
+  gasPrice: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+};
+
+export function buildGasOpts(
+  gasLimit: bigint,
+  feeData: FeeData
+): Partial<TransactionRequest> {
+  if (feeData.maxFeePerGas < EIP1559_FEE_SANITY_FLOOR) {
+    return {
+      gasLimit,
+      gasPrice:
+        feeData.gasPrice > LEGACY_FALLBACK_GAS_PRICE
+          ? feeData.gasPrice
+          : LEGACY_FALLBACK_GAS_PRICE,
+      type: 0,
+    };
+  }
+  return {
+    gasLimit,
+    gasPrice: feeData.gasPrice,
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  };
+}
+
 export async function getEvmSigner(
   rpc: Provider,
   key: string | EthersSigner,
@@ -115,34 +165,37 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
         gasLimit = 4_000_000n;
         break;
       default:
-        // default gas limit
-        gasLimit = this.opts?.maxGasLimit ?? 500_000n;
+        gasLimit = this.opts?.maxGasLimit ?? DEFAULT_GAS_LIMIT;
         break;
     }
 
-    // TODO: DIFF STARTS HERE
-
-    let gasPrice = 200_000_000_000n; // 200gwei
-    let maxFeePerGas = 6_000_000_000n; // 6gwei
-    let maxPriorityFeePerGas = 1000_000_000n; // 1gwei
+    let feeData: FeeData = {
+      gasPrice: 200_000_000_000n, // 200 gwei
+      maxFeePerGas: 6_000_000_000n, // 6 gwei
+      maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei
+    };
 
     // Celo does not support this call
     if (chain !== "Celo") {
-      const feeData = await this._signer.provider!.getFeeData();
-      gasPrice = feeData.gasPrice ?? gasPrice;
-      maxFeePerGas = feeData.maxFeePerGas ?? maxFeePerGas;
-      maxPriorityFeePerGas =
-        feeData.maxPriorityFeePerGas ?? maxPriorityFeePerGas;
+      try {
+        const fetched = await this._signer.provider!.getFeeData();
+        feeData = {
+          gasPrice: fetched.gasPrice ?? feeData.gasPrice,
+          maxFeePerGas: fetched.maxFeePerGas ?? feeData.maxFeePerGas,
+          maxPriorityFeePerGas:
+            fetched.maxPriorityFeePerGas ?? feeData.maxPriorityFeePerGas,
+        };
+      } catch (e) {
+        if (this.opts?.debug) {
+          console.warn(
+            `getFeeData() failed for ${chain}; using fallback defaults`,
+            e
+          );
+        }
+      }
     }
 
-    const gasOpts = {
-      gasPrice,
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-      gasLimit,
-    };
-
-    // TODO: DIFF ENDS HERE
+    const gasOpts = buildGasOpts(gasLimit, feeData);
 
     for (const txn of tx) {
       const { transaction, description } = txn;
