@@ -42,7 +42,7 @@ jobs:
           bun-version: "1.3.4"
 
       - name: Restore forge build cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             evm/out
