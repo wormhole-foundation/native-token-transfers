@@ -32,13 +32,11 @@ import {
   serializeLayout,
   signSendWait,
   toChainId,
-  Platform,
   chainToPlatform,
 } from "@wormhole-foundation/sdk-connect";
 import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { NttRoute } from "../types.js";
 import {
-  calculateReferrerFee,
   collectTransactions,
   fetchCapabilities,
   fetchSignedQuote,
@@ -56,45 +54,22 @@ import { getDefaultReferrerAddress } from "./consts.js";
 export namespace NttExecutorRoute {
   export type Config = {
     ntt: NttRoute.Config;
-    /** @deprecated Use getReferrerFee instead */
-    referrerFee?: ReferrerFeeConfig;
-    // Takes priority over referrerFee if defined
-    getReferrerFee?: ReferrerFeeCallback;
+    getFee?: GetFeeCallback;
   };
 
-  export type ReferrerFeeConfig = {
-    // Referrer Fee in *tenths* of basis points - e.g. 10 = 1 basis point (0.01%)
-    feeDbps: bigint;
-    // The address to which the referrer fee will be sent
-    referrerAddresses?: Partial<Record<Platform, string>>;
-    perTokenOverrides?: Partial<
-      Record<
-        Chain,
-        Record<
-          string,
-          {
-            referrerFeeDbps?: bigint;
-            // Some tokens may require more gas to redeem than the default.
-            gasLimit?: bigint;
-            // Some tokens may require more msgValue than the default.
-            msgValue?: bigint;
-          }
-        >
-      >
-    >;
-  };
-
-  export type ReferrerFeeResult = {
-    feeDbps: bigint;
+  export type GetFeeResult = {
+    transferTokenFee: bigint;
+    nativeTokenFee: bigint;
     referrerAddress: string;
   };
 
-  export type ReferrerFeeCallback = (token: {
+  export type GetFeeCallback = (params: {
+    amount: bigint;
     sourceChain: Chain;
     sourceToken: string;
     destinationChain: Chain;
     destinationToken: string;
-  }) => Promise<ReferrerFeeResult>;
+  }) => Promise<GetFeeResult>;
 
   export type Options = {
     // 0.0 - 1.0 percentage of the maximum gas drop-off amount
@@ -105,7 +80,8 @@ export namespace NttExecutorRoute {
     amount: amount.Amount;
     sourceContracts: Ntt.Contracts;
     destinationContracts: Ntt.Contracts;
-    referrerFeeDbps: bigint;
+    transferTokenFee: bigint;
+    nativeTokenFee: bigint;
     referrerAddress?: ChainAddress;
   };
 
@@ -226,41 +202,24 @@ export class NttExecutorRoute<N extends Network>
       request.destination.id
     );
 
-    let referrerFeeDbps = 0n;
-    let referrerAddress = getDefaultReferrerAddress(request.source.id.chain);
-    if (this.staticConfig.getReferrerFee) {
-      const result = await this.staticConfig.getReferrerFee({
+    let transferTokenFee = 0n;
+    let nativeTokenFee = 0n;
+    let referrerAddress: ChainAddress | undefined;
+
+    if (this.staticConfig.getFee) {
+      const result = await this.staticConfig.getFee({
+        amount: amount.units(trimmedAmount),
         sourceChain: request.source.id.chain,
         sourceToken: canonicalAddress(request.source.id),
         destinationChain: request.destination.id.chain,
         destinationToken: canonicalAddress(request.destination.id),
       });
-      referrerFeeDbps = result.feeDbps;
+      transferTokenFee = result.transferTokenFee;
+      nativeTokenFee = result.nativeTokenFee;
       referrerAddress = Wormhole.chainAddress(
         request.source.id.chain,
         result.referrerAddress
       );
-    } else if (this.staticConfig.referrerFee) {
-      referrerFeeDbps = this.staticConfig.referrerFee.feeDbps;
-      if (this.staticConfig.referrerFee.perTokenOverrides) {
-        const srcTokenAddress = canonicalAddress(request.source.id);
-        const override =
-          this.staticConfig.referrerFee.perTokenOverrides[
-            request.source.id.chain
-          ]?.[srcTokenAddress];
-        if (override?.referrerFeeDbps !== undefined) {
-          referrerFeeDbps = override.referrerFeeDbps;
-        }
-      }
-      const platform = chainToPlatform(request.source.id.chain);
-      const configuredAddress =
-        this.staticConfig.referrerFee.referrerAddresses?.[platform];
-      if (configuredAddress) {
-        referrerAddress = Wormhole.chainAddress(
-          request.source.id.chain,
-          configuredAddress
-        );
-      }
     }
 
     const validatedParams: Vp = {
@@ -269,7 +228,8 @@ export class NttExecutorRoute<N extends Network>
         amount: trimmedAmount,
         sourceContracts: srcContracts,
         destinationContracts: dstContracts,
-        referrerFeeDbps,
+        transferTokenFee,
+        nativeTokenFee,
         referrerAddress,
       },
       options,
@@ -368,12 +328,10 @@ export class NttExecutorRoute<N extends Network>
       params.normalizedParams.referrerAddress ??
       getDefaultReferrerAddress(fromChain.chain);
 
-    const { referrerFee, remainingAmount, referrerFeeDbps } =
-      calculateReferrerFee(
-        params.normalizedParams.amount,
-        params.normalizedParams.referrerFeeDbps,
-        request.destination.decimals
-      );
+    const transferTokenFee = params.normalizedParams.transferTokenFee;
+    const nativeTokenFee = params.normalizedParams.nativeTokenFee;
+    const transferAmount = amount.units(params.normalizedParams.amount);
+    const remainingAmount = transferAmount - transferTokenFee;
     if (remainingAmount <= 0n) {
       throw new Error("Amount after fee <= 0");
     }
@@ -404,23 +362,8 @@ export class NttExecutorRoute<N extends Network>
           100n
         : 0n;
 
-    let { msgValue, gasLimit } =
+    const { msgValue, gasLimit } =
       await dstNttWithExec.estimateMsgValueAndGasLimit(recipient);
-
-    // Check for overrides in the config.
-    if (this.staticConfig.referrerFee?.perTokenOverrides) {
-      const dstTokenAddress = canonicalAddress(request.destination.id);
-      const override =
-        this.staticConfig.referrerFee.perTokenOverrides[
-          request.destination.id.chain
-        ]?.[dstTokenAddress];
-      if (override?.gasLimit !== undefined) {
-        gasLimit = override.gasLimit;
-      }
-      if (override?.msgValue !== undefined) {
-        msgValue = override.msgValue;
-      }
-    }
 
     const relayRequests = [];
 
@@ -474,9 +417,9 @@ export class NttExecutorRoute<N extends Network>
       estimatedCost,
       payeeAddress: signedQuote.quote.payeeAddress,
       referrer,
-      referrerFee,
+      transferTokenFee,
+      nativeTokenFee,
       remainingAmount,
-      referrerFeeDbps,
       expires: signedQuote.quote.expiryTime,
       gasDropOff: dropOff,
     };
@@ -719,7 +662,8 @@ export class NttExecutorRoute<N extends Network>
               wormhole: dstInfo.transceiver["wormhole"]!,
             },
           },
-          referrerFeeDbps: 0n,
+          transferTokenFee: 0n,
+          nativeTokenFee: 0n,
         },
       },
     };
