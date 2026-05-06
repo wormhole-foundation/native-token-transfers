@@ -7,6 +7,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 # Cancel in-progress runs on new commits to same PR/branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,8 +19,10 @@ jobs:
   test-cli-unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: "1.3.4"
       - run: bun ci
@@ -27,22 +32,23 @@ jobs:
   test-evm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@c7450ba673e133f5ee30098b3b54f444d3a2ca2d # v1
         with:
           version: v1.5.0
 
       - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: "1.3.4"
 
       - name: Restore forge build cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             evm/out
@@ -76,11 +82,13 @@ jobs:
       matrix:
         version: ["1.0.0", "2.0.0"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Restore cached v${{ matrix.version }} artifacts
         id: cache
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: /tmp/solana-artifacts/v${{ matrix.version }}
           key: solana-v${{ matrix.version }}-${{ hashFiles('cli/test/build-solana.sh', 'Dockerfile.cli', 'Dockerfile.anchor-base', 'solana/Anchor.toml') }}
@@ -91,11 +99,11 @@ jobs:
 
       - name: Set up Docker Buildx
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build cli-local image
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: Dockerfile.cli
@@ -118,7 +126,7 @@ jobs:
             bash -c "./cli/test/build-solana.sh ${{ matrix.version }}"
 
       - name: Upload v${{ matrix.version }} artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: solana-v${{ matrix.version }}-artifacts
           path: /tmp/solana-artifacts/v${{ matrix.version }}
@@ -129,16 +137,18 @@ jobs:
     needs: build-solana
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Download v1.0.0 artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: solana-v1.0.0-artifacts
           path: /tmp/solana-artifacts/v1.0.0
 
       - name: Download v2.0.0 artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: solana-v2.0.0-artifacts
           path: /tmp/solana-artifacts/v2.0.0
@@ -147,10 +157,10 @@ jobs:
         run: sudo rm -rf /usr/local/lib/android
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build cli-local image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: Dockerfile.cli

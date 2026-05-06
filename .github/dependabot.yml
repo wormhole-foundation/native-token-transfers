@@ -12,6 +12,8 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+    cooldown:
+      default-days: 7
     # Explicitly list which actions to monitor
     allow:
       - dependency-name: "foundry-rs/foundry-toolchain"
@@ -20,4 +22,3 @@ updates:
       - dependency-name: "actions/cache"
       - dependency-name: "dtolnay/rust-toolchain"
       - dependency-name: "Swatinem/rust-cache"
-      - dependency-name: "actions-rs/toolchain"
