@@ -2,9 +2,9 @@ name: Zizmor
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions: {}
@@ -17,7 +17,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
@@ -25,4 +25,19 @@ jobs:
         uses: zizmorcore/zizmor-action@71321a20a9ded102f6e9ce5718a2fcec2c4f70d8 # v0.5.2
         with:
           advanced-security: false
-          args: .github/workflows/ .github/actions/ .github/dependabot.yml
+          min-confidence: medium
+          # TODO: Harden tilt.yml and tilt-images.yml in a dedicated PR. Those
+          # workflows push GHCR images, so modifying them here makes PR checks
+          # run with package read-only permissions and breaks their current flow.
+          inputs: >-
+            .github/workflows/anchor-base.yml
+            .github/workflows/claude.yml
+            .github/workflows/cli.yml
+            .github/workflows/evm.yml
+            .github/workflows/prettier.yml
+            .github/workflows/publish.yml
+            .github/workflows/sdk.yml
+            .github/workflows/solana.yml
+            .github/workflows/zizmor.yml
+            .github/actions/setup-anchor/action.yml
+            .github/dependabot.yml
