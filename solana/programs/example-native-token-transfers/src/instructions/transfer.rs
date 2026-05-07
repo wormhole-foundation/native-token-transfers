@@ -67,7 +67,11 @@ pub struct Transfer<'info> {
     )]
     pub outbox_item: Account<'info, OutboxItem>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [OutboxRateLimit::SEED_PREFIX, config.key().as_ref()],
+        bump,
+    )]
     pub outbox_rate_limit: Account<'info, OutboxRateLimit>,
 
     #[account(
@@ -119,7 +123,7 @@ pub struct TransferBurn<'info> {
 
     #[account(
         mut,
-        seeds = [InboxRateLimit::SEED_PREFIX, args.recipient_chain.id.to_be_bytes().as_ref()],
+        seeds = [InboxRateLimit::SEED_PREFIX, common.config.key().as_ref(), args.recipient_chain.id.to_be_bytes().as_ref()],
         bump = inbox_rate_limit.bump,
     )]
     // NOTE: it would be nice to put these into `common`, but that way we don't
@@ -127,7 +131,7 @@ pub struct TransferBurn<'info> {
     pub inbox_rate_limit: Account<'info, InboxRateLimit>,
 
     #[account(
-        seeds = [NttManagerPeer::SEED_PREFIX, args.recipient_chain.id.to_be_bytes().as_ref()],
+        seeds = [NttManagerPeer::SEED_PREFIX, common.config.key().as_ref(), args.recipient_chain.id.to_be_bytes().as_ref()],
         bump = peer.bump,
     )]
     pub peer: Account<'info, NttManagerPeer>,
@@ -135,6 +139,7 @@ pub struct TransferBurn<'info> {
     #[account(
         seeds = [
             crate::SESSION_AUTHORITY_SEED,
+            common.config.key().as_ref(),
             common.from.owner.as_ref(),
             args.keccak256().as_ref()
         ],
@@ -145,7 +150,7 @@ pub struct TransferBurn<'info> {
     pub session_authority: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        seeds = [crate::TOKEN_AUTHORITY_SEED, common.config.key().as_ref()],
         bump,
     )]
     /// CHECK: The seeds constraint enforces that this is the correct account.
@@ -204,6 +209,7 @@ pub fn transfer_burn<'info>(
         accs.common.mint.decimals,
         &[&[
             crate::SESSION_AUTHORITY_SEED,
+            accs.common.config.key().as_ref(),
             accs.common.from.owner.as_ref(),
             args.keccak256().as_ref(),
             &[ctx.bumps.session_authority],
@@ -219,7 +225,11 @@ pub fn transfer_burn<'info>(
                 from: accs.common.custody.to_account_info(),
                 authority: accs.token_authority.to_account_info(),
             },
-            &[&[crate::TOKEN_AUTHORITY_SEED, &[ctx.bumps.token_authority]]],
+            &[&[
+                crate::TOKEN_AUTHORITY_SEED,
+                accs.common.config.key().as_ref(),
+                &[ctx.bumps.token_authority],
+            ]],
         ),
         amount,
     )?;
@@ -267,7 +277,7 @@ pub struct TransferLock<'info> {
 
     #[account(
         mut,
-        seeds = [InboxRateLimit::SEED_PREFIX, args.recipient_chain.id.to_be_bytes().as_ref()],
+        seeds = [InboxRateLimit::SEED_PREFIX, common.config.key().as_ref(), args.recipient_chain.id.to_be_bytes().as_ref()],
         bump = inbox_rate_limit.bump,
     )]
     // NOTE: it would be nice to put these into `common`, but that way we don't
@@ -275,7 +285,7 @@ pub struct TransferLock<'info> {
     pub inbox_rate_limit: Account<'info, InboxRateLimit>,
 
     #[account(
-        seeds = [NttManagerPeer::SEED_PREFIX, args.recipient_chain.id.to_be_bytes().as_ref()],
+        seeds = [NttManagerPeer::SEED_PREFIX, common.config.key().as_ref(), args.recipient_chain.id.to_be_bytes().as_ref()],
         bump = peer.bump,
     )]
     pub peer: Account<'info, NttManagerPeer>,
@@ -283,6 +293,7 @@ pub struct TransferLock<'info> {
     #[account(
         seeds = [
             crate::SESSION_AUTHORITY_SEED,
+            common.config.key().as_ref(),
             common.from.owner.as_ref(),
             args.keccak256().as_ref()
         ],
@@ -330,6 +341,7 @@ pub fn transfer_lock<'info>(
         accs.common.mint.decimals,
         &[&[
             crate::SESSION_AUTHORITY_SEED,
+            accs.common.config.key().as_ref(),
             accs.common.from.owner.as_ref(),
             args.keccak256().as_ref(),
             &[ctx.bumps.session_authority],
@@ -392,6 +404,7 @@ fn insert_into_outbox(
     };
 
     common.outbox_item.set_inner(OutboxItem {
+        manager: common.config.key(),
         amount: trimmed_amount,
         sender: common.from.owner,
         recipient_chain,

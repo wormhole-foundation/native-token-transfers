@@ -21,7 +21,7 @@ pub struct ReceiveMessage<'info> {
     pub config: NotPausedConfig<'info>,
 
     #[account(
-        seeds = [TransceiverPeer::SEED_PREFIX, vaa.emitter_chain().to_be_bytes().as_ref()],
+        seeds = [TransceiverPeer::SEED_PREFIX, config.key().as_ref(), vaa.emitter_chain().to_be_bytes().as_ref()],
         constraint = peer.address == *vaa.emitter_address() @ NTTError::InvalidTransceiverPeer,
         bump = peer.bump,
     )]
@@ -47,6 +47,7 @@ pub struct ReceiveMessage<'info> {
         space = 8 + ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::INIT_SPACE,
         seeds = [
             ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::SEED_PREFIX,
+            config.key().as_ref(),
             vaa.emitter_chain().to_be_bytes().as_ref(),
             vaa.message().ntt_manager_payload.id.as_ref(),
         ],
