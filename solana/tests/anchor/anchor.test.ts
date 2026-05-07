@@ -592,10 +592,16 @@ describe("example-native-token-transfers", () => {
       });
 
       test("It initializes from constructor", async () => {
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrides["Solana"] },
-        });
+        const ntt = new SolanaNtt(
+          "Devnet",
+          "Solana",
+          $.connection,
+          {
+            ...ctx.config.contracts,
+            ...{ ntt: overrides["Solana"] },
+          },
+          VERSION
+        );
         expect(ntt).toBeTruthy();
       });
 
@@ -616,18 +622,30 @@ describe("example-native-token-transfers", () => {
           .emitterAccount()
           .toBase58();
 
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrideEmitter },
-        });
+        const ntt = new SolanaNtt(
+          "Devnet",
+          "Solana",
+          $.connection,
+          {
+            ...ctx.config.contracts,
+            ...{ ntt: overrideEmitter },
+          },
+          VERSION
+        );
         expect(ntt).toBeTruthy();
       });
 
       test("It gets the correct transceiver type", async () => {
-        const ntt = new SolanaNtt("Devnet", "Solana", $.connection, {
-          ...ctx.config.contracts,
-          ...{ ntt: overrides["Solana"] },
-        });
+        const ntt = new SolanaNtt(
+          "Devnet",
+          "Solana",
+          $.connection,
+          {
+            ...ctx.config.contracts,
+            ...{ ntt: overrides["Solana"] },
+          },
+          VERSION
+        );
         const whTransceiver = await ntt.getWormholeTransceiver();
         expect(whTransceiver).toBeTruthy();
         const transceiverType =

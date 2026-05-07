@@ -74,7 +74,8 @@ export class SolanaNttWormholeTransceiver<
     readonly svmShims: Ntt.Contracts["svmShims"] = undefined
   ) {
     this.programId = program.programId;
-    this.pdas = NTT.transceiverPdas(program.programId);
+    // v4: scope transceiver PDAs by the manager instance pubkey when present.
+    this.pdas = NTT.transceiverPdas(program.programId, manager.instance);
 
     if (svmShims) {
       const postMessageShimAddress =
@@ -105,6 +106,29 @@ export class SolanaNttWormholeTransceiver<
         { connection: this.program.provider.connection }
       );
     }
+  }
+
+  /**
+   * v4-aware version of the standard Wormhole CPI account bundle: bridge and
+   * fee_collector come from the wormhole core program ID, but `emitter` and
+   * `sequence` are scoped by the v4 instance pubkey embedded in `this.pdas`.
+   * The wormhole-anchor-sdk's `getWormholeDerivedAccounts` only knows the v3
+   * singleton emitter (`[b"emitter"]`), so we recompute these two locally.
+   */
+  private wormholeDerivedAccounts() {
+    const emitter = this.pdas.emitterAccount();
+    const whAccs = utils.getWormholeDerivedAccounts(
+      this.program.programId,
+      this.manager.core.address
+    );
+    return {
+      ...whAccs,
+      wormholeEmitter: emitter,
+      wormholeSequence: derivePda(
+        ["Sequence", emitter.toBytes()],
+        this.manager.core.address
+      ),
+    };
   }
 
   async getPauser(): Promise<AccountAddress<C> | null> {
@@ -421,10 +445,7 @@ export class SolanaNttWormholeTransceiver<
         "wormholeMessage must be passed in if Wormhole Post Message Shim is not configured"
       );
     }
-    const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
-      this.manager.core.address
-    );
+    const whAccs = this.wormholeDerivedAccounts();
 
     wormholeMessage = this.postMessageShim
       ? this.pdas.wormholeMessageWithShimAccount(this.postMessageShim.programId)
@@ -464,10 +485,7 @@ export class SolanaNttWormholeTransceiver<
         "wormholeMessage must be passed in if Wormhole Post Message Shim is not configured"
       );
     }
-    const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
-      this.manager.core.address
-    );
+    const whAccs = this.wormholeDerivedAccounts();
 
     wormholeMessage = this.postMessageShim
       ? this.pdas.wormholeMessageWithShimAccount(this.postMessageShim.programId)
@@ -503,10 +521,7 @@ export class SolanaNttWormholeTransceiver<
     revertOnDelay: boolean
   ): Promise<web3.TransactionInstruction> {
     const [major, , ,] = parseVersion(this.version);
-    const whAccs = utils.getWormholeDerivedAccounts(
-      this.program.programId,
-      this.manager.core.address
-    );
+    const whAccs = this.wormholeDerivedAccounts();
 
     const wormholeMessage = this.postMessageShim
       ? this.pdas.wormholeMessageWithShimAccount(this.postMessageShim.programId)
@@ -559,6 +574,13 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   config?: NttBindings.Config<IdlVersion>;
   addressLookupTable?: AddressLookupTableAccount;
 
+  /**
+   * v4 instance pubkey. Set when `contracts.ntt.instance` is provided. Drives
+   * instance-scoped PDA derivation throughout the SDK. Undefined for v3
+   * (singleton) deployments.
+   */
+  instance?: PublicKey;
+
   // 0 = Wormhole xcvr
   transceivers: Program<NttBindings.Transceiver<IdlVersion>>[];
 
@@ -571,10 +593,38 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     readonly network: N,
     readonly chain: C,
     readonly connection: Connection,
-    readonly contracts: Contracts & { ntt?: Ntt.Contracts },
+    readonly contracts: Contracts & {
+      ntt?: Ntt.Contracts & { instance?: string };
+    },
     readonly version: string = "3.0.0"
   ) {
     if (!contracts.ntt) throw new Error("Ntt contracts not found");
+
+    // Reject the v4-without-instance footgun. The PDA factory accepts an
+    // optional `config` arg for back-compat with v3, so if a caller forgets to
+    // thread `instance` for a v4 deployment the SDK would silently derive v3
+    // singleton PDAs and read/write the wrong on-chain accounts. Lock the
+    // version → instance correspondence at the only place that knows both.
+    const [major] = parseVersion(version);
+    if (major >= 4 && !contracts.ntt.instance) {
+      throw new Error(
+        `SolanaNtt: version ${version} requires \`contracts.ntt.instance\` ` +
+          `(the per-deployment Instance pubkey). v4 PDAs are scoped by ` +
+          `instance; without it the SDK would silently fall back to v3 ` +
+          `singleton derivations.`
+      );
+    }
+    if (major < 4 && contracts.ntt.instance) {
+      throw new Error(
+        `SolanaNtt: \`contracts.ntt.instance\` was provided but version ` +
+          `${version} predates v4 multi-host. Drop the \`instance\` field, ` +
+          `or set the version to >= 4.0.0.`
+      );
+    }
+
+    if (contracts.ntt.instance) {
+      this.instance = new PublicKey(contracts.ntt.instance);
+    }
 
     this.program = getNttProgram(
       connection,
@@ -603,9 +653,10 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         const transceiverKey = new PublicKey(
           contracts.ntt!.transceiver[transceiverType]!
         );
-        // handle emitterAccount case separately
+        // handle emitterAccount case separately. In v4 the emitter PDA is
+        // scoped by the instance pubkey, so we pass `this.instance` when set.
         if (
-          NTT.transceiverPdas(managerKey)
+          NTT.transceiverPdas(managerKey, this.instance)
             .emitterAccount()
             .equals(transceiverKey) ||
           managerKey.equals(transceiverKey)
@@ -644,7 +695,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       connection,
       contracts
     );
-    this.pdas = NTT.pdas(this.program.programId);
+    this.pdas = NTT.pdas(this.program.programId, this.instance);
   }
 
   async getTransceiver<T extends number>(
@@ -686,10 +737,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async *pause(payer: AccountAddress<C>) {
     const sender = new SolanaAddress(payer).unwrap();
-    const ix = await NTT.createSetPausedInstruction(this.program, {
-      owner: sender,
-      paused: true,
-    });
+    const ix = await NTT.createSetPausedInstruction(
+      this.program,
+      { owner: sender, paused: true },
+      this.pdas
+    );
 
     const tx = new Transaction();
     tx.feePayer = sender;
@@ -699,10 +751,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async *unpause(payer: AccountAddress<C>) {
     const sender = new SolanaAddress(payer).unwrap();
-    const ix = await NTT.createSetPausedInstruction(this.program, {
-      owner: sender,
-      paused: false,
-    });
+    const ix = await NTT.createSetPausedInstruction(
+      this.program,
+      { owner: sender, paused: false },
+      this.pdas
+    );
 
     const tx = new Transaction();
     tx.feePayer = sender;
@@ -748,10 +801,14 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async *setOwner(newOwner: AnySolanaAddress, payer: AccountAddress<C>) {
     const sender = new SolanaAddress(payer).unwrap();
-    const ix = await NTT.createTransferOwnershipInstruction(this.program, {
-      owner: new SolanaAddress(await this.getOwner()).unwrap(),
-      newOwner: new SolanaAddress(newOwner).unwrap(),
-    });
+    const ix = await NTT.createTransferOwnershipInstruction(
+      this.program,
+      {
+        owner: new SolanaAddress(await this.getOwner()).unwrap(),
+        newOwner: new SolanaAddress(newOwner).unwrap(),
+      },
+      this.pdas
+    );
 
     const tx = new Transaction();
     tx.feePayer = sender;
@@ -801,8 +858,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   }
 
   async getConfig(): Promise<NttBindings.Config<IdlVersion>> {
-    this.config = this.config ?? (await NTT.getConfig(this.program, this.pdas));
-    return this.config!;
+    return await NTT.getConfig(this.program, this.pdas);
   }
 
   async getTokenDecimals(): Promise<number> {
@@ -861,6 +917,13 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       mode: Ntt.Mode;
       outboundLimit: bigint;
       multisigTokenAuthority?: PublicKey;
+      /**
+       * v4-only: the keypair that will own the new Instance account. Required
+       * when `this.instance` is set. The caller-provided keypair must sign the
+       * initialize transaction (Anchor `init` allocates the account at this
+       * pubkey). This keypair's public key must match `this.instance`.
+       */
+      instance?: Keypair;
     }
   ) {
     const mintInfo = await this.connection.getAccountInfo(args.mint);
@@ -870,6 +933,23 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       );
 
     const payer = new SolanaAddress(sender).unwrap();
+
+    if (this.instance) {
+      if (!args.instance) {
+        throw new Error(
+          "v4 initialize: `args.instance` (Keypair) is required when `contracts.ntt.instance` is set"
+        );
+      }
+      if (!args.instance.publicKey.equals(this.instance)) {
+        throw new Error(
+          "v4 initialize: `args.instance.publicKey` does not match `contracts.ntt.instance`"
+        );
+      }
+    } else if (args.instance) {
+      throw new Error(
+        "initialize: `args.instance` was passed but `contracts.ntt.instance` is unset (v3 deployment expected)"
+      );
+    }
 
     const ix = await NTT.createInitializeInstruction(
       this.program,
@@ -887,7 +967,10 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const tx = new Transaction();
     tx.feePayer = payer;
     tx.add(ix);
-    yield this.createUnsignedTx({ transaction: tx }, "Ntt.Initialize");
+    // v4: attach the instance keypair as an extra signer so Anchor's `init`
+    // can allocate the Instance account at that pubkey.
+    const signers = args.instance ? [args.instance] : undefined;
+    yield this.createUnsignedTx({ transaction: tx, signers }, "Ntt.Initialize");
 
     yield* this.initializeOrUpdateLUT({ payer, owner: payer });
   }
@@ -909,7 +992,8 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         payer: args.payer,
         owner: args.owner,
         wormholeId: new PublicKey(this.core.address),
-      }
+      },
+      this.pdas
     );
     // Already up to date
     if (!ix) return;
@@ -1025,14 +1109,18 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   ) {
     const sender = new SolanaAddress(payer).unwrap();
 
-    const ix = await NTT.createSetPeerInstruction(this.program, {
-      payer: sender,
-      owner: sender,
-      chain: peer.chain,
-      address: peer.address.toUniversalAddress().toUint8Array(),
-      limit: new BN(inboundLimit.toString()),
-      tokenDecimals,
-    });
+    const ix = await NTT.createSetPeerInstruction(
+      this.program,
+      {
+        payer: sender,
+        owner: sender,
+        chain: peer.chain,
+        address: peer.address.toUniversalAddress().toUint8Array(),
+        limit: new BN(inboundLimit.toString()),
+        tokenDecimals,
+      },
+      this.pdas
+    );
 
     const tx = new Transaction();
     tx.feePayer = sender;
@@ -1322,7 +1410,9 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           {
             payer: senderAddress,
             vaa: wormholeNTT,
-          }
+          },
+          this.pdas,
+          whTransceiver.pdas
         );
 
         const nttMessage = wormholeNTT.payload.nttManagerPayload;
@@ -1340,12 +1430,18 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         };
         let releaseIx =
           config.mode.locking != null
-            ? NTT.createReleaseInboundUnlockInstruction(this.program, config, {
-                ...releaseArgs,
-              })
-            : NTT.createReleaseInboundMintInstruction(this.program, config, {
-                ...releaseArgs,
-              });
+            ? NTT.createReleaseInboundUnlockInstruction(
+                this.program,
+                config,
+                { ...releaseArgs },
+                this.pdas
+              )
+            : NTT.createReleaseInboundMintInstruction(
+                this.program,
+                config,
+                { ...releaseArgs },
+                this.pdas
+              );
 
         const tx = new Transaction();
         tx.feePayer = senderAddress;
@@ -1386,10 +1482,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
   async *setOutboundLimit(limit: bigint, payer: AccountAddress<C>) {
     const sender = new SolanaAddress(payer).unwrap();
-    const ix = await NTT.createSetOutboundLimitInstruction(this.program, {
-      owner: sender,
-      limit: new BN(limit.toString()),
-    });
+    const ix = await NTT.createSetOutboundLimitInstruction(
+      this.program,
+      { owner: sender, limit: new BN(limit.toString()) },
+      this.pdas
+    );
 
     const tx = new Transaction();
     tx.feePayer = sender;
@@ -1422,11 +1519,11 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     payer: AccountAddress<C>
   ) {
     const sender = new SolanaAddress(payer).unwrap();
-    const ix = await NTT.createSetInboundLimitInstruction(this.program, {
-      owner: sender,
-      chain: fromChain,
-      limit: new BN(limit.toString()),
-    });
+    const ix = await NTT.createSetInboundLimitInstruction(
+      this.program,
+      { owner: sender, chain: fromChain, limit: new BN(limit.toString()) },
+      this.pdas
+    );
 
     const tx = new Transaction();
     tx.feePayer = sender;
@@ -1517,12 +1614,14 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
         ? NTT.createReleaseInboundUnlockInstruction(
             this.program,
             config,
-            releaseArgs
+            releaseArgs,
+            this.pdas
           )
         : NTT.createReleaseInboundMintInstruction(
             this.program,
             config,
-            releaseArgs
+            releaseArgs,
+            this.pdas
           ))
     );
 
@@ -1580,7 +1679,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
       manager: this.program.programId.toBase58(),
       token: (await this.getConfig()).mint.toBase58(),
       transceiver: {
-        wormhole: NTT.transceiverPdas(this.program.programId)
+        wormhole: NTT.transceiverPdas(this.program.programId, this.instance)
           .emitterAccount()
           .toBase58(),
       },

@@ -1,8 +1,5 @@
 use anchor_lang::prelude::*;
 
-#[cfg(feature = "idl-build")]
-use crate::messages::Hack;
-
 use crate::{config::Config, error::NTTError};
 
 // * Transfer ownership
