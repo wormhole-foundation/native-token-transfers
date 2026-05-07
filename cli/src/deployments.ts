@@ -9,6 +9,13 @@ export type ChainConfig = {
   owner: string;
   pauser?: string;
   manager: string;
+  /**
+   * v4-only (Solana): the keypair-created Instance pubkey under the shared
+   * `manager` program. Required for `version >= "4.0.0"`; absent for v3
+   * singleton deployments. PDA derivation, the on-the-wire NTT manager
+   * identity, and SDK construction all key off this pubkey.
+   */
+  instance?: string;
   token: string;
   transceivers: {
     threshold: number;
