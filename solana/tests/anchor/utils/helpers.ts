@@ -782,13 +782,9 @@ export const signSendWait = async (
   chain: ChainContext<any, any, any>,
   txs: AsyncGenerator<any>,
   signer: Signer
-): Promise<TxHash[] | undefined> => {
-  try {
-    const txIds = await ssw(chain, txs, signer);
-    return txIds.map(({ txid }) => txid);
-  } catch (e) {
-    console.error(e);
-  }
+): Promise<TxHash[]> => {
+  const txIds = await ssw(chain, txs, signer);
+  return txIds.map(({ txid }) => txid);
 };
 
 /**

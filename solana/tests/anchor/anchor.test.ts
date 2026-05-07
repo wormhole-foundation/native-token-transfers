@@ -48,9 +48,13 @@ registerSolanaNtt();
 
 /**
  * Test Config Constants
+ *
+ * v4 multi-host: the deployed program ID is shared, and each NTT deployment
+ * is identified by an `instance` keypair-created account. The instance pubkey
+ * is the on-the-wire NTT manager identity (replaces program ID in v3).
  */
 const SOLANA_ROOT_DIR = `${__dirname}/../../`;
-const VERSION: IdlVersion = "3.0.0";
+const VERSION: IdlVersion = "4.0.0";
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
 const GUARDIAN_KEY =
   "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0";
@@ -86,6 +90,12 @@ const payerAddress = new SolanaAddress(payer.publicKey);
  */
 const mint = $.keypair.generate();
 const mintAuthority = $.keypair.generate();
+
+/**
+ * v4 Instance keypair. The pubkey is the on-the-wire NTT manager identity for
+ * this deployment, and the seed scope for every per-instance PDA.
+ */
+const instanceKeypair = $.keypair.generate();
 
 /**
  * Contract Config
@@ -156,7 +166,9 @@ describe("example-native-token-transfers", () => {
       mintAuthority
     );
 
-    // create our contract client
+    // create our contract client. v4: pass the instance pubkey in contracts.ntt;
+    // it's the per-deployment scope used to derive all PDAs and serves as the
+    // on-the-wire manager identity.
     ntt = new SolanaNtt(
       "Devnet",
       "Solana",
@@ -166,6 +178,7 @@ describe("example-native-token-transfers", () => {
         ntt: {
           token: testMint.address.toBase58(),
           manager: NTT_ADDRESS.toBase58(),
+          instance: instanceKeypair.publicKey.toBase58(),
           transceiver: {
             wormhole: nttTransceivers["wormhole"].programId.toBase58(),
           },
@@ -180,7 +193,9 @@ describe("example-native-token-transfers", () => {
     let multisigTokenAuthority: anchor.web3.PublicKey;
 
     beforeAll(async () => {
-      // set multisigTokenAuthority as mint authority
+      // set multisigTokenAuthority as mint authority. The token authority is
+      // per-instance in v4 — `ntt.pdas.tokenAuthority()` returns the
+      // instance-scoped PDA because the SDK was constructed with `instance`.
       multisigTokenAuthority = await $.multisig.create(payer, 1, [
         mintAuthority.publicKey,
         ntt.pdas.tokenAuthority(),
@@ -191,12 +206,14 @@ describe("example-native-token-transfers", () => {
         mintAuthority
       );
 
-      // init
+      // init. v4 takes the instance keypair as an additional signer; the
+      // Anchor `init` allocates the Instance account at that pubkey.
       const initTxs = ntt.initialize(sender, {
         mint: testMint.address,
         outboundLimit: 1_000_000n,
         mode: "burning",
         multisigTokenAuthority,
+        instance: instanceKeypair,
       });
       await signSendWait(ctx, initTxs, signer);
 
@@ -254,12 +271,17 @@ describe("example-native-token-transfers", () => {
       const txId = txIds![Number(wrapNative)]!;
 
       // assert that released bitmap has transceiver bits set
-      const outboxItemInfo = await ntt.program.account.outboxItem.fetch(
+      const outboxItemInfo = await ntt.program.account.outboxItem!.fetch(
         outboxItem.publicKey
       );
       assert
         .bn(outboxItemInfo.released.map)
         .setBits(Object.keys(nttTransceivers).length);
+
+      // v4: outbox item is bound to its source instance
+      expect(outboxItemInfo.manager.toBase58()).toEqual(
+        instanceKeypair.publicKey.toBase58()
+      );
 
       // parse event and instruction data to re-build message
       const [data] = await testWormholePostMessageShim.getMessageData(txId);
@@ -278,6 +300,12 @@ describe("example-native-token-transfers", () => {
       const transceiverMessage = deserializePayload(
         "Ntt:WormholeTransfer",
         data!.payload
+      );
+
+      // v4: source manager identity over the wire is the instance pubkey,
+      // not the program ID.
+      expect(transceiverMessage.sourceNttManager.toUint8Array()).toEqual(
+        instanceKeypair.publicKey.toBytes()
       );
 
       // assert that amount is what we expect
@@ -312,7 +340,8 @@ describe("example-native-token-transfers", () => {
                   owner: nttOwner,
                   newAuthority: newAuthority.publicKey,
                   multisigTokenAuthority,
-                }
+                },
+                ntt.pdas
               ),
               payer
             )
@@ -338,7 +367,8 @@ describe("example-native-token-transfers", () => {
               owner: nttOwner,
               newAuthority: newAuthority.publicKey,
               multisigTokenAuthority,
-            }
+            },
+            ntt.pdas
           ),
           payer
         );
@@ -353,7 +383,8 @@ describe("example-native-token-transfers", () => {
             await ntt.getConfig(),
             {
               currentAuthority: newAuthority.publicKey,
-            }
+            },
+            ntt.pdas
           ),
           payer,
           newAuthority
@@ -374,7 +405,8 @@ describe("example-native-token-transfers", () => {
               rentPayer: nttOwner,
               owner: nttOwner,
               newAuthority: newMultisigAuthority,
-            }
+            },
+            ntt.pdas
           ),
           payer
         );
@@ -391,7 +423,8 @@ describe("example-native-token-transfers", () => {
                 newAuthority.publicKey,
                 mintAuthority.publicKey,
               ],
-            }
+            },
+            ntt.pdas
           ),
           payer,
           newAuthority,
@@ -413,7 +446,8 @@ describe("example-native-token-transfers", () => {
                 mintAuthority.publicKey,
               ],
               multisigTokenAuthority,
-            }
+            },
+            ntt.pdas
           ),
           payer,
           newAuthority,
@@ -440,14 +474,15 @@ describe("example-native-token-transfers", () => {
               owner: nttOwner,
               newAuthority: newAuthority.publicKey,
               multisigTokenAuthority,
-            }
+            },
+            ntt.pdas
           ),
           payer,
           newAuthority
         );
         const pendingTokenAuthorityRentExemptAmount =
           await $.connection.getMinimumBalanceForRentExemption(
-            ntt.program.account.pendingTokenAuthority.size
+            ntt.program.account.pendingTokenAuthority!.size
           );
         await assert
           .nativeBalance($.connection, newAuthority.publicKey)
@@ -464,7 +499,8 @@ describe("example-native-token-transfers", () => {
               rentPayer: newAuthority.publicKey,
               owner: nttOwner,
               multisigTokenAuthority,
-            }
+            },
+            ntt.pdas
           ),
           payer
         );
@@ -483,7 +519,8 @@ describe("example-native-token-transfers", () => {
                   rentPayer: newAuthority.publicKey,
                   newAuthority: newAuthority.publicKey,
                   multisigTokenAuthority,
-                }
+                },
+                ntt.pdas
               ),
               payer,
               newAuthority
@@ -513,10 +550,11 @@ describe("example-native-token-transfers", () => {
 
       const guardians = new testing.mocks.MockGuardians(0, [GUARDIAN_KEY]);
 
+      // v4: recipientNttManager is the instance pubkey, not the program ID.
       const sendingTransceiverMessage = {
         sourceNttManager: remoteMgr.address as UniversalAddress,
         recipientNttManager: new UniversalAddress(
-          ntt.program.programId.toBytes()
+          instanceKeypair.publicKey.toBytes()
         ),
         nttManagerPayload: {
           id: encoding.bytes.encode("sequence1".padEnd(32, "0")),
@@ -567,6 +605,7 @@ describe("example-native-token-transfers", () => {
       Solana: {
         token: mint.publicKey.toBase58(),
         manager: NTT_ADDRESS.toBase58(),
+        instance: instanceKeypair.publicKey.toBase58(),
         transceiver: {
           wormhole: nttTransceivers["wormhole"].programId.toBase58(),
         },
@@ -608,14 +647,19 @@ describe("example-native-token-transfers", () => {
           { ntt: overrides["Solana"] },
           payerAddress
         );
-        expect(version).toBe("3.0.0");
+        expect(version).toBe("4.0.0");
       });
 
       test("It initializes using `emitterAccount` as transceiver address", async () => {
         const overrideEmitter: (typeof overrides)["Solana"] = JSON.parse(
           JSON.stringify(overrides["Solana"])
         );
-        overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(NTT_ADDRESS)
+        // v4: the emitter is scoped by the instance pubkey, so derive
+        // accordingly.
+        overrideEmitter.transceiver.wormhole = NTT.transceiverPdas(
+          NTT_ADDRESS,
+          instanceKeypair.publicKey
+        )
           .emitterAccount()
           .toBase58();
 
