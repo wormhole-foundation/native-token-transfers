@@ -22,6 +22,11 @@ pub const UNREGISTERED_CHAIN: u16 = u16::MAX;
 pub struct TestData {
     pub governance: Governance,
     pub program_owner: Keypair,
+    /// v4: keypair-created Instance account. Generated per setup; its pubkey
+    /// is registered as the test-wide instance via
+    /// `sdk::accounts::ntt::set_test_instance` and used everywhere `good_ntt`
+    /// derives a per-instance PDA.
+    pub instance: Keypair,
     pub mint_authority: Keypair,
     pub mint: Pubkey,
     pub bad_mint_authority: Keypair,
