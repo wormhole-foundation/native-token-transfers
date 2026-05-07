@@ -38,7 +38,7 @@ pub struct ReleaseOutbound<'info> {
     pub wormhole_message: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [b"emitter"],
+        seeds = [b"emitter", config.key().as_ref()],
         bump
     )]
     // TODO: do we want to put anything in here?
@@ -52,7 +52,7 @@ pub struct ReleaseOutbound<'info> {
     pub manager: Program<'info, ExampleNativeTokenTransfers>,
 
     #[account(
-        seeds = [OUTBOX_ITEM_SIGNER_SEED],
+        seeds = [OUTBOX_ITEM_SIGNER_SEED, config.key().as_ref()],
         bump
     )]
     /// CHECK: this PDA is used to sign the CPI into NTT manager program
@@ -61,6 +61,7 @@ pub struct ReleaseOutbound<'info> {
 
 impl<'info> ReleaseOutbound<'info> {
     pub fn mark_outbox_item_as_released(&self, bump_seed: u8) -> Result<bool> {
+        let config_key = self.config.key();
         let result = example_native_token_transfers::cpi::mark_outbox_item_as_released(
             CpiContext::new_with_signer(
                 self.manager.to_account_info(),
@@ -73,7 +74,7 @@ impl<'info> ReleaseOutbound<'info> {
                     transceiver: self.transceiver.to_account_info(),
                 },
                 // signer seeds
-                &[&[OUTBOX_ITEM_SIGNER_SEED, &[bump_seed]]],
+                &[&[OUTBOX_ITEM_SIGNER_SEED, config_key.as_ref(), &[bump_seed]]],
             ),
         )?;
         Ok(result.get())
@@ -100,10 +101,12 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
     accs.outbox_item.reload()?;
     assert!(accs.outbox_item.released.get(accs.transceiver.id)?);
 
+    // v4: source manager identity is the instance's `config` pubkey, not the
+    // program ID. Matches the `recipient_ntt_manager` check in `redeem` and the
+    // `manager_address` field in `broadcast_id`.
     let message: TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>> =
         TransceiverMessage::new(
-            // TODO: should we just put the ntt id here statically?
-            accs.outbox_item.to_account_info().owner.to_bytes(),
+            accs.config.key().to_bytes(),
             accs.outbox_item.recipient_ntt_manager,
             NttManagerMessage {
                 id: accs.outbox_item.key().to_bytes(),
@@ -125,6 +128,7 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
         accs.wormhole_message.to_account_info(),
         accs.emitter.to_account_info(),
         ctx.bumps.emitter,
+        accs.config.key(),
         &message,
     )?;
 
