@@ -66,7 +66,12 @@ pub trait NTTAccounts {
         hasher.update([*should_queue as u8]);
 
         let (session_authority, _) = Pubkey::find_program_address(
-            &[SESSION_AUTHORITY_SEED, sender.as_ref(), &hasher.finalize()],
+            &[
+                SESSION_AUTHORITY_SEED,
+                self.config().as_ref(),
+                sender.as_ref(),
+                &hasher.finalize(),
+            ],
             &self.program(),
         );
         session_authority

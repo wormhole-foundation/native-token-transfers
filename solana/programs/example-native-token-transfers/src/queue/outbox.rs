@@ -10,6 +10,11 @@ use super::rate_limit::RateLimitState;
 #[derive(InitSpace, Debug, PartialEq, Eq)]
 // TODO: generalise this to arbitrary outbound messages (via a generic parameter in place of amount and recipient info)
 pub struct OutboxItem {
+    /// v4: the `Config` (instance) that produced this outbox item. Used to
+    /// bind the item to its source instance so transceivers can verify they're
+    /// releasing/marking an item that belongs to the instance they're working
+    /// on (`released` is a bitmap keyed by per-instance transceiver_id).
+    pub manager: Pubkey,
     pub amount: TrimmedAmount,
     pub sender: Pubkey,
     pub recipient_chain: ChainId,

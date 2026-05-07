@@ -29,7 +29,7 @@ pub struct ReleaseInbound<'info> {
     pub recipient: InterfaceAccount<'info, token_interface::TokenAccount>,
 
     #[account(
-        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        seeds = [crate::TOKEN_AUTHORITY_SEED, config.key().as_ref()],
         bump,
     )]
     /// CHECK: The seeds constraint ensures that this is the correct address
@@ -112,8 +112,10 @@ pub fn release_inbound_mint<'info>(
     // The [`transfer_burn`] function operates in a similar way
     // (transfer to custody from sender, *then* burn).
 
+    let config_key = ctx.accounts.common.config.key();
     let token_authority_sig: &[&[&[u8]]] = &[&[
         crate::TOKEN_AUTHORITY_SEED,
+        config_key.as_ref(),
         &[ctx.bumps.common.token_authority],
     ]];
 
@@ -233,6 +235,7 @@ pub fn release_inbound_unlock<'info>(
     let inbox_item = inbox_item.unwrap();
     assert!(inbox_item.release_status == ReleaseStatus::Released);
 
+    let config_key = ctx.accounts.common.config.key();
     onchain::invoke_transfer_checked(
         &ctx.accounts.common.token_program.key(),
         ctx.accounts.common.custody.to_account_info(),
@@ -244,6 +247,7 @@ pub fn release_inbound_unlock<'info>(
         ctx.accounts.common.mint.decimals,
         &[&[
             crate::TOKEN_AUTHORITY_SEED,
+            config_key.as_ref(),
             &[ctx.bumps.common.token_authority],
         ]],
     )?;
