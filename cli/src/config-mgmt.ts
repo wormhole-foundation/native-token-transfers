@@ -101,12 +101,17 @@ export async function pushDeployment<C extends Chain>(
         const ix = dangerouslyTransferOwnershipInOneStep
           ? await NTT.createTransferOwnershipOneStepUncheckedInstruction(
               solanaNtt.program,
-              { owner, newOwner }
+              { owner, newOwner },
+              solanaNtt.pdas
             )
-          : await NTT.createTransferOwnershipInstruction(solanaNtt.program, {
-              owner,
-              newOwner,
-            });
+          : await NTT.createTransferOwnershipInstruction(
+              solanaNtt.program,
+              {
+                owner,
+                newOwner,
+              },
+              solanaNtt.pdas
+            );
 
         const tx = new solanaWeb3.Transaction();
         tx.add(ix);

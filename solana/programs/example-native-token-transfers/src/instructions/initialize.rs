@@ -2,9 +2,6 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use ntt_messages::{chain_id::ChainId, mode::Mode};
 
-#[cfg(feature = "idl-build")]
-use crate::messages::Hack;
-
 use crate::{
     bitmap::Bitmap,
     config::Config,

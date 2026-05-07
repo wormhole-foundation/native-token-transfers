@@ -15,6 +15,7 @@ import sui from "@wormhole-foundation/sdk/platforms/sui";
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
 import type { SignerType } from "../signers/getSigner";
+import { canUpgrade } from "../upgradeBarriers";
 import { validatePayerOption } from "../validation";
 
 import { options } from "./shared";
@@ -117,6 +118,17 @@ export function createUpgradeCommand(
       if (toVersion === currentVersion && !argv["local"]) {
         console.log(`Chain ${chain} is already at version ${currentVersion}`);
         process.exit(0);
+      }
+
+      const upgradeCheck = canUpgrade(chain, currentVersion, toVersion);
+      if (!upgradeCheck.ok) {
+        console.error(
+          colors.red(
+            `error: cannot upgrade ${chain} from ${currentVersion} to ${toVersion} in place.`
+          )
+        );
+        console.error(upgradeCheck.reason);
+        process.exit(1);
       }
 
       console.log(

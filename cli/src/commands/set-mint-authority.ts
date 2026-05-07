@@ -291,7 +291,8 @@ export function createSetMintAuthorityCommand(
                 {
                   currentAuthority: payerKeypair.publicKey,
                   multisigTokenAuthority,
-                }
+                },
+                solanaNtt.pdas
               ),
             ],
             recentBlockhash: latestBlockHash.blockhash,

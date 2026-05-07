@@ -477,6 +477,155 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   return { chain: ch.chain, address: toUniversal(ch.chain, providedProgramId) };
 }
 
+/**
+ * v4 only: create a new Instance under an existing Solana NTT program.
+ *
+ * Skips the program-deploy step entirely. Generates (or loads) an Instance
+ * keypair, constructs a `SolanaNtt` bound to the existing `programId` and the
+ * fresh instance pubkey, and submits the v4 `initialize` transaction signed by
+ * both the payer and the instance keypair.
+ *
+ * Returns the program id (as `manager` in the deployment.json sense) plus the
+ * instance pubkey; the caller is responsible for writing both into
+ * `ChainConfig`.
+ */
+export async function addSolanaInstance<
+  N extends Network,
+  C extends SolanaChains,
+>(
+  version: string,
+  mode: Ntt.Mode,
+  ch: ChainContext<N, C>,
+  token: string,
+  payer: string,
+  programId: string,
+  instanceKeyPath?: string,
+  outboundLimit: bigint = 100_000_000n
+): Promise<{ chain: C; manager: ChainAddress<C>; instance: PublicKey }> {
+  // Load or generate the instance keypair. The keypair's pubkey is the new
+  // Instance account address; in v4 it's also the on-the-wire NTT manager
+  // identity for this deployment.
+  let instanceKeypair: Keypair;
+  if (instanceKeyPath) {
+    instanceKeypair = Keypair.fromSecretKey(
+      new Uint8Array(JSON.parse(fs.readFileSync(instanceKeyPath).toString()))
+    );
+  } else {
+    instanceKeypair = Keypair.generate();
+    const generatedPath = `${ch.chain}-instance.json`;
+    fs.writeFileSync(
+      generatedPath,
+      JSON.stringify(Array.from(instanceKeypair.secretKey))
+    );
+    console.log(
+      `Generated instance keypair at ${generatedPath} (pubkey: ${instanceKeypair.publicKey.toBase58()})`
+    );
+  }
+
+  const payerKeypair = Keypair.fromSecretKey(
+    new Uint8Array(JSON.parse(fs.readFileSync(payer).toString()))
+  );
+
+  // The Wormhole transceiver address in v4 is the instance-scoped emitter PDA.
+  const emitter = NTT.transceiverPdas(
+    new PublicKey(programId),
+    instanceKeypair.publicKey
+  )
+    .emitterAccount()
+    .toBase58();
+
+  const connection: Connection = await ch.getRpc();
+  const ntt: SolanaNtt<N, C> = new SolanaNtt(
+    ch.network,
+    ch.chain,
+    connection,
+    {
+      ...ch.config.contracts,
+      ntt: {
+        manager: programId,
+        token,
+        instance: instanceKeypair.publicKey.toBase58(),
+        transceiver: { wormhole: emitter },
+      },
+    },
+    version
+  );
+
+  // Sanity check the mint's mint_authority matches the per-instance token_authority
+  // for burning mode (mirrors the program-side constraint in v4 initialize).
+  const tokenMint = new PublicKey(token);
+  const mintInfo = await connection.getAccountInfo(tokenMint);
+  if (mintInfo === null) {
+    console.error(`Mint ${token} not found`);
+    process.exit(1);
+  }
+  const tokenProgram = mintInfo.owner;
+  const mint = await spl.getMint(
+    connection,
+    tokenMint,
+    "finalized",
+    tokenProgram
+  );
+  const tokenAuthority = ntt.pdas.tokenAuthority();
+  if (
+    mode === "burning" &&
+    !mint.mintAuthority?.equals(tokenAuthority) &&
+    !(await checkSvmValidSplMultisig(
+      connection,
+      mint.mintAuthority!,
+      tokenProgram,
+      tokenAuthority
+    ))
+  ) {
+    console.error(
+      `In burning mode, the mint authority must be either the token_authority PDA or a 1-of-N SPL Multisig containing it.\n` +
+        `  mint authority:    ${mint.mintAuthority?.toBase58()}\n` +
+        `  expected token_authority (per-instance): ${tokenAuthority.toBase58()}`
+    );
+    process.exit(1);
+  }
+
+  const initTxs = ntt.initialize(
+    toUniversal(ch.chain, payerKeypair.publicKey.toBase58()),
+    {
+      mint: tokenMint,
+      mode,
+      outboundLimit,
+      instance: instanceKeypair,
+      ...(mode === "burning" &&
+        !mint.mintAuthority!.equals(tokenAuthority) && {
+          multisigTokenAuthority: mint.mintAuthority!,
+        }),
+    }
+  );
+
+  const signer = await getSigner(
+    ch,
+    "privateKey",
+    encoding.b58.encode(payerKeypair.secretKey)
+  );
+
+  try {
+    await signSendWait(ch, initTxs, signer.signer);
+  } catch (e: any) {
+    console.error(e.logs);
+    throw e;
+  }
+
+  // After initialize, register the Wormhole transceiver under the new instance.
+  try {
+    await registerSolanaTransceiver(ntt as any, ch, signer);
+  } catch (e: any) {
+    console.error(e.logs);
+  }
+
+  return {
+    chain: ch.chain,
+    manager: { chain: ch.chain, address: toUniversal(ch.chain, programId) },
+    instance: instanceKeypair.publicKey,
+  };
+}
+
 export async function upgradeSolana<N extends Network, C extends SolanaChains>(
   pwd: string,
   version: string | null,
