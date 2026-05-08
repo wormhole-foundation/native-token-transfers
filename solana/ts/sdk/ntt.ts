@@ -601,25 +601,28 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   ) {
     if (!contracts.ntt) throw new Error("Ntt contracts not found");
 
-    // Reject the v4-without-instance footgun. The PDA factory accepts an
-    // optional `config` arg for back-compat with v3, so if a caller forgets to
-    // thread `instance` for a v4 deployment the SDK would silently derive v3
-    // singleton PDAs and read/write the wrong on-chain accounts. Lock the
-    // version → instance correspondence at the only place that knows both.
+    // Lock the version → instance correspondence at the only place that knows
+    // both. Multi-tenant programs (≥ v4) scope every PDA by the per-deployment
+    // Instance pubkey; the PDA factory accepts an optional `config` arg for
+    // back-compat with the singleton (legacy) layout, so without this guard a
+    // caller who forgets to thread `instance` would silently derive the
+    // legacy PDAs against a multi-tenant manager and read/write the wrong
+    // on-chain accounts.
     const [major] = parseVersion(version);
-    if (major >= 4 && !contracts.ntt.instance) {
+    const multiTenant = major >= 4;
+    if (multiTenant && !contracts.ntt.instance) {
       throw new Error(
-        `SolanaNtt: version ${version} requires \`contracts.ntt.instance\` ` +
-          `(the per-deployment Instance pubkey). v4 PDAs are scoped by ` +
-          `instance; without it the SDK would silently fall back to v3 ` +
-          `singleton derivations.`
+        `SolanaNtt: version ${version} is multi-tenant and requires ` +
+          `\`contracts.ntt.instance\` (the per-deployment Instance pubkey). ` +
+          `Without it the SDK would silently fall back to singleton ` +
+          `(legacy) PDA derivations.`
       );
     }
-    if (major < 4 && contracts.ntt.instance) {
+    if (!multiTenant && contracts.ntt.instance) {
       throw new Error(
         `SolanaNtt: \`contracts.ntt.instance\` was provided but version ` +
-          `${version} predates v4 multi-host. Drop the \`instance\` field, ` +
-          `or set the version to >= 4.0.0.`
+          `${version} is a singleton (legacy) deployment. Drop the ` +
+          `\`instance\` field, or set the version to >= 4.0.0.`
       );
     }
 
