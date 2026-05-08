@@ -350,9 +350,9 @@ export function createAddChainCommand(
         const [config, _ctx, _ntt, decimals] = await pullChainConfig(
           network,
           deployedManager,
-          overrides
+          overrides,
+          instance.toBase58()
         );
-        config.instance = instance.toBase58();
 
         console.log("token decimals:", colors.yellow(decimals));
         deployments.chains[chain] = config;
@@ -388,13 +388,26 @@ export function createAddChainCommand(
         argv["sui-treasury-cap"],
         argv["gas-estimate-multiplier"],
         cclConfig,
-        overrides
+        overrides,
+        argv["instance-key"]
       );
+
+      // Multi-tenant Solana deploys return the per-instance Config pubkey
+      // alongside the manager program ID. Thread it into pullChainConfig so
+      // the SDK constructs against the multi-tenant layout (it throws
+      // otherwise) and persist it on the resulting config.
+      const solanaInstance =
+        platform === "Solana" &&
+        "instance" in deployedManager &&
+        typeof deployedManager.instance === "string"
+          ? deployedManager.instance
+          : undefined;
 
       const [config, _ctx, _ntt, decimals] = await pullChainConfig(
         network,
         deployedManager,
         overrides,
+        solanaInstance,
         { waitForTransceiver: true }
       );
 

@@ -83,7 +83,8 @@ export function createTransferOwnershipCommand(
       const [, , ntt] = await pullChainConfig(
         network,
         { chain, address: toUniversal(chain, chainConfig.manager) },
-        overrides
+        overrides,
+        chainConfig.instance
       );
 
       // Get current owner

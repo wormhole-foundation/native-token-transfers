@@ -69,14 +69,29 @@ export function createSolanaCommand(
           "token-authority <programId>",
           "print the token authority address for a given program ID",
           (yargs: any) =>
-            yargs.positional("programId", {
-              describe: "Program ID",
-              type: "string",
-              demandOption: true,
-            }),
+            yargs
+              .positional("programId", {
+                describe: "Program ID",
+                type: "string",
+                demandOption: true,
+              })
+              .option("instance", {
+                describe:
+                  "(Multi-tenant / v4) The Instance pubkey under the program. " +
+                  "v4 token_authority PDAs are scoped by instance, so this " +
+                  "flag is required when the program is multi-tenant.",
+                type: "string",
+                demandOption: false,
+              }),
           (argv: any) => {
             const programId = new PublicKey(argv["programId"]);
-            const tokenAuthority = NTT.pdas(programId).tokenAuthority();
+            const instance = argv["instance"]
+              ? new PublicKey(argv["instance"])
+              : undefined;
+            const tokenAuthority = NTT.pdas(
+              programId,
+              instance
+            ).tokenAuthority();
             console.log(tokenAuthority.toBase58());
           }
         )
@@ -201,7 +216,8 @@ export function createSolanaCommand(
               const [, , ntt] = await pullChainConfig(
                 network,
                 { chain, address: toUniversal(chain, chainConfig.manager) },
-                overrides
+                overrides,
+                chainConfig.instance
               );
               solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
               managerKey = new PublicKey(chainConfig.manager);
