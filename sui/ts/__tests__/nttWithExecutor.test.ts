@@ -24,9 +24,9 @@ describe("SuiNttWithExecutor", () => {
         toUint8Array: () => new Uint8Array(32).fill(0xbb),
       },
     } as any,
-    referrerFee: 500000n, // 0.0005 SUI
+    transferTokenFee: 500000n,
+    nativeTokenFee: 0n,
     remainingAmount: 999500000n, // 0.9995 SUI
-    referrerFeeDbps: 5n, // 0.05%
     expires: new Date(Date.now() + 3600000), // 1 hour from now
     gasDropOff: 100000n, // 0.0001 SUI
   };

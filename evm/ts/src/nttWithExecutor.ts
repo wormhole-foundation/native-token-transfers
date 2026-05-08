@@ -20,6 +20,7 @@ import {
 import { Provider, Interface } from "ethers";
 import { EvmNtt } from "./ntt.js";
 
+// TODO: update with correct v2 contract addresses
 const nttManagerWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
 > = {
@@ -30,48 +31,47 @@ const nttManagerWithExecutorAddresses: Partial<
     Berachain: "0x0a2AF374Cc9CCCbB0Acc4E34B20b9d02a0f08c30",
     Bsc: "0x39B57Dd9908F8be02CfeE283b67eA1303Bc29fe1",
     Celo: "0x3d69869fcB9e1CD1F4020b637fb8256030BAc8fC",
+    CreditCoin: "0x5454b995719626256C96fb57454b044ffb3Da2F9",
     Ethereum: "0xD2D9c936165a85F27a5a7e07aFb974D022B89463",
     HyperEVM: "0x431017B1718b86898C7590fFcCC380DEf0456393",
     Ink: "0x420370DC2ECC4D44b47514B7859fd11809BbeFF5",
     Linea: "0xEAa5AddB5b8939Eb73F7faF46e193EefECaF13E9",
+    MegaETH: "0x3EFEc0c7Ee79135330DD03e995872f84b1AD49b6",
     Mezo: "0x484b5593BbB90383f94FB299470F09427cf6cfE2",
+    Moca: "0xE612837749a0690BA2BCe490D6eFb5F8Fc347df3",
+    Monad: "0xc3F3dDa544815a440633176c7598f5B97500793e",
     Moonbeam: "0x1365593C8bae71a55e48E105a2Bb76d5928c7DE3",
     Optimism: "0x85C0129bE5226C9F0Cf4e419D2fefc1c3FCa25cF",
     Plume: "0x6Eb53371f646788De6B4D0225a4Ed1d9267188AD",
     Polygon: "0x6762157b73941e36cEd0AEf54614DdE545d0F990",
+    Seievm: "0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445",
     Sonic: "0xaCa00703bb87F31D6F9fCcc963548b48FA46DfeB",
     Unichain: "0x607723D6353Dae3ef62B7B277Cfabd0F4bc6CB4C",
     Worldchain: "0x66b1644400D51e104272337226De3EF1A820eC79",
     XRPLEVM: "0x6bBd1ff3bB303F88835A714EE3241bF45DE26d29",
-    Seievm: "0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445",
-    CreditCoin: "0x5454b995719626256C96fb57454b044ffb3Da2F9",
-    Monad: "0xc3F3dDa544815a440633176c7598f5B97500793e",
-    Moca: "0xE612837749a0690BA2BCe490D6eFb5F8Fc347df3",
-    MegaETH: "0x3EFEc0c7Ee79135330DD03e995872f84b1AD49b6",
     ZeroGravity: "0xe175A8b838f3CdB2e1AAf4Ff74c05cF2F3AEA9a8",
     Nexus: "0x0F8B6B4Bd7Fd645478D7b33346653427814f41FA",
   },
   Testnet: {
-    ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
-    Avalanche: "0x4e9Af03fbf1aa2b79A2D4babD3e22e09f18Bb8EE",
-    BaseSepolia: "0x5845E08d890E21687F7Ebf7CbAbD360cD91c6245",
-    Bsc: "0x39B57Dd9908F8be02CfeE283b67eA1303Bc29fe1",
-    OptimismSepolia: "0xaDB1C56D363FF5A75260c3bd27dd7C1fC8421EF5",
-    Sepolia: "0x54DD7080aE169DD923fE56d0C4f814a0a17B8f41",
-    Ink: "0xF420BFFf922D11c2bBF587C9dF71b83651fAf8Bc",
-    Seievm: "0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445",
-    Converge: "0x3d8c26b67BDf630FBB44F09266aFA735F1129197",
-    Plume: "0x6Eb53371f646788De6B4D0225a4Ed1d9267188AD",
-    PolygonSepolia: "0x2982B9566E912458fE711FB1Fd78158264596937",
-    Monad: "0x93FE94Ad887a1B04DBFf1f736bfcD1698D4cfF66",
-    Linea: "0xaA469cb84C91D5a63bf4B370dE35f0831F2CE4FF",
+    ArbitrumSepolia: "0xD69CF144C31aE8C12b5C7c3D52411F32C824C9a3",
+    Avalanche: "0x8196EBa42b2947f519002B8aDa53b1880F580c69",
+    BaseSepolia: "0x9fBC8aA6B2f626D13005De92B3f0e4541919f721",
+    Bsc: "0x2c9F87bE2eb0caEB8AfFE6F7ae1f046E5D40Ff2a",
     Celo: "0x3d69869fcB9e1CD1F4020b637fb8256030BAc8fC",
-    Unichain: "0x607723D6353Dae3ef62B7B277Cfabd0F4bc6CB4C",
-    XRPLEVM: "0xcDD9d7C759b29680f7a516d0058de8293b2AC7b1",
-    Mezo: "0x484b5593BbB90383f94FB299470F09427cf6cfE2",
+    Converge: "0x3d8c26b67BDf630FBB44F09266aFA735F1129197",
+    Ink: "0x86B93560FeAbc95a0067a498d8afe1219f3ED0D7",
+    Linea: "0x5d98Ded0E46d0aEAB37EA4fEe45A38dc5ccee673",
+    Mezo: "0x117F5F5E8d29ED6254c6098457Cea28E3Ee7cDdA",
     Moca: "0x47f26bF9253Eb398fBAf825D7565FE975D839a71",
-    ZeroGravity: "0xA8CA118f4C8d44Ab651Dad52B5E1a212e5d5c55b",
-    Nexus: "0x5C2768b4aF4483ffeB2B8de8D8b14829C0F19c9E",
+    Monad: "0x8BcA0315627DA3D2e5FA349a6A1ad2FAde36BCe5",
+    OptimismSepolia: "0xA8b1d0520D556b4Ea115562D35077cAA2f13C6D6",
+    Plume: "0x6D87C7d416dFf428117b560A981d788E39707195",
+    PolygonSepolia: "0x2982B9566E912458fE711FB1Fd78158264596937", // TODO: still v0.0.1, needs redeployment
+    Seievm: "0xdb66Dc163A03220661ca33B492c72a6a15B3a8cf",
+    Sepolia: "0xc2386453598811D88613331D52e2Ca4B2AEe16E4",
+    Unichain: "0xc41853C70bf70a2FFeE3ddd8f38D2b774Fe3E264",
+    XRPLEVM: "0x0fbDaE31440f5549e2F08193b5B034F2F9768304",
+    ZeroGravity: "0x69BeC29e71711B30F58585C0bb1622e7b47e3707",
   },
 };
 
@@ -94,23 +94,16 @@ const gasLimitOverrides: Partial<
   },
 };
 
-// Tracks which executor contracts support the transferETH method.
-// Currently only Monad Mainnet supports this, but all executor contracts should eventually
-// be upgraded to support transferETH.
-const supportsTransferETH: Partial<
-  Record<Network, Partial<Record<EvmChains, boolean>>>
-> = {
-  Mainnet: {
-    Monad: true,
-  },
-};
+export const nttWithExecutorAbi = [
+  "function transfer(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
+  "function transferETH(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
+];
 
 export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
   implements NttWithExecutor<N, C>
 {
   readonly chainId: bigint;
   readonly executorAddress: string;
-  readonly supportsTransferETH: boolean;
 
   constructor(
     readonly network: N,
@@ -128,8 +121,6 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     if (!executorAddress)
       throw new Error(`Executor address not found for chain ${this.chain}`);
     this.executorAddress = executorAddress;
-    this.supportsTransferETH =
-      supportsTransferETH[this.network]?.[this.chain] ?? false;
   }
 
   static async fromRpc<N extends Network>(
@@ -158,112 +149,90 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     wrapNative: boolean = false
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     const senderAddress = new EvmAddress(sender).toString();
+    const deliveryPrice = await ntt.quoteDeliveryPrice(destination.chain, {
+      queue: false,
+      automatic: false,
+    });
 
-    const options = { queue: false, automatic: false };
+    // Fee is deducted from the transfer amount.
+    // Approval covers remainingAmount + transferTokenFee = the full user amount.
+    const totalAmount = quote.remainingAmount + quote.transferTokenFee;
 
-    // This will include any transceiver fees
-    const deliveryPrice = await ntt.quoteDeliveryPrice(
-      destination.chain,
-      options
-    );
+    const iface = new Interface(nttWithExecutorAbi);
 
-    // Use transferETH if wrapNative is requested and the contract supports it
-    const useTransferETH = wrapNative && this.supportsTransferETH;
+    const commonArgs = [
+      ntt.managerAddress,
+      quote.remainingAmount,
+      toChainId(destination.chain),
+      destination.address.toUniversalAddress().toUint8Array(),
+      sender.toUniversalAddress().toUint8Array(),
+      Ntt.encodeTransceiverInstructions(
+        ntt.encodeOptions({ queue: false, automatic: false })
+      ),
+      {
+        value: quote.estimatedCost,
+        refundAddress: senderAddress,
+        signedQuote: quote.signedQuote,
+        instructions: quote.relayInstructions,
+      },
+    ] as const;
 
-    if (wrapNative && !this.supportsTransferETH) {
-      yield ntt.wrapNative(sender, amount);
-    }
-
-    // ABI for the INttManagerWithExecutor transfer functions
-    // TODO: type safety. typechain brings in so much boilerplate code and is soft deprecated. Use Viem instead?
-    const abi = [
-      "function transfer(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64 msgId)",
-      "function transferETH(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint16 dbps, address payee) feeArgs) external payable returns (uint64 msgId)",
-    ];
-
-    const iface = new Interface(abi);
-
-    const nttManager = ntt.managerAddress;
-    const recipientChain = toChainId(destination.chain);
-    const recipientAddress = destination.address
-      .toUniversalAddress()
-      .toUint8Array();
-    const refundAddress = sender.toUniversalAddress().toUint8Array();
-    const encodedInstructions = Ntt.encodeTransceiverInstructions(
-      ntt.encodeOptions({ queue: false, automatic: false })
-    );
-    const executorArgs = {
-      value: quote.estimatedCost,
-      refundAddress: senderAddress,
-      signedQuote: quote.signedQuote,
-      instructions: quote.relayInstructions,
-    };
     const feeArgs = {
-      dbps: quote.referrerFeeDbps,
+      transferTokenFee: quote.transferTokenFee,
+      nativeTokenFee: quote.nativeTokenFee,
       payee: quote.referrer.address.toString(),
     };
 
     let data: string;
     let msgValue: bigint;
 
-    if (useTransferETH) {
-      data = iface.encodeFunctionData("transferETH", [
-        nttManager,
-        amount,
-        recipientChain,
-        recipientAddress,
-        refundAddress,
-        encodedInstructions,
-        executorArgs,
-        feeArgs,
-      ]);
-      msgValue = quote.estimatedCost + deliveryPrice + amount;
+    if (wrapNative) {
+      data = iface.encodeFunctionData("transferETH", [...commonArgs, feeArgs]);
+      msgValue =
+        quote.estimatedCost +
+        deliveryPrice +
+        quote.nativeTokenFee +
+        totalAmount;
     } else {
-      // Standard ERC20 transfer flow with approval
-      const tokenContract = EvmPlatform.getTokenImplementation(
-        this.provider,
-        ntt.tokenAddress
-      );
-
-      const allowance = await tokenContract.allowance(
+      yield* this.approveIfNeeded(
         senderAddress,
-        this.executorAddress
+        this.executorAddress,
+        totalAmount,
+        ntt
       );
-
-      if (allowance < amount) {
-        const txReq = await tokenContract.approve.populateTransaction(
-          this.executorAddress,
-          amount
-        );
-
-        yield ntt.createUnsignedTx(txReq, "Ntt.Approve");
-      }
-
-      data = iface.encodeFunctionData("transfer", [
-        nttManager,
-        amount,
-        recipientChain,
-        recipientAddress,
-        refundAddress,
-        encodedInstructions,
-        executorArgs,
-        feeArgs,
-      ]);
-      msgValue = quote.estimatedCost + deliveryPrice;
+      data = iface.encodeFunctionData("transfer", [...commonArgs, feeArgs]);
+      msgValue = quote.estimatedCost + deliveryPrice + quote.nativeTokenFee;
     }
 
-    const txReq = {
-      to: this.executorAddress,
-      data,
-      value: msgValue,
-    };
-
     yield ntt.createUnsignedTx(
-      txReq,
-      useTransferETH
-        ? "NttWithExecutor.transferETH"
-        : "NttWithExecutor.transfer"
+      { to: this.executorAddress, data, value: msgValue },
+      wrapNative ? "NttWithExecutor.transferETH" : "NttWithExecutor.transfer"
     );
+  }
+
+  private async *approveIfNeeded(
+    senderAddress: string,
+    contractAddress: string,
+    requiredAmount: bigint,
+    ntt: EvmNtt<N, C>
+  ): AsyncGenerator<UnsignedTransaction<N, C>> {
+    const tokenContract = EvmPlatform.getTokenImplementation(
+      this.provider,
+      ntt.tokenAddress
+    );
+
+    const allowance = await tokenContract.allowance(
+      senderAddress,
+      contractAddress
+    );
+
+    if (allowance < requiredAmount) {
+      const txReq = await tokenContract.approve.populateTransaction(
+        contractAddress,
+        requiredAmount
+      );
+      yield ntt.createUnsignedTx(txReq, "Ntt.Approve");
+    }
   }
 
   async estimateMsgValueAndGasLimit(
@@ -275,10 +244,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
 }
 
 /**
- * Check if an executor (NttWithExecutor) is deployed for a given network and chain combination
- * @param network - The network (e.g., 'Mainnet', 'Testnet')
- * @param chain - The EVM chain (e.g., 'Arbitrum', 'ArbitrumSepolia')
- * @returns true if an executor address exists for this network/chain combination
+ * Check if an executor (NttWithExecutor) is deployed for a given network and chain combination.
  */
 export function hasExecutorDeployed(
   network: Network,
