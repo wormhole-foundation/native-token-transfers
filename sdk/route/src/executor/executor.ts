@@ -333,7 +333,10 @@ export class NttExecutorRoute<N extends Network>
     // Trim the fee to destination decimals to avoid dust on the remaining amount.
     const transferTokenFee = amount.units(
       NttRoute.trimAmount(
-        amount.fromBaseUnits(params.normalizedParams.transferTokenFee, request.source.decimals),
+        amount.fromBaseUnits(
+          params.normalizedParams.transferTokenFee,
+          request.source.decimals
+        ),
         request.destination.decimals
       )
     );

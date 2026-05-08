@@ -4,15 +4,12 @@ import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import {
   EvmNttWithExecutor,
   hasExecutorDeployed,
+  nttWithExecutorAbi,
 } from "../src/nttWithExecutor.js";
 import { EvmNtt } from "../src/ntt.js";
 import type { NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 
-const v2Abi = [
-  "function transfer(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
-  "function transferETH(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
-];
-const iface = new Interface(v2Abi);
+const iface = new Interface(nttWithExecutorAbi);
 
 describe("NttWithExecutor V2", () => {
   describe("hasExecutorDeployed", () => {

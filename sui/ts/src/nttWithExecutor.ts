@@ -323,7 +323,9 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
 
       const [referrerCoin] = isNative
         ? tx.splitCoins(tx.gas, [tx.pure.u64(quote.transferTokenFee)])
-        : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(quote.transferTokenFee)]);
+        : tx.splitCoins(primaryCoinInput!, [
+            tx.pure.u64(quote.transferTokenFee),
+          ]);
 
       tx.transferObjects([referrerCoin], referrerAddress);
     }

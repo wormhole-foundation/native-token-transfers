@@ -52,25 +52,25 @@ const nttManagerWithExecutorAddresses: Partial<
     ZeroGravity: "0xe175A8b838f3CdB2e1AAf4Ff74c05cF2F3AEA9a8",
   },
   Testnet: {
-    ArbitrumSepolia: "0xd048170F1ECB8D47E499D3459aC379DA023E2C1B",
-    Avalanche: "0x4e9Af03fbf1aa2b79A2D4babD3e22e09f18Bb8EE",
-    BaseSepolia: "0x5845E08d890E21687F7Ebf7CbAbD360cD91c6245",
-    Bsc: "0x39B57Dd9908F8be02CfeE283b67eA1303Bc29fe1",
+    ArbitrumSepolia: "0xD69CF144C31aE8C12b5C7c3D52411F32C824C9a3",
+    Avalanche: "0x8196EBa42b2947f519002B8aDa53b1880F580c69",
+    BaseSepolia: "0x9fBC8aA6B2f626D13005De92B3f0e4541919f721",
+    Bsc: "0x2c9F87bE2eb0caEB8AfFE6F7ae1f046E5D40Ff2a",
     Celo: "0x3d69869fcB9e1CD1F4020b637fb8256030BAc8fC",
     Converge: "0x3d8c26b67BDf630FBB44F09266aFA735F1129197",
-    Ink: "0xF420BFFf922D11c2bBF587C9dF71b83651fAf8Bc",
-    Linea: "0xaA469cb84C91D5a63bf4B370dE35f0831F2CE4FF",
-    Mezo: "0x484b5593BbB90383f94FB299470F09427cf6cfE2",
+    Ink: "0x86B93560FeAbc95a0067a498d8afe1219f3ED0D7",
+    Linea: "0x5d98Ded0E46d0aEAB37EA4fEe45A38dc5ccee673",
+    Mezo: "0x117F5F5E8d29ED6254c6098457Cea28E3Ee7cDdA",
     Moca: "0x47f26bF9253Eb398fBAf825D7565FE975D839a71",
-    Monad: "0xc8F014FE6a8521259D9ADDc2170bA9e59305D306",
-    OptimismSepolia: "0xaDB1C56D363FF5A75260c3bd27dd7C1fC8421EF5",
-    Plume: "0x6Eb53371f646788De6B4D0225a4Ed1d9267188AD",
-    PolygonSepolia: "0x2982B9566E912458fE711FB1Fd78158264596937",
-    Seievm: "0x3F2D6441C7a59Dfe80f8e14142F9E28F6D440445",
-    Sepolia: "0x54DD7080aE169DD923fE56d0C4f814a0a17B8f41",
-    Unichain: "0x607723D6353Dae3ef62B7B277Cfabd0F4bc6CB4C",
-    XRPLEVM: "0xcDD9d7C759b29680f7a516d0058de8293b2AC7b1",
-    ZeroGravity: "0xA8CA118f4C8d44Ab651Dad52B5E1a212e5d5c55b",
+    Monad: "0x8BcA0315627DA3D2e5FA349a6A1ad2FAde36BCe5",
+    OptimismSepolia: "0xA8b1d0520D556b4Ea115562D35077cAA2f13C6D6",
+    Plume: "0x6D87C7d416dFf428117b560A981d788E39707195",
+    PolygonSepolia: "0x2982B9566E912458fE711FB1Fd78158264596937", // TODO: still v0.0.1, needs redeployment
+    Seievm: "0xdb66Dc163A03220661ca33B492c72a6a15B3a8cf",
+    Sepolia: "0xc2386453598811D88613331D52e2Ca4B2AEe16E4",
+    Unichain: "0xc41853C70bf70a2FFeE3ddd8f38D2b774Fe3E264",
+    XRPLEVM: "0x0fbDaE31440f5549e2F08193b5B034F2F9768304",
+    ZeroGravity: "0x69BeC29e71711B30F58585C0bb1622e7b47e3707",
   },
 };
 
@@ -93,7 +93,7 @@ const gasLimitOverrides: Partial<
   },
 };
 
-const abi = [
+export const nttWithExecutorAbi = [
   "function transfer(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
   "function transferETH(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
 ];
@@ -102,7 +102,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
   implements NttWithExecutor<N, C>
 {
   readonly chainId: bigint;
-  readonly executorAddress: string | undefined;
+  readonly executorAddress: string;
 
   constructor(
     readonly network: N,
@@ -115,8 +115,11 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       chain
     ) as bigint;
 
-    this.executorAddress =
+    const executorAddress =
       nttManagerWithExecutorAddresses[this.network]?.[this.chain];
+    if (!executorAddress)
+      throw new Error(`Executor address not found for chain ${this.chain}`);
+    this.executorAddress = executorAddress;
   }
 
   static async fromRpc<N extends Network>(
@@ -144,10 +147,6 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     ntt: EvmNtt<N, C>,
     wrapNative: boolean = false
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
-    if (!this.executorAddress) {
-      throw new Error(`No executor address for chain ${this.chain}`);
-    }
-
     const senderAddress = new EvmAddress(sender).toString();
     const deliveryPrice = await ntt.quoteDeliveryPrice(destination.chain, {
       queue: false,
@@ -158,7 +157,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     // Approval covers remainingAmount + transferTokenFee = the full user amount.
     const totalAmount = quote.remainingAmount + quote.transferTokenFee;
 
-    const iface = new Interface(abi);
+    const iface = new Interface(nttWithExecutorAbi);
 
     const commonArgs = [
       ntt.managerAddress,
