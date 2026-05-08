@@ -66,7 +66,10 @@ jobs:
           NTT_EVM_CACHE_DIR: ${{ github.workspace }}/evm
           SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
           BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
-        run: bun run --cwd cli test:e2e
+        # `test:e2e:evm` instead of `test:e2e` — the latter also runs the
+        # Solana e2e suite, which needs `solana-test-validator` (not
+        # installed on this runner) and is exercised by `test-cli-solana-e2e`.
+        run: bun run --cwd cli test:e2e:evm
 
   # Build Solana contracts (v1.0.0 and v2.0.0 in parallel)
   # Artifacts are cached based on version tag + build script hash
