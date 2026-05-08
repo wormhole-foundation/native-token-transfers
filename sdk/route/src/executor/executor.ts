@@ -328,9 +328,15 @@ export class NttExecutorRoute<N extends Network>
       params.normalizedParams.referrerAddress ??
       getDefaultReferrerAddress(fromChain.chain);
 
-    const transferTokenFee = params.normalizedParams.transferTokenFee;
     const nativeTokenFee = params.normalizedParams.nativeTokenFee;
     const transferAmount = amount.units(params.normalizedParams.amount);
+    // Trim the fee to destination decimals to avoid dust on the remaining amount.
+    const transferTokenFee = amount.units(
+      NttRoute.trimAmount(
+        amount.fromBaseUnits(params.normalizedParams.transferTokenFee, request.source.decimals),
+        request.destination.decimals
+      )
+    );
     const remainingAmount = transferAmount - transferTokenFee;
     if (remainingAmount <= 0n) {
       throw new Error("Amount after fee <= 0");
