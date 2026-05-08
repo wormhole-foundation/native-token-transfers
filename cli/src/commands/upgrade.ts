@@ -151,7 +151,8 @@ export function createUpgradeCommand(
       const [_, ctx, ntt] = await pullChainConfig(
         network,
         { chain, address: toUniversal(chain, chainConfig.manager) },
-        overrides
+        overrides,
+        chainConfig.instance
       );
 
       // Determine manager variant: use flag if provided, otherwise use config value, default to "standard"
@@ -175,7 +176,11 @@ export function createUpgradeCommand(
 
       // reinit the ntt object to get the new version
       // TODO: is there an easier way to do this?
-      const { ntt: upgraded } = await nttFromManager(ch, chainConfig.manager);
+      const { ntt: upgraded } = await nttFromManager(
+        ch,
+        chainConfig.manager,
+        chainConfig.instance
+      );
 
       chainConfig.version = getVersion(chain, upgraded);
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
