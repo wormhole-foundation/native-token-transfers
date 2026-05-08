@@ -124,6 +124,93 @@ jobs:
           path: /tmp/solana-artifacts/v${{ matrix.version }}
           retention-days: 1
 
+  # CLI bun-test e2e against a freshly-spun `solana-test-validator`. Builds
+  # the v4 .so from source (no v4 tag yet) and runs `bun test
+  # cli/e2e/e2e-solana.test.ts`, which drives `ntt init` /
+  # `ntt add-chain --instance-of` / `ntt upgrade` end-to-end and asserts on
+  # deployment.json + on-chain state. Mirrors solana.yml's `anchor-test`
+  # setup (same bun, solana, anchor, sdk steps) so we get the same .so the
+  # SDK tests use.
+  test-cli-solana-e2e:
+    name: CLI Solana E2E (bun)
+    runs-on: ubuntu-latest
+    env:
+      node-version: "24"
+      solana-cli-version: "1.18.26"
+      anchor-version: "0.29.0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.4"
+
+      - uses: ./.github/actions/setup-anchor
+        with:
+          anchor-version: ${{ env.anchor-version }}
+          solana-cli-version: ${{ env.solana-cli-version }}
+          node-version: ${{ env.node-version }}
+
+      - name: Cache solana node_modules
+        uses: actions/cache@v5
+        with:
+          path: ./solana/node_modules/
+          key: node-modules-${{ runner.os }}-build-${{ env.node-version }}
+
+      - name: Install solana node_modules
+        working-directory: ./solana
+        run: make node_modules
+        shell: bash
+
+      - name: Create keypair
+        run: solana-keygen new --no-bip39-passphrase
+        shell: bash
+
+      - name: Make Anchor.toml compatible with runner
+        working-directory: ./solana
+        run: sed -i 's:/user/:/runner/:' Anchor.toml
+        shell: bash
+
+      - name: Install Cargo toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustc
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "solana"
+
+      - name: Setup SDK (anchor build + idl + ts sdk)
+        working-directory: ./solana
+        run: make sdk
+        shell: bash
+
+      - name: Install root deps for CLI test
+        run: bun install
+        shell: bash
+
+      - name: Run CLI bun e2e
+        env:
+          # `tail -f /tmp/ntt-e2e-validator.log` from another step would be
+          # nice, but bun:test prints one [ntt] progress line per CLI
+          # invocation in this mode — enough breadcrumbs to localize a
+          # CI-only failure without drowning the log in SDK noise. Switch
+          # to NTT_E2E_VERBOSE=1 if a bug actually demands the full dump.
+          NTT_E2E_DEBUG: "1"
+        run: bun test cli/e2e/e2e-solana.test.ts
+        shell: bash
+
+      - name: Upload validator log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ntt-e2e-validator-log
+          path: /tmp/ntt-e2e-validator.log
+          if-no-files-found: ignore
+
   # Run Solana tests using pre-built artifacts
   test-solana:
     needs: build-solana

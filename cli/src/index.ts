@@ -66,7 +66,14 @@ yargs(hideBin(process.argv))
   .help()
   .strict()
   .demandCommand()
-  .parse();
+  // Use `parseAsync` so we can `await` async command handlers and then exit
+  // explicitly. Without this, the Solana SDK's `Connection` leaves a websocket
+  // subscription open after a successful command (`add-chain`, `upgrade`, …)
+  // and the process keeps the event loop alive until something times out.
+  // `parseAsync()` resolves once handlers finish; on error yargs still
+  // prints + exits 1 via its default fail handler before this resolves.
+  .parseAsync()
+  .then(() => process.exit(0));
 
 // ── Re-exports for backward compatibility ────────────────────────────
 // Commands import from "../index" — keep these re-exports so nothing breaks.
