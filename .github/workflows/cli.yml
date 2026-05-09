@@ -195,9 +195,19 @@ jobs:
         with:
           workspaces: "solana"
 
-      - name: Setup SDK (anchor build + idl + ts sdk)
+      - name: Build Solana program (anchor build + patch IDL)
         working-directory: ./solana
-        run: make sdk
+        run: make anchor-build
+        shell: bash
+
+      # `make sdk` only builds `bun run build:solana`, but the CLI also
+      # imports `@wormhole-foundation/sdk-evm-ntt` and `sdk-sui-ntt`
+      # workspace packages. Without their `dist/` populated, bun
+      # resolves the symlink to a package whose main/module fields
+      # point at non-existent files and reports `Cannot find module`.
+      # `bun run build` builds every workspace package.
+      - name: Build all SDK workspace packages
+        run: bun run build
         shell: bash
 
       - name: Run CLI bun e2e
