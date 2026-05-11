@@ -20,7 +20,7 @@ pub struct AcceptTokenAuthorityBase<'info> {
     pub mint: InterfaceAccount<'info, token_interface::Mint>,
 
     #[account(
-        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        seeds = [crate::TOKEN_AUTHORITY_SEED, config.key().as_ref()],
         bump,
     )]
     /// CHECK: The constraints enforce this is valid mint authority
@@ -120,7 +120,7 @@ pub struct SetTokenAuthority<'info> {
     pub mint: InterfaceAccount<'info, token_interface::Mint>,
 
     #[account(
-        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        seeds = [crate::TOKEN_AUTHORITY_SEED, config.key().as_ref()],
         bump,
     )]
     /// CHECK: The constraints enforce this is valid mint authority
@@ -147,12 +147,14 @@ pub struct SetTokenAuthorityUnchecked<'info> {
 pub fn set_token_authority_one_step_unchecked(
     ctx: Context<SetTokenAuthorityUnchecked>,
 ) -> Result<()> {
+    let config_key = ctx.accounts.common.config.key();
     match &ctx.accounts.common.multisig_token_authority {
         Some(multisig_token_authority) => claim_from_multisig_token_authority(
             ctx.accounts.token_program.to_account_info(),
             ctx.accounts.common.mint.to_account_info(),
             multisig_token_authority.to_account_info(),
             ctx.accounts.common.token_authority.to_account_info(),
+            config_key,
             ctx.bumps.common.token_authority,
             ctx.accounts.common.new_authority.key(),
         ),
@@ -160,6 +162,7 @@ pub fn set_token_authority_one_step_unchecked(
             ctx.accounts.token_program.to_account_info(),
             ctx.accounts.common.mint.to_account_info(),
             ctx.accounts.common.token_authority.to_account_info(),
+            config_key,
             ctx.bumps.common.token_authority,
             ctx.accounts.common.new_authority.key(),
         ),
@@ -185,7 +188,7 @@ pub struct SetTokenAuthorityChecked<'info> {
         init_if_needed,
         space = 8 + PendingTokenAuthority::INIT_SPACE,
         payer = rent_payer,
-        seeds = [PendingTokenAuthority::SEED_PREFIX],
+        seeds = [PendingTokenAuthority::SEED_PREFIX, common.config.key().as_ref()],
         bump
      )]
     pub pending_token_authority: Account<'info, PendingTokenAuthority>,
@@ -223,7 +226,7 @@ pub struct ClaimTokenAuthorityBase<'info> {
     pub mint: InterfaceAccount<'info, token_interface::Mint>,
 
     #[account(
-        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        seeds = [crate::TOKEN_AUTHORITY_SEED, config.key().as_ref()],
         bump,
     )]
     /// CHECK: The seeds constraint enforces that this is the correct address
@@ -242,7 +245,7 @@ pub struct ClaimTokenAuthorityBase<'info> {
 
     #[account(
         mut,
-        seeds = [PendingTokenAuthority::SEED_PREFIX],
+        seeds = [PendingTokenAuthority::SEED_PREFIX, config.key().as_ref()],
         bump = pending_token_authority.bump,
         has_one = rent_payer @ NTTError::IncorrectRentPayer,
         close = rent_payer
@@ -280,12 +283,14 @@ pub struct ClaimTokenAuthority<'info> {
 }
 
 pub fn claim_token_authority(ctx: Context<ClaimTokenAuthority>) -> Result<()> {
+    let config_key = ctx.accounts.common.config.key();
     match &ctx.accounts.common.multisig_token_authority {
         Some(multisig_token_authority) => claim_from_multisig_token_authority(
             ctx.accounts.common.token_program.to_account_info(),
             ctx.accounts.common.mint.to_account_info(),
             multisig_token_authority.to_account_info(),
             ctx.accounts.common.token_authority.to_account_info(),
+            config_key,
             ctx.bumps.common.token_authority,
             ctx.accounts.new_authority.key(),
         ),
@@ -293,6 +298,7 @@ pub fn claim_token_authority(ctx: Context<ClaimTokenAuthority>) -> Result<()> {
             ctx.accounts.common.token_program.to_account_info(),
             ctx.accounts.common.mint.to_account_info(),
             ctx.accounts.common.token_authority.to_account_info(),
+            config_key,
             ctx.bumps.common.token_authority,
             ctx.accounts.new_authority.key(),
         ),
@@ -326,12 +332,14 @@ pub fn claim_token_authority_to_multisig(
         )?;
     }
 
+    let config_key = ctx.accounts.common.config.key();
     match &ctx.accounts.common.multisig_token_authority {
         Some(multisig_token_authority) => claim_from_multisig_token_authority(
             ctx.accounts.common.token_program.to_account_info(),
             ctx.accounts.common.mint.to_account_info(),
             multisig_token_authority.to_account_info(),
             ctx.accounts.common.token_authority.to_account_info(),
+            config_key,
             ctx.bumps.common.token_authority,
             ctx.accounts.new_multisig_authority.key(),
         ),
@@ -339,6 +347,7 @@ pub fn claim_token_authority_to_multisig(
             ctx.accounts.common.token_program.to_account_info(),
             ctx.accounts.common.mint.to_account_info(),
             ctx.accounts.common.token_authority.to_account_info(),
+            config_key,
             ctx.bumps.common.token_authority,
             ctx.accounts.new_multisig_authority.key(),
         ),
@@ -349,6 +358,7 @@ fn claim_from_token_authority<'info>(
     token_program: AccountInfo<'info>,
     mint: AccountInfo<'info>,
     token_authority: AccountInfo<'info>,
+    config_key: Pubkey,
     token_authority_bump: u8,
     new_authority: Pubkey,
 ) -> Result<()> {
@@ -359,7 +369,11 @@ fn claim_from_token_authority<'info>(
                 account_or_mint: mint,
                 current_authority: token_authority,
             },
-            &[&[crate::TOKEN_AUTHORITY_SEED, &[token_authority_bump]]],
+            &[&[
+                crate::TOKEN_AUTHORITY_SEED,
+                config_key.as_ref(),
+                &[token_authority_bump],
+            ]],
         ),
         AuthorityType::MintTokens,
         Some(new_authority),
@@ -372,6 +386,7 @@ fn claim_from_multisig_token_authority<'info>(
     mint: AccountInfo<'info>,
     multisig_token_authority: AccountInfo<'info>,
     token_authority: AccountInfo<'info>,
+    config_key: Pubkey,
     token_authority_bump: u8,
     new_authority: Pubkey,
 ) -> Result<()> {
@@ -385,7 +400,11 @@ fn claim_from_multisig_token_authority<'info>(
             &[&token_authority.key()],
         )?,
         &[mint, multisig_token_authority, token_authority],
-        &[&[crate::TOKEN_AUTHORITY_SEED, &[token_authority_bump]]],
+        &[&[
+            crate::TOKEN_AUTHORITY_SEED,
+            config_key.as_ref(),
+            &[token_authority_bump],
+        ]],
     )?;
     Ok(())
 }

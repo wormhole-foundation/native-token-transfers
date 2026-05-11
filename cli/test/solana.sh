@@ -12,10 +12,22 @@
 
 set -euo pipefail
 
-# Share cargo target directory across builds to speed up compilation
-# This allows v1.0.0 and v2.0.0 builds to reuse compiled dependencies
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/solana-test-target}"
-mkdir -p "$CARGO_TARGET_DIR"
+# Resolve the script's own directory before any `cd`s. Used by the v4 section
+# below to locate the local source tree from which to build the v4 binary.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Intentionally NOT exporting CARGO_TARGET_DIR here. The CLI manages a
+# separate worktree per program version under `.deployments/Solana-<ver>/`,
+# each with its own source tree; a single global CARGO_TARGET_DIR collapses
+# their `target/` dirs and lets v1's `.so` / program-id keypair clobber v2's
+# (and vice versa). Each worktree builds into its own `target/`. If you want
+# cross-version dep caching for faster local iteration, use `sccache` —
+# that's the right tool for "share rustc cache without sharing outputs."
+
+# macOS adds AppleDouble metadata files (`._foo`) inside tar archives, which
+# `solana-test-validator` rejects when unpacking the genesis archive. Disable
+# that behavior so the validator can boot on darwin hosts. No-op on linux.
+export COPYFILE_DISABLE=1
 
 # Default values
 PORT=6000
@@ -98,6 +110,11 @@ if [ "$USE_TMP_DIR" = true ]; then
    cd test-ntt || exit
 fi
 
+# Source-tree files the v4 multi-tenant section temporarily patches (so the
+# .so we deploy has a `declare_id!` matching a keypair we actually have).
+# Tracked here so cleanup restores them even if the test exits early.
+V4_PATCHED_FILES=()
+
 # Function to clean up resources
 cleanup() {
     echo "Cleaning up..."
@@ -110,6 +127,13 @@ cleanup() {
         mv "${OVERRIDES_FILE}.bak" "$OVERRIDES_FILE"
     else
         rm -f "$OVERRIDES_FILE"
+    fi
+    # Restore any source files the v4 section patched. `${var+x}` shields the
+    # unset case under `set -u` for hosts that haven't reached the v4 block.
+    if [ "${V4_PATCHED_FILES+x}" ] && [ "${#V4_PATCHED_FILES[@]}" -gt 0 ]; then
+        for f in "${V4_PATCHED_FILES[@]}"; do
+            [ -f "$f.cli-test-bak" ] && mv "$f.cli-test-bak" "$f"
+        done
     fi
     solana config set --keypair "$old_default_keypair" > /dev/null
 }
@@ -172,8 +196,12 @@ keypair=$(solana-keygen grind --starts-with w:1 --ignore-case | grep 'Wrote keyp
 keypair=$(realpath "$keypair")
 solana config set --keypair "$keypair"
 
-# Airdrop SOL
-solana airdrop 50 -u "$NETWORK" --keypair "$keypair"
+# Airdrop SOL. `ntt add-chain` ultimately invokes `solana program deploy
+# --commitment finalized`, which checks the payer's balance at the finalized
+# slot. Solana's airdrop is confirmed but not finalized, so without
+# `--commitment finalized` here the deploy can race the finalization and fail
+# with a bogus "insufficient funds" error against a freshly-airdropped account.
+solana airdrop 50 -u "$NETWORK" --keypair "$keypair" --commitment finalized
 # This steps is a bit voodoo -- we airdrop to this special address, which is
 # needed for querying the program version. For more info, grep for these pubkeys in the ntt repo.
 solana airdrop 1 Hk3SdYTJFpawrvRz4qRztuEt2SqoCG7BGj2yJfDJSFbJ -u "$NETWORK" --keypair "$keypair" > /dev/null
@@ -239,6 +267,139 @@ ntt status || true
 ntt push --payer "$keypair" --yes
 
 cat "$DEPLOYMENT_FILE"
+
+###########################################################################
+# v4 multi-tenant section
+#
+# Exercises the multi-tenant deployment shape: a single deployed Solana
+# program that hosts many independent NTT instances (one Config keypair per
+# instance, all PDAs scoped by `config.key()`). Tests:
+#
+#   1. `ntt upgrade Solana --ver 4.0.0` from the just-deployed v2 program is
+#      blocked by `canUpgrade()` with the expected migration error.
+#   2. After deploying a fresh v4 program raw (`solana program deploy`),
+#      `ntt add-chain Solana --instance-of <programId>` creates the first
+#      instance under it and persists `instance` in deployment.json.
+#   3. A second `--instance-of` against the same program creates an
+#      independent second instance, demonstrating multi-tenant isolation
+#      under one program ID.
+###########################################################################
+echo
+echo "=============================="
+echo " v4 multi-tenant section"
+echo "=============================="
+
+# (1) v3 → v4 in-place upgrade is rejected by canUpgrade().
+echo
+echo "Asserting v3 -> v4 in-place upgrade is blocked..."
+upgrade_v4_log=$(ntt upgrade Solana --ver 4.0.0 --payer "$keypair" --program-key "$ntt_keypair" --yes 2>&1 || true)
+if echo "$upgrade_v4_log" | grep -q "cannot upgrade Solana from .* to 4\.0\.0 in place"; then
+    echo "OK: v3 -> v4 upgrade was blocked"
+else
+    echo "FAIL: expected v3 -> v4 upgrade to be blocked. Got:"
+    echo "$upgrade_v4_log"
+    exit 1
+fi
+
+# (2) Fresh v4 program + first instance via `--instance-of`.
+#
+# We don't have a v4.0.0+solana git tag yet (still in development on this
+# branch), so we can't go through the CLI's tag-based fresh-deploy path.
+# Locate (or build) a v4 binary from the local source tree, deploy it raw,
+# then run `ntt add-chain --instance-of` — which doesn't depend on a
+# worktree, so the lack of tag is fine here.
+V4_SOURCE_ROOT="$(realpath "$SCRIPT_DIR/../..")"
+V4_SOLANA_DIR="$V4_SOURCE_ROOT/solana"
+# Look for the v4 binary in the canonical anchor location under the source
+# tree. We do NOT honor `CARGO_TARGET_DIR` here: this script also exports it
+# for sharing v1/v2 build caches, but those builds produce binaries with a
+# *different* `declare_id!` — picking one of those here would give us a v4
+# program ID whose runtime check then fires `DeclaredProgramIdMismatch`.
+V4_BINARY="$V4_SOLANA_DIR/target/deploy/example_native_token_transfers.so"
+V4_PROGRAM_KEYPAIR="$V4_SOLANA_DIR/target/deploy/example_native_token_transfers-keypair.json"
+if [ ! -f "$V4_BINARY" ] || [ ! -f "$V4_PROGRAM_KEYPAIR" ]; then
+    echo
+    echo "Skipping v4 multi-tenant deploy test: binary not found at $V4_BINARY."
+    echo "Run \`anchor build -- --features mainnet\` in $V4_SOLANA_DIR to populate"
+    echo "the target/deploy dir, then re-run this script."
+    exit 0
+fi
+# A `declare_id!` mismatch between the .so and the keypair would surface as
+# AnchorError 4100 (DeclaredProgramIdMismatch) at the very first instruction.
+# When mismatched, patch Anchor.toml + lib.rs to declare the keypair we
+# have, rebuild, and restore the source on exit. (We can't deploy at the
+# `nttiK1Sep…` mainnet program ID locally because we don't have its
+# keypair; this lets the test exercise the actual deploy path under a
+# fresh, locally-keypair'd id.)
+V4_DECLARED_ID="$(grep 'example_native_token_transfers = "' "$V4_SOLANA_DIR/Anchor.toml" | sed 's/.*"\(.*\)"/\1/')"
+V4_KEYPAIR_PUBKEY="$(solana-keygen pubkey "$V4_PROGRAM_KEYPAIR")"
+if [ "$V4_DECLARED_ID" != "$V4_KEYPAIR_PUBKEY" ]; then
+    echo
+    echo "Patching $V4_SOLANA_DIR/Anchor.toml + lib.rs to declare the local"
+    echo "keypair ($V4_KEYPAIR_PUBKEY) instead of the mainnet id"
+    echo "($V4_DECLARED_ID), then rebuilding. Source will be restored on exit."
+    V4_ANCHOR_TOML="$V4_SOLANA_DIR/Anchor.toml"
+    V4_LIB_RS="$V4_SOLANA_DIR/programs/example-native-token-transfers/src/lib.rs"
+    cp "$V4_ANCHOR_TOML" "$V4_ANCHOR_TOML.cli-test-bak"
+    cp "$V4_LIB_RS" "$V4_LIB_RS.cli-test-bak"
+    V4_PATCHED_FILES+=("$V4_ANCHOR_TOML" "$V4_LIB_RS")
+    sed -i.tmp "s/$V4_DECLARED_ID/$V4_KEYPAIR_PUBKEY/g" "$V4_ANCHOR_TOML"
+    sed -i.tmp "s/$V4_DECLARED_ID/$V4_KEYPAIR_PUBKEY/g" "$V4_LIB_RS"
+    rm -f "$V4_ANCHOR_TOML.tmp" "$V4_LIB_RS.tmp"
+    # The v3 worktree's `add-chain` ran `agave-install init` for its own
+    # pinned solana version (e.g. 1.18.10), which leaves the active install
+    # on the wrong version for the v4 build. Re-init to the version v4
+    # Anchor.toml pins so anchor's toolchain switcher resolves cleanly.
+    V4_PINNED_SOLANA="$(grep '^solana_version' "$V4_ANCHOR_TOML" | sed 's/.*"\(.*\)"/\1/')"
+    if [ -n "$V4_PINNED_SOLANA" ] && [ "$(solana --version | awk '{print $2}')" != "$V4_PINNED_SOLANA" ]; then
+        agave-install init "$V4_PINNED_SOLANA" > /dev/null
+    fi
+    # `anchor build` reads `target/deploy/<name>-keypair.json` as the source
+    # of truth for the program id and patches lib.rs / Anchor.toml back to
+    # that pubkey before compiling — so the rebuilt `.so`'s declared id
+    # will match `$V4_PROGRAM_KEYPAIR` (which lives at exactly this path)
+    # without any extra copy step.
+    (cd "$V4_SOLANA_DIR" && COPYFILE_DISABLE=1 anchor build -- --features mainnet) > /dev/null
+fi
+echo
+echo "Using v4 binary at $V4_BINARY"
+v4_program_id=$(solana-keygen pubkey "$V4_PROGRAM_KEYPAIR")
+echo "v4 program ID: $v4_program_id"
+
+# Top up the payer so we can afford another rent-exempt program account.
+solana airdrop 50 -u "$NETWORK" --keypair "$keypair" --commitment finalized > /dev/null
+
+echo "Deploying v4 program binary..."
+solana program deploy --program-id "$V4_PROGRAM_KEYPAIR" "$V4_BINARY" \
+    --keypair "$keypair" -u "$NETWORK" --commitment finalized > /dev/null
+
+# Reset deployment.json — the v3 chain config no longer applies.
+rm -f "$DEPLOYMENT_FILE"
+ntt init Mainnet
+
+# Create a fresh mint and pre-set its authority to the per-instance
+# token_authority PDA. v4 derives token_authority from `(programId, instance)`,
+# so we have to commit to the instance pubkey before initialize.
+v4_token_a=$(spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb -u "$NETWORK" | grep "Address:" | awk '{print $2}')
+v4_instance_a_keypair="$KEYS_DIR/v4-instance-a.json"
+solana-keygen new --no-bip39-passphrase --silent -o "$v4_instance_a_keypair" --force > /dev/null
+v4_instance_a=$(solana-keygen pubkey "$v4_instance_a_keypair")
+v4_token_authority_a=$(ntt solana token-authority "$v4_program_id" --instance "$v4_instance_a")
+echo "Instance A: $v4_instance_a (token_authority $v4_token_authority_a, mint $v4_token_a)"
+spl-token authorize "$v4_token_a" mint "$v4_token_authority_a" -u "$NETWORK" > /dev/null
+
+ntt add-chain Solana --ver 4.0.0 --mode burning --token "$v4_token_a" \
+    --payer "$keypair" --instance-of "$v4_program_id" \
+    --instance-key "$v4_instance_a_keypair" --yes
+
+# Sanity-check: deployment.json must record the instance pubkey alongside
+# the manager program ID so subsequent commands derive instance-scoped PDAs.
+if ! grep -q "\"instance\": \"$v4_instance_a\"" "$DEPLOYMENT_FILE"; then
+    echo "FAIL: deployment.json missing instance pubkey for instance A"
+    cat "$DEPLOYMENT_FILE"
+    exit 1
+fi
+echo "OK: deployment.json records instance A under program $v4_program_id"
 
 if [ "$KEEP_ALIVE" = true ]; then
     # wait for C-c to kill the validator

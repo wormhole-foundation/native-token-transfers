@@ -39,6 +39,7 @@ import {
  * For legacy builds on non-Solana chains, patches the binary after building.
  * @param pwd - Project root directory
  * @param network - Network to build for
+/**
  * @param chain - Target chain (used to determine if patching is needed)
  * @param wormhole - Wormhole core bridge address
  * @param overrides - Wormhole SDK config overrides
@@ -280,12 +281,43 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   managerKeyPath?: string,
   binaryPath?: string,
   priorityFee?: number,
-  overrides?: WormholeConfigOverrides<Network>
-): Promise<ChainAddress<C>> {
+  overrides?: WormholeConfigOverrides<Network>,
+  instanceKeyPath?: string
+): Promise<{
+  chain: C;
+  address: ChainAddress<C>["address"];
+  instance?: PublicKey;
+}> {
   const wormhole = ch.config.contracts.coreBridge;
   if (!wormhole) {
     console.error("Core bridge not found");
     process.exit(1);
+  }
+
+  // Multi-tenant Solana NTT (≥ v4) keys every per-instance PDA by the
+  // Instance account pubkey and requires that keypair to co-sign
+  // `initialize` so Anchor's `init` can allocate the Config account at it.
+  // Generate (or load) it before SDK construction so the ntt object derives
+  // instance-scoped PDAs throughout.
+  const major = version ? parseInt(version.split(".")[0] ?? "0", 10) : 0;
+  const multiTenant = major >= 4;
+  let instanceKeypair: Keypair | undefined;
+  if (multiTenant) {
+    if (instanceKeyPath) {
+      instanceKeypair = Keypair.fromSecretKey(
+        new Uint8Array(JSON.parse(fs.readFileSync(instanceKeyPath).toString()))
+      );
+    } else {
+      instanceKeypair = Keypair.generate();
+      const generatedPath = `${ch.chain}-instance.json`;
+      fs.writeFileSync(
+        generatedPath,
+        JSON.stringify(Array.from(instanceKeypair.secretKey))
+      );
+      console.log(
+        `Generated instance keypair at ${generatedPath} (pubkey: ${instanceKeypair.publicKey.toBase58()})`
+      );
+    }
   }
 
   // Build the Solana program (or use provided binary)
@@ -310,7 +342,13 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   // time by checking it here and failing early (not to mention better
   // diagnostics).
 
-  const emitter = NTT.transceiverPdas(providedProgramId)
+  // Singleton (legacy) deployments use the emitter PDA derived from the
+  // program ID alone; multi-tenant deployments scope it by the instance
+  // pubkey. EVM/Sui peers register against this address.
+  const emitter = NTT.transceiverPdas(
+    providedProgramId,
+    multiTenant ? instanceKeypair!.publicKey : undefined
+  )
     .emitterAccount()
     .toBase58();
   const payerKeypair = Keypair.fromSecretKey(
@@ -336,7 +374,19 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
     dummy.network,
     dummy.chain,
     dummy.connection,
-    dummy.contracts,
+    {
+      ...dummy.contracts,
+      ntt: {
+        ...dummy.contracts.ntt!,
+        // Thread the instance pubkey for multi-tenant deployments so the
+        // SDK derives the per-instance Config / token_authority / etc.
+        // The constructor refuses a multi-tenant version without `instance`
+        // (and a singleton version with it).
+        ...(multiTenant && {
+          instance: instanceKeypair!.publicKey.toBase58(),
+        }),
+      },
+    },
     version ?? undefined
   );
 
@@ -447,6 +497,10 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
         mint: new PublicKey(token),
         mode,
         outboundLimit: 100000000n,
+        // Multi-tenant only: pass the instance keypair so it can co-sign
+        // the initialize tx — Anchor's `init` allocates the Config account
+        // at that pubkey.
+        ...(multiTenant && { instance: instanceKeypair! }),
         ...(mode === "burning" &&
           !mint.mintAuthority!.equals(tokenAuthority) && {
             multisigTokenAuthority: mint.mintAuthority!,
@@ -474,7 +528,170 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
     }
   }
 
-  return { chain: ch.chain, address: toUniversal(ch.chain, providedProgramId) };
+  return {
+    chain: ch.chain,
+    address: toUniversal(ch.chain, providedProgramId),
+    ...(multiTenant && { instance: instanceKeypair!.publicKey }),
+  };
+}
+
+/**
+ * v4 only: create a new Instance under an existing Solana NTT program.
+ *
+ * Skips the program-deploy step entirely. Generates (or loads) an Instance
+ * keypair, constructs a `SolanaNtt` bound to the existing `programId` and the
+ * fresh instance pubkey, and submits the v4 `initialize` transaction signed by
+ * both the payer and the instance keypair.
+ *
+ * Returns the program id (as `manager` in the deployment.json sense) plus the
+ * instance pubkey; the caller is responsible for writing both into
+ * `ChainConfig`.
+ */
+export async function addSolanaInstance<
+  N extends Network,
+  C extends SolanaChains,
+>(
+  version: string,
+  mode: Ntt.Mode,
+  ch: ChainContext<N, C>,
+  token: string,
+  payer: string,
+  programId: string,
+  instanceKeyPath?: string,
+  outboundLimit: bigint = 100_000_000n
+): Promise<{ chain: C; manager: ChainAddress<C>; instance: PublicKey }> {
+  // Load or generate the instance keypair. The keypair's pubkey is the new
+  // Instance account address; in v4 it's also the on-the-wire NTT manager
+  // identity for this deployment.
+  let instanceKeypair: Keypair;
+  if (instanceKeyPath) {
+    instanceKeypair = Keypair.fromSecretKey(
+      new Uint8Array(JSON.parse(fs.readFileSync(instanceKeyPath).toString()))
+    );
+  } else {
+    instanceKeypair = Keypair.generate();
+    const generatedPath = `${ch.chain}-instance.json`;
+    fs.writeFileSync(
+      generatedPath,
+      JSON.stringify(Array.from(instanceKeypair.secretKey))
+    );
+    console.log(
+      `Generated instance keypair at ${generatedPath} (pubkey: ${instanceKeypair.publicKey.toBase58()})`
+    );
+  }
+
+  const payerKeypair = Keypair.fromSecretKey(
+    new Uint8Array(JSON.parse(fs.readFileSync(payer).toString()))
+  );
+
+  // The Wormhole transceiver address in v4 is the instance-scoped emitter PDA.
+  const emitter = NTT.transceiverPdas(
+    new PublicKey(programId),
+    instanceKeypair.publicKey
+  )
+    .emitterAccount()
+    .toBase58();
+
+  const connection: Connection = await ch.getRpc();
+  const ntt: SolanaNtt<N, C> = new SolanaNtt(
+    ch.network,
+    ch.chain,
+    connection,
+    {
+      ...ch.config.contracts,
+      ntt: {
+        manager: programId,
+        token,
+        instance: instanceKeypair.publicKey.toBase58(),
+        transceiver: { wormhole: emitter },
+      },
+    },
+    version
+  );
+
+  // Sanity check the mint's mint_authority matches the per-instance token_authority
+  // for burning mode (mirrors the program-side constraint in v4 initialize).
+  const tokenMint = new PublicKey(token);
+  const mintInfo = await connection.getAccountInfo(tokenMint);
+  if (mintInfo === null) {
+    console.error(`Mint ${token} not found`);
+    process.exit(1);
+  }
+  const tokenProgram = mintInfo.owner;
+  // Read mint state at the connection's default commitment (typically
+  // "confirmed"). Using "finalized" here races mint creation in fast-spin
+  // local-validator setups — by the time we land on this line the mint can
+  // be confirmed but not yet finalized, and `getMint` then 404s.
+  const mint = await spl.getMint(
+    connection,
+    tokenMint,
+    undefined,
+    tokenProgram
+  );
+  const tokenAuthority = ntt.pdas.tokenAuthority();
+  if (
+    mode === "burning" &&
+    !mint.mintAuthority?.equals(tokenAuthority) &&
+    !(await checkSvmValidSplMultisig(
+      connection,
+      mint.mintAuthority!,
+      tokenProgram,
+      tokenAuthority
+    ))
+  ) {
+    console.error(
+      `In burning mode, the mint authority must be either the token_authority PDA or a 1-of-N SPL Multisig containing it.\n` +
+        `  mint authority:    ${mint.mintAuthority?.toBase58()}\n` +
+        `  expected token_authority (per-instance): ${tokenAuthority.toBase58()}`
+    );
+    process.exit(1);
+  }
+
+  const initTxs = ntt.initialize(
+    toUniversal(ch.chain, payerKeypair.publicKey.toBase58()),
+    {
+      mint: tokenMint,
+      mode,
+      outboundLimit,
+      instance: instanceKeypair,
+      ...(mode === "burning" &&
+        !mint.mintAuthority!.equals(tokenAuthority) && {
+          multisigTokenAuthority: mint.mintAuthority!,
+        }),
+    }
+  );
+
+  const signer = await getSigner(
+    ch,
+    "privateKey",
+    encoding.b58.encode(payerKeypair.secretKey)
+  );
+
+  // The initialize generator yields the initialize ix first, then
+  // initializeOrUpdateLUT. The latter CPIs into the wormhole core bridge,
+  // which can be unavailable in dev environments (e.g. a bare
+  // solana-test-validator without the bridge loaded). Log and continue —
+  // matches the same swallow-on-LUT-failure shape that `deploySvm` uses for
+  // legacy deployments, so the rest of the flow (writing deployment.json,
+  // registering the transceiver) still runs.
+  try {
+    await signSendWait(ch, initTxs, signer.signer);
+  } catch (e: any) {
+    console.error(e.logs);
+  }
+
+  // After initialize, register the Wormhole transceiver under the new instance.
+  try {
+    await registerSolanaTransceiver(ntt as any, ch, signer);
+  } catch (e: any) {
+    console.error(e.logs);
+  }
+
+  return {
+    chain: ch.chain,
+    manager: { chain: ch.chain, address: toUniversal(ch.chain, programId) },
+    instance: instanceKeypair.publicKey,
+  };
 }
 
 export async function upgradeSolana<N extends Network, C extends SolanaChains>(

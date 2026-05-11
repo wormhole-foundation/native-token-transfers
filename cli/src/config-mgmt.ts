@@ -101,12 +101,17 @@ export async function pushDeployment<C extends Chain>(
         const ix = dangerouslyTransferOwnershipInOneStep
           ? await NTT.createTransferOwnershipOneStepUncheckedInstruction(
               solanaNtt.program,
-              { owner, newOwner }
+              { owner, newOwner },
+              solanaNtt.pdas
             )
-          : await NTT.createTransferOwnershipInstruction(solanaNtt.program, {
-              owner,
-              newOwner,
-            });
+          : await NTT.createTransferOwnershipInstruction(
+              solanaNtt.program,
+              {
+                owner,
+                newOwner,
+              },
+              solanaNtt.pdas
+            );
 
         const tx = new solanaWeb3.Transaction();
         tx.add(ix);
@@ -272,7 +277,8 @@ export async function pullDeployments(
       const [remote, ctx, ntt, decimals] = await pullChainConfig(
         network,
         { chain, address: toUniversal(chain, managerAddress) },
-        overrides
+        overrides,
+        deployment.instance
       );
       const local = deployments.chains[chain];
 
@@ -355,7 +361,11 @@ export async function pullDeployments(
 export async function pullChainConfig<N extends Network, C extends Chain>(
   network: N,
   manager: ChainAddress<C>,
-  overrides?: WormholeConfigOverrides<N>
+  overrides?: WormholeConfigOverrides<N>,
+  // Solana-only: per-instance Config pubkey for multi-tenant deployments
+  // (>= v4). Required to construct the SDK against a multi-tenant manager.
+  // Pass `undefined` for legacy single-tenant managers and non-Solana chains.
+  solanaInstance?: string
 ): Promise<
   [ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]
 > {
@@ -372,7 +382,7 @@ export async function pullChainConfig<N extends Network, C extends Chain>(
     ntt,
     addresses,
   }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> } =
-    await nttFromManager<N, C>(ch, nativeManagerAddress);
+    await nttFromManager<N, C>(ch, nativeManagerAddress, solanaInstance);
 
   const mode = await ntt.getMode();
   const outboundLimit = await ntt.getOutboundLimit();
@@ -398,6 +408,7 @@ export async function pullChainConfig<N extends Network, C extends Chain>(
     paused,
     owner: owner.toString(),
     manager: nativeManagerAddress,
+    ...(solanaInstance && { instance: solanaInstance }),
     token: addresses.token!,
     transceivers: {
       threshold,

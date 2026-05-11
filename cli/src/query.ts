@@ -130,18 +130,25 @@ export function getVersion<N extends Network, C extends Chain>(
 // finally reconstructing the "real" NTT object from that
 export async function nttFromManager<N extends Network, C extends Chain>(
   ch: ChainContext<N, C>,
-  nativeManagerAddress: string
+  nativeManagerAddress: string,
+  // Solana-only: per-instance Config pubkey for multi-tenant (v4+)
+  // deployments. Required when reading a multi-tenant manager — the SDK
+  // throws on construction without it. No-op for legacy single-tenant
+  // managers and non-Solana chains.
+  instance?: string
 ): Promise<{ ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> }> {
   const onlyManager = await ch.getProtocol("Ntt", {
     ntt: {
       manager: nativeManagerAddress,
       transceiver: {},
+      ...(instance && { instance }),
     },
   });
   const diff = await onlyManager.verifyAddresses();
 
-  const addresses: Partial<Ntt.Contracts> = {
+  const addresses: Partial<Ntt.Contracts> & { instance?: string } = {
     manager: nativeManagerAddress,
+    ...(instance && { instance }),
     ...diff,
   };
 

@@ -125,7 +125,8 @@ export function createSetMintAuthorityCommand(
         const [, , ntt] = await pullChainConfig(
           network,
           { chain, address: toUniversal(chain, chainConfig.manager) },
-          overrides
+          overrides,
+          chainConfig.instance
         );
         solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
         tokenMint = (await solanaNtt.getConfig()).mint;
@@ -291,7 +292,8 @@ export function createSetMintAuthorityCommand(
                 {
                   currentAuthority: payerKeypair.publicKey,
                   multisigTokenAuthority,
-                }
+                },
+                solanaNtt.pdas
               ),
             ],
             recentBlockhash: latestBlockHash.blockhash,

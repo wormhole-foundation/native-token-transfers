@@ -2,13 +2,22 @@ use anchor_lang::prelude::Pubkey;
 
 pub type NTTTransceiver = dyn NTTTransceiverAccounts;
 
+/// v4: emitter, transceiver_peer, transceiver_message PDAs are scoped by the
+/// instance pubkey; implementors carry it. wormhole_message and
+/// unverified_message_account are content-addressed and don't need instance
+/// scoping.
 pub trait NTTTransceiverAccounts {
     fn program(&self) -> Pubkey {
         example_native_token_transfers::ID
     }
 
+    fn config(&self) -> Pubkey;
+
     fn emitter(&self) -> Pubkey {
-        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program());
+        let (emitter, _) = Pubkey::find_program_address(
+            &[b"emitter".as_ref(), self.config().as_ref()],
+            &self.program(),
+        );
         emitter
     }
 
@@ -22,7 +31,11 @@ pub trait NTTTransceiverAccounts {
 
     fn transceiver_peer(&self, chain: u16) -> Pubkey {
         let (peer, _) = Pubkey::find_program_address(
-            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
+            &[
+                b"transceiver_peer".as_ref(),
+                self.config().as_ref(),
+                &chain.to_be_bytes(),
+            ],
             &self.program(),
         );
         peer
@@ -30,7 +43,12 @@ pub trait NTTTransceiverAccounts {
 
     fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
         let (transceiver_message, _) = Pubkey::find_program_address(
-            &[b"transceiver_message".as_ref(), &chain.to_be_bytes(), &id],
+            &[
+                b"transceiver_message".as_ref(),
+                self.config().as_ref(),
+                &chain.to_be_bytes(),
+                &id,
+            ],
             &self.program(),
         );
         transceiver_message
@@ -45,11 +63,18 @@ pub trait NTTTransceiverAccounts {
     }
 }
 
-/// This implements the account derivations correctly. For negative tests, other
-/// implementations will implement them incorrectly.
-pub struct GoodNTTTransceiver {}
+/// Holds the instance pubkey for this deployment. For negative tests, other
+/// implementations can return wrong addresses.
+pub struct GoodNTTTransceiver {
+    pub instance: Pubkey,
+}
 
-#[allow(non_upper_case_globals)]
-pub const good_ntt_transceiver: GoodNTTTransceiver = GoodNTTTransceiver {};
+impl NTTTransceiverAccounts for GoodNTTTransceiver {
+    fn config(&self) -> Pubkey {
+        self.instance
+    }
+}
 
-impl NTTTransceiverAccounts for GoodNTTTransceiver {}
+pub fn good_ntt_transceiver(instance: Pubkey) -> GoodNTTTransceiver {
+    GoodNTTTransceiver { instance }
+}
