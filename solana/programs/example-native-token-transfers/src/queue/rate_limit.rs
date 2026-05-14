@@ -15,6 +15,9 @@ pub struct RateLimitState {
     /// capacity. Transactions that exceeded the capacity do not count, they are
     /// just delayed.
     pub last_tx_timestamp: i64,
+    /// The duration (in seconds) it takes for the limits to fully replenish.
+    /// Default: 24 hours (86400 seconds), matching EVM and Sui defaults.
+    pub rate_limit_duration: i64,
 }
 
 /// The result of attempting to consume from a rate limiter.
@@ -34,10 +37,18 @@ impl RateLimitState {
             limit,
             capacity_at_last_tx: limit,
             last_tx_timestamp: 0,
+            rate_limit_duration: 60 * 60 * 24, // 24 hours default
         }
     }
 
-    pub const RATE_LIMIT_DURATION: i64 = 60 * 60 * 24; // 24 hours
+    pub fn new_with_duration(limit: u64, duration: i64) -> Self {
+        Self {
+            limit,
+            capacity_at_last_tx: limit,
+            last_tx_timestamp: 0,
+            rate_limit_duration: duration,
+        }
+    }
 
     pub fn capacity(&self) -> u64 {
         self.capacity_at(current_timestamp())
@@ -76,7 +87,7 @@ impl RateLimitState {
         let calculated_capacity = {
             let time_passed = now - self.last_tx_timestamp;
             u128::from(capacity_at_last_tx)
-                + time_passed as u128 * limit / (Self::RATE_LIMIT_DURATION as u128)
+                + time_passed as u128 * limit / (self.rate_limit_duration as u128)
         };
 
         // The use of `min` here prevents truncation.
@@ -99,7 +110,7 @@ impl RateLimitState {
             self.last_tx_timestamp = now;
             RateLimitResult::Consumed(now)
         } else {
-            RateLimitResult::Delayed(now + Self::RATE_LIMIT_DURATION)
+            RateLimitResult::Delayed(now + self.rate_limit_duration)
         }
     }
 
@@ -130,6 +141,10 @@ impl RateLimitState {
         self.capacity_at_last_tx = new_capacity.min(limit);
         self.last_tx_timestamp = now;
     }
+
+    pub fn set_duration(&mut self, duration: i64) {
+        self.rate_limit_duration = duration;
+    }
 }
 
 #[cfg(test)]
@@ -157,7 +172,7 @@ mod tests {
         assert_eq!(rate_limit_state.last_tx_timestamp, current_timestamp());
 
         // replenish 1/4 of the limit, i.e. 25k
-        set_test_timestamp(current_timestamp() + RateLimitState::RATE_LIMIT_DURATION / 4);
+        set_test_timestamp(current_timestamp() + rate_limit_state.rate_limit_duration / 4);
         let now = current_timestamp();
 
         assert_eq!(rate_limit_state.capacity(), 70_000 + 25_000);
@@ -166,7 +181,7 @@ mod tests {
         let tomorrow = rate_limit_state.consume_or_delay(150_000);
         assert_eq!(
             tomorrow,
-            RateLimitResult::Delayed(now + RateLimitState::RATE_LIMIT_DURATION)
+            RateLimitResult::Delayed(now + rate_limit_state.rate_limit_duration)
         );
 
         // the limit is not changed, since the tx was delayed

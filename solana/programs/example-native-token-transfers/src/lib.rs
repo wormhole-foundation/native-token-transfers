@@ -166,6 +166,10 @@ pub mod example_native_token_transfers {
         instructions::set_paused(ctx, pause)
     }
 
+    pub fn cancel_outbound_transfer(ctx: Context<CancelOutboundTransfer>) -> Result<()> {
+        instructions::cancel_outbound_transfer(ctx)
+    }
+
     pub fn set_peer(ctx: Context<SetPeer>, args: SetPeerArgs) -> Result<()> {
         instructions::set_peer(ctx, args)
     }
@@ -190,6 +194,13 @@ pub mod example_native_token_transfers {
         args: SetInboundLimitArgs,
     ) -> Result<()> {
         instructions::set_inbound_limit(ctx, args)
+    }
+
+    pub fn set_rate_limit_duration(
+        ctx: Context<SetRateLimitDuration>,
+        duration: i64,
+    ) -> Result<()> {
+        instructions::set_rate_limit_duration(ctx, duration)
     }
 
     pub fn mark_outbox_item_as_released(ctx: Context<MarkOutboxItemAsReleased>) -> Result<bool> {

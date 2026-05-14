@@ -71,7 +71,7 @@ module ntt::ntt {
         should_queue: bool,
     ): (
         TransferTicket<CoinType>,
-        Balance<CoinType> // dust (TODO: should we create a coin for it?)
+        Balance<CoinType> // dust remainder after decimal trimming; caller must convert to Coin or handle
     ) {
         let from_decimals = coin_meta.get_decimals();
         let peer = state.borrow_peer(recipient_chain);
