@@ -166,6 +166,10 @@ pub mod example_native_token_transfers {
         instructions::set_paused(ctx, pause)
     }
 
+    pub fn cancel_outbound_transfer(ctx: Context<CancelOutboundTransfer>) -> Result<()> {
+        instructions::cancel_outbound_transfer(ctx)
+    }
+
     pub fn set_peer(ctx: Context<SetPeer>, args: SetPeerArgs) -> Result<()> {
         instructions::set_peer(ctx, args)
     }

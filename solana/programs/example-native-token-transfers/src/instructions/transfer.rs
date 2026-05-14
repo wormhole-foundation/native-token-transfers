@@ -167,13 +167,18 @@ pub fn transfer_burn<'info>(
         should_queue,
     } = args;
 
-    // TODO: should we revert if we have dust?
+    let original_amount = amount;
     let trimmed_amount = TrimmedAmount::remove_dust(
         &mut amount,
         accs.common.mint.decimals,
         accs.peer.token_decimals,
     )
     .map_err(NTTError::from)?;
+
+    // Revert if dust was silently removed, aligning with EVM behavior
+    if original_amount != amount {
+        return Err(NTTError::TransferAmountHasDust.into());
+    }
 
     let before = accs.common.custody.amount;
 
@@ -309,13 +314,18 @@ pub fn transfer_lock<'info>(
         should_queue,
     } = args;
 
-    // TODO: should we revert if we have dust?
+    let original_amount = amount;
     let trimmed_amount = TrimmedAmount::remove_dust(
         &mut amount,
         accs.common.mint.decimals,
         accs.peer.token_decimals,
     )
     .map_err(NTTError::from)?;
+
+    // Revert if dust was silently removed, aligning with EVM behavior
+    if original_amount != amount {
+        return Err(NTTError::TransferAmountHasDust.into());
+    }
 
     let before = accs.common.custody.amount;
 

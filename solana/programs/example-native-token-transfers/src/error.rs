@@ -65,6 +65,10 @@ pub enum NTTError {
     ThresholdTooHigh,
     #[msg("InvalidTransceiverProgram")]
     InvalidTransceiverProgram,
+    #[msg("TransferAmountHasDust")]
+    TransferAmountHasDust,
+    #[msg("CancellerNotSender")]
+    CancellerNotSender,
 }
 
 impl From<ScalingError> for NTTError {
