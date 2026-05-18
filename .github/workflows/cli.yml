@@ -62,15 +62,15 @@ jobs:
       - name: Run EVM shell tests
         env:
           NTT_EVM_CACHE_DIR: ${{ github.workspace }}/evm
-          BSC_RPC_URL: ${{ secrets.BSC_RPC_URL }}
-          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          BSC_RPC_URL: ${{ secrets.BSC_RPC_URL }} # zizmor: ignore[secrets-outside-env]
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }} # zizmor: ignore[secrets-outside-env]
         run: ./cli/test/sepolia-bsc.sh
 
       - name: Run EVM E2E tests
         env:
           NTT_EVM_CACHE_DIR: ${{ github.workspace }}/evm
-          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
-          BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }} # zizmor: ignore[secrets-outside-env]
+          BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }} # zizmor: ignore[secrets-outside-env]
         run: bun run --cwd cli test:e2e
 
   # Build Solana contracts (v1.0.0 and v2.0.0 in parallel)
@@ -87,6 +87,7 @@ jobs:
 
       - name: Restore cached v${{ matrix.version }} artifacts
         id: cache
+        # zizmor: ignore[cache-poisoning] — artifact consumed only by test-solana in this same workflow run; cache scoping prevents PR→main pollution
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: /tmp/solana-artifacts/v${{ matrix.version }}
