@@ -37,7 +37,7 @@ jobs:
           echo "version=${RUST_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb
+        uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb # zizmor: ignore[superfluous-actions]
         with:
           toolchain: ${{ steps.toolchain.outputs.version }}
           components: "clippy,rustfmt"
@@ -103,7 +103,7 @@ jobs:
           fi
 
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb
+        uses: dtolnay/rust-toolchain@55c7845fad90d0ae8b2e83715cb900e5e861e8cb # zizmor: ignore[superfluous-actions]
         with:
           toolchain: ${{ steps.toolchain.outputs.version }}
 
