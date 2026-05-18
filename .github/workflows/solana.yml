@@ -220,7 +220,7 @@ jobs:
         shell: bash
 
       - name: Install Cargo toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1 # zizmor: ignore[archived-uses]
         with:
           toolchain: stable
           profile: minimal

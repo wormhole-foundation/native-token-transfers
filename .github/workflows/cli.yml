@@ -87,8 +87,7 @@ jobs:
 
       - name: Restore cached v${{ matrix.version }} artifacts
         id: cache
-        # zizmor: ignore[cache-poisoning] — artifact consumed only by test-solana in this same workflow run; cache scoping prevents PR→main pollution
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5 # zizmor: ignore[cache-poisoning]
         with:
           path: /tmp/solana-artifacts/v${{ matrix.version }}
           key: solana-v${{ matrix.version }}-${{ hashFiles('cli/test/build-solana.sh', 'Dockerfile.cli', 'Dockerfile.anchor-base', 'solana/Anchor.toml') }}
