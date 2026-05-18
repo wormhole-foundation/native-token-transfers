@@ -12,6 +12,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 defaults:
   run:
     working-directory: ./solana
@@ -24,7 +26,9 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Get rust toolchain version
         id: toolchain
@@ -39,7 +43,7 @@ jobs:
           components: "clippy,rustfmt"
 
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: "solana"
 
@@ -60,7 +64,9 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Free disk space
         run: sudo rm -rf /usr/local/lib/android
@@ -79,7 +85,7 @@ jobs:
 
       - name: Restore cached SBF artifacts
         id: cache-sbf
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: solana/target/deploy
           key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/**/Cargo.toml', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
@@ -102,13 +108,13 @@ jobs:
           toolchain: ${{ steps.toolchain.outputs.version }}
 
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: "solana"
 
       - name: Cache solana tools
         id: cache-solana
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         env:
           cache-name: solana-tools
         with:
@@ -137,7 +143,7 @@ jobs:
 
       - name: Save SBF artifacts to cache
         if: steps.verify-cache.outputs.valid != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: solana/target/deploy
           key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/**/Cargo.toml', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
@@ -166,7 +172,9 @@ jobs:
     name: Check version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - run: ./scripts/sync-versions --check
         shell: bash
@@ -179,9 +187,11 @@ jobs:
       solana-cli-version: "1.18.26"
       anchor-version: "0.29.0"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: "1.3.4"
 
@@ -192,7 +202,7 @@ jobs:
           node-version: ${{ env.node-version }}
 
       - name: Cache node_modules
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ./solana/node_modules/
           key: node-modules-${{ runner.os }}-build-${{ env.node-version }}
@@ -210,14 +220,14 @@ jobs:
         shell: bash
 
       - name: Install Cargo toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1
         with:
           toolchain: stable
           profile: minimal
           components: rustc
 
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: "solana"
 
