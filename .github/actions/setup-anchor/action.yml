@@ -17,11 +17,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
       with:
         node-version: ${{ inputs.node-version }}
     - name: Cache Solana CLI tools
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: |
           ~/.cache/solana/
@@ -29,11 +29,15 @@ runs:
         key: solana-cli-${{ runner.os }}-build-${{ inputs.solana-cli-version }}
     - name: Install Solana CLI tools
       run: |
-        sh -c "$(curl -sSfL https://release.anza.xyz/v${{ inputs.solana-cli-version }}/install)"
+        sh -c "$(curl -sSfL https://release.anza.xyz/v${INPUTS_SOLANA_CLI_VERSION}/install)"
       shell: bash
+      env:
+        INPUTS_SOLANA_CLI_VERSION: ${{ inputs.solana-cli-version }}
     - name: Update PATH
       run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
       shell: bash
     - name: Install Anchor
-      run: bun add -g @coral-xyz/anchor-cli@${{ inputs.anchor-version }}
+      run: bun add -g @coral-xyz/anchor-cli@${INPUTS_ANCHOR_VERSION}
       shell: bash
+      env:
+        INPUTS_ANCHOR_VERSION: ${{ inputs.anchor-version }}

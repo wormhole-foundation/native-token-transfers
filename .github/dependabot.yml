@@ -21,3 +21,5 @@ updates:
       - dependency-name: "dtolnay/rust-toolchain"
       - dependency-name: "Swatinem/rust-cache"
       - dependency-name: "actions-rs/toolchain"
+    cooldown:
+      default-days: 7
