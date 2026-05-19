@@ -87,6 +87,8 @@ jobs:
 
       - name: Restore cached v${{ matrix.version }} artifacts
         id: cache
+        # zizmor flags this because it sees docker/build-push-action below and assumes it publishes
+        # artifacts (so cache poisoning could leak out), but the build here doesn't publish anything.
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5 # zizmor: ignore[cache-poisoning]
         with:
           path: /tmp/solana-artifacts/v${{ matrix.version }}
