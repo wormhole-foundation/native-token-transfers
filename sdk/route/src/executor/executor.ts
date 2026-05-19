@@ -74,6 +74,10 @@ export namespace NttExecutorRoute {
   export type Options = {
     // 0.0 - 1.0 percentage of the maximum gas drop-off amount
     nativeGas?: number;
+    // Override the executor's destination relay funding / gas budget. When
+    // unset, estimateMsgValueAndGasLimit on the destination protocol is used.
+    msgValue?: bigint;
+    gasLimit?: bigint;
   };
 
   export type NormalizedParams = {
@@ -371,8 +375,10 @@ export class NttExecutorRoute<N extends Network>
           100n
         : 0n;
 
-    const { msgValue, gasLimit } =
+    const estimate =
       await dstNttWithExec.estimateMsgValueAndGasLimit(recipient);
+    const msgValue = params.options.msgValue ?? estimate.msgValue;
+    const gasLimit = params.options.gasLimit ?? estimate.gasLimit;
 
     const relayRequests = [];
 
