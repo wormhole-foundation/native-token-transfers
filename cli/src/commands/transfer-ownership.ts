@@ -17,6 +17,7 @@ import { ethers } from "ethers";
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
+import { emitResult } from "../output.js";
 import { getSigner } from "../signers/getSigner";
 
 import { options } from "./shared";
@@ -144,6 +145,13 @@ export function createTransferOwnershipCommand(
           console.log(
             `✅ Ownership transferred successfully to ${destination}`
           );
+          emitResult("transfer-ownership", {
+            chain,
+            manager: chainConfig.manager,
+            previousOwner: currentOwner.toString(),
+            newOwner: newOwnerFromContract,
+            txHash: tx.hash,
+          });
         } else {
           console.error(`❌ Ownership transfer verification failed`);
           console.error(`   New owner:        ${newOwnerFromContract}`);
