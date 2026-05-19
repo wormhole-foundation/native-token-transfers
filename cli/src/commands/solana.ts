@@ -26,6 +26,7 @@ import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
+import { emitResult } from "../output.js";
 import { validatePayerOption } from "../validation";
 import fs from "fs";
 
@@ -94,6 +95,11 @@ export function createSolanaCommand(
               instance
             ).tokenAuthority();
             console.log(tokenAuthority.toBase58());
+            emitResult("solana token-authority", {
+              programId: programId.toBase58(),
+              instance: instance?.toBase58() ?? null,
+              tokenAuthority: tokenAuthority.toBase58(),
+            });
           }
         )
         .command(
