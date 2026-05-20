@@ -7,11 +7,19 @@ import type {
   TokenId,
   UnsignedTransaction,
 } from "@wormhole-foundation/sdk-connect";
-import { NttWithExecutor } from "./nttWithExecutor.js";
 import { Ntt } from "./ntt.js";
 
 export namespace MultiTokenNttWithExecutor {
-  export type Quote = NttWithExecutor.Quote & {
+  export type Quote = {
+    signedQuote: Uint8Array;
+    relayInstructions: Uint8Array;
+    estimatedCost: bigint;
+    payeeAddress: Uint8Array;
+    referrer: ChainAddress;
+    referrerFeeDbps: bigint;
+    remainingAmount: bigint;
+    expires: Date;
+    gasDropOff: bigint;
     deliveryPrice: bigint;
     transceiverInstructions: Ntt.TransceiverInstruction[];
   };

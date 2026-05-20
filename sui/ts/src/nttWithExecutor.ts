@@ -315,20 +315,31 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
       );
     }
 
-    // Handle referrer fee if present
-    if (quote.referrerFee > 0n) {
-      // Convert referrer address to Sui address format
+    // Transfer token fee to referrer
+    if (quote.transferTokenFee > 0n) {
       const referrerAddress = `0x${Buffer.from(
         quote.referrer.address.toUint8Array()
       ).toString("hex")}`;
 
-      // Split coins for referrer fee from the same source
       const [referrerCoin] = isNative
-        ? tx.splitCoins(tx.gas, [tx.pure.u64(quote.referrerFee)])
-        : tx.splitCoins(primaryCoinInput!, [tx.pure.u64(quote.referrerFee)]);
+        ? tx.splitCoins(tx.gas, [tx.pure.u64(quote.transferTokenFee)])
+        : tx.splitCoins(primaryCoinInput!, [
+            tx.pure.u64(quote.transferTokenFee),
+          ]);
 
-      // Transfer the referrer fee
       tx.transferObjects([referrerCoin], referrerAddress);
+    }
+
+    // Transfer native fee to referrer
+    if (quote.nativeTokenFee > 0n) {
+      const referrerAddress = `0x${Buffer.from(
+        quote.referrer.address.toUint8Array()
+      ).toString("hex")}`;
+
+      const [nativeFeeCoin] = tx.splitCoins(tx.gas, [
+        tx.pure.u64(quote.nativeTokenFee),
+      ]);
+      tx.transferObjects([nativeFeeCoin], referrerAddress);
     }
 
     // Convert manager state ID to bytes

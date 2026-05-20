@@ -59,7 +59,7 @@ function createRoute(config: NttExecutorRoute.Config) {
   return new Route(wh);
 }
 
-describe("NttExecutorRoute referrer fee", () => {
+describe("NttExecutorRoute getFee", () => {
   let request: routes.RouteTransferRequest<"Testnet">;
 
   beforeAll(async () => {
@@ -69,48 +69,52 @@ describe("NttExecutorRoute referrer fee", () => {
     });
   });
 
-  it("uses getReferrerFee callback when defined", async () => {
-    const getReferrerFee = jest.fn(async () => ({
-      feeDbps: 42n,
+  it("uses getFee callback when defined", async () => {
+    const getFee = jest.fn(async () => ({
+      transferTokenFee: 1_000_000n,
+      nativeTokenFee: 500_000n,
       referrerAddress: "0x9b2A3B92b1D86938D3Ed37B0519952C227bA6D09",
     }));
-    const route = createRoute({ ntt: nttConfig, getReferrerFee });
+    const route = createRoute({ ntt: nttConfig, getFee });
 
     const result = await route.validate(request, { amount: "1.0" });
     expect(result.valid).toBe(true);
     if (!result.valid) throw new Error("unexpected");
 
-    expect(getReferrerFee).toHaveBeenCalledWith({
+    expect(getFee).toHaveBeenCalledWith({
+      amount: expect.any(BigInt),
       sourceChain: "Solana",
       sourceToken: SOL_TOKEN,
       destinationChain: "Sepolia",
       destinationToken: SEPOLIA_TOKEN,
     });
+
     const params = result.params as NttExecutorRoute.ValidatedParams;
-    expect(params.normalizedParams.referrerFeeDbps).toBe(42n);
+    expect(params.normalizedParams.transferTokenFee).toBe(1_000_000n);
+    expect(params.normalizedParams.nativeTokenFee).toBe(500_000n);
   });
 
-  it("uses static referrerFee when getReferrerFee is not defined", async () => {
-    const route = createRoute({
-      ntt: nttConfig,
-      referrerFee: { feeDbps: 100n },
-    });
+  it("defaults to zero fees when getFee is not defined", async () => {
+    const route = createRoute({ ntt: nttConfig });
 
     const result = await route.validate(request, { amount: "1.0" });
     expect(result.valid).toBe(true);
     if (!result.valid) throw new Error("unexpected");
 
     const params = result.params as NttExecutorRoute.ValidatedParams;
-    expect(params.normalizedParams.referrerFeeDbps).toBe(100n);
+    expect(params.normalizedParams.transferTokenFee).toBe(0n);
+    expect(params.normalizedParams.nativeTokenFee).toBe(0n);
+    expect(params.normalizedParams.referrerAddress).toBeUndefined();
   });
 
-  it("getReferrerFee takes priority over static referrerFee", async () => {
+  it("sets referrer address from getFee result", async () => {
+    const referrer = "9q2q3EtP1VNdyaxzju1CGfh3EDj7heGABgxAJNyQDXgT";
     const route = createRoute({
       ntt: nttConfig,
-      referrerFee: { feeDbps: 100n },
-      getReferrerFee: async () => ({
-        feeDbps: 77n,
-        referrerAddress: "0x9b2A3B92b1D86938D3Ed37B0519952C227bA6D09",
+      getFee: async () => ({
+        transferTokenFee: 0n,
+        nativeTokenFee: 0n,
+        referrerAddress: referrer,
       }),
     });
 
@@ -119,38 +123,29 @@ describe("NttExecutorRoute referrer fee", () => {
     if (!result.valid) throw new Error("unexpected");
 
     const params = result.params as NttExecutorRoute.ValidatedParams;
-    expect(params.normalizedParams.referrerFeeDbps).toBe(77n);
+    expect(params.normalizedParams.referrerAddress).toBeDefined();
+    expect(params.normalizedParams.referrerAddress?.chain).toBe("Solana");
   });
 
-  it("defaults to 0 when neither is defined", async () => {
+  it("validates nativeGas option bounds", async () => {
     const route = createRoute({ ntt: nttConfig });
 
-    const result = await route.validate(request, { amount: "1.0" });
-    expect(result.valid).toBe(true);
-    if (!result.valid) throw new Error("unexpected");
-
-    const params = result.params as NttExecutorRoute.ValidatedParams;
-    expect(params.normalizedParams.referrerFeeDbps).toBe(0n);
-  });
-
-  it("resolves per-token feeDbps override from static config", async () => {
-    const route = createRoute({
-      ntt: nttConfig,
-      referrerFee: {
-        feeDbps: 10n,
-        perTokenOverrides: {
-          Solana: {
-            [SOL_TOKEN]: { referrerFeeDbps: 50n },
-          },
-        },
-      },
+    const tooLow = await route.validate(request, {
+      amount: "1.0",
+      options: { nativeGas: -0.1 },
     });
+    expect(tooLow.valid).toBe(false);
 
-    const result = await route.validate(request, { amount: "1.0" });
-    expect(result.valid).toBe(true);
-    if (!result.valid) throw new Error("unexpected");
+    const tooHigh = await route.validate(request, {
+      amount: "1.0",
+      options: { nativeGas: 1.1 },
+    });
+    expect(tooHigh.valid).toBe(false);
 
-    const params = result.params as NttExecutorRoute.ValidatedParams;
-    expect(params.normalizedParams.referrerFeeDbps).toBe(50n);
+    const valid = await route.validate(request, {
+      amount: "1.0",
+      options: { nativeGas: 0.5 },
+    });
+    expect(valid.valid).toBe(true);
   });
 });

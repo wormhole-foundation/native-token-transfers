@@ -7,7 +7,6 @@ import {
   Wormhole,
   amount,
   assertChain,
-  canonicalAddress,
   chainToPlatform,
   chains,
   isNetwork,
@@ -81,8 +80,6 @@ class TokenTransferError extends Error {
   }
 }
 
-const DEFAULT_SOLANA_MSG_VALUE = 11_500_000n; // lamports
-
 /**
  * Registers the `token-transfer` command and all associated validation / execution logic.
  */
@@ -134,7 +131,7 @@ export function createTokenTransferCommand(
         })
         .option("destination-msg-value", {
           describe:
-            "Override msgValue (native units) for the destination chain. Required when destination is Solana/SVM to cover executor rent.",
+            "Override the executor's destination msgValue (native units of the destination chain). When unset, the SDK estimates the required amount.",
           type: "string",
         })
         .option("rpc", {
@@ -211,7 +208,6 @@ async function executeTokenTransfer(
     (message) => new TokenTransferError(message)
   );
   const sourcePlatform = chainToPlatform(sourceChainInput);
-  const destinationPlatform = chainToPlatform(destinationChainInput);
 
   const amountInput = argv.amount.trim();
   if (!amountInput) {
@@ -472,26 +468,9 @@ async function executeTokenTransfer(
   getContractsForChain(contractsByChain, destinationChainInput, deploymentPath);
 
   const executorConfig = buildExecutorRouteConfig(contractsByChain);
-  if (destinationPlatform === "Solana") {
-    const msgValueToUse =
-      destinationMsgValueOverride ?? DEFAULT_SOLANA_MSG_VALUE;
-    applyMsgValueOverride(executorConfig, destinationTokenId, msgValueToUse);
-    if (destinationMsgValueOverride === undefined) {
-      console.warn(
-        colors.yellow(
-          `Destination ${destinationChainInput} requires msgValue funding for the Wormhole Executor. Using default ${msgValueToUse.toString()} lamports. Pass --destination-msg-value to override.`
-        )
-      );
-    } else {
-      console.log(
-        `Using custom msgValue ${destinationMsgValueOverride.toString()} for ${destinationChainInput}.`
-      );
-    }
-  } else if (destinationMsgValueOverride !== undefined) {
-    console.warn(
-      colors.yellow(
-        `--destination-msg-value is only required for SVM destinations. Ignoring override for ${destinationChainInput}.`
-      )
+  if (destinationMsgValueOverride !== undefined) {
+    console.log(
+      `Using custom msgValue ${destinationMsgValueOverride.toString()} for ${destinationChainInput}.`
     );
   }
   const Route = argv.manual
@@ -504,11 +483,17 @@ async function executeTokenTransfer(
     destination: destinationTokenId,
   });
 
+  const options = argv.manual
+    ? { automatic: false, skipDstRateLimitCheck: true }
+    : destinationMsgValueOverride !== undefined
+      ? { msgValue: destinationMsgValueOverride }
+      : undefined;
   const validation = await routeInstance.validate(transferRequest, {
     amount: amountInput,
-    options: argv.manual
-      ? { automatic: false, skipDstRateLimitCheck: true }
-      : undefined,
+    // The route shape (manual vs. executor) drives which Options branch above
+    // applies; TS narrows to the intersection so we cast to the active route's
+    // Options type at runtime.
+    options: options as NttRoute.Options & NttExecutorRoute.Options,
   });
   if (!validation.valid) {
     const reason =
@@ -590,12 +575,6 @@ async function executeTokenTransfer(
     );
   }
   if (!argv.manual) {
-    console.log(
-      `Executor referrer fee: ${formatAmount(
-        executorQuote.referrerFee,
-        decimals
-      )} (${executorQuote.referrerFeeDbps.toString()} dBps)`
-    );
     console.log(
       `Estimated execution cost (${sourceChainInput} native): ${formatAmount(
         executorQuote.estimatedCost,
@@ -813,33 +792,6 @@ function buildExecutorRouteConfig(
   };
 }
 
-type ReferrerFeeConfig = NttExecutorRoute.ReferrerFeeConfig;
-type PerTokenOverrides = NonNullable<
-  NonNullable<ReferrerFeeConfig["perTokenOverrides"]>[Chain]
->;
-
-/**
- * Attach a msgValue override so the executor funds rent/gas for a given destination token.
- */
-function applyMsgValueOverride(
-  config: NttExecutorRoute.Config,
-  token: TokenId,
-  msgValue: bigint
-): void {
-  if (!config.referrerFee) {
-    config.referrerFee = { feeDbps: 0n, perTokenOverrides: {} };
-  } else if (!config.referrerFee.perTokenOverrides) {
-    config.referrerFee.perTokenOverrides = {};
-  }
-  const perTokenOverrides = (config.referrerFee.perTokenOverrides ??=
-    {} as NonNullable<ReferrerFeeConfig["perTokenOverrides"]>);
-  const canonicalToken = canonicalAddress(token);
-  const chainOverrides = (perTokenOverrides[token.chain] ??=
-    {} as PerTokenOverrides);
-  const tokenOverride = (chainOverrides[canonicalToken] ??= {});
-  tokenOverride.msgValue = msgValue;
-}
-
 /**
  * Prompt the operator to confirm they entered a human-readable amount before Mainnet submissions.
  */
@@ -920,8 +872,8 @@ function isExecutorQuote(value: unknown): value is NttWithExecutor.Quote {
   const hasValidExpiry =
     candidate.expires === undefined || candidate.expires instanceof Date;
   return (
-    typeof candidate.referrerFee === "bigint" &&
-    typeof candidate.referrerFeeDbps === "bigint" &&
+    typeof candidate.transferTokenFee === "bigint" &&
+    typeof candidate.nativeTokenFee === "bigint" &&
     typeof candidate.estimatedCost === "bigint" &&
     typeof candidate.gasDropOff === "bigint" &&
     hasValidExpiry
