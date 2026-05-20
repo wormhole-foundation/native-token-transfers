@@ -275,24 +275,18 @@ ${simulateArg} \
       out.includes("OpcodeNotFound") ||
       out.includes("StaticcallFailed")
     ) {
-      // Precompile/system contract token — Forge's local EVM can't handle the
-      // token's bytecode. Generate transactions via dry-run, fix gas limits
-      // using eth_estimateGas from the actual RPC, then broadcast with --resume.
+      // Precompile/system contract token — Forge's local EVM (revm) can't
+      // execute precompile bytecode, causing simulation to fail. However, the
+      // real RPC can handle precompiles fine, so --skip-simulation with
+      // --broadcast works: Forge uses eth_estimateGas from the RPC.
       console.log(
         colors.yellow(
-          "Precompile token detected. Using on-chain gas estimation for deployment..."
+          "Precompile token detected. Forge's local simulation can't handle " +
+            "precompile bytecode, but the on-chain RPC can. Retrying with " +
+            "--skip-simulation..."
         )
       );
-      out = await deployWithOnChainGasEstimation(
-        pwd,
-        rpc,
-        ch,
-        scriptVersion,
-        signerType,
-        verifyArgs,
-        gasEstimateMultiplier,
-        buildForgeEnv
-      );
+      out = await deploy(false);
     } else {
       console.error(
         "Simulation failed. Please read the error message carefully, and proceed with caution."
@@ -352,164 +346,3 @@ ${simulateArg} \
   return { chain: ch.chain, address: universalManager };
 }
 
-/**
- * Deploy NTT contracts on chains with precompile/system contract tokens.
- *
- * Forge's local EVM (revm) can't execute precompile bytecode, producing
- * OpcodeNotFound errors and wrong gas estimates. This function:
- * 1. Runs forge script WITHOUT --broadcast (dry-run) to generate tx JSON
- * 2. Fixes gas limits: eth_estimateGas for CREATE txs, keeps forge gas for others
- * 3. Copies fixed JSON to broadcast dir and runs forge --resume to broadcast
- */
-async function deployWithOnChainGasEstimation<
-  N extends Network,
-  C extends Chain,
->(
-  pwd: string,
-  rpc: string,
-  ch: ChainContext<N, C>,
-  scriptVersion: number,
-  signerType: SignerType,
-  verifyArgs: string[],
-  gasEstimateMultiplier: number | undefined,
-  buildForgeEnv: () => NodeJS.ProcessEnv
-): Promise<string> {
-  const slowFlag = getSlowFlag(ch.chain);
-  const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-  const signer = await getSigner(ch, signerType);
-  const signerArgs = forgeSignerArgs(signer.source);
-  const useBundledV1 = scriptVersion === 1;
-  const chainId = ch.config.nativeChainId;
-
-  // Step 1: Generate transactions WITHOUT broadcasting (dry-run only).
-  // This avoids consuming nonces with failed on-chain txs.
-  const dryRunStdoutPath = `${pwd}/evm/dry-run.stdout`;
-  console.log(colors.cyan("Step 1: Generating transactions (dry-run)..."));
-  await withDeploymentScript(pwd, useBundledV1, async () => {
-    try {
-      const env = buildForgeEnv();
-      // No --broadcast flag — generates dry-run JSON only
-      const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url "${rpc}" \
---skip-simulation \
-${slowFlag} ${gasMultiplier} ${verifyArgs.join(" ")} ${signerArgs} 2>&1 | tee dry-run.stdout`;
-
-      execSync(command, {
-        cwd: `${pwd}/evm`,
-        encoding: "utf8",
-        stdio: "inherit",
-        env,
-      });
-    } catch {
-      // Script may "fail" due to simulation traces but still generates the dry-run JSON.
-      // The dry-run file existence check below handles real failures.
-      console.log(
-        colors.yellow(
-          "Dry-run exited with non-zero status (may be expected for precompile tokens)"
-        )
-      );
-    }
-  });
-
-  // Step 2: Copy dry-run JSON to broadcast dir and fix gas limits
-  const broadcastDir = `${pwd}/evm/broadcast/DeployWormholeNtt.s.sol/${chainId}`;
-  const dryRunPath = `${broadcastDir}/dry-run/run-latest.json`;
-  const broadcastPath = `${broadcastDir}/run-latest.json`;
-
-  if (!fs.existsSync(dryRunPath)) {
-    console.error(
-      colors.red(
-        "Dry-run file not found. Forge may not have generated transactions."
-      )
-    );
-    return "";
-  }
-
-  // Copy dry-run to broadcast location so --resume can pick it up
-  fs.mkdirSync(broadcastDir, { recursive: true });
-  fs.copyFileSync(dryRunPath, broadcastPath);
-
-  console.log(colors.cyan("Step 2: Fixing gas limits..."));
-  const provider = new ethers.JsonRpcProvider(rpc);
-  const broadcast = JSON.parse(fs.readFileSync(broadcastPath, "utf8"));
-
-  for (const tx of broadcast.transactions) {
-    const oldGasHex = tx.transaction.gas;
-    const oldGas = parseInt(oldGasHex, 16);
-    const label = `${tx.contractName || "Unknown"}(${tx.transactionType})`;
-
-    if (tx.transactionType === "CREATE") {
-      // CREATE txs are independent — we can estimate gas from the RPC
-      const txData: Record<string, string> = {
-        from: tx.transaction.from,
-        value: tx.transaction.value || "0x0",
-        data: tx.transaction.input || tx.transaction.data,
-      };
-
-      try {
-        const estimated = await provider.estimateGas(txData);
-        // Use the higher of: estimated + 5% buffer, or forge's original gas.
-        // Keep the buffer small to avoid hitting RPC per-tx gas caps.
-        const buffered = (estimated * 105n) / 100n;
-        const newGas = buffered > BigInt(oldGas) ? buffered : BigInt(oldGas);
-        tx.transaction.gas = "0x" + newGas.toString(16);
-        console.log(
-          `  ${label}: ${oldGas.toLocaleString()} → ${Number(newGas).toLocaleString()} gas (estimated)`
-        );
-      } catch (e) {
-        // Estimation failed (e.g., proxy CREATE referencing un-deployed impl).
-        // Keep forge's original gas — it's from local sim and usually close
-        // enough for non-precompile txs.
-        const message = e instanceof Error ? e.message : String(e);
-        console.log(
-          colors.yellow(
-            `  ${label}: keeping ${oldGas.toLocaleString()} gas (estimate failed: ${message.slice(0, 80)})`
-          )
-        );
-      }
-    } else {
-      // CALL txs depend on contracts from prior CREATE txs that don't exist
-      // on-chain yet. Keep forge's original gas from the local simulation.
-      console.log(
-        `  ${label}: keeping ${oldGas.toLocaleString()} gas (forge estimate)`
-      );
-    }
-  }
-
-  // Clear any receipts so --resume treats all txs as pending
-  broadcast.receipts = [];
-  fs.writeFileSync(broadcastPath, JSON.stringify(broadcast, null, 2));
-
-  // Step 3: Resume broadcast with fixed gas limits
-  console.log(colors.cyan("Step 3: Broadcasting with corrected gas limits..."));
-  await withDeploymentScript(pwd, useBundledV1, async () => {
-    try {
-      const env = buildForgeEnv();
-      const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url "${rpc}" \
---resume \
---broadcast ${slowFlag} ${signerArgs} 2>&1 | tee last-run.stdout`;
-
-      execSync(command, {
-        cwd: `${pwd}/evm`,
-        encoding: "utf8",
-        stdio: "inherit",
-        env,
-      });
-    } catch (error) {
-      console.error("Failed to broadcast transactions");
-      // NOTE: we don't exit here. The caller checks for NttManager address
-      // in the output and handles the missing-address case.
-    }
-  });
-
-  // Return dry-run output which has the contract addresses (NttManager: 0x...).
-  // The --resume output doesn't re-print forge logs.
-  if (!fs.existsSync(dryRunStdoutPath)) {
-    console.error(
-      colors.red("Dry-run stdout not found at " + dryRunStdoutPath)
-    );
-    return "";
-  }
-  return fs.readFileSync(dryRunStdoutPath).toString();
-}
