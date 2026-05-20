@@ -118,7 +118,7 @@ export { parseCclFlag, confirmCustomFinality } from "./commands/shared";
 export { deploy, upgrade } from "./deploy";
 
 // Re-exports from solana/deploy.ts
-export { buildSvm } from "./solana/deploy";
+export { buildSvm, uploadSolanaProgram } from "./solana/deploy";
 
 // Re-exports from config-mgmt.ts
 export {

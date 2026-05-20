@@ -74,8 +74,14 @@ export function createAddChainCommand(
         })
         .option("instance-of", {
           describe:
-            "(SVM v4 only) Skip program deploy and create a new instance under the existing program at this address. Mutually exclusive with --binary/--program-key.",
+            "(SVM v4 only) Skip program deploy and create a new instance under the existing program at this address. Mutually exclusive with --deploy-program/--binary/--program-key.",
           type: "string" as const,
+        })
+        .option("deploy-program", {
+          describe:
+            "(SVM) Deploy a fresh program AND create the first instance under it. One of --deploy-program or --instance-of is required for Solana. For v4+ the recommended flow is to first run `ntt solana deploy-program` and then `add-chain --instance-of <programId>`.",
+          type: "boolean" as const,
+          default: false,
         })
         .option("instance-key", {
           describe:
@@ -303,6 +309,38 @@ export function createAddChainCommand(
       // v4 multi-host path: --instance-of <programId> creates a fresh Instance
       // under the existing program rather than deploying a new one.
       const instanceOf = argv["instance-of"] as string | undefined;
+      const deployProgramFlag = Boolean(argv["deploy-program"]);
+
+      if (platform === "Solana") {
+        if (!instanceOf && !deployProgramFlag) {
+          console.error(
+            colors.red(
+              "Solana add-chain now requires one of:\n" +
+                "  --deploy-program           deploy a fresh program AND create the first instance under it.\n" +
+                "  --instance-of <programId>  create an instance under an existing program (v4+).\n" +
+                "\n" +
+                "For v4+ the recommended flow is two steps:\n" +
+                "  1. ntt solana deploy-program <chain> --payer <payer.json> [--ver <version> | --latest]\n" +
+                "  2. ntt add-chain <chain> --instance-of <programId> --token <mint> --mode <locking|burning> --payer <payer.json>"
+            )
+          );
+          process.exit(1);
+        }
+        if (instanceOf && deployProgramFlag) {
+          console.error(
+            colors.red(
+              "--instance-of and --deploy-program are mutually exclusive"
+            )
+          );
+          process.exit(1);
+        }
+      } else if (deployProgramFlag) {
+        console.error(
+          colors.red("--deploy-program is only supported on Solana")
+        );
+        process.exit(1);
+      }
+
       if (instanceOf !== undefined) {
         if (platform !== "Solana") {
           console.error(
