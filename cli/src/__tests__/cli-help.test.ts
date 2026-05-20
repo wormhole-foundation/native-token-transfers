@@ -52,6 +52,7 @@ const SOLANA_SUBCOMMANDS = [
   "ata",
   "create-spl-multisig",
   "build",
+  "deploy-program",
 ];
 
 const CONFIG_SUBCOMMANDS = ["set-chain", "unset-chain", "get-chain"];
@@ -150,6 +151,8 @@ describe("Command-specific options", () => {
     expect(stdout).toContain("--token");
     expect(stdout).toContain("--latest");
     expect(stdout).toContain("--skip-verify");
+    expect(stdout).toContain("--deploy-program");
+    expect(stdout).toContain("--instance-of");
   });
 
   it("push shows --yes option", async () => {

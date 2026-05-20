@@ -270,6 +270,69 @@ export async function buildSvm(
   };
 }
 
+/**
+ * Upload a built program binary via `solana program deploy`.
+ *
+ * Manages a `buffer.json` keypair in the current directory so an interrupted
+ * deploy can be resumed: the helper creates `buffer.json` if it's missing,
+ * prompts the user when an existing one is found (so they can decide whether
+ * to resume or delete it), and removes it only after a successful upload.
+ *
+ * Calls `process.exit` on non-zero exit from `solana program deploy` so
+ * callers don't have to thread the failure back themselves.
+ */
+export async function uploadSolanaProgram(args: {
+  binary: string;
+  programKeypairPath: string;
+  payerPath: string;
+  rpc: string;
+  priorityFee?: number;
+}): Promise<void> {
+  if (!fs.existsSync(`buffer.json`)) {
+    execSync(`solana-keygen new -o buffer.json --no-bip39-passphrase`);
+  } else {
+    console.info("buffer.json already exists.");
+    await askForConfirmation(
+      "Do you want continue an exiting deployment? If not, delete the buffer.json file and run the command again."
+    );
+  }
+
+  const deployCommand = [
+    "solana",
+    "program",
+    "deploy",
+    "--program-id",
+    args.programKeypairPath,
+    "--buffer",
+    `buffer.json`,
+    args.binary,
+    "--keypair",
+    args.payerPath,
+    "-u",
+    args.rpc,
+    "--commitment",
+    "finalized",
+  ];
+
+  if (args.priorityFee !== undefined) {
+    deployCommand.push(
+      "--with-compute-unit-price",
+      args.priorityFee.toString()
+    );
+  }
+
+  const deployProc = Bun.spawn(deployCommand);
+  const out = await new Response(deployProc.stdout).text();
+  await deployProc.exited;
+
+  if (deployProc.exitCode !== 0) {
+    process.exit(deployProc.exitCode ?? 1);
+  }
+
+  fs.unlinkSync("buffer.json");
+  console.log(out);
+}
+
 export async function deploySvm<N extends Network, C extends SolanaChains>(
   pwd: string,
   version: string | null,
@@ -437,55 +500,13 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   }
 
   // Deploy the binary (patching was already done during build for legacy builds on non-Solana chains)
-  const skipDeploy = false;
-
-  if (!skipDeploy) {
-    // if buffer.json doesn't exist, create it
-    if (!fs.existsSync(`buffer.json`)) {
-      execSync(`solana-keygen new -o buffer.json --no-bip39-passphrase`);
-    } else {
-      console.info("buffer.json already exists.");
-      await askForConfirmation(
-        "Do you want continue an exiting deployment? If not, delete the buffer.json file and run the command again."
-      );
-    }
-
-    const deployCommand = [
-      "solana",
-      "program",
-      "deploy",
-      "--program-id",
-      programKeypairPath,
-      "--buffer",
-      `buffer.json`,
-      binary,
-      "--keypair",
-      payer,
-      "-u",
-      ch.config.rpc,
-      "--commitment",
-      "finalized",
-    ];
-
-    if (priorityFee !== undefined) {
-      deployCommand.push("--with-compute-unit-price", priorityFee.toString());
-    }
-
-    const deployProc = Bun.spawn(deployCommand);
-
-    const out = await new Response(deployProc.stdout).text();
-
-    await deployProc.exited;
-
-    if (deployProc.exitCode !== 0) {
-      process.exit(deployProc.exitCode ?? 1);
-    }
-
-    // success. remove buffer.json
-    fs.unlinkSync("buffer.json");
-
-    console.log(out);
-  }
+  await uploadSolanaProgram({
+    binary,
+    programKeypairPath,
+    payerPath: payer,
+    rpc: ch.config.rpc,
+    priorityFee,
+  });
 
   if (initialize) {
     // wait 3 seconds
