@@ -188,67 +188,57 @@ export async function deployEvm<N extends Network, C extends Chain>(
 
   console.log("Deploying manager...");
 
-  // Build forge environment variables (v2+ scripts).
-  // Reused by deployWithOnChainGasEstimation.
-  const buildForgeEnv = (): NodeJS.ProcessEnv => ({
-    ...process.env,
-    RELEASE_CORE_BRIDGE_ADDRESS: wormhole,
-    RELEASE_TOKEN_ADDRESS: token,
-    RELEASE_DECIMALS: decimals.toString(),
-    RELEASE_MODE: modeUint.toString(),
-    RELEASE_CONSISTENCY_LEVEL: cclConfig ? "203" : "202",
-    RELEASE_GAS_LIMIT: "500000",
-    MANAGER_VARIANT: managerVariant,
-    ...(cclConfig && {
-      RELEASE_CUSTOM_CONSISTENCY_LEVEL:
-        cclConfig.customConsistencyLevel.toString(),
-      RELEASE_ADDITIONAL_BLOCKS: cclConfig.additionalBlocks.toString(),
-      RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS: cclConfig.cclContractAddress,
-    }),
-  });
+  // Use bundled v1 scripts if version 1 detected
+  const useBundledV1 = scriptVersion === 1;
+
+  // v1 passes deploy params via --sig arguments,
+  // v2+ passes them via environment variables.
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
+  const v1SigArgs =
+    scriptVersion === 1
+      ? `--sig "run(address,address,address,address,uint8,uint8)" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint}`
+      : "";
+
+  const forgeEnv: NodeJS.ProcessEnv =
+    scriptVersion === 1
+      ? { ...process.env }
+      : {
+          ...process.env,
+          RELEASE_CORE_BRIDGE_ADDRESS: wormhole,
+          RELEASE_TOKEN_ADDRESS: token,
+          RELEASE_DECIMALS: decimals.toString(),
+          RELEASE_MODE: modeUint.toString(),
+          RELEASE_CONSISTENCY_LEVEL: cclConfig ? "203" : "202",
+          RELEASE_GAS_LIMIT: "500000",
+          MANAGER_VARIANT: managerVariant,
+          ...(cclConfig && {
+            RELEASE_CUSTOM_CONSISTENCY_LEVEL:
+              cclConfig.customConsistencyLevel.toString(),
+            RELEASE_ADDITIONAL_BLOCKS: cclConfig.additionalBlocks.toString(),
+            RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS:
+              cclConfig.cclContractAddress,
+          }),
+        };
+
+  const slowFlag = getSlowFlag(ch.chain);
+  const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
 
   const deploy = async (simulate: boolean): Promise<string> => {
     const simulateArg = simulate ? "" : "--skip-simulation";
-    const slowFlag = getSlowFlag(ch.chain);
-    const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-
-    // Use bundled v1 scripts if version 1 detected
-    const useBundledV1 = scriptVersion === 1;
 
     await withDeploymentScript(pwd, useBundledV1, async () => {
       try {
-        let command: string;
-        let env: NodeJS.ProcessEnv = { ...process.env };
-
-        if (scriptVersion === 1) {
-          // Version 1: Use explicit signature with parameters (6 params including relayers)
-          // The bundled v1 scripts expect relayer addresses, use zero addresses as defaults
-          const zeroAddress = "0x0000000000000000000000000000000000000000";
-          const sig = "run(address,address,address,address,uint8,uint8)";
-          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
+        const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url "${rpc}" \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint} \
---broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
-            " "
-          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
-        } else {
-          // Version 2+: Use environment variables
-          env = buildForgeEnv();
-
-          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url "${rpc}" \
-${simulateArg} \
---broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
-            " "
-          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
-        }
+${v1SigArgs} \
+--broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(" ")} ${signerArgs} 2>&1 | tee last-run.stdout`;
 
         execSync(command, {
           cwd: `${pwd}/evm`,
           encoding: "utf8",
           stdio: "inherit",
-          env,
+          env: forgeEnv,
         });
       } catch (error) {
         console.error("Failed to deploy manager");
