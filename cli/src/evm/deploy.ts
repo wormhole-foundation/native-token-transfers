@@ -345,4 +345,3 @@ ${simulateArg} \
 
   return { chain: ch.chain, address: universalManager };
 }
-
