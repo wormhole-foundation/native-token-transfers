@@ -4,6 +4,6 @@ version = "1.0.0"
 edition = "2024.beta"
 
 [dependencies]
-wormhole = { git = "https://github.com/wormholelabs-xyz/wormhole.git", subdir = "sui/wormhole", rev = "de7d526127ee4dfd884c858b315733a825a08db8" }
+wormhole = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "sui/wormhole", rev = "1fe9e44e00fbb50a5aa44e4584c711bb08db6d28" }
 ntt_common = { local = "../ntt_common" }
 ntt = { local = "../ntt" }
