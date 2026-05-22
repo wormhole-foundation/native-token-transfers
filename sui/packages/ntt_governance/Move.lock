@@ -10,32 +10,44 @@ use_environment = "testnet"
 manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
 deps = {}
 
+[pinned.testnet.MoveStdlib_1]
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "041c5f2bae2fe52079e44b70514333532d69f4e6" }
+use_environment = "testnet"
+manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
+deps = {}
+
 [pinned.testnet.Sui]
 source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "22f9fc9781732d651e18384c9a8eb1dabddf73a6" }
 use_environment = "testnet"
 manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
 deps = { MoveStdlib = "MoveStdlib" }
 
+[pinned.testnet.Sui_1]
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "041c5f2bae2fe52079e44b70514333532d69f4e6" }
+use_environment = "testnet"
+manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
+deps = { MoveStdlib = "MoveStdlib_1" }
+
+[pinned.testnet.Wormhole]
+source = { git = "https://github.com/wormholelabs-xyz/wormhole.git", subdir = "sui/wormhole", rev = "de7d526127ee4dfd884c858b315733a825a08db8" }
+use_environment = "testnet"
+manifest_digest = "6996F1AB8CD448FFBA142C085C488FE8A46B485E61E38A1891EFA52B30D9C12E"
+deps = { Sui = "Sui_1" }
+
 [pinned.testnet.ntt]
 source = { local = "../ntt" }
 use_environment = "testnet"
-manifest_digest = "2145D4FC4D67E6C1B1F01E8F796AD7197EE298EEF397BBB8539A1F5584C3CCD7"
-deps = { ntt_common = "ntt_common", std = "MoveStdlib", sui = "Sui", wormhole = "wormhole" }
+manifest_digest = "31BE5E8C152F456ECAAA59D478A7B3725E624B8533A42B34E4CE27B51E0ECF95"
+deps = { ntt_common = "ntt_common", std = "MoveStdlib", sui = "Sui", wormhole = "Wormhole" }
 
 [pinned.testnet.ntt_common]
 source = { local = "../ntt_common" }
 use_environment = "testnet"
-manifest_digest = "4E70C850B8991E6B72B578F23CAA78F90A312CF4A5ACB1B790AB56B805C7E115"
-deps = { std = "MoveStdlib", sui = "Sui", wormhole = "wormhole" }
+manifest_digest = "EAFAB01DC013C58549E4A89374869FB0FFFA559DE3800F1081312A18B2CC87F0"
+deps = { std = "MoveStdlib", sui = "Sui", wormhole = "Wormhole" }
 
 [pinned.testnet.ntt_governance]
 source = { root = true }
 use_environment = "testnet"
-manifest_digest = "7FBFA7BAC9724714F3347384DD5E34279DDD326200930C56A8632A4206B0253C"
-deps = { ntt = "ntt", std = "MoveStdlib", sui = "Sui", wormhole = "wormhole" }
-
-[pinned.testnet.wormhole]
-source = { git = "https://github.com/wormholelabs-xyz/wormhole.git", subdir = "sui/wormhole", rev = "ce176c06c99a7dded905c85903646f99cb7ca9ca" }
-use_environment = "testnet"
-manifest_digest = "5745706258F61D6CE210904B3E6AE87A73CE9D31A6F93BE4718C442529332A87"
-deps = { std = "MoveStdlib", sui = "Sui" }
+manifest_digest = "1D88FC9FF6DBAA2CB77A9D95523B6A2CC1587174358228D01DB1175772B2E9C1"
+deps = { ntt = "ntt", std = "MoveStdlib", sui = "Sui", wormhole = "Wormhole" }
