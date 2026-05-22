@@ -144,17 +144,21 @@ export async function nttFromManager<N extends Network, C extends Chain>(
   if (opts?.waitForTransceiver) {
     // Retry to handle RPC indexing lag after deployment — the transceiver
     // registration may not be indexed yet.
-    diff = await retryWithExponentialBackoff(async () => {
-      const result = await onlyManager.verifyAddresses();
-      const hasTransceiver =
-        result?.transceiver && Object.keys(result.transceiver).length > 0;
-      if (!hasTransceiver) {
-        throw new Error(
-          `Transceiver address not yet available for ${ch.chain} — RPC may still be indexing`
-        );
-      }
-      return result;
-    }, 5, 2000);
+    diff = await retryWithExponentialBackoff(
+      async () => {
+        const result = await onlyManager.verifyAddresses();
+        const hasTransceiver =
+          result?.transceiver && Object.keys(result.transceiver).length > 0;
+        if (!hasTransceiver) {
+          throw new Error(
+            `Transceiver address not yet available for ${ch.chain} — RPC may still be indexing`
+          );
+        }
+        return result;
+      },
+      5,
+      2000
+    );
   } else {
     diff = await onlyManager.verifyAddresses();
   }
