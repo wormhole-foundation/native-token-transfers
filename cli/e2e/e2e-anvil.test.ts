@@ -66,10 +66,23 @@ let anvilSepolia: ReturnType<typeof Bun.spawn> | null = null;
 let anvilBaseSepolia: ReturnType<typeof Bun.spawn> | null = null;
 let testDir: string = "";
 
-/** Wait for an RPC endpoint to respond. */
-async function waitForRpc(url: string, timeoutMs = 30_000): Promise<void> {
+/** Wait for an RPC endpoint to respond. Detects early process exit. */
+async function waitForRpc(
+  url: string,
+  proc?: ReturnType<typeof Bun.spawn>,
+  timeoutMs = 60_000
+): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    if (proc && proc.exitCode !== null) {
+      const stderr =
+        proc.stderr && typeof proc.stderr !== "number"
+          ? await new Response(proc.stderr).text()
+          : "(no stderr captured)";
+      throw new Error(
+        `Anvil process exited with code ${proc.exitCode} before RPC ${url} was ready.\nStderr: ${stderr}`
+      );
+    }
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -249,7 +262,7 @@ describe("E2E: NTT deployment on Anvil forks", () => {
         String(SEPOLIA_PORT),
         "--auto-impersonate",
       ],
-      { stdout: "ignore", stderr: "ignore" }
+      { stdout: "ignore", stderr: "pipe" }
     );
 
     anvilBaseSepolia = Bun.spawn(
@@ -262,12 +275,12 @@ describe("E2E: NTT deployment on Anvil forks", () => {
         String(BASE_SEPOLIA_PORT),
         "--auto-impersonate",
       ],
-      { stdout: "ignore", stderr: "ignore" }
+      { stdout: "ignore", stderr: "pipe" }
     );
 
     await Promise.all([
-      waitForRpc(SEPOLIA_FORK_RPC),
-      waitForRpc(BASE_SEPOLIA_FORK_RPC),
+      waitForRpc(SEPOLIA_FORK_RPC, anvilSepolia),
+      waitForRpc(BASE_SEPOLIA_FORK_RPC, anvilBaseSepolia),
     ]);
 
     // 2. Set core bridge message fee

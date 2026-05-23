@@ -187,67 +187,58 @@ export async function deployEvm<N extends Network, C extends Chain>(
   }
 
   console.log("Deploying manager...");
+
+  // Use bundled v1 scripts if version 1 detected
+  const useBundledV1 = scriptVersion === 1;
+
+  // v1 passes deploy params via --sig arguments,
+  // v2+ passes them via environment variables.
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
+  const v1SigArgs =
+    scriptVersion === 1
+      ? `--sig "run(address,address,address,address,uint8,uint8)" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint}`
+      : "";
+
+  const forgeEnv: NodeJS.ProcessEnv =
+    scriptVersion === 1
+      ? { ...process.env }
+      : {
+          ...process.env,
+          RELEASE_CORE_BRIDGE_ADDRESS: wormhole,
+          RELEASE_TOKEN_ADDRESS: token,
+          RELEASE_DECIMALS: decimals.toString(),
+          RELEASE_MODE: modeUint.toString(),
+          RELEASE_CONSISTENCY_LEVEL: cclConfig ? "203" : "202",
+          RELEASE_GAS_LIMIT: "500000",
+          MANAGER_VARIANT: managerVariant,
+          ...(cclConfig && {
+            RELEASE_CUSTOM_CONSISTENCY_LEVEL:
+              cclConfig.customConsistencyLevel.toString(),
+            RELEASE_ADDITIONAL_BLOCKS: cclConfig.additionalBlocks.toString(),
+            RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS:
+              cclConfig.cclContractAddress,
+          }),
+        };
+
+  const slowFlag = getSlowFlag(ch.chain);
+  const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
+
   const deploy = async (simulate: boolean): Promise<string> => {
     const simulateArg = simulate ? "" : "--skip-simulation";
-    const slowFlag = getSlowFlag(ch.chain);
-    const gasMultiplier = getGasMultiplier(gasEstimateMultiplier);
-
-    // Use bundled v1 scripts if version 1 detected
-    const useBundledV1 = scriptVersion === 1;
 
     await withDeploymentScript(pwd, useBundledV1, async () => {
       try {
-        let command: string;
-        let env: NodeJS.ProcessEnv = { ...process.env };
-
-        if (scriptVersion === 1) {
-          // Version 1: Use explicit signature with parameters (6 params including relayers)
-          // The bundled v1 scripts expect relayer addresses, use zero addresses as defaults
-          const zeroAddress = "0x0000000000000000000000000000000000000000";
-          const sig = "run(address,address,address,address,uint8,uint8)";
-          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
+        const command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
 --rpc-url "${rpc}" \
 ${simulateArg} \
---sig "${sig}" ${wormhole} ${token} ${zeroAddress} ${zeroAddress} ${decimals} ${modeUint} \
---broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
-            " "
-          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
-        } else {
-          // Version 2+: Use environment variables
-          env = {
-            ...env,
-            RELEASE_CORE_BRIDGE_ADDRESS: wormhole,
-            RELEASE_TOKEN_ADDRESS: token,
-            RELEASE_DECIMALS: decimals.toString(),
-            RELEASE_MODE: modeUint.toString(),
-            RELEASE_CONSISTENCY_LEVEL: cclConfig ? "203" : "202",
-            RELEASE_GAS_LIMIT: "500000",
-            MANAGER_VARIANT: managerVariant,
-          };
-
-          // Add CCL-specific environment variables when CCL is enabled
-          if (cclConfig) {
-            env.RELEASE_CUSTOM_CONSISTENCY_LEVEL =
-              cclConfig.customConsistencyLevel.toString();
-            env.RELEASE_ADDITIONAL_BLOCKS =
-              cclConfig.additionalBlocks.toString();
-            env.RELEASE_CUSTOM_CONSISTENCY_LEVEL_ADDRESS =
-              cclConfig.cclContractAddress;
-          }
-
-          command = `forge script --via-ir script/DeployWormholeNtt.s.sol \
---rpc-url "${rpc}" \
-${simulateArg} \
---broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(
-            " "
-          )} ${signerArgs} 2>&1 | tee last-run.stdout`;
-        }
+${v1SigArgs} \
+--broadcast ${slowFlag} ${gasMultiplier} ${verifyArgs.join(" ")} ${signerArgs} 2>&1 | tee last-run.stdout`;
 
         execSync(command, {
           cwd: `${pwd}/evm`,
           encoding: "utf8",
           stdio: "inherit",
-          env,
+          env: forgeEnv,
         });
       } catch (error) {
         console.error("Failed to deploy manager");
@@ -269,6 +260,23 @@ ${simulateArg} \
       await askForConfirmation(
         "Do you want to proceed with the deployment without simulation?"
       );
+      out = await deploy(false);
+    } else if (
+      out.includes("OpcodeNotFound") ||
+      out.includes("StaticcallFailed")
+    ) {
+      // Precompile/system contract token — Forge's local EVM (revm) can't
+      // execute precompile bytecode, causing simulation to fail. However, the
+      // real RPC can handle precompiles fine, so --skip-simulation with
+      // --broadcast works: Forge uses eth_estimateGas from the RPC.
+      console.log(
+        colors.yellow(
+          "Precompile token detected. Forge's local simulation can't handle " +
+            "precompile bytecode, but the on-chain RPC can. Retrying with " +
+            "--skip-simulation..."
+        )
+      );
+      out = await deploy(false);
     } else {
       console.error(
         "Simulation failed. Please read the error message carefully, and proceed with caution."
@@ -276,8 +284,8 @@ ${simulateArg} \
       await askForConfirmation(
         "Do you want to proceed with the deployment without simulation?"
       );
+      out = await deploy(false);
     }
-    out = await deploy(false);
   }
 
   if (!out) {
