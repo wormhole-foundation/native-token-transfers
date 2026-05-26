@@ -5,16 +5,14 @@ import { chainToPlatform } from "@wormhole-foundation/sdk-base";
 const RPC_ERROR_KEYWORDS = [
   "jsonrpc",
   "network error",
-  "rpc",
-  "connection",
   "unable to connect",
   "404 not found",
   "status code: 404",
-  "status code",
-  "not found",
   "could not connect",
   "failed to fetch",
-  "connect to",
+  "econnrefused",
+  "enotfound",
+  "etimedout",
 ] as const;
 
 function extractErrorDetails(error: unknown): {

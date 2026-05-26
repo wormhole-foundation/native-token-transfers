@@ -37,7 +37,7 @@ module ntt_common::bitmap {
                 count = count + 1;
             };
             mask = mask << 1;
-            i = i + 1;
+            i = i + 1u64;
         };
         count
     }

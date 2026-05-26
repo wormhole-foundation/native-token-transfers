@@ -355,7 +355,8 @@ export async function pullDeployments(
 export async function pullChainConfig<N extends Network, C extends Chain>(
   network: N,
   manager: ChainAddress<C>,
-  overrides?: WormholeConfigOverrides<N>
+  overrides?: WormholeConfigOverrides<N>,
+  opts?: { waitForTransceiver?: boolean }
 ): Promise<
   [ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]
 > {
@@ -372,7 +373,7 @@ export async function pullChainConfig<N extends Network, C extends Chain>(
     ntt,
     addresses,
   }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> } =
-    await nttFromManager<N, C>(ch, nativeManagerAddress);
+    await nttFromManager<N, C>(ch, nativeManagerAddress, opts);
 
   const mode = await ntt.getMode();
   const outboundLimit = await ntt.getOutboundLimit();

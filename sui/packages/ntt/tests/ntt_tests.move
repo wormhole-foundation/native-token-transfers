@@ -244,7 +244,7 @@ module ntt::ntt_tests {
         ntt_scenario::return_state(state);
         ntt_scenario::return_clock(clock);
         ntt_scenario::return_coin_metadata(coin_meta);
-        sui::test_utils::destroy(dust);
+        std::unit_test::destroy(dust);
         test_scenario::end(scenario);
     }
 
@@ -291,20 +291,20 @@ module ntt::ntt_tests {
             &clock
         );
 
-        sui::test_utils::destroy(transceiver_a_message);
+        std::unit_test::destroy(transceiver_a_message);
 
         // this will fail, because transceiver a already released the message
         let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::TransceiverAuth, _>(
             message_id,
             &clock
         );
-        sui::test_utils::destroy(transceiver_a_message);
+        std::unit_test::destroy(transceiver_a_message);
 
         // Clean up
         ntt_scenario::return_state(state);
         ntt_scenario::return_clock(clock);
         ntt_scenario::return_coin_metadata(coin_meta);
-        sui::test_utils::destroy(dust);
+        std::unit_test::destroy(dust);
         test_scenario::end(scenario);
     }
 
@@ -391,7 +391,7 @@ module ntt::ntt_tests {
         ntt_scenario::return_state(state);
         ntt_scenario::return_clock(clock);
         ntt_scenario::return_coin_metadata(coin_meta);
-        sui::test_utils::destroy(coins);
+        std::unit_test::destroy(coins);
         scenario.end();
     }
 
@@ -691,7 +691,7 @@ module ntt::ntt_tests {
         ntt_scenario::return_state(state);
         ntt_scenario::return_clock(clock);
         ntt_scenario::return_coin_metadata(coin_meta);
-        sui::test_utils::destroy(dust);
+        std::unit_test::destroy(dust);
         scenario.end();
     }
 
@@ -817,7 +817,7 @@ module ntt::ntt_tests {
         ntt_scenario::return_state(state);
         ntt_scenario::return_clock(clock);
         ntt_scenario::return_coin_metadata(coin_meta);
-        sui::test_utils::destroy(dust);
+        std::unit_test::destroy(dust);
         scenario.end();
     }
 

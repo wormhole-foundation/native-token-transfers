@@ -1,8 +1,8 @@
 [package]
-name = "ntt"
+name = "ntt_governance"
 version = "1.0.0"
 edition = "2024.beta"
 
 [dependencies]
 wormhole = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "sui/wormhole", rev = "1fe9e44e00fbb50a5aa44e4584c711bb08db6d28" }
-ntt_common = { local = "../ntt_common" }
+ntt = { local = "../ntt" }
