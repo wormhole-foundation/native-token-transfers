@@ -198,13 +198,13 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       executorArgs,
     ] as const;
 
-    // ERC20 `approve` overwrites; merge into one approval when the fee token
-    // and the bridged NTT token are the same ERC20.
+    // Merge into one approval when feeToken == bridged token (non-wrap only).
     const sameTokenAsFee =
       isTokenFee &&
       quote.feeToken!.toLowerCase() === ntt.tokenAddress.toLowerCase();
+    const mergeFeeIntoBridgedApproval = sameTokenAsFee && !wrapNative;
 
-    if (isTokenFee && !sameTokenAsFee) {
+    if (isTokenFee && !mergeFeeIntoBridgedApproval) {
       yield* this.approveIfNeeded(
         senderAddress,
         shimAddress,
@@ -242,7 +242,7 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       const bridgedApprovalAmount =
         quote.remainingAmount +
         quote.transferTokenFee +
-        (sameTokenAsFee ? quote.estimatedCost : 0n);
+        (mergeFeeIntoBridgedApproval ? quote.estimatedCost : 0n);
       yield* this.approveIfNeeded(
         senderAddress,
         shimAddress,
