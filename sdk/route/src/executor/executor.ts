@@ -38,6 +38,7 @@ import * as routes from "@wormhole-foundation/sdk-connect/routes";
 import { NttRoute } from "../types.js";
 import {
   collectTransactions,
+  deserializeSignedQuoteWithToken,
   fetchCapabilities,
   fetchSignedQuote,
   fetchStatus,
@@ -47,7 +48,6 @@ import { Ntt, NttWithExecutor } from "@wormhole-foundation/sdk-definitions-ntt";
 import {
   isNative,
   relayInstructionsLayout,
-  signedQuoteLayout,
 } from "@wormhole-foundation/sdk-definitions";
 import { getDefaultReferrerAddress } from "./consts.js";
 
@@ -78,6 +78,11 @@ export namespace NttExecutorRoute {
     // unset, estimateMsgValueAndGasLimit on the destination protocol is used.
     msgValue?: bigint;
     gasLimit?: bigint;
+    // When set, the executor relay fee is paid in this ERC20 (EQ03 quote /
+    // NttManagerWithExecutorWithToken) instead of native gas. Must be an
+    // allowed fee token on the source chain (advertised by /v0/capabilities).
+    // Leave unset for the standard native-fee path.
+    feeToken?: string;
   };
 
   export type NormalizedParams = {
@@ -112,6 +117,28 @@ type Q = routes.Quote<Op, Vp, NttWithExecutor.Quote>;
 type QR = routes.QuoteResult<Op, Vp>;
 
 type R = NttExecutorRoute.TransferReceipt;
+
+function buildRelayFee<N extends Network>(
+  fromChain: ChainContext<N>,
+  estimatedCost: bigint,
+  feeToken: string | undefined,
+  feeTokenDecimals: number | undefined
+): { token: TokenId; amount: amount.Amount } {
+  if (!feeToken) {
+    return {
+      token: nativeTokenId(fromChain.chain),
+      amount: amount.fromBaseUnits(
+        estimatedCost,
+        fromChain.config.nativeTokenDecimals
+      ),
+    };
+  }
+  // Invariant: fetchExecutorQuote sets feeToken and feeTokenDecimals together.
+  return {
+    token: Wormhole.tokenId(fromChain.chain, feeToken),
+    amount: amount.fromBaseUnits(estimatedCost, feeTokenDecimals!),
+  };
+}
 
 export function nttExecutorRoute(config: NttExecutorRoute.Config) {
   class NttExecutorRouteImpl<N extends Network> extends NttExecutorRoute<N> {
@@ -251,12 +278,25 @@ export class NttExecutorRoute<N extends Network>
     try {
       const executorQuote = await this.fetchExecutorQuote(request, params);
 
-      const { remainingAmount, estimatedCost, gasDropOff, expires } =
-        executorQuote;
+      const {
+        remainingAmount,
+        estimatedCost,
+        gasDropOff,
+        expires,
+        feeToken,
+        feeTokenDecimals,
+      } = executorQuote;
 
       const receivedAmount = amount.scale(
         amount.fromBaseUnits(remainingAmount, request.source.decimals),
         request.destination.decimals
+      );
+
+      const relayFee = buildRelayFee(
+        fromChain,
+        estimatedCost,
+        feeToken,
+        feeTokenDecimals
       );
 
       const result: QR = {
@@ -270,13 +310,7 @@ export class NttExecutorRoute<N extends Network>
           token: request.destination.id,
           amount: receivedAmount,
         },
-        relayFee: {
-          token: nativeTokenId(fromChain.chain),
-          amount: amount.fromBaseUnits(
-            estimatedCost,
-            fromChain.config.nativeTokenDecimals
-          ),
-        },
+        relayFee,
         destinationNativeGas: amount.fromBaseUnits(
           gasDropOff,
           toChain.config.nativeTokenDecimals
@@ -355,6 +389,18 @@ export class NttExecutorRoute<N extends Network>
       throw new Error("Unsupported source chain");
     }
 
+    const feeToken = params.options.feeToken;
+    let feeTokenDecimals: number | undefined;
+    if (feeToken) {
+      const entry = srcCapabilities.allowedFeeTokens?.[feeToken.toLowerCase()];
+      if (!entry) {
+        throw new Error(
+          `feeToken ${feeToken} is not an allowed fee token on ${fromChain.chain}`
+        );
+      }
+      feeTokenDecimals = entry.decimals;
+    }
+
     const dstCapabilities = capabilities[toChainId(toChain.chain)];
     if (!dstCapabilities || !dstCapabilities.requestPrefixes.includes("ERN1")) {
       throw new Error("Unsupported destination chain");
@@ -415,7 +461,8 @@ export class NttExecutorRoute<N extends Network>
       fromChain.network,
       fromChain.chain,
       toChain.chain,
-      encoding.hex.encode(relayInstructions, true)
+      encoding.hex.encode(relayInstructions, true),
+      feeToken
     );
 
     if (!quote.estimatedCost) {
@@ -424,19 +471,21 @@ export class NttExecutorRoute<N extends Network>
     const estimatedCost = BigInt(quote.estimatedCost);
 
     const signedQuoteBytes = encoding.hex.decode(quote.signedQuote);
-    const signedQuote = deserializeLayout(signedQuoteLayout, signedQuoteBytes);
+    const { payeeAddress, expiryTime } =
+      deserializeSignedQuoteWithToken(signedQuoteBytes);
 
     return {
       signedQuote: signedQuoteBytes,
       relayInstructions: relayInstructions,
       estimatedCost,
-      payeeAddress: signedQuote.quote.payeeAddress,
+      payeeAddress,
       referrer,
       transferTokenFee,
       nativeTokenFee,
       remainingAmount,
-      expires: signedQuote.quote.expiryTime,
+      expires: expiryTime,
       gasDropOff: dropOff,
+      ...(feeToken ? { feeToken, feeTokenDecimals } : {}),
     };
   }
 

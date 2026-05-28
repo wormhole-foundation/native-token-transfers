@@ -3,6 +3,8 @@ import {
   Network,
   toChainId,
   amount as sdkAmount,
+  deserializeLayout,
+  type Layout,
 } from "@wormhole-foundation/sdk-base";
 import type { UnsignedTransaction } from "@wormhole-foundation/sdk-definitions";
 import { SignedQuote } from "@wormhole-foundation/sdk-definitions";
@@ -64,6 +66,9 @@ export type Capabilities = {
   gasDropOffLimit: string;
   maxGasLimit: string;
   maxMsgValue: string; // the maximum msgValue, inclusive of the gasDropOffLimit
+  // Lowercased ERC20 address -> decimals. Set when the chain accepts token-fee
+  // relay payment (ExecutorWithToken deployed).
+  allowedFeeTokens?: Record<string, { decimals: number }>;
 };
 
 export interface CapabilitiesResponse {
@@ -86,13 +91,16 @@ export async function fetchCapabilities(
 export interface QuoteResponse {
   signedQuote: `0x${string}`;
   estimatedCost?: string;
+  // Set on EQ03 responses; `estimatedCost` is in this token's base units.
+  feeToken?: string;
 }
 
 export async function fetchSignedQuote(
   network: Network,
   srcChain: Chain,
   dstChain: Chain,
-  relayInstructions: string // TODO: `0x:${string}`
+  relayInstructions: string, // TODO: `0x:${string}`
+  feeToken?: string
 ): Promise<QuoteResponse> {
   const url = `${apiBaseUrl[network]}/v0/quote`;
 
@@ -101,6 +109,7 @@ export async function fetchSignedQuote(
       srcChain: toChainId(srcChain),
       dstChain: toChainId(dstChain),
       relayInstructions,
+      ...(feeToken ? { feeToken } : {}),
     });
     return response.data;
   } catch (error) {
@@ -173,4 +182,58 @@ export async function collectTransactions<N extends Network, C extends Chain>(
     transactions.push(tx);
   }
   return transactions;
+}
+
+const EQ01_PREFIX = 0x45513031;
+const EQ03_PREFIX = 0x45513033;
+
+const sharedQuoteBody = [
+  { name: "quoterAddress", binary: "bytes", size: 20 },
+  { name: "payeeAddress", binary: "bytes", size: 32 },
+  { name: "srcChain", binary: "uint", size: 2 },
+  { name: "dstChain", binary: "uint", size: 2 },
+  { name: "expiryTime", binary: "uint", size: 8 },
+  { name: "baseFee", binary: "uint", size: 8 },
+  { name: "dstGasPrice", binary: "uint", size: 8 },
+  { name: "srcPrice", binary: "uint", size: 8 },
+  { name: "dstPrice", binary: "uint", size: 8 },
+] as const;
+
+const signatureItem = { name: "signature", binary: "bytes", size: 65 } as const;
+
+export const signedQuoteWithTokenLayout = [
+  {
+    name: "quote",
+    binary: "switch",
+    idSize: 4,
+    idTag: "prefix",
+    layouts: [
+      [
+        [EQ01_PREFIX, "EQ01"],
+        [...sharedQuoteBody, signatureItem],
+      ],
+      [
+        [EQ03_PREFIX, "EQ03"],
+        [
+          ...sharedQuoteBody,
+          { name: "srcToken", binary: "bytes", size: 32 },
+          signatureItem,
+        ],
+      ],
+    ],
+  },
+] as const satisfies Layout;
+
+export function deserializeSignedQuoteWithToken(signedQuoteBytes: Uint8Array): {
+  payeeAddress: Uint8Array;
+  expiryTime: Date;
+} {
+  const { quote } = deserializeLayout(
+    signedQuoteWithTokenLayout,
+    signedQuoteBytes
+  );
+  return {
+    payeeAddress: quote.payeeAddress,
+    expiryTime: new Date(Number(quote.expiryTime) * 1000),
+  };
 }

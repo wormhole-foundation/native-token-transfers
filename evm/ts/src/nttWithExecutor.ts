@@ -19,6 +19,10 @@ import {
 } from "@wormhole-foundation/sdk-evm";
 import { Provider, Interface } from "ethers";
 import { EvmNtt } from "./ntt.js";
+import {
+  DEFAULT_EXECUTOR_GAS_LIMIT,
+  executorGasLimitOverrides,
+} from "./executorGasLimits.js";
 
 const nttManagerWithExecutorAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
@@ -69,22 +73,12 @@ const nttManagerWithExecutorAddresses: Partial<
   },
 };
 
-// Gas limits must be high enough to cover the worst-case scenario for each chain
-// to avoid relay failures. However, they should not be too high to reduce the
-// `estimatedCost` returned by the quote endpoint.
-const gasLimitOverrides: Partial<
-  Record<Network, Partial<Record<EvmChains, bigint>>>
+const nttManagerWithExecutorWithTokenAddresses: Partial<
+  Record<Network, Partial<Record<EvmChains, string>>>
 > = {
-  Mainnet: {
-    Arbitrum: 800_000n,
-    CreditCoin: 1_500_000n,
-    Monad: 1_000_000n,
-    MegaETH: 1_000_000n,
-    Seievm: 1_000_000n,
-  },
+  Mainnet: {},
   Testnet: {
-    ArbitrumSepolia: 800_000n,
-    Seievm: 1_000_000n,
+    Tempo: "0x3A91179E506A15ff91467e42f5B4bD4239c6eC68",
   },
 };
 
@@ -93,11 +87,17 @@ export const nttWithExecutorAbi = [
   "function transferETH(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
 ];
 
+export const nttWithExecutorWithTokenAbi = [
+  "function transfer(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, uint256 amount, address srcToken, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
+  "function transferETH(address nttManager, uint256 amount, uint16 recipientChain, bytes32 recipientAddress, bytes32 refundAddress, bytes encodedInstructions, (uint256 value, uint256 amount, address srcToken, address refundAddress, bytes signedQuote, bytes instructions) executorArgs, (uint256 transferTokenFee, uint256 nativeTokenFee, address payee) feeArgs) external payable returns (uint64 msgId)",
+];
+
 export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
   implements NttWithExecutor<N, C>
 {
   readonly chainId: bigint;
-  readonly executorAddress: string;
+  readonly executorAddress: string | undefined;
+  readonly executorWithTokenAddress: string | undefined;
 
   constructor(
     readonly network: N,
@@ -110,11 +110,10 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       chain
     ) as bigint;
 
-    const executorAddress =
+    this.executorAddress =
       nttManagerWithExecutorAddresses[this.network]?.[this.chain];
-    if (!executorAddress)
-      throw new Error(`Executor address not found for chain ${this.chain}`);
-    this.executorAddress = executorAddress;
+    this.executorWithTokenAddress =
+      nttManagerWithExecutorWithTokenAddresses[this.network]?.[this.chain];
   }
 
   static async fromRpc<N extends Network>(
@@ -134,6 +133,21 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     );
   }
 
+  private requireShimAddress(quote: NttWithExecutor.Quote): string {
+    if (quote.feeToken) {
+      if (!this.executorWithTokenAddress) {
+        throw new Error(
+          `NttManagerWithExecutorWithToken address not found for chain ${this.chain}`
+        );
+      }
+      return this.executorWithTokenAddress;
+    }
+    if (!this.executorAddress) {
+      throw new Error(`Executor address not found for chain ${this.chain}`);
+    }
+    return this.executorAddress;
+  }
+
   async *transfer(
     sender: AccountAddress<C>,
     destination: ChainAddress,
@@ -142,17 +156,35 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
     ntt: EvmNtt<N, C>,
     wrapNative: boolean = false
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
+    const shimAddress = this.requireShimAddress(quote);
     const senderAddress = new EvmAddress(sender).toString();
     const deliveryPrice = await ntt.quoteDeliveryPrice(destination.chain, {
       queue: false,
       automatic: false,
     });
 
-    // Fee is deducted from the transfer amount.
-    // Approval covers remainingAmount + transferTokenFee = the full user amount.
-    const totalAmount = quote.remainingAmount + quote.transferTokenFee;
+    const isTokenFee = quote.feeToken !== undefined;
+    const iface = new Interface(
+      isTokenFee ? nttWithExecutorWithTokenAbi : nttWithExecutorAbi
+    );
 
-    const iface = new Interface(nttWithExecutorAbi);
+    // executorArgs.value = native forwarded to the Executor: estimatedCost on
+    // the native-fee path, 0 on the token-fee path (the fee is pulled as ERC20).
+    const executorArgs = isTokenFee
+      ? {
+          value: 0n,
+          amount: quote.estimatedCost,
+          srcToken: quote.feeToken!,
+          refundAddress: senderAddress,
+          signedQuote: quote.signedQuote,
+          instructions: quote.relayInstructions,
+        }
+      : {
+          value: quote.estimatedCost,
+          refundAddress: senderAddress,
+          signedQuote: quote.signedQuote,
+          instructions: quote.relayInstructions,
+        };
 
     const commonArgs = [
       ntt.managerAddress,
@@ -163,22 +195,26 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       Ntt.encodeTransceiverInstructions(
         ntt.encodeOptions({ queue: false, automatic: false })
       ),
-      {
-        value: quote.estimatedCost,
-        refundAddress: senderAddress,
-        signedQuote: quote.signedQuote,
-        instructions: quote.relayInstructions,
-      },
+      executorArgs,
     ] as const;
+
+    if (isTokenFee) {
+      yield* this.approveIfNeeded(
+        senderAddress,
+        shimAddress,
+        quote.feeToken!,
+        quote.estimatedCost,
+        ntt
+      );
+    }
 
     let data: string;
     let msgValue: bigint;
 
     if (wrapNative) {
-      // The source token is native gas, so the contract can't pull
-      // transferTokenFee as ERC20 from msg.sender (no WETH approval exists).
-      // Fold it into nativeTokenFee — denominated in the same units — so the
-      // referrer is paid out of msg.value directly.
+      // The source token is native gas, deposited into WETH by the shim, so
+      // transferTokenFee can't be pulled as ERC20. Fold it into nativeTokenFee
+      // (same units) — the referrer is paid out of msg.value directly.
       const combinedNativeFee = quote.nativeTokenFee + quote.transferTokenFee;
       const feeArgs = {
         transferTokenFee: 0n,
@@ -187,8 +223,8 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       };
       data = iface.encodeFunctionData("transferETH", [...commonArgs, feeArgs]);
       msgValue =
-        quote.estimatedCost +
         deliveryPrice +
+        executorArgs.value +
         combinedNativeFee +
         quote.remainingAmount;
     } else {
@@ -199,39 +235,49 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
       };
       yield* this.approveIfNeeded(
         senderAddress,
-        this.executorAddress,
-        totalAmount,
+        shimAddress,
+        ntt.tokenAddress,
+        quote.remainingAmount + quote.transferTokenFee,
         ntt
       );
       data = iface.encodeFunctionData("transfer", [...commonArgs, feeArgs]);
-      msgValue = quote.estimatedCost + deliveryPrice + quote.nativeTokenFee;
+      msgValue = deliveryPrice + executorArgs.value + quote.nativeTokenFee;
     }
 
     yield ntt.createUnsignedTx(
-      { to: this.executorAddress, data, value: msgValue },
-      wrapNative ? "NttWithExecutor.transferETH" : "NttWithExecutor.transfer"
+      { to: shimAddress, data, value: msgValue },
+      this.txDescription(isTokenFee, wrapNative)
     );
+  }
+
+  private txDescription(isTokenFee: boolean, wrapNative: boolean): string {
+    if (isTokenFee) {
+      return wrapNative
+        ? "NttWithExecutorWithToken.transferETH"
+        : "NttWithExecutorWithToken.transfer";
+    }
+    return wrapNative
+      ? "NttWithExecutor.transferETH"
+      : "NttWithExecutor.transfer";
   }
 
   private async *approveIfNeeded(
     senderAddress: string,
-    contractAddress: string,
+    spender: string,
+    tokenAddress: string,
     requiredAmount: bigint,
     ntt: EvmNtt<N, C>
   ): AsyncGenerator<UnsignedTransaction<N, C>> {
     const tokenContract = EvmPlatform.getTokenImplementation(
       this.provider,
-      ntt.tokenAddress
+      tokenAddress
     );
 
-    const allowance = await tokenContract.allowance(
-      senderAddress,
-      contractAddress
-    );
+    const allowance = await tokenContract.allowance(senderAddress, spender);
 
     if (allowance < requiredAmount) {
       const txReq = await tokenContract.approve.populateTransaction(
-        contractAddress,
+        spender,
         requiredAmount
       );
       yield ntt.createUnsignedTx(txReq, "Ntt.Approve");
@@ -241,7 +287,9 @@ export class EvmNttWithExecutor<N extends Network, C extends EvmChains>
   async estimateMsgValueAndGasLimit(
     recipient: ChainAddress | undefined
   ): Promise<{ msgValue: bigint; gasLimit: bigint }> {
-    const gasLimit = gasLimitOverrides[this.network]?.[this.chain] ?? 500_000n;
+    const gasLimit =
+      executorGasLimitOverrides[this.network]?.[this.chain] ??
+      DEFAULT_EXECUTOR_GAS_LIMIT;
     return { msgValue: 0n, gasLimit };
   }
 }
@@ -254,4 +302,13 @@ export function hasExecutorDeployed(
   chain: EvmChains
 ): boolean {
   return nttManagerWithExecutorAddresses[network]?.[chain] !== undefined;
+}
+
+export function hasExecutorWithTokenDeployed(
+  network: Network,
+  chain: EvmChains
+): boolean {
+  return (
+    nttManagerWithExecutorWithTokenAddresses[network]?.[chain] !== undefined
+  );
 }
