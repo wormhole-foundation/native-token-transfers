@@ -389,8 +389,21 @@ export class NttExecutorRoute<N extends Network>
       throw new Error("Unsupported source chain");
     }
 
-    const feeToken = params.options.feeToken;
+    let feeToken = params.options.feeToken;
     let feeTokenDecimals: number | undefined;
+    // Default to token-fee when the chain only advertises allowedFeeTokens
+    // (no native-fee executor): prefer the native token, else the first
+    // allowed token. Callers can override via options.feeToken.
+    if (!feeToken && srcCapabilities.allowedFeeTokens) {
+      const allowed = srcCapabilities.allowedFeeTokens;
+      const allowedKeys = Object.keys(allowed);
+      if (allowedKeys.length > 0) {
+        const nativeAddr = canonicalAddress(
+          nativeTokenId(fromChain.chain)
+        ).toLowerCase();
+        feeToken = allowed[nativeAddr] ? nativeAddr : allowedKeys[0];
+      }
+    }
     if (feeToken) {
       const entry = srcCapabilities.allowedFeeTokens?.[feeToken.toLowerCase()];
       if (!entry) {
