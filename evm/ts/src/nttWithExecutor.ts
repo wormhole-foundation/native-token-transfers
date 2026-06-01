@@ -76,7 +76,9 @@ const nttManagerWithExecutorAddresses: Partial<
 const nttManagerWithExecutorWithTokenAddresses: Partial<
   Record<Network, Partial<Record<EvmChains, string>>>
 > = {
-  Mainnet: {},
+  Mainnet: {
+    Tempo: "0x46d59af07A35751Deb45EC778150C7f0dFbb3d3a",
+  },
   Testnet: {
     Tempo: "0x3A91179E506A15ff91467e42f5B4bD4239c6eC68",
   },
