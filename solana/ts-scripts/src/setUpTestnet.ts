@@ -1,6 +1,6 @@
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import "dotenv/config";
-import { NTT } from "../lib";
+import { NTT } from "../../ts/lib";
 import { BN } from "@coral-xyz/anchor";
 
 main();

@@ -1,0 +1,26 @@
+{
+  "name": "ts-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx typechain --target=ethers-v5 --out-dir=./contract-bindings ../out/*/*.json"
+  },
+  "author": "",
+  "license": "ISC",
+  "overrides": {
+    "elliptic": "6.6.1"
+  },
+  "devDependencies": {
+    "@certusone/wormhole-sdk": "^0.10.11",
+    "@typechain/ethers-v5": "^11.1.2",
+    "@types/node": "^20.11.22",
+    "@xlabs-xyz/ledger-signer": "^0.0.3",
+    "dotenv": "^16.4.5",
+    "ethers": "^5.8.0",
+    "typechain": "^8.3.2",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5"
+  }
+}
