@@ -41,6 +41,13 @@ const overrides: WormholeConfigOverrides<Network> = loadOverrides();
 yargs(hideBin(process.argv))
   .wrap(Math.min(process.stdout.columns || 120, 160)) // Use terminal width, but no more than 160 characters
   .scriptName("ntt")
+  .option("json", {
+    describe:
+      "Emit a single JSON result line on stdout (everything else routed to stderr). Also activated by WL_NTT_JSON=1.",
+    type: "boolean",
+    default: false,
+    global: true,
+  })
   .version(
     (() => {
       if (!nttVersion()) return "unknown";
