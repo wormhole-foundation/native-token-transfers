@@ -47,7 +47,7 @@ pub struct InitializeLUT<'info> {
     pub owner: Signer<'info>,
 
     #[account(
-        seeds = [b"lut_authority"],
+        seeds = [b"lut_authority", entries.config.key().as_ref()],
         bump
     )]
     /// CHECK: The seeds constraint enforces that this is the correct account.
@@ -66,7 +66,7 @@ pub struct InitializeLUT<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + LUT::INIT_SPACE,
-        seeds = [b"lut"],
+        seeds = [b"lut", entries.config.key().as_ref()],
         bump
     )]
     pub lut: Account<'info, LUT>,
@@ -105,12 +105,16 @@ pub struct Entries<'info> {
     pub mint: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        seeds = [crate::TOKEN_AUTHORITY_SEED, config.key().as_ref()],
         bump,
     )]
     /// CHECK: The seeds constraint enforces that this is the correct account.
     pub token_authority: UncheckedAccount<'info>,
 
+    #[account(
+        seeds = [OutboxRateLimit::SEED_PREFIX, config.key().as_ref()],
+        bump,
+    )]
     pub outbox_rate_limit: Account<'info, OutboxRateLimit>,
 
     // NOTE: this includes the system program so we don't need to add it in the outer context
@@ -177,7 +181,11 @@ pub fn initialize_lut(ctx: Context<InitializeLUT>, recent_slot: u64) -> Result<(
             ctx.accounts.payer.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
         ],
-        &[&[b"lut_authority", &[ctx.bumps.authority]]],
+        &[&[
+            b"lut_authority",
+            ctx.accounts.entries.config.key().as_ref(),
+            &[ctx.bumps.authority],
+        ]],
     )?;
 
     Ok(())

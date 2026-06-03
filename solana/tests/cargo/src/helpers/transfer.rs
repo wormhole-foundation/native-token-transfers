@@ -44,6 +44,9 @@ pub fn init_transfer_accs_args(
     (accs, args)
 }
 
+/// v4: `recipient_ntt_manager` in the constructed transceiver message is the
+/// destination instance pubkey (not the program ID), because that's what the
+/// on-chain redeem path validates against (`recipient_ntt_manager == config.key()`).
 pub fn make_transfer_message(
     ntt: &NTT,
     id: [u8; 32],
@@ -67,7 +70,7 @@ pub fn make_transfer_message(
 
     TransceiverMessage::new(
         OTHER_MANAGER,
-        ntt.program().to_bytes(),
+        ntt.config().to_bytes(),
         ntt_manager_message.clone(),
         vec![],
     )

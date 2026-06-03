@@ -37,6 +37,7 @@ import {
   askForConfirmation,
   buildSvm,
   createWorkTree,
+  uploadSolanaProgram,
 } from "../index";
 
 export function createSolanaCommand(
@@ -69,14 +70,29 @@ export function createSolanaCommand(
           "token-authority <programId>",
           "print the token authority address for a given program ID",
           (yargs: any) =>
-            yargs.positional("programId", {
-              describe: "Program ID",
-              type: "string",
-              demandOption: true,
-            }),
+            yargs
+              .positional("programId", {
+                describe: "Program ID",
+                type: "string",
+                demandOption: true,
+              })
+              .option("instance", {
+                describe:
+                  "(Multi-tenant / v4) The Instance pubkey under the program. " +
+                  "v4 token_authority PDAs are scoped by instance, so this " +
+                  "flag is required when the program is multi-tenant.",
+                type: "string",
+                demandOption: false,
+              }),
           (argv: any) => {
             const programId = new PublicKey(argv["programId"]);
-            const tokenAuthority = NTT.pdas(programId).tokenAuthority();
+            const instance = argv["instance"]
+              ? new PublicKey(argv["instance"])
+              : undefined;
+            const tokenAuthority = NTT.pdas(
+              programId,
+              instance
+            ).tokenAuthority();
             console.log(tokenAuthority.toBase58());
           }
         )
@@ -201,7 +217,8 @@ export function createSolanaCommand(
               const [, , ntt] = await pullChainConfig(
                 network,
                 { chain, address: toUniversal(chain, chainConfig.manager) },
-                overrides
+                overrides,
+                chainConfig.instance
               );
               solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
               managerKey = new PublicKey(chainConfig.manager);
@@ -382,6 +399,114 @@ export function createSolanaCommand(
             console.log(`Program ID: ${buildResult.programId}`);
             console.log(`Binary: ${buildResult.binary}`);
             console.log(`Keypair: ${buildResult.programKeypairPath}`);
+          }
+        )
+        .command(
+          "deploy-program <chain>",
+          "build (or reuse) and upload the SVM program binary, without initializing an instance",
+          (yargs: any) =>
+            yargs
+              .positional("chain", options.chain)
+              .option("network", options.network)
+              .option("payer", { ...options.payer, demandOption: true })
+              .option("program-key", {
+                describe: "Path to program key json",
+                type: "string",
+              })
+              .option("binary", {
+                describe:
+                  "Path to pre-built program binary (.so file); skips build if provided",
+                type: "string",
+              })
+              .option("solana-priority-fee", {
+                describe: "Priority fee for SVM deployment (in microlamports)",
+                type: "number",
+                default: 50000,
+              })
+              .option("ver", options.version)
+              .option("latest", options.latest)
+              .option("local", options.local)
+              .example(
+                "$0 svm deploy-program Solana --network Mainnet --latest --payer ./payer.json",
+                "Build and deploy the latest program; no instance is created"
+              )
+              .example(
+                "$0 svm deploy-program Solana --network Mainnet --ver 4.0.0 --payer ./payer.json --program-key ./prog-keypair.json",
+                "Deploy a specific version with a chosen program keypair (run `ntt add-chain Solana --instance-of <programId>` next)"
+              ),
+          async (argv: any) => {
+            const chain: Chain = argv["chain"];
+            const network = argv["network"] as Network;
+
+            const platform = chainToPlatform(chain);
+            if (platform !== "Solana") {
+              console.error(
+                `deploy-program is only supported for Solana chains. Got platform: ${platform}`
+              );
+              process.exit(1);
+            }
+
+            validateChain(network, chain);
+
+            const payerPath = validatePayerOption(
+              argv["payer"],
+              chain,
+              (m) => new Error(m),
+              (m) => console.warn(colors.yellow(m))
+            );
+            if (!payerPath) {
+              console.error("Payer not found. Specify with --payer");
+              process.exit(1);
+            }
+
+            const version = resolveVersion(
+              argv["latest"],
+              argv["ver"],
+              argv["local"],
+              platform
+            );
+
+            const worktree = version ? createWorkTree(platform, version) : ".";
+
+            const wh = new Wormhole(
+              network,
+              [solana.Platform, evm.Platform, sui.Platform],
+              overrides
+            );
+            const ch = wh.getChain(chain);
+            const wormhole = ch.config.contracts.coreBridge;
+            if (!wormhole) {
+              console.error("Core bridge not found");
+              process.exit(1);
+            }
+
+            console.log(`Building SVM program for ${chain} on ${network}...`);
+            const { binary, programId, programKeypairPath } = await buildSvm(
+              worktree,
+              network,
+              chain,
+              wormhole,
+              version,
+              argv["program-key"],
+              argv["binary"],
+              overrides
+            );
+
+            console.log(
+              `Deploying program ${programId} to ${chain} ${network}...`
+            );
+            await uploadSolanaProgram({
+              binary,
+              programKeypairPath,
+              payerPath,
+              rpc: ch.config.rpc,
+              priorityFee: argv["solana-priority-fee"],
+            });
+
+            console.log(`Deployed program: ${colors.green(programId)}`);
+            console.log(
+              `Next: \`ntt add-chain ${chain} --instance-of ${programId} --token <mint> --mode <locking|burning> --payer ${payerPath}\``
+            );
           }
         )
         .demandCommand();

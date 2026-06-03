@@ -29,7 +29,7 @@ pub struct Redeem<'info> {
     pub config: Account<'info, Config>,
 
     #[account(
-        seeds = [NttManagerPeer::SEED_PREFIX, ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref()],
+        seeds = [NttManagerPeer::SEED_PREFIX, config.key().as_ref(), ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref()],
         constraint = peer.address == ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.source_ntt_manager() @ NTTError::InvalidNttManagerPeer,
         bump = peer.bump,
     )]
@@ -39,7 +39,8 @@ pub struct Redeem<'info> {
         // check that the message is targeted to this chain
         constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.ntt_manager_payload().payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
         // check that we're the intended recipient
-        constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.recipient_ntt_manager() == crate::ID.to_bytes() @ NTTError::InvalidRecipientNttManager,
+        // v4: the on-the-wire manager identity is the instance's `config` pubkey.
+        constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.recipient_ntt_manager() == config.key().to_bytes() @ NTTError::InvalidRecipientNttManager,
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
         owner = transceiver.transceiver_address
@@ -49,6 +50,8 @@ pub struct Redeem<'info> {
     pub transceiver_message: UncheckedAccount<'info>,
 
     #[account(
+        seeds = [RegisteredTransceiver::SEED_PREFIX, config.key().as_ref(), transceiver.transceiver_address.as_ref()],
+        bump,
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver
     )]
     pub transceiver: Account<'info, RegisteredTransceiver>,
@@ -64,6 +67,7 @@ pub struct Redeem<'info> {
         space = 8 + InboxItem::INIT_SPACE,
         seeds = [
             InboxItem::SEED_PREFIX,
+            config.key().as_ref(),
             ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.ntt_manager_payload().keccak256(
                 ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?
             ).as_ref(),
@@ -88,13 +92,18 @@ pub struct Redeem<'info> {
         mut,
         seeds = [
             InboxRateLimit::SEED_PREFIX,
+            config.key().as_ref(),
             ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref(),
         ],
         bump,
     )]
     pub inbox_rate_limit: Account<'info, InboxRateLimit>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [OutboxRateLimit::SEED_PREFIX, config.key().as_ref()],
+        bump,
+    )]
     pub outbox_rate_limit: Account<'info, OutboxRateLimit>,
 
     pub system_program: Program<'info, System>,
@@ -127,10 +136,12 @@ pub fn redeem(ctx: Context<Redeem>, _args: RedeemArgs) -> Result<()> {
     if !accs.inbox_item.init {
         let recipient_address =
             Pubkey::try_from(message.payload.to).map_err(|_| NTTError::InvalidRecipientAddress)?;
+        let config = accs.config.key();
 
         accs.inbox_item.set_inner(InboxItem {
             init: true,
             bump: ctx.bumps.inbox_item,
+            config,
             amount,
             recipient_address,
             release_status: ReleaseStatus::NotApproved,

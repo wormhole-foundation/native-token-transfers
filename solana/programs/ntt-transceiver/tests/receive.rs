@@ -48,6 +48,8 @@ use wormhole_sdk::{vaa::digest, Address};
 async fn test_receive_instruction_data() {
     let recipient = Keypair::new();
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     // transfer tokens to custody account
     spl_token::instruction::transfer_checked(
@@ -181,6 +183,8 @@ async fn test_receive_instruction_data() {
 async fn test_receive_message_account() {
     let recipient = Keypair::new();
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     // transfer tokens to custody account
     spl_token::instruction::transfer_checked(
@@ -328,7 +332,9 @@ async fn test_receive_message_account() {
 #[tokio::test]
 async fn test_double_receive() {
     let recipient = Keypair::new();
-    let (mut ctx, _test_data) = setup(Mode::Locking).await;
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let msg = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
 
@@ -399,6 +405,8 @@ async fn test_double_receive() {
 async fn test_wrong_recipient_ntt_manager() {
     let recipient = Keypair::new();
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let mut msg = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
 
@@ -461,7 +469,9 @@ async fn test_wrong_recipient_ntt_manager() {
 #[tokio::test]
 async fn test_wrong_transceiver_peer() {
     let recipient = Keypair::new();
-    let (mut ctx, _test_data) = setup(Mode::Locking).await;
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let msg = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
 
@@ -507,6 +517,8 @@ async fn test_wrong_transceiver_peer() {
 async fn test_wrong_manager_peer() {
     let recipient = Keypair::new();
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let mut msg = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
 
@@ -570,6 +582,8 @@ async fn test_wrong_manager_peer() {
 async fn test_wrong_inbox_item() {
     let recipient = Keypair::new();
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let msg = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
 

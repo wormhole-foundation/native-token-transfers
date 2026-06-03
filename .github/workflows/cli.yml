@@ -71,7 +71,10 @@ jobs:
           NTT_EVM_CACHE_DIR: ${{ github.workspace }}/evm
           SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }} # zizmor: ignore[secrets-outside-env]
           BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }} # zizmor: ignore[secrets-outside-env]
-        run: bun run --cwd cli test:e2e
+        # `test:e2e:evm` instead of `test:e2e` — the latter also runs the
+        # Solana e2e suite, which needs `solana-test-validator` (not
+        # installed on this runner) and is exercised by `test-cli-solana-e2e`.
+        run: bun run --cwd cli test:e2e:evm
 
   # Build Solana contracts (v1.0.0 and v2.0.0 in parallel)
   # Artifacts are cached based on version tag + build script hash
@@ -132,6 +135,110 @@ jobs:
           name: solana-v${{ matrix.version }}-artifacts
           path: /tmp/solana-artifacts/v${{ matrix.version }}
           retention-days: 1
+
+  # CLI bun-test e2e against a freshly-spun `solana-test-validator`. Builds
+  # the v4 .so from source (no v4 tag yet) and runs `bun test
+  # cli/e2e/e2e-solana.test.ts`, which drives `ntt init` /
+  # `ntt add-chain --instance-of` / `ntt upgrade` end-to-end and asserts on
+  # deployment.json + on-chain state. Mirrors solana.yml's `anchor-test`
+  # setup (same bun, solana, anchor, sdk steps) so we get the same .so the
+  # SDK tests use.
+  test-cli-solana-e2e:
+    name: CLI Solana E2E (bun)
+    runs-on: ubuntu-latest
+    env:
+      node-version: "24"
+      solana-cli-version: "1.18.26"
+      anchor-version: "0.29.0"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.4"
+
+      - uses: ./.github/actions/setup-anchor
+        with:
+          anchor-version: ${{ env.anchor-version }}
+          solana-cli-version: ${{ env.solana-cli-version }}
+          node-version: ${{ env.node-version }}
+
+      # Install root + workspace deps first. The CLI imports several
+      # `@wormhole-foundation/sdk-*-ntt` packages that resolve via bun's
+      # workspace symlinks under root `node_modules`; without this step the
+      # CLI can't even start (`Cannot find module @wormhole-foundation/
+      # sdk-evm-ntt`). Mirrors the pattern in `test-cli-unit`.
+      - name: Install workspace deps
+        run: bun ci
+        shell: bash
+
+      - name: Cache solana node_modules
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ./solana/node_modules/
+          key: node-modules-${{ runner.os }}-build-${{ env.node-version }}
+
+      - name: Install solana node_modules
+        working-directory: ./solana
+        run: make node_modules
+        shell: bash
+
+      - name: Create keypair
+        run: solana-keygen new --no-bip39-passphrase
+        shell: bash
+
+      - name: Make Anchor.toml compatible with runner
+        working-directory: ./solana
+        run: sed -i 's:/user/:/runner/:' Anchor.toml
+        shell: bash
+
+      - name: Install Cargo toolchain
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1 # zizmor: ignore[archived-uses]
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustc
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: "solana"
+
+      - name: Build Solana program (anchor build + patch IDL)
+        working-directory: ./solana
+        run: make anchor-build
+        shell: bash
+
+      # `make sdk` only builds `bun run build:solana`, but the CLI also
+      # imports `@wormhole-foundation/sdk-evm-ntt` and `sdk-sui-ntt`
+      # workspace packages. Without their `dist/` populated, bun
+      # resolves the symlink to a package whose main/module fields
+      # point at non-existent files and reports `Cannot find module`.
+      # `bun run build` builds every workspace package.
+      - name: Build all SDK workspace packages
+        run: bun run build
+        shell: bash
+
+      - name: Run CLI bun e2e
+        env:
+          # `tail -f /tmp/ntt-e2e-validator.log` from another step would be
+          # nice, but bun:test prints one [ntt] progress line per CLI
+          # invocation in this mode — enough breadcrumbs to localize a
+          # CI-only failure without drowning the log in SDK noise. Switch
+          # to NTT_E2E_VERBOSE=1 if a bug actually demands the full dump.
+          NTT_E2E_DEBUG: "1"
+        run: bun test cli/e2e/e2e-solana.test.ts
+        shell: bash
+
+      - name: Upload validator log on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ntt-e2e-validator-log
+          path: /tmp/ntt-e2e-validator.log
+          if-no-files-found: ignore
 
   # Run Solana tests using pre-built artifacts
   test-solana:
