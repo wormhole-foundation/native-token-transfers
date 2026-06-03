@@ -67,6 +67,8 @@ pub enum NTTError {
     InvalidTransceiverProgram,
     #[msg("InvalidOutboxItem")]
     InvalidOutboxItem,
+    #[msg("InvalidInboxItem")]
+    InvalidInboxItem,
 }
 
 impl From<ScalingError> for NTTError {
