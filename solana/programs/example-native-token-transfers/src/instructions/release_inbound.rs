@@ -17,7 +17,16 @@ pub struct ReleaseInbound<'info> {
 
     pub config: NotPausedConfig<'info>,
 
-    #[account(mut)]
+    // SECURITY: the inbox item is created (in [`crate::instructions::redeem`]) as a PDA seeded by
+    // the instance's `config` key, but here it arrives as an already-allocated account with no way
+    // to re-derive those seeds (we don't have the original message). Without binding it back to
+    // `config`, an inbox item validated under one instance could be released against a *different*
+    // instance, whose `mint`/`custody`/`token_authority` are the ones actually used below — minting
+    // or unlocking that instance's tokens for a transfer it never received.
+    #[account(
+        mut,
+        constraint = inbox_item.config == config.key() @ NTTError::InvalidInboxItem,
+    )]
     pub inbox_item: Account<'info, InboxItem>,
 
     #[account(

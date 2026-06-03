@@ -13,6 +13,14 @@ pub struct InboxItem {
     // to guard against modifications to the `bump` and `amounts` fields.
     pub init: bool,
     pub bump: u8,
+    /// The instance (`config`) this inbox item belongs to. In [`crate::instructions::redeem`]
+    /// the inbox item PDA is seeded by `config.key()`, so this is implied by the address; we
+    /// also store it explicitly so that [`crate::instructions::release_inbound`] — which only
+    /// receives the already-created account and has no message to re-derive the seeds from — can
+    /// verify the binding. Without it, a transfer validated under one instance could be released
+    /// against another instance's mint/custody/token authority.
+    /// SECURITY: set once at creation, behind the [`init`] guard, and never mutated afterwards.
+    pub config: Pubkey,
     pub amount: u64,
     pub recipient_address: Pubkey,
     pub votes: Bitmap,

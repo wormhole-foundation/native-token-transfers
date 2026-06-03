@@ -136,10 +136,12 @@ pub fn redeem(ctx: Context<Redeem>, _args: RedeemArgs) -> Result<()> {
     if !accs.inbox_item.init {
         let recipient_address =
             Pubkey::try_from(message.payload.to).map_err(|_| NTTError::InvalidRecipientAddress)?;
+        let config = accs.config.key();
 
         accs.inbox_item.set_inner(InboxItem {
             init: true,
             bump: ctx.bumps.inbox_item,
+            config,
             amount,
             recipient_address,
             release_status: ReleaseStatus::NotApproved,

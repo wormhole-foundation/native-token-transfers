@@ -1775,6 +1775,10 @@ export type ExampleNativeTokenTransfers = {
             "type": "u8"
           },
           {
+            "name": "config",
+            "type": "publicKey"
+          },
+          {
             "name": "amount",
             "type": "u64"
           },
@@ -2394,6 +2398,11 @@ export type ExampleNativeTokenTransfers = {
       "code": 6030,
       "name": "InvalidOutboxItem",
       "msg": "InvalidOutboxItem"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidInboxItem",
+      "msg": "InvalidInboxItem"
     }
   ]
 }
@@ -4174,6 +4183,10 @@ export const IDL: ExampleNativeTokenTransfers = {
             "type": "u8"
           },
           {
+            "name": "config",
+            "type": "publicKey"
+          },
+          {
             "name": "amount",
             "type": "u64"
           },
@@ -4793,6 +4806,11 @@ export const IDL: ExampleNativeTokenTransfers = {
       "code": 6030,
       "name": "InvalidOutboxItem",
       "msg": "InvalidOutboxItem"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidInboxItem",
+      "msg": "InvalidInboxItem"
     }
   ]
 }
