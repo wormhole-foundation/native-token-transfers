@@ -247,9 +247,9 @@ if [ -n "${SOLANA_ARTIFACTS_DIR:-}" ]; then
 fi
 
 if [ -n "$V1_BINARY" ]; then
-    ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair" --binary "$V1_BINARY"
+    ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair" --binary "$V1_BINARY" --deploy-program
 else
-    ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair"
+    ntt add-chain Solana --ver 1.0.0 --mode burning --token "$token" --payer "$keypair" --program-key "$ntt_keypair" --deploy-program
 fi
 
 echo "Getting status"
