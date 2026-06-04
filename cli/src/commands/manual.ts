@@ -488,24 +488,12 @@ export function createManualCommand(
               vaa = deserialize("Ntt:WormholeTransfer", vaaBytes);
             } catch (e) {
               console.error(
-                colors.yellow(
-                  "Failed to deserialize as Ntt:WormholeTransfer, trying Ntt:WormholeTransferStandardRelayer..."
+                colors.red(
+                  "Failed to deserialize VAA as any known NTT transfer type."
                 )
               );
-              try {
-                vaa = deserialize(
-                  "Ntt:WormholeTransferStandardRelayer",
-                  vaaBytes
-                );
-              } catch (e2) {
-                console.error(
-                  colors.red(
-                    "Failed to deserialize VAA as any known NTT transfer type."
-                  )
-                );
-                if (e2 instanceof Error) console.error(e2.message);
-                process.exit(1);
-              }
+              if (e instanceof Error) console.error(e.message);
+              process.exit(1);
             }
 
             console.log(colors.blue("📨 Manual Redeem Operation"));

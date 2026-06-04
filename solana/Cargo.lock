@@ -2491,18 +2491,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ntt-quoter"
-version = "3.0.0"
-dependencies = [
- "anchor-lang",
- "cfg-if",
- "example-native-token-transfers",
- "solana-program",
- "wormhole-io",
- "wormhole-solana-utils",
-]
-
-[[package]]
 name = "ntt-transceiver"
 version = "3.0.0"
 dependencies = [

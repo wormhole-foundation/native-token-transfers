@@ -184,10 +184,6 @@ export class XrplNtt<N extends Network, C extends XrplChains>
     throw new Error("Not implemented");
   }
 
-  async isRelayingAvailable(destination: Chain): Promise<boolean> {
-    return false;
-  }
-
   // Rate Limiting
   async getCurrentOutboundCapacity(): Promise<bigint> {
     return 0n;

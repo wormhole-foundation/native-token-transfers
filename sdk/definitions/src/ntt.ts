@@ -43,7 +43,6 @@ export namespace Ntt {
     transceiver: {
       [type: string]: string;
     };
-    quoter?: string;
     svmShims?: {
       postMessageShimOverride?: string;
       verifyVaaShimOverride?: string;
@@ -94,9 +93,7 @@ export namespace Ntt {
   // TODO: what are the set of attestation types for Ntt?
   // can we know this ahead of time or does it need to be
   // flexible enough for folks to add their own somehow?
-  export type Attestation =
-    | VAA<"Ntt:WormholeTransfer">
-    | VAA<"Ntt:WormholeTransferStandardRelayer">;
+  export type Attestation = VAA<"Ntt:WormholeTransfer">;
 
   /**
    * InboundQueuedTransfer is a queued transfer from another chain
@@ -239,9 +236,6 @@ export interface Ntt<N extends Network, C extends Chain> {
     peer: ChainAddress,
     payer?: AccountAddress<C>
   ): AsyncGenerator<UnsignedTransaction<N, C>>;
-
-  /** Check to see if relaying service is available for automatic transfers */
-  isRelayingAvailable(destination: Chain): Promise<boolean>;
 
   /**
    * quoteDeliveryPrice returns the price to deliver a message to a given chain
@@ -441,10 +435,7 @@ export interface NttTransceiver<
 }
 
 export namespace WormholeNttTransceiver {
-  const _payloads = [
-    "WormholeTransfer",
-    "WormholeTransferStandardRelayer",
-  ] as const;
+  const _payloads = ["WormholeTransfer"] as const;
   export type PayloadNames = (typeof _payloads)[number];
   export type VAA<PayloadName extends PayloadNames = PayloadNames> =
     ProtocolVAA<Ntt.ProtocolName, PayloadName>;

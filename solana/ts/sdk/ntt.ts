@@ -4,7 +4,6 @@ import {
   AddressLookupTableAccount,
   Connection,
   Keypair,
-  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -48,7 +47,7 @@ import {
   getNttProgram,
   getTransceiverProgram,
 } from "../lib/bindings.js";
-import { NTT, NttQuoter } from "../lib/index.js";
+import { NTT } from "../lib/index.js";
 import { derivePda, parseVersion, vaaBody } from "../lib/utils.js";
 import { type WormholePostMessageShim } from "../idl/wormhole_shim/ts/wormhole_post_message_shim.js";
 import { IDL as WormholePostMessageShimIdl } from "../idl/wormhole_shim/ts/wormhole_post_message_shim.js";
@@ -558,7 +557,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
   program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>;
 
   config?: NttBindings.Config<IdlVersion>;
-  quoter?: NttQuoter;
   addressLookupTable?: AddressLookupTableAccount;
 
   // 0 = Wormhole xcvr
@@ -639,13 +637,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
 
     this.managerAddress = contracts.ntt.manager;
     this.tokenAddress = contracts.ntt.token;
-
-    if (this.contracts.ntt?.quoter)
-      this.quoter = new NttQuoter(
-        connection,
-        this.contracts.ntt.quoter!,
-        this.contracts.ntt.manager
-      );
 
     this.core = new SolanaWormholeCore<N, C>(
       network,
@@ -772,20 +763,13 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     throw new Error("Pauser role not supported on Solana.");
   }
 
-  async isRelayingAvailable(destination: Chain): Promise<boolean> {
-    if (!this.quoter) return false;
-    return await this.quoter.isRelayEnabled(destination);
-  }
-
   async quoteDeliveryPrice(
-    destination: Chain,
-    options: Ntt.TransferOptions
+    _destination: Chain,
+    _options: Ntt.TransferOptions
   ): Promise<bigint> {
-    if (!this.quoter) throw new Error("Quoter not available");
-    if (!this.quoter.isRelayEnabled(destination))
-      throw new Error("Relay not enabled");
-
-    return await this.quoter.quoteDeliveryPrice(destination, 0n);
+    throw new Error(
+      "Relaying via the legacy NTT relayer is no longer supported; use the executor route."
+    );
   }
 
   static async fromRpc<N extends Network>(
@@ -1066,6 +1050,12 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const config = await this.getConfig();
     if (config.paused) throw new Error("Contract is paused");
 
+    if (options.automatic) {
+      throw new Error(
+        "Automatic relayer transfers are no longer supported; use the executor route."
+      );
+    }
+
     outboxItem = outboxItem ?? Keypair.generate();
 
     const payerAddress = new SolanaAddress(sender).unwrap();
@@ -1177,24 +1167,6 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     const tx = new Transaction();
     tx.feePayer = payerAddress;
     tx.add(approveIx, ...(await Promise.all(asyncIxs)));
-
-    if (options.automatic) {
-      if (!this.quoter)
-        throw new Error(
-          "No quoter available, cannot initiate an automatic transfer."
-        );
-
-      const fee = await this.quoteDeliveryPrice(destination.chain, options);
-
-      const relayIx = await this.quoter.createRequestRelayInstruction(
-        payerAddress,
-        outboxItem.publicKey,
-        destination.chain,
-        Number(fee) / LAMPORTS_PER_SOL,
-        0
-      );
-      tx.add(relayIx);
-    }
 
     const luts: AddressLookupTableAccount[] = [];
     try {

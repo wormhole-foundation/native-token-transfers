@@ -349,34 +349,3 @@ export const mockInboxItem = (overrides: any = {}) => ({
     },
   },
 });
-
-// Mock Quoter Instance for delivery pricing
-export const mockQuoterInstance = (overrides: any = {}) => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      type: "0x789::quoter::Instance",
-      hasPublicTransfer: false,
-      fields: {
-        sui_price_in_usd: overrides.suiPriceInUsd || "80000000", // $80 in 6 decimals
-        precision: overrides.precision || "1000000", // 6 decimals
-      },
-    },
-  },
-});
-
-// Mock Quoter Registered Chain for delivery pricing
-export const mockQuoterChain = (overrides: any = {}) => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      type: "0x789::quoter::RegisteredChain",
-      hasPublicTransfer: false,
-      fields: {
-        gas_price: overrides.gasPrice || "20000000000", // 20 gwei
-        native_token_price: overrides.nativeTokenPrice || "3000000000", // $3000 in 6 decimals
-        base_fee: overrides.baseFee || "50000", // $0.05 in 6 decimals
-      },
-    },
-  },
-});

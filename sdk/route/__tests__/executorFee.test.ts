@@ -35,7 +35,6 @@ const nttConfig: NttExecutorRoute.Config["ntt"] = {
             address: "ExVbjD8inGXkt7Cx8jVr4GF175sQy1MeqgfaY53Ah8as",
           },
         ],
-        quoter: "Nqd6XqA8LbsCuG8MLWWuP865NV6jR1MbXeKxD4HLKDJ",
       },
       {
         chain: "Sepolia",
