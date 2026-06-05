@@ -104,22 +104,6 @@ export function derivePda(
 export const chainToBytes = (chain: Chain | ChainId) =>
   encoding.bignum.toBytes(toChainId(chain), 2);
 
-export const quoterAddresses = (programId: PublicKeyInitData) => {
-  const instanceAccount = () => derivePda("instance", programId);
-  const registeredNttAccount = (nttProgramId: PublicKey) =>
-    derivePda(["registered_ntt", nttProgramId.toBytes()], programId);
-  const relayRequestAccount = (outboxItem: PublicKey) =>
-    derivePda(["relay_request", outboxItem.toBytes()], programId);
-  const registeredChainAccount = (chain: Chain) =>
-    derivePda(["registered_chain", chainToBytes(chain)], programId);
-  return {
-    relayRequestAccount,
-    instanceAccount,
-    registeredChainAccount,
-    registeredNttAccount,
-  };
-};
-
 export const vaaBody = (vaa: Uint8Array | Buffer) => {
   const signedVaa = Buffer.isBuffer(vaa) ? vaa : Buffer.from(vaa as Uint8Array);
   const sigStart = 6;

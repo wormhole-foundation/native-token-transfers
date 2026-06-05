@@ -48,7 +48,6 @@ export namespace NttRoute {
     token: string;
     manager: string;
     transceiver: TransceiverConfig[];
-    quoter?: string;
     tokenDecimals?: number;
     isWrappedGasToken?: boolean;
     unwrapsOnRedeem?: boolean;
@@ -75,10 +74,6 @@ export namespace NttRoute {
     automatic: false,
   };
 
-  export const AutomaticOptions: Options = {
-    automatic: true,
-  };
-
   export type NormalizedParams = {
     amount: amount.Amount;
     options: Ntt.TransferOptions;
@@ -96,24 +91,10 @@ export namespace NttRoute {
     attestation: VAA<"Ntt:WormholeTransfer">;
   };
 
-  export type AutomaticAttestationReceipt = {
-    id: WormholeMessageId;
-    attestation:
-      | VAA<"Ntt:WormholeTransfer">
-      | VAA<"Ntt:WormholeTransferStandardRelayer">;
-  };
-
   export type ManualTransferReceipt<
     SC extends Chain = Chain,
     DC extends Chain = Chain,
   > = _TransferReceipt<ManualAttestationReceipt, SC, DC> & {
-    params: ValidatedParams;
-  };
-
-  export type AutomaticTransferReceipt<
-    SC extends Chain = Chain,
-    DC extends Chain = Chain,
-  > = _TransferReceipt<AutomaticAttestationReceipt, SC, DC> & {
     params: ValidatedParams;
   };
 
@@ -219,7 +200,6 @@ export namespace NttRoute {
                   (v) => v.type === "wormhole"
                 )!.address,
               },
-              quoter: srcFound.quoter,
               svmShims: srcFound.svmShims,
               eta: srcFound.eta,
               peers: {
@@ -282,7 +262,6 @@ export namespace NttRoute {
             wormhole: remote.transceiver.find((v) => v.type === "wormhole")!
               .address,
           },
-          quoter: remote.quoter,
           svmShims: remote.svmShims,
           peers: {
             [found.chain]: {

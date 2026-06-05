@@ -941,11 +941,6 @@ export class SuiNtt<N extends Network, C extends SuiChains>
     throw new Error("Not implemented");
   }
 
-  async isRelayingAvailable(destination: Chain): Promise<boolean> {
-    // We don't have a quoter in Sui NTT, so relaying is currently not available
-    return false;
-  }
-
   // Rate Limiting
   async getCurrentOutboundCapacity(): Promise<bigint> {
     const state = await getSuiObject(

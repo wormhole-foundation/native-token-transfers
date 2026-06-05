@@ -8,7 +8,6 @@ export interface IdlBinding<V extends IdlVersion> {
     ntt: NttBindings.NativeTokenTransfer<V>;
     transceiver: NttBindings.Transceiver<V>;
     transceiverLegacy: NttBindings.TransceiverLegacy<V>;
-    quoter: NttBindings.Quoter<V>;
   };
 }
 
@@ -29,12 +28,6 @@ export namespace NttBindings {
     : V extends "2.0.0"
       ? _2_0_0.RawExampleNativeTokenTransfers
       : _3_0_0.RawExampleNativeTokenTransfers;
-
-  export type Quoter<V extends IdlVersion> = V extends "1.0.0"
-    ? _1_0_0.RawNttQuoter
-    : V extends "2.0.0"
-      ? _2_0_0.RawNttQuoter
-      : _3_0_0.RawNttQuoter;
 
   export type Transceiver<V extends IdlVersion> = V extends "1.0.0"
     ? _1_0_0.RawExampleNativeTokenTransfers
@@ -92,19 +85,6 @@ export function getTransceiverProgram<V extends IdlVersion>(
   const selectedIdl = useLegacy ? transceiverLegacy : transceiver;
 
   return new Program<NttBindings.Transceiver<V>>(selectedIdl as any, address, {
-    connection,
-  });
-}
-
-export function getQuoterProgram<V extends IdlVersion>(
-  connection: Connection,
-  address: string,
-  version: V
-) {
-  const {
-    idl: { quoter },
-  } = loadIdlVersion(version);
-  return new Program<NttBindings.Quoter<V>>(quoter, address, {
     connection,
   });
 }

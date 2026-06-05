@@ -10,7 +10,6 @@ export const JITO_NTT_CONTRACTS: NttContracts = {
     token: "E3W7KwMH8ptaitYyWtxmfBUpqcuf2XieaFtQSn1LVXsA",
     manager: "WZLm4bJU4BNVmzWEwEzGVMQ5XFUc4iBmMSLutFbr41f",
     transceiver: { wormhole: "WZLm4bJU4BNVmzWEwEzGVMQ5XFUc4iBmMSLutFbr41f" },
-    quoter: "Nqd6XqA8LbsCuG8MLWWuP865NV6jR1MbXeKxD4HLKDJ",
   },
   ArbitrumSepolia: {
     token: "0x87579Dc40781e99b870DDce46e93bd58A0e58Ae5",
@@ -44,7 +43,6 @@ export const TEST_NTT_TOKENS: NttContracts = {
     token: "EetppHswYvV1jjRWoQKC1hejdeBDHR9NNzNtCyRQfrrQ",
     manager: "NTtAaoDJhkeHeaVUHnyhwbPNAN6WgBpHkHBTc6d7vLK",
     transceiver: { wormhole: "NTtAaoDJhkeHeaVUHnyhwbPNAN6WgBpHkHBTc6d7vLK" },
-    quoter: "Nqd6XqA8LbsCuG8MLWWuP865NV6jR1MbXeKxD4HLKDJ",
   },
 };
 
@@ -60,18 +58,17 @@ export const TEST_NTT_SPL22_TOKENS: NttContracts = {
     token: "BAn1Zcr48bmaK5SmzBDjoju6csFe8AT6bot4ACBJvVwU",
     manager: "NtTnpY76eiMYqYX9xkag2CSXk9cGi6hinMWbMLMDYUP",
     transceiver: { wormhole: "NtTnpY76eiMYqYX9xkag2CSXk9cGi6hinMWbMLMDYUP" },
-    quoter: "Nqd6XqA8LbsCuG8MLWWuP865NV6jR1MbXeKxD4HLKDJ",
   },
 };
 
 // Reformat NTT contracts to fit TokenConfig for Route
 function reformat(contracts: NttContracts) {
   return Object.entries(TEST_NTT_TOKENS).map(([chain, contracts]) => {
-    const { token, manager, transceiver: xcvrs, quoter } = contracts!;
+    const { token, manager, transceiver: xcvrs } = contracts!;
     const transceiver = Object.entries(xcvrs).map(([k, v]) => {
       return { type: k as NttRoute.TransceiverType, address: v };
     });
-    return { chain: chain as Chain, token, manager, quoter, transceiver };
+    return { chain: chain as Chain, token, manager, transceiver };
   });
 }
 

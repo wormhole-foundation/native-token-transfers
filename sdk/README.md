@@ -33,7 +33,7 @@ For an example of using the NTT Route, refer to the [route example](examples/src
 ### Before (4.x)
 
 ```ts
-import { nttAutomaticRoute } from "@wormhole-foundation/sdk-route-ntt";
+import { nttManualRoute } from "@wormhole-foundation/sdk-route-ntt";
 // Protocols auto-registered by side-effect of importing the NTT platform packages
 ```
 

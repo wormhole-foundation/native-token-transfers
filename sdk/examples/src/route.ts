@@ -16,10 +16,7 @@ registerDefinitionsNtt();
 registerEvmNtt();
 registerSolanaNtt();
 
-import {
-  nttAutomaticRoute,
-  nttManualRoute,
-} from "@wormhole-foundation/sdk-route-ntt";
+import { nttManualRoute } from "@wormhole-foundation/sdk-route-ntt";
 import { NttTokens } from "./consts.js";
 import { getSigner } from "./helpers.js";
 
@@ -32,10 +29,7 @@ import { getSigner } from "./helpers.js";
   const srcSigner = await getSigner(src);
   const dstSigner = await getSigner(dst);
 
-  const resolver = wh.resolver([
-    nttManualRoute({ tokens: NttTokens }),
-    nttAutomaticRoute({ tokens: NttTokens }),
-  ]);
+  const resolver = wh.resolver([nttManualRoute({ tokens: NttTokens })]);
 
   const { chain, token } = NttTokens.Test[0]!;
   const sendToken = Wormhole.tokenId(chain, token);

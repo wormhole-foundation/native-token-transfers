@@ -5,8 +5,6 @@
             "decimals":,
             "inboundLimit":,
             "isEvmChain": true,
-            "isWormholeRelayingEnabled": true,
-            "isSpecialRelayingEnabled": false,
             "nttManager": "0x00000000000000000000000000000000000000000000000000000000deadbeef",
             "wormholeTransceiver": "0x00000000000000000000000000000000000000000000000000000000deadbeef"
         },
@@ -15,8 +13,6 @@
             "decimals":,
             "inboundLimit":,
             "isEvmChain": true,
-            "isWormholeRelayingEnabled": true,
-            "isSpecialRelayingEnabled": false,
             "nttManager": "0x00000000000000000000000000000000000000000000000000000000deadbeef",
             "wormholeTransceiver": "0x00000000000000000000000000000000000000000000000000000000deadbeef"
         }

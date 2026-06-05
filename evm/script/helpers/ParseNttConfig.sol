@@ -17,8 +17,6 @@ contract ParseNttConfig is Script {
         uint8 decimals;
         uint256 inboundLimit;
         bool isEvmChain;
-        bool isSpecialRelayingEnabled;
-        bool isWormholeRelayingEnabled;
         bytes32 nttManager;
         bytes32 wormholeTransceiver;
     }
