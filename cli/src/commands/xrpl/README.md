@@ -1,15 +1,18 @@
 # `ntt xrpl` commands
 
-Low-level XRP Ledger token-setup commands used when preparing an NTT deployment
-on XRPL. XRPL has no smart contracts, so NTT relies on a Guardian-controlled
-custody model (see [`ripple/SPEC.md`](../../../../ripple/SPEC.md) and
-[`ripple/DESIGN.md`](../../../../ripple/DESIGN.md)). Before that onboarding can
-happen, an operator must create/configure the underlying XRPL token.
+XRP Ledger commands used when preparing an NTT deployment on XRPL. XRPL has no
+smart contracts, so NTT relies on a Guardian-controlled custody model (see
+[`ripple/SPEC.md`](../../../../ripple/SPEC.md) and
+[`ripple/DESIGN.md`](../../../../ripple/DESIGN.md)). These commands cover the two
+prerequisites: (1) creating/configuring the underlying XRPL token, and (2)
+sending the `XRPLAppOnboarding` message that registers the custody account with
+the Guardians.
 
-These are **pure, single-purpose** commands — each submits exactly one kind of
-XRPL transaction. The XRPL plumbing they share (client connection, signing,
+These are **pure, single-purpose** commands — each submits exactly one XRPL
+transaction. The shared XRPL plumbing (client connection, signing,
 flag/metadata parsing, validation) lives in
-[`../../xrpl/helpers.ts`](../../xrpl/helpers.ts).
+[`../../xrpl/helpers.ts`](../../xrpl/helpers.ts), and the onboarding payload
+encoding lives in [`../../xrpl/onboarding.ts`](../../xrpl/onboarding.ts).
 
 ## Commands
 
@@ -19,9 +22,11 @@ flag/metadata parsing, validation) lives in
 | `trust-set` | holder | `TrustSet` | Open a trust line so a holder can receive an IOU |
 | `create-mpt` | issuer | `MPTokenIssuanceCreate` | Create a Multi-Purpose Token issuance |
 | `authorize-mpt` | holder | `MPTokenAuthorize` | Opt a holder into an MPT |
+| `init` | custody | `Payment` + onboarding memo | Onboard a custody account to the Wormhole Core |
 
 "Creating" an IOU is just `enable-rippling` (issuer) + `trust-set` (each holder).
-An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder).
+An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder). Once the token
+exists, `init` registers the custody account for that token with the Guardians.
 
 ### `enable-rippling`
 Sets the `asfDefaultRipple` flag on the issuer account so balances of its IOU can
@@ -80,6 +85,40 @@ wants to receive the issuer's MPT.
 ntt xrpl authorize-mpt -n Testnet --mpt-id 00EE5E8C... --seed sEd7...
 ```
 
+### `init`
+Sends the `XRPLAppOnboarding` message — a `Payment` to the Wormhole Core (GMP)
+account carrying an onboarding memo — so the Guardians start watching the custody
+account. Signed by the **custody account** being onboarded (`--seed`).
+
+The memo carries: prefix `"XRPL"`, the `--admin` account, the `--app` type
+(left-padded to 32 bytes), the ticket range (`--initial-ticket` / `--ticket-count`),
+and the token `init_data` (decimals + token identifier) selected via `--token`:
+
+| `--token` | extra args | `init_data` tail |
+|---|---|---|
+| `xrp` | `--decimals` (6) | `<decimals>` (short form) |
+| `iou` | `--decimals`, `--currency` (3-char or 40-hex), `--issuer` | `<decimals>` + `0x01` + currency[20] + issuer[20], right-padded to 42 bytes |
+| `mpt` | `--decimals`, `--mpt-id` (48-hex) | `<decimals>` + `0x02` + mpt_id[24], right-padded to 42 bytes |
+
+Other options:
+- `--core-account` — destination Wormhole Core account (default: the testnet
+  account `rpuMNy2dBzimaQHTFpXsfoCoqicgd8etQQ`; set this for other networks)
+- `--amount` — XRP sent with the message (default `0.000001`)
+- `--seed` (or env `SEED`)
+
+```
+# XRP custody account
+ntt xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 \
+  --token xrp --seed sEd7...
+
+# MPT custody account
+ntt xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 \
+  --token mpt --decimals 9 --mpt-id 00EE5E8C... --seed sEd7...
+```
+
+The memo uses `MemoFormat: application/x-wormhole-publish` and
+`MemoData = 01 + 00000000 + payload`.
+
 ## Common options
 
 Every subcommand accepts:
@@ -98,4 +137,5 @@ need not appear in shell history:
 
 - Issuer-signed commands (`enable-rippling`, `create-mpt`) → `--issuer-seed` /
   `ISSUER_SEED`.
-- Holder-signed commands (`trust-set`, `authorize-mpt`) → `--seed` / `SEED`.
+- Holder-/custody-signed commands (`trust-set`, `authorize-mpt`, `init`) →
+  `--seed` / `SEED`.
