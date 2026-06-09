@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import { EvmNtt, EvmNttWormholeTranceiver } from "../src/ntt.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 

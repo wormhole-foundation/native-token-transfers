@@ -1,4 +1,4 @@
-import { SuiNtt } from "../src/ntt.js";
+import { jest } from "@jest/globals";
 import {
   mockSuiClient,
   mockNttState,
@@ -6,6 +6,7 @@ import {
   mockAdminCap,
   mockCoinMetadata,
   mockPeerData,
+  mockPeerDynamicField,
   mockTransceiverState,
   mockTransceiverPeerData,
   mockDynamicFields,
@@ -13,17 +14,25 @@ import {
   mockAttestation,
   TEST_ADDRESSES,
   TEST_CONTRACTS,
-  TEST_CHAIN_IDS,
 } from "./mocks.js";
 
-// Mock the serialize function
-jest.mock("@wormhole-foundation/sdk-definitions", () => ({
-  ...jest.requireActual("@wormhole-foundation/sdk-definitions"),
+// Mock the serialize function. Under native-ESM jest, jest.mock does not hoist,
+// so use unstable_mockModule + dynamic import of the consumer.
+// `serialize` is mocked via the unstable_mockModule below so that
+// `addRedeemCall` does not fail at VAA serialization, allowing the redeem test
+// to fail at `serializeLayout(nativeTokenTransferLayout, ...)` as intended.
+const actualDefinitions = (await import(
+  "@wormhole-foundation/sdk-definitions"
+)) as any;
+
+jest.unstable_mockModule("@wormhole-foundation/sdk-definitions", () => ({
+  __esModule: true,
+  ...actualDefinitions,
   serialize: jest.fn(() => new Uint8Array([1, 2, 3, 4, 5])), // Mock VAA bytes
 }));
 
 // Mock SuiGraphQLClient with a default implementation that can be overridden
-const mockQuery = jest.fn().mockResolvedValue({
+const mockQuery = jest.fn<any>().mockResolvedValue({
   data: {
     objects: {
       nodes: [
@@ -36,14 +45,17 @@ const mockQuery = jest.fn().mockResolvedValue({
   },
 });
 
-jest.mock("@mysten/sui/graphql", () => ({
+jest.unstable_mockModule("@mysten/sui/graphql", () => ({
   SuiGraphQLClient: jest.fn().mockImplementation(() => ({
     query: mockQuery,
   })),
 }));
 
+// Dynamically import the module under test after the mocks are registered.
+const { SuiNtt } = await import("../src/ntt.js");
+
 describe("SuiNtt", () => {
-  let suiNtt: SuiNtt<"Testnet", "Sui">;
+  let suiNtt: InstanceType<typeof SuiNtt<"Testnet", "Sui">>;
   let mockClient: jest.Mocked<any>;
 
   beforeEach(() => {
@@ -127,7 +139,7 @@ describe("SuiNtt", () => {
       });
 
       it("should throw error when state fetch fails", async () => {
-        mockClient.getObject.mockResolvedValue({ data: null });
+        mockClient.getObject.mockResolvedValue({ object: null });
 
         await expect(suiNtt.getMode()).rejects.toThrow(
           "Failed to fetch NTT state object"
@@ -191,7 +203,7 @@ describe("SuiNtt", () => {
         });
         mockClient.getObject
           .mockResolvedValueOnce(state)
-          .mockResolvedValueOnce({ data: null });
+          .mockResolvedValueOnce({ object: null });
 
         await expect(suiNtt.getOwner()).rejects.toThrow(
           "Failed to get AdminCap owner: Error: Could not fetch AdminCap owner information"
@@ -212,7 +224,7 @@ describe("SuiNtt", () => {
       });
 
       it("should throw error when state fetch fails", async () => {
-        mockClient.getObject.mockResolvedValue({ data: null });
+        mockClient.getObject.mockResolvedValue({ object: null });
 
         await expect(suiNtt.getPackageId()).rejects.toThrow(
           "Failed to fetch state object"
@@ -237,7 +249,7 @@ describe("SuiNtt", () => {
           coreBridge: TEST_CONTRACTS.coreBridge,
         });
 
-        mockClient.getCoinMetadata.mockResolvedValue(null);
+        mockClient.getCoinMetadata.mockResolvedValue({ coinMetadata: null });
 
         await expect(customSuiNtt.getTokenDecimals()).rejects.toThrow(
           "CoinMetadata not found for 0xabc::custom::TOKEN"
@@ -302,7 +314,11 @@ describe("SuiNtt", () => {
       const newLimit = 2000000000000n;
 
       beforeEach(() => {
-        // Mock existing peer data
+        // Mock existing peer data:
+        //  - getAdminCapId (state)
+        //  - getPackageId (state)
+        //  - getPeer: getNttState (state) -> getDynamicField -> getObject(peer)
+        //  - wormhole package ID (state)
         mockClient.getObject
           .mockResolvedValueOnce(
             mockNttState({
@@ -317,9 +333,10 @@ describe("SuiNtt", () => {
             )
           ) // getPackageId
           .mockResolvedValueOnce(mockNttState()) // getPeer state fetch
+          .mockResolvedValueOnce(mockPeerData()) // getPeer peer field object
           .mockResolvedValueOnce(mockSuiObject("0xwormhole::state::State", {})); // wormhole package ID
 
-        mockClient.getDynamicFieldObject.mockResolvedValue(mockPeerData());
+        mockClient.getDynamicField.mockResolvedValue(mockPeerDynamicField());
       });
 
       it("should create setInboundLimit transaction with existing peer", async () => {
@@ -333,7 +350,7 @@ describe("SuiNtt", () => {
       });
 
       it("should throw error when peer doesn't exist", async () => {
-        mockClient.getDynamicFieldObject.mockResolvedValue({ data: null });
+        mockClient.getDynamicField.mockRejectedValue(new Error("not found"));
 
         const txGenerator = suiNtt.setInboundLimit("Ethereum", newLimit);
         await expect(txGenerator.next()).rejects.toThrow(
@@ -347,12 +364,14 @@ describe("SuiNtt", () => {
   describe("Peer Management Functions", () => {
     describe("getPeer", () => {
       beforeEach(() => {
-        mockClient.getObject.mockResolvedValue(mockNttState());
+        // getNttState (state) then peer field object
+        mockClient.getObject
+          .mockResolvedValueOnce(mockNttState())
+          .mockResolvedValueOnce(mockPeerData());
       });
 
       it("should return peer data for existing peer", async () => {
-        const peerData = mockPeerData(TEST_CHAIN_IDS.ETHEREUM);
-        mockClient.getDynamicFieldObject.mockResolvedValue(peerData);
+        mockClient.getDynamicField.mockResolvedValue(mockPeerDynamicField());
 
         const peer = await suiNtt.getPeer("Ethereum");
 
@@ -361,24 +380,27 @@ describe("SuiNtt", () => {
         expect(peer?.tokenDecimals).toBe(6);
         expect(peer?.inboundLimit).toBe(500000000000n);
 
-        expect(mockClient.getDynamicFieldObject).toHaveBeenCalledWith({
-          parentId: "mock-peers-table-id",
-          name: {
-            type: "u16",
-            value: TEST_CHAIN_IDS.ETHEREUM,
-          },
-        });
+        expect(mockClient.getDynamicField).toHaveBeenCalledWith(
+          expect.objectContaining({
+            parentId: "mock-peers-table-id",
+            name: expect.objectContaining({
+              type: "u16",
+              bcs: expect.anything(),
+            }),
+          })
+        );
       });
 
       it("should return null for non-existent peer", async () => {
-        mockClient.getDynamicFieldObject.mockResolvedValue({ data: null });
+        mockClient.getDynamicField.mockRejectedValue(new Error("not found"));
 
         const peer = await suiNtt.getPeer("Ethereum");
         expect(peer).toBeNull();
       });
 
       it("should throw error when state fetch fails", async () => {
-        mockClient.getObject.mockResolvedValue({ data: null });
+        mockClient.getObject.mockReset();
+        mockClient.getObject.mockResolvedValue({ object: null });
 
         await expect(suiNtt.getPeer("Ethereum")).rejects.toThrow(
           "Failed to fetch NTT state object"
@@ -451,42 +473,22 @@ describe("SuiNtt", () => {
 
     describe("getTransceiverPeer", () => {
       beforeEach(() => {
-        mockClient.getObject.mockResolvedValue({
-          data: {
-            content: {
-              dataType: "moveObject",
-              fields: {
+        // transceiver state object then transceiver peer field object
+        mockClient.getObject
+          .mockResolvedValueOnce({
+            object: {
+              json: {
                 peers: {
-                  fields: {
-                    id: { id: "transceiver-peers-table-id" },
-                  },
+                  id: "transceiver-peers-table-id",
                 },
               },
             },
-          },
-        });
+          })
+          .mockResolvedValueOnce(mockTransceiverPeerData());
       });
 
       it("should return transceiver peer for existing peer", async () => {
-        const peerData = {
-          data: {
-            content: {
-              dataType: "moveObject",
-              fields: {
-                value: {
-                  fields: {
-                    value: {
-                      fields: {
-                        data: Array.from(new Uint8Array(32).fill(1)),
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        };
-        mockClient.getDynamicFieldObject.mockResolvedValue(peerData);
+        mockClient.getDynamicField.mockResolvedValue(mockPeerDynamicField());
 
         const peer = await suiNtt.getTransceiverPeer(0, "Ethereum");
 
@@ -500,7 +502,7 @@ describe("SuiNtt", () => {
       });
 
       it("should return null for non-existent peer", async () => {
-        mockClient.getDynamicFieldObject.mockResolvedValue({ data: null });
+        mockClient.getDynamicField.mockRejectedValue(new Error("not found"));
 
         const peer = await suiNtt.getTransceiverPeer(0, "Ethereum");
         expect(peer).toBeNull();
@@ -521,23 +523,12 @@ describe("SuiNtt", () => {
           .mockResolvedValueOnce(
             mockSuiObject("0xtransceiver::package::State", {})
           ) // package ID extraction
-          .mockResolvedValueOnce({
-            // transceiver state
-            data: {
-              digest: "mockDigest",
-              objectId: "mockTransceiverStateId",
-              version: "1",
-              content: {
-                dataType: "moveObject" as const,
-                type: "TransceiverState",
-                hasPublicTransfer: false,
-                fields: {
-                  admin_cap_id:
-                    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                },
-              },
-            },
-          })
+          .mockResolvedValueOnce(
+            mockSuiObject("TransceiverState", {
+              admin_cap_id:
+                "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            })
+          ) // transceiver state
           .mockResolvedValueOnce(mockNttState()) // getPackageId
           .mockResolvedValueOnce(mockSuiObject("0xwormhole::state::State", {})); // wormhole package ID
       });
@@ -692,10 +683,11 @@ describe("SuiNtt", () => {
         });
 
         it("should handle getPeer delegation", async () => {
-          mockClient.getObject.mockResolvedValue(mockTransceiverState());
-          mockClient.getDynamicFieldObject.mockResolvedValue(
-            mockTransceiverPeerData()
-          );
+          // transceiver state object then transceiver peer field object
+          mockClient.getObject
+            .mockResolvedValueOnce(mockTransceiverState())
+            .mockResolvedValueOnce(mockTransceiverPeerData());
+          mockClient.getDynamicField.mockResolvedValue(mockPeerDynamicField());
 
           const peer = await transceiver.getPeer("Ethereum");
 
@@ -707,9 +699,11 @@ describe("SuiNtt", () => {
 
     describe("verifyAddresses", () => {
       beforeEach(() => {
-        mockClient.getObject.mockResolvedValue(mockNttState());
-        mockClient.getDynamicFields.mockResolvedValue(mockDynamicFields());
-        mockClient.getObject.mockResolvedValue(mockTransceiverInfo());
+        mockClient.listDynamicFields.mockResolvedValue(mockDynamicFields());
+        // first getObject -> NTT state; subsequent -> transceiver info / token type
+        mockClient.getObject
+          .mockResolvedValueOnce(mockNttState())
+          .mockResolvedValue(mockTransceiverInfo());
       });
 
       it("should verify NTT contracts and discover transceivers", async () => {
@@ -720,7 +714,8 @@ describe("SuiNtt", () => {
       });
 
       it("should handle state object fetch failure", async () => {
-        mockClient.getObject.mockResolvedValue({ data: null });
+        mockClient.getObject.mockReset();
+        mockClient.getObject.mockResolvedValue({ object: null });
 
         const result = await suiNtt.verifyAddresses();
         expect(result).toBeNull();
@@ -729,11 +724,13 @@ describe("SuiNtt", () => {
       it("should return null when addresses match local config", async () => {
         // Mock exact match scenario
         const transceiverInfo = mockTransceiverInfo();
-        transceiverInfo.data.content.fields.value.fields.state_object_id =
-          TEST_CONTRACTS.ntt.transceiver?.wormhole;
+        transceiverInfo.object.json.value.state_object_id =
+          TEST_CONTRACTS.ntt.transceiver?.wormhole as string;
 
+        mockClient.getObject.mockReset();
         mockClient.getObject
           .mockResolvedValueOnce(mockNttState()) // state object
+          .mockResolvedValueOnce(mockNttState()) // extractTokenTypeFromSuiState
           .mockResolvedValueOnce(transceiverInfo); // matching transceiver info
 
         const result = await suiNtt.verifyAddresses();
@@ -764,57 +761,50 @@ describe("SuiNtt", () => {
         // Mock coin metadata query
         mockClient.getCoinMetadata.mockResolvedValue(mockCoinMetadata());
 
-        // Mock getCoins for non-native token transfers
-        mockClient.getCoins.mockResolvedValue({
-          data: [
+        // Mock listCoins for non-native token transfers (gRPC-shaped result
+        // consumed by SuiPlatform.getCoins, which reads `objects[].{type,objectId}`)
+        mockClient.listCoins.mockResolvedValue({
+          objects: [
             {
-              coinType: "0xabc::custom::TOKEN",
-              coinObjectId: "0xmockcoin123",
-              balance: "1000000000000",
-              lockedUntilEpoch: null,
-              previousTransaction: "0xmocktx",
+              type: "0xabc::custom::TOKEN",
+              objectId: "0xmockcoin123",
             },
           ],
-          nextCursor: null,
+          cursor: null,
           hasNextPage: false,
         });
 
-        // Mock getDynamicFields for getWormholePackageId
-        mockClient.getDynamicFields.mockResolvedValue({
-          data: [
+        // Mock listDynamicFields for getWormholePackageId
+        mockClient.listDynamicFields.mockResolvedValue({
+          dynamicFields: [
             {
               name: { type: "CurrentPackage" },
-              objectId:
+              fieldId:
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
             },
           ],
-          nextCursor: null,
+          cursor: null,
           hasNextPage: false,
         });
 
-        // Mock getObject for multiple different object IDs
+        // Mock getObject for multiple different object IDs (gRPC: params.objectId)
         mockClient.getObject.mockImplementation((params: any) => {
           if (
-            params.id ===
+            params.objectId ===
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
           ) {
             // Mock for CurrentPackage object in getWormholePackageId
-            return Promise.resolve({
-              data: {
-                content: {
-                  dataType: "moveObject",
-                  fields: {
-                    value: {
-                      fields: {
-                        package:
-                          "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                      },
-                    },
-                  },
+            return Promise.resolve(
+              mockSuiObject("CurrentPackage", {
+                value: {
+                  package:
+                    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
                 },
-              },
-            });
-          } else if (params.id === TEST_CONTRACTS.ntt.transceiver.wormhole) {
+              })
+            );
+          } else if (
+            params.objectId === TEST_CONTRACTS.ntt.transceiver.wormhole
+          ) {
             // Mock for transceiver state object (getPackageIdFromObject)
             return Promise.resolve(
               mockSuiObject(
@@ -920,31 +910,27 @@ describe("SuiNtt", () => {
 
         // Mock getObject based on what object ID is being requested
         mockClient.getObject.mockImplementation((params: any) => {
-          if (params.id === TEST_CONTRACTS.ntt.manager) {
-            // Mock for NTT state object with inbox field for addReleaseCall
+          if (params.objectId === TEST_CONTRACTS.ntt.manager) {
+            // Mock for NTT state object for getNttCommonPackageId / getPackageId
             return Promise.resolve(
-              mockSuiObject(`${packageId}::ntt::State<0x2::sui::SUI>`, {
-                inbox: {
-                  type: `0xnttcommon123::ntt_manager_message::NttManagerMessage<0xnttcommon123::native_token_transfer::NativeTokenTransfer>`,
-                },
-              })
+              mockSuiObject(`${packageId}::ntt::State<0x2::sui::SUI>`, {})
             );
-          } else if (params.id === TEST_CONTRACTS.ntt.transceiver.wormhole) {
+          } else if (
+            params.objectId === TEST_CONTRACTS.ntt.transceiver.wormhole
+          ) {
             // Mock for transceiver state object
             return Promise.resolve(
               mockSuiObject(`${packageId}::wormhole_transceiver::State`, {})
             );
           } else if (
-            params.id ===
+            params.objectId ===
             "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
           ) {
-            // Mock for CurrentPackage object (from getDynamicFields)
+            // Mock for CurrentPackage object (from listDynamicFields)
             return Promise.resolve(
               mockSuiObject("CurrentPackage", {
                 value: {
-                  fields: {
-                    package: wormholePackageId,
-                  },
+                  package: wormholePackageId,
                 },
               })
             );
@@ -956,22 +942,55 @@ describe("SuiNtt", () => {
           }
         });
 
+        // Mock the ntt-common package derivation (movePackageService.getDatatype)
+        // so that the failure happens at serialization, not at package
+        // derivation. Shape mirrors the gRPC DatatypeDescriptor / OpenSignatureBody:
+        // a UnaryCall-like `{ response: { datatype } }` where field types carry a
+        // `typeName` plus nested `typeParameterInstantiation` children.
+        mockClient.movePackageService.getDatatype.mockResolvedValue({
+          response: {
+            datatype: {
+              fields: [
+                {
+                  name: "inbox",
+                  position: 0,
+                  type: {
+                    typeName: "0xnttcommon123::inbox::Inbox",
+                    typeParameterInstantiation: [
+                      {
+                        typeName:
+                          "0xnttcommon123::ntt_manager_message::NttManagerMessage",
+                        typeParameterInstantiation: [
+                          {
+                            typeName:
+                              "0xnttcommon123::native_token_transfer::NativeTokenTransfer",
+                            typeParameterInstantiation: [],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        });
+
         mockClient.getCoinMetadata.mockResolvedValue({
-          id: "0xcoin123",
-          decimals: 9,
+          coinMetadata: { id: "0xcoin123", decimals: 9 },
         });
 
         // Mock Wormhole core bridge dynamic fields for getWormholePackageId
-        mockClient.getDynamicFields.mockResolvedValue({
-          data: [
+        mockClient.listDynamicFields.mockResolvedValue({
+          dynamicFields: [
             {
               name: { type: "CurrentPackage" },
-              objectId:
+              fieldId:
                 "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
             },
           ],
           hasNextPage: false,
-          nextCursor: null,
+          cursor: null,
         });
 
         const txGenerator = suiNtt.redeem([attestation], payer as any);

@@ -5,6 +5,7 @@ import {
 } from "@wormhole-foundation/sdk-base";
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 import {
   nativeTokenTransferLayout,
   nttManagerMessageLayout,
@@ -25,6 +26,7 @@ const payloads = {
   },
 };
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const filePath = path.join(__dirname, "../../../evm/test/payloads");
 describe("Ntt Layout Tests", function () {
   test.each(payloads.transceiver.message)(
