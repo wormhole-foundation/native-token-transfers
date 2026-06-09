@@ -2,7 +2,8 @@ import { jest } from "@jest/globals";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 
 // Base64 encoding of the 32-byte array [0, 1, 2, ..., 31]
-const ADDRESS_BYTES_0_31_BASE64 = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+const ADDRESS_BYTES_0_31_BASE64 =
+  "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
 // Base64 encoding of a 32-byte array filled with 0x01
 const ADDRESS_BYTES_FILL_1_BASE64 =
   "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
@@ -136,9 +137,7 @@ export const mockPeerData = (overrides: any = {}) => ({
 });
 
 // Mock the getDynamicField response that points at a peer field object
-export const mockPeerDynamicField = (
-  fieldId: string = "0xpeerfield"
-) => ({
+export const mockPeerDynamicField = (fieldId: string = "0xpeerfield") => ({
   dynamicField: {
     fieldId,
   },

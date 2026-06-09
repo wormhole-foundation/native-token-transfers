@@ -724,8 +724,8 @@ describe("SuiNtt", () => {
       it("should return null when addresses match local config", async () => {
         // Mock exact match scenario
         const transceiverInfo = mockTransceiverInfo();
-        transceiverInfo.object.json.value.state_object_id =
-          TEST_CONTRACTS.ntt.transceiver?.wormhole as string;
+        transceiverInfo.object.json.value.state_object_id = TEST_CONTRACTS.ntt
+          .transceiver?.wormhole as string;
 
         mockClient.getObject.mockReset();
         mockClient.getObject
