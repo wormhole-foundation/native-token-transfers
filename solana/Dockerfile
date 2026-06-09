@@ -40,7 +40,6 @@ COPY sdk ../sdk
 COPY solana/ts ts
 COPY solana/package.json package.json
 COPY solana/tsconfig.esm.json tsconfig.esm.json
-COPY solana/tsconfig.cjs.json tsconfig.cjs.json
 COPY solana/tsconfig.anchor.json tsconfig.anchor.json
 COPY solana/Makefile Makefile
 COPY solana/scripts scripts
@@ -53,7 +52,6 @@ COPY --from=builder /opt/solana/deps /opt/solana/deps
 COPY --from=builder /usr/src/solana/ts /usr/src/solana/ts
 COPY --from=builder /usr/src/solana/package.json /usr/src/solana/package.json
 COPY --from=builder /usr/src/solana/tsconfig.esm.json /usr/src/solana/tsconfig.esm.json
-COPY --from=builder /usr/src/solana/tsconfig.cjs.json /usr/src/solana/tsconfig.cjs.json
 COPY --from=builder /usr/src/solana/target/idl  /usr/src/solana/target/idl
 COPY --from=builder /usr/src/solana/target/types /usr/src/solana/target/types
 
@@ -64,7 +62,6 @@ WORKDIR /app
 RUN apk add --no-cache make python3 gcc g++ jq
 
 COPY tsconfig.json tsconfig.json
-COPY tsconfig.cjs.json tsconfig.cjs.json
 COPY tsconfig.esm.json tsconfig.esm.json
 # Copy package files
 COPY package.json package.json

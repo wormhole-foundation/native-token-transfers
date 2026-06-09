@@ -8,7 +8,6 @@ WORKDIR /usr/src/
 COPY --from=ntt-solana-contract /usr/src/solana/ts solana/ts
 COPY --from=ntt-solana-contract /usr/src/solana/package.json solana/package.json
 COPY --from=ntt-solana-contract /usr/src/solana/tsconfig.esm.json solana/tsconfig.esm.json
-COPY --from=ntt-solana-contract /usr/src/solana/tsconfig.cjs.json solana/tsconfig.cjs.json
 COPY --from=ntt-solana-contract /usr/src/solana/target/idl solana/target/idl
 COPY --from=ntt-solana-contract /usr/src/solana/target/types solana/target/types
 
