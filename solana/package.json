@@ -36,7 +36,7 @@
     "build": "bun run build:esm",
     "rebuild": "bun run clean && bun run build",
     "clean": "rm -rf ./dist",
-    "test:ci": "jest --config ./jest.config.ts",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --config ./jest.config.ts",
     "build:contracts": "make build",
     "prettier": "prettier --write ./tests ./ts"
   },
