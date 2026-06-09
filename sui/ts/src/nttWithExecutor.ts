@@ -182,11 +182,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     // For non-native tokens, we need to prepare coins once and split multiple times
     let primaryCoinInput: TransactionObjectArgument | undefined;
     if (!isNative) {
-      const coins = await SuiPlatform.getCoins(
-        this.provider,
-        sender,
-        coinType
-      );
+      const coins = await SuiPlatform.getCoins(this.provider, sender, coinType);
       const [primaryCoin, ...mergeCoins] = coins.filter((coin) =>
         isSameType(coin.coinType, coinType)
       );
