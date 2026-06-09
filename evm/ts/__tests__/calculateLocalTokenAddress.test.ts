@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import { MultiTokenNtt } from "@wormhole-foundation/sdk-definitions-ntt";
 import { EvmMultiTokenNtt } from "../src/multiTokenNtt.js";
 import { toUniversal } from "@wormhole-foundation/sdk-definitions";
