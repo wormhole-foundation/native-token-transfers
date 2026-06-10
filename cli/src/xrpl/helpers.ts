@@ -3,6 +3,7 @@ import {
   Client,
   ECDSA,
   Wallet,
+  isValidClassicAddress,
   type SubmittableTransaction,
   type TxResponse,
 } from "xrpl";
@@ -72,6 +73,29 @@ export async function submitTx(
     );
   }
   return result;
+}
+
+/** Throw unless `address` is a valid XRPL classic (r-) address. */
+export function validateRAddress(address: string): string {
+  if (!isValidClassicAddress(address)) {
+    throw new Error(`Invalid XRPL address: ${address}`);
+  }
+  return address;
+}
+
+/**
+ * Account reserve settings from the connected server (in XRP): the base reserve
+ * plus the per-owned-object increment.
+ */
+export async function getReserveBase(
+  client: Client
+): Promise<{ baseXrp: number; incXrp: number }> {
+  const info = await client.request({ command: "server_info" });
+  const ledger = info.result.info.validated_ledger;
+  if (!ledger?.reserve_base_xrp || ledger.reserve_inc_xrp === undefined) {
+    throw new Error("Could not read reserve settings from server_info");
+  }
+  return { baseXrp: ledger.reserve_base_xrp, incXrp: ledger.reserve_inc_xrp };
 }
 
 /** Derive a wallet from a seed, optionally forcing the key algorithm. */
