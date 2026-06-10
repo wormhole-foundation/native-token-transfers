@@ -3,18 +3,18 @@
 XRP Ledger commands used when preparing an NTT deployment on XRPL. XRPL has no
 smart contracts, so NTT relies on a Guardian-controlled custody model (see
 [`ripple/SPEC.md`](../../../../ripple/SPEC.md) and
-[`ripple/DESIGN.md`](../../../../ripple/DESIGN.md)). These commands cover the two
-prerequisites: (1) creating/configuring the underlying XRPL token, and (2)
-sending the `XRPLAppOnboarding` message that registers the custody account with
-the Guardians.
+[`ripple/DESIGN.md`](../../../../ripple/DESIGN.md)). These commands cover (1)
+creating/configuring the underlying XRPL token, and (2) setting up the custody
+account and handing it off to the manager-set multisig.
 
-These are **pure, single-purpose** commands — each submits exactly one XRPL
-transaction. The shared XRPL plumbing (client connection, signing,
-flag/metadata parsing, validation) lives in
-[`../../xrpl/helpers.ts`](../../xrpl/helpers.ts), and the onboarding payload
-encoding lives in [`../../xrpl/onboarding.ts`](../../xrpl/onboarding.ts).
+Most are **pure, single-purpose** commands — each submits one XRPL transaction.
+Shared plumbing lives in [`../../xrpl/helpers.ts`](../../xrpl/helpers.ts), the
+onboarding payload encoding in [`../../xrpl/onboarding.ts`](../../xrpl/onboarding.ts),
+and the manager-set fetch in [`../../xrpl/manager-set.ts`](../../xrpl/manager-set.ts).
 
 ## Commands
+
+**Token setup**
 
 | Command | Signed by | XRPL transaction | Purpose |
 |---|---|---|---|
@@ -22,11 +22,19 @@ encoding lives in [`../../xrpl/onboarding.ts`](../../xrpl/onboarding.ts).
 | `trust-set` | holder | `TrustSet` | Open a trust line so a holder can receive an IOU |
 | `create-mpt` | issuer | `MPTokenIssuanceCreate` | Create a Multi-Purpose Token issuance |
 | `authorize-mpt` | holder | `MPTokenAuthorize` | Opt a holder into an MPT |
-| `init` | custody | `Payment` + onboarding memo | Onboard a custody account to the Wormhole Core |
 
 "Creating" an IOU is just `enable-rippling` (issuer) + `trust-set` (each holder).
-An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder). Once the token
-exists, `init` registers the custody account for that token with the Guardians.
+An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder).
+
+**Custody-account setup** — run in order, while you still hold the account's key:
+
+| Command | Signed by | XRPL transaction | Purpose |
+|---|---|---|---|
+| `set-manager` | — | *(none — writes deployment.json)* | Record the custody account so later commands don't re-pass it |
+| `fund` | source / faucet | `Payment` / faucet | Fund the account for a signer list + tickets |
+| `reserve-tickets` | custody | `TicketCreate` | Pre-allocate tickets |
+| `init` | custody | `Payment` + onboarding memo | Onboard the account to the Wormhole Core |
+| `set-signer-list` | custody | `SignerListSet` | Hand off to the manager-set multisig (**irreversible-ish**) |
 
 ### `enable-rippling`
 Sets the `asfDefaultRipple` flag on the issuer account so balances of its IOU can
@@ -85,6 +93,44 @@ wants to receive the issuer's MPT.
 ntt xrpl authorize-mpt -n Testnet --mpt-id 00EE5E8C... --seed sEd7...
 ```
 
+### `set-manager`
+Records the chosen custody account in the deployment file (`xrpl.manager`) so the
+other custody commands can default `--account` to it. No XRPL transaction.
+
+- `--account` — custody r-address, **or** `--seed` (env `SEED`) to derive it
+- `--path` — deployment file (default `deployment.json`)
+
+```
+ntt xrpl set-manager --account r9qA...
+```
+
+### `fund`
+Funds the custody account with enough XRP to cover the reserve for a signer list
+plus tickets. The default `--amount` is computed from the ledger's live reserve
+settings: `base + inc × (tickets + 1) + buffer`.
+
+- `--account` — target (defaults to `xrpl.manager`)
+- `--amount` — XRP to fund (default: computed)
+- `--tickets` — ticket count to size the reserve for (default 200)
+- `--faucet` — use the testnet/devnet faucet (requires `--seed` for the account)
+- `--from-seed` (env `FUNDER_SEED`) — funding source for a `Payment` (any network)
+
+```
+ntt xrpl fund -n Testnet --faucet --seed sEd7...                            # faucet
+ntt xrpl fund -n Mainnet --account r9qA... --amount 50 --from-seed sEd7...  # payment
+```
+
+### `reserve-tickets`
+Pre-allocates tickets on the custody account (`TicketCreate`), signed by the
+creator before hand-off. Tickets decouple Guardian signing from sequence order.
+
+- `--count` — number of tickets, `1`–`250` (default 200)
+- `--seed` (or env `SEED`)
+
+```
+ntt xrpl reserve-tickets -n Testnet --count 200 --seed sEd7...
+```
+
 ### `init`
 Sends the `XRPLAppOnboarding` message — a `Payment` to the Wormhole Core (GMP)
 account carrying an onboarding memo — so the Guardians start watching the custody
@@ -119,6 +165,42 @@ ntt xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150
 The memo uses `MemoFormat: application/x-wormhole-publish` and
 `MemoData = 01 + 00000000 + payload`.
 
+### `set-signer-list`
+Replaces single-key control with the manager-set multisig (`SignerListSet`). The
+signer set is either fetched from the delegated-manager-set EVM contract or given
+explicitly. **This is the hand-off** — it prompts for confirmation unless `--yes`.
+(The master key stays enabled until disabled separately.)
+
+Fetch from EVM — the quorum is the manager-set threshold (not overridable):
+- `--manager-chain-id` (default 66), `--manager-set-index`, `--rpc-eth`,
+  `--delegated-manager-set-addr`
+
+Explicit signers:
+- `--signers` — comma-separated r-addresses; `--quorum` (required)
+
+Common: `--seed` (or env `SEED`), `--yes`.
+
+```
+# from the manager set on an EVM chain
+ntt xrpl set-signer-list -n Testnet --manager-set-index 0 \
+  --rpc-eth https://... --delegated-manager-set-addr 0x... --seed sEd7...
+
+# explicit signers
+ntt xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --seed sEd7...
+```
+
+## deployment.json
+
+`set-manager` records the custody account in a dedicated top-level `xrpl` section
+(kept out of `chains`, which expects a full NTT config):
+
+```json
+{ "network": "Testnet", "chains": { … }, "xrpl": { "manager": "r9qA..." } }
+```
+
+`fund`, `reserve-tickets`, and `set-signer-list` read `xrpl.manager` as the
+default account when `--account` is omitted.
+
 ## Common options
 
 Every subcommand accepts:
@@ -137,5 +219,6 @@ need not appear in shell history:
 
 - Issuer-signed commands (`enable-rippling`, `create-mpt`) → `--issuer-seed` /
   `ISSUER_SEED`.
-- Holder-/custody-signed commands (`trust-set`, `authorize-mpt`, `init`) →
-  `--seed` / `SEED`.
+- Holder-/custody-signed commands (`trust-set`, `authorize-mpt`, `set-manager`,
+  `reserve-tickets`, `init`, `set-signer-list`) → `--seed` / `SEED`.
+- `fund`'s `Payment` source → `--from-seed` / `FUNDER_SEED`.

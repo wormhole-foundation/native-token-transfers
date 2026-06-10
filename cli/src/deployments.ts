@@ -28,6 +28,13 @@ export type HyperCoreConfig = {
   weiDecimals?: number;
 };
 
+// XRPL custody-account config. Kept as a dedicated top-level section (not under
+// `chains`) since the XRPL NTT account is set up incrementally and doesn't fit
+// the full ChainConfig shape.
+export type XrplConfig = {
+  manager?: string;
+};
+
 export type Config = {
   network: Network;
   chains: Partial<{
@@ -37,6 +44,7 @@ export type Config = {
     outbound: string;
   };
   hypercore?: HyperCoreConfig;
+  xrpl?: XrplConfig;
 };
 
 export function loadConfig(path: string): Config {
