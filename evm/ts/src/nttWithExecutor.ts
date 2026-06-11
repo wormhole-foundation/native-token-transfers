@@ -55,6 +55,7 @@ const nttManagerWithExecutorAddresses: Partial<
     ZeroGravity: "0x4E62C24F9c18D3053B8E84A73a2ec7A40b74AF8a",
   },
   Testnet: {
+    Arc: "0xBd9e400d4A64DFEf7B51666d751A29ccBff4e97C",
     ArbitrumSepolia: "0xD69CF144C31aE8C12b5C7c3D52411F32C824C9a3",
     Avalanche: "0x8196EBa42b2947f519002B8aDa53b1880F580c69",
     BaseSepolia: "0x9fBC8aA6B2f626D13005De92B3f0e4541919f721",
