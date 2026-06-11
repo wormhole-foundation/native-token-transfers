@@ -4,13 +4,20 @@ XRP Ledger commands used when preparing an NTT deployment on XRPL. XRPL has no
 smart contracts, so NTT relies on a Guardian-controlled custody model (see
 [`ripple/SPEC.md`](../../../../ripple/SPEC.md) and
 [`ripple/DESIGN.md`](../../../../ripple/DESIGN.md)). These commands cover (1)
-creating/configuring the underlying XRPL token, and (2) setting up the custody
-account and handing it off to the manager-set multisig.
+creating/configuring the underlying XRPL token, (2) setting up the custody
+account and handing it off to the manager-set multisig, and (3) operating a live
+deployment (emitter derivation, VAA decoding, relaying).
 
 Most are **pure, single-purpose** commands — each submits one XRPL transaction.
 Shared plumbing lives in [`../../xrpl/helpers.ts`](../../xrpl/helpers.ts), the
 onboarding payload encoding in [`../../xrpl/onboarding.ts`](../../xrpl/onboarding.ts),
 and the manager-set fetch in [`../../xrpl/manager-set.ts`](../../xrpl/manager-set.ts).
+The operational commands add emitter/token-id derivation
+([`tokenId.ts`](../../xrpl/tokenId.ts)), VAA/payload decoding
+([`payloads.ts`](../../xrpl/payloads.ts)), and the Executor/guardian clients +
+request layouts ([`executor.ts`](../../xrpl/executor.ts),
+[`guardian.ts`](../../xrpl/guardian.ts),
+[`executorLayouts.ts`](../../xrpl/executorLayouts.ts)).
 
 ## Commands
 
@@ -35,6 +42,14 @@ An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder).
 | `reserve-tickets` | custody | `TicketCreate` | Pre-allocate tickets |
 | `init` | custody | `Payment` + onboarding memo | Onboard the account to the Wormhole Core |
 | `set-signer-list` | custody | `SignerListSet` | Hand off to the manager-set multisig (**irreversible-ish**) |
+
+**Operational** — once a deployment is live:
+
+| Command | Connects | Purpose |
+|---|---|---|
+| `emitter` | — *(offline)* | Compute the XRPL transceiver emitter address for a manager + token |
+| `parse-vaa` | — *(offline)* | Decode an XRPL-Wormhole VAA or payload (XREL/XRFL/XADM/onboarding/NTT) |
+| `relay` | relayer + Executor | Relay a VAA emitted by an XRPL tx to its destination via the Executor |
 
 ### `enable-rippling`
 Sets the `asfDefaultRipple` flag on the issuer account so balances of its IOU can
@@ -189,6 +204,58 @@ ntt xrpl set-signer-list -n Testnet \
 ntt xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --issuer-seed sEd7...
 ```
 
+### `emitter`
+Computes the Wormhole transceiver emitter address for an XRPL custody account +
+token — `keccak256("ntt" + manager[32] + tokenId[32])`. Offline (no XRPL/RPC
+connection). Use the printed `0x…` value with `ntt manual set-transceiver-peer`.
+
+- `--manager` (required) — custody account (r-address or 20-byte hex)
+- `--token` (required) — `xrp` | `iou` | `mpt`
+- `--currency`, `--issuer` [`--token iou`]; `--mpt-id` [`--token mpt`]
+
+```
+ntt xrpl emitter --manager rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny --token xrp
+ntt xrpl emitter --manager rnv8... --token iou --currency FOO --issuer rnv8...
+```
+
+### `parse-vaa`
+Decodes an XRPL-Wormhole VAA envelope and its inner payload (XREL release, XRFL
+ticket-refill, XADM admin, XRPL onboarding, or a wrapped NTT transfer). Offline.
+
+- `<vaa>` (positional) — hex bytes, with or without `0x`
+- `--payload-only` — treat the input as a bare payload instead of a full VAA
+
+```
+ntt xrpl parse-vaa 01000000...                 # full VAA + payload
+ntt xrpl parse-vaa 5852504c... --payload-only  # bare payload
+```
+
+### `relay`
+Relays a VAA emitted by an XRPL transaction to its destination via the w7
+Executor: looks up the tx → derives emitter/sequence → polls the guardian for the
+signed VAA → fetches an Executor quote → submits a `Payment` to the Executor
+carrying an `application/x-executor-request` memo → triggers indexing. Signed by
+the relaying account (`--seed`).
+
+- `--tx-hash` (required) — XRPL tx that emitted the VAA
+- `--dst-chain` (required) — destination chain (name or id)
+- `--request-type` — `ern1` (NTT transfer) or `erv1` (onboarding / register-peer)
+- `--dst-addr` — destination address (hex32; recipient NTT manager for `ern1`)
+- `--src-manager` / `--manager` — source NTT manager emitter (hex32), or derive it
+  from the manager r-address/hex
+- `--token` (+ `--currency`/`--issuer`/`--mpt-id`) — defaults to the token inferred
+  from the tx's delivered amount
+- `--executor` (required) — Executor XRPL address to pay
+- `--executor-api`, `--guardian-api` — API base URLs (default: testnet)
+- `--gas-limit`, `--msg-value`, `--relay-instructions` — relay sizing
+- `--poll-interval`, `--poll-timeout` — VAA polling (ms)
+- `--seed` (or env `SEED`)
+
+```
+ntt xrpl relay -n Testnet --tx-hash <hash> --dst-chain Solana --executor r… \
+  --request-type ern1 --src-manager 0x… --dst-addr 0x… --seed sEd7...
+```
+
 ## deployment.json
 
 `set-manager` records the custody account in a dedicated top-level `xrpl` section
@@ -219,6 +286,7 @@ need not appear in shell history:
 
 - Issuer/custody-creator commands (`enable-rippling`, `create-mpt`,
   `reserve-tickets`, `init`, `set-signer-list`) → `--issuer-seed` / `ISSUER_SEED`.
-- Holder commands (`trust-set`, `authorize-mpt`) → `--seed` / `SEED`.
+- Holder & operational commands (`trust-set`, `authorize-mpt`, `relay`) →
+  `--seed` / `SEED`.
 - `fund`'s `Payment` source → `--from-seed` / `FUNDER_SEED`.
 - `set-manager` takes no seed — just `--account`.

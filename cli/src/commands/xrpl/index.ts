@@ -11,9 +11,13 @@ import { createXrplSetManagerCommand } from "./set-manager";
 import { createXrplFundCommand } from "./fund";
 import { createXrplReserveTicketsCommand } from "./reserve-tickets";
 import { createXrplSetSignerListCommand } from "./set-signer-list";
+import { createXrplEmitterCommand } from "./emitter";
+import { createXrplParseVaaCommand } from "./parse-vaa";
+import { createXrplRelayCommand } from "./relay";
 
 /**
- * `ntt xrpl <subcommand>` — XRPL commands for preparing an NTT deployment.
+ * `ntt xrpl <subcommand>` — XRPL commands for preparing and operating an NTT
+ * deployment.
  *
  * Token setup:
  *   enable-rippling  — issuer enables DefaultRipple (required for an IOU)
@@ -27,6 +31,11 @@ import { createXrplSetSignerListCommand } from "./set-signer-list";
  *   reserve-tickets  — pre-allocate tickets (TicketCreate)
  *   init             — send the XRPLAppOnboarding message
  *   set-signer-list  — hand off to the manager-set multisig (SignerListSet)
+ *
+ * Operational:
+ *   emitter          — compute the transceiver emitter for a manager + token
+ *   parse-vaa        — decode an XRPL-Wormhole VAA / payload
+ *   relay            — relay an XRPL-emitted VAA to its destination (Executor)
  *
  * "Creating" an IOU is just `enable-rippling` (issuer) + `trust-set` (holders).
  */
@@ -45,6 +54,9 @@ export function createXrplCommand(overrides: WormholeConfigOverrides<Network>) {
         .command(createXrplReserveTicketsCommand(overrides))
         .command(createXrplInitCommand(overrides))
         .command(createXrplSetSignerListCommand(overrides))
+        .command(createXrplEmitterCommand(overrides))
+        .command(createXrplParseVaaCommand(overrides))
+        .command(createXrplRelayCommand(overrides))
         .demandCommand(1, "Specify an xrpl subcommand")
         .strict(),
     handler: () => {},
