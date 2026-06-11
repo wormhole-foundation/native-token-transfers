@@ -33,6 +33,15 @@ pub struct ReceiveMessage<'info> {
     #[account(
         // check that the messages is targeted to this chain
         constraint = vaa.message().ntt_manager_payload.payload.to_chain == config.chain_id @ NTTError::InvalidChainId,
+        // check that the message is addressed to *this* instance. The
+        // `transceiver_message` PDA below is scoped by `config.key()`, but
+        // nothing otherwise binds the message's `recipient_ntt_manager` to it,
+        // so a VAA addressed to instance A could be used to create a (redundant,
+        // and ultimately unredeemable) transceiver message under instance B.
+        // [`crate::instructions::redeem`] enforces this for fund safety; we also
+        // check it here so the binding is local and the mis-scoped account is
+        // never created in the first place.
+        constraint = vaa.message().recipient_ntt_manager == config.key().to_bytes() @ NTTError::InvalidRecipientNttManager,
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
     )]

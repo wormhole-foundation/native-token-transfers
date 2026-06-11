@@ -250,7 +250,10 @@ async fn test_wrong_recipient_ntt_manager() {
     )
     .await;
 
-    receive_message(
+    // v4: the recipient_ntt_manager binding is now checked at receive time, so a
+    // message addressed to a different instance is rejected before it can create
+    // a (mis-scoped) transceiver message — rather than later at redeem.
+    let err = receive_message(
         &good_ntt,
         &good_ntt_transceiver,
         init_receive_message_accs(
@@ -260,22 +263,6 @@ async fn test_wrong_recipient_ntt_manager() {
             OTHER_CHAIN,
             [0u8; 32],
         ),
-    )
-    .submit(&mut ctx)
-    .await
-    .unwrap();
-
-    let err = redeem(
-        &good_ntt,
-        init_redeem_accs(
-            &good_ntt,
-            &good_ntt_transceiver,
-            &mut ctx,
-            &test_data,
-            OTHER_CHAIN,
-            msg.ntt_manager_payload.clone(),
-        ),
-        RedeemArgs {},
     )
     .submit(&mut ctx)
     .await
