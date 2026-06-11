@@ -105,23 +105,23 @@ export function createXrplInitCommand(
           type: "string",
           default: "0.000001",
         })
-        .option("seed", {
-          describe: "Custody account seed (or env SEED)",
+        .option("issuer-seed", {
+          describe: "Custody account seed (or env ISSUER_SEED)",
           type: "string",
         })
         .example(
-          "$0 xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 --token xrp --seed sEd7...",
+          "$0 xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 --token xrp --issuer-seed sEd7...",
           "Onboard an XRP NTT custody account"
         )
         .example(
-          "$0 xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 --token mpt --decimals 9 --mpt-id 00EE5E8C... --seed sEd7...",
+          "$0 xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 --token mpt --decimals 9 --mpt-id 00EE5E8C... --issuer-seed sEd7...",
           "Onboard an MPT NTT custody account"
         ),
     handler: (argv: any) =>
       runXrpl(async () => {
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
-        const seed = loadSeed(argv.seed, "seed", "SEED");
+        const seed = loadSeed(argv["issuer-seed"], "issuer-seed", "ISSUER_SEED");
         const wallet = walletFromSeed(seed, argv.algorithm);
 
         const token = resolveTokenInit(argv);

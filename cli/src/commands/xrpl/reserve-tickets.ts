@@ -29,12 +29,12 @@ export function createXrplReserveTicketsCommand(
           type: "number",
           default: 200,
         })
-        .option("seed", {
-          describe: "Custody account seed (or env SEED)",
+        .option("issuer-seed", {
+          describe: "Custody account seed (or env ISSUER_SEED)",
           type: "string",
         })
         .example(
-          "$0 xrpl reserve-tickets -n Testnet --count 200 --seed sEd7...",
+          "$0 xrpl reserve-tickets -n Testnet --count 200 --issuer-seed sEd7...",
           "Reserve 200 tickets on the custody account"
         ),
     handler: (argv: any) =>
@@ -46,7 +46,7 @@ export function createXrplReserveTicketsCommand(
 
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
-        const seed = loadSeed(argv.seed, "seed", "SEED");
+        const seed = loadSeed(argv["issuer-seed"], "issuer-seed", "ISSUER_SEED");
         const wallet = walletFromSeed(seed, argv.algorithm);
 
         console.log(

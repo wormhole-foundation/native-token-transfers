@@ -40,8 +40,9 @@ export function createXrplSetSignerListCommand(
           default: 66,
         })
         .option("manager-set-index", {
-          describe: "Manager set index to fetch",
-          type: "number",
+          describe: "Manager set index to fetch, or 'latest'",
+          type: "string",
+          default: "latest",
         })
         .option("rpc-eth", {
           describe: "EVM RPC URL hosting the delegated manager set contract",
@@ -56,24 +57,24 @@ export function createXrplSetSignerListCommand(
             "Signer quorum (required with --signers; the EVM fetch always uses the manager-set threshold)",
           type: "number",
         })
-        .option("seed", {
-          describe: "Custody account seed (or env SEED)",
+        .option("issuer-seed", {
+          describe: "Custody account seed (or env ISSUER_SEED)",
           type: "string",
         })
         .option("yes", options.yes)
         .example(
-          "$0 xrpl set-signer-list -n Testnet --manager-set-index 0 --rpc-eth https://... --delegated-manager-set-addr 0x... --seed sEd7...",
-          "Fetch the manager set and set the signer list"
+          "$0 xrpl set-signer-list -n Testnet --rpc-eth https://... --delegated-manager-set-addr 0x... --issuer-seed sEd7...",
+          "Fetch the latest manager set and set the signer list"
         )
         .example(
-          "$0 xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --seed sEd7...",
+          "$0 xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --issuer-seed sEd7...",
           "Set an explicit signer list"
         ),
     handler: (argv: any) =>
       runXrpl(async () => {
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
-        const seed = loadSeed(argv.seed, "seed", "SEED");
+        const seed = loadSeed(argv["issuer-seed"], "issuer-seed", "ISSUER_SEED");
         const wallet = walletFromSeed(seed, argv.algorithm);
 
         // Resolve signer entries + quorum, either from an explicit list or by
@@ -87,13 +88,9 @@ export function createXrplSetSignerListCommand(
           }
           quorum = argv.quorum;
         } else {
-          if (
-            !argv["rpc-eth"] ||
-            !argv["delegated-manager-set-addr"] ||
-            argv["manager-set-index"] === undefined
-          ) {
+          if (!argv["rpc-eth"] || !argv["delegated-manager-set-addr"]) {
             throw new Error(
-              "Provide --signers, or all of --rpc-eth, --delegated-manager-set-addr and --manager-set-index"
+              "Provide --signers, or both --rpc-eth and --delegated-manager-set-addr"
             );
           }
           if (argv.quorum !== undefined) {
@@ -101,9 +98,17 @@ export function createXrplSetSignerListCommand(
               "Do not pass --quorum with the EVM fetch; the quorum is the manager-set threshold"
             );
           }
+          const idxArg = argv["manager-set-index"];
+          const index: number | "latest" =
+            idxArg === "latest" ? "latest" : Number(idxArg);
+          if (index !== "latest" && (!Number.isInteger(index) || index < 0)) {
+            throw new Error(
+              "--manager-set-index must be a non-negative integer or 'latest'"
+            );
+          }
           const managerSet = await fetchDelegatedManagerSet(
             argv["manager-chain-id"],
-            argv["manager-set-index"],
+            index,
             argv["rpc-eth"],
             argv["delegated-manager-set-addr"]
           );
@@ -112,7 +117,7 @@ export function createXrplSetSignerListCommand(
           quorum = managerSet.mThreshold;
           console.log(
             colors.gray(
-              `   fetched manager set: ${managerSet.nTotal} signers, threshold ${managerSet.mThreshold}`
+              `   fetched manager set #${managerSet.index}: ${managerSet.nTotal} signers, threshold ${managerSet.mThreshold}`
             )
           );
         }
