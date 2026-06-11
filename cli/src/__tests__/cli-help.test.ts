@@ -44,6 +44,7 @@ const EXPECTED_COMMANDS = [
   "solana",
   "hype",
   "manual",
+  "xrpl",
 ];
 
 const SOLANA_SUBCOMMANDS = [
@@ -53,6 +54,8 @@ const SOLANA_SUBCOMMANDS = [
   "create-spl-multisig",
   "build",
 ];
+
+const XRPL_SUBCOMMANDS = ["emitter", "parse-vaa", "relay"];
 
 const CONFIG_SUBCOMMANDS = ["set-chain", "unset-chain", "get-chain"];
 
@@ -121,6 +124,22 @@ describe("CLI Help Output", () => {
     const results = await Promise.all(
       CONFIG_SUBCOMMANDS.map(async (sub) => {
         const { exitCode, stdout } = await runCli("config", sub, "--help");
+        return { sub, exitCode, hasOutput: stdout.length > 0 };
+      })
+    );
+    const failures = results.filter((r) => r.exitCode !== 0 || !r.hasOutput);
+    expect(failures).toEqual([]);
+  });
+
+  it("xrpl subcommands are listed and their --help exits with 0", async () => {
+    if (!cliAvailable) return;
+    const { stdout: xrplHelp } = await runCli("xrpl", "--help");
+    for (const sub of XRPL_SUBCOMMANDS) {
+      expect(xrplHelp).toContain(sub);
+    }
+    const results = await Promise.all(
+      XRPL_SUBCOMMANDS.map(async (sub) => {
+        const { exitCode, stdout } = await runCli("xrpl", sub, "--help");
         return { sub, exitCode, hasOutput: stdout.length > 0 };
       })
     );
