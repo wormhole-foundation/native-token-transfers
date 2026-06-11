@@ -20,6 +20,12 @@ export const XRPL_ENDPOINTS: Record<Network, string> = {
   Devnet: "wss://s.devnet.rippletest.net:51233",
 };
 
+/** Public XRPL faucet hosts (testnet/devnet only). */
+export const XRPL_FAUCET_HOSTS: Partial<Record<Network, string>> = {
+  Testnet: "faucet.altnet.rippletest.net",
+  Devnet: "faucet.devnet.rippletest.net",
+};
+
 /**
  * Resolve the XRPL endpoint to connect to. Precedence:
  *   --rpc flag  >  overrides.json (chains.Xrpl.rpc)  >  built-in network default.

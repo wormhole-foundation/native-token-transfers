@@ -8,18 +8,24 @@ import { decodeAccountID, deriveAddress } from "xrpl";
 // (which uses viem) and xrpl-scripts/pks_to_accts.ts, using ethers to match the
 // rest of this CLI.
 
-export type ManagerSet = {
+export type ParsedManagerSet = {
   mThreshold: number;
   nTotal: number;
   pubkeys: Buffer[]; // 33-byte compressed secp256k1 keys
+};
+
+export type ManagerSet = ParsedManagerSet & {
+  /** The resolved set index (meaningful when "latest" was requested). */
+  index: number;
 };
 
 export type SignerEntry = {
   SignerEntry: { Account: string; SignerWeight: number };
 };
 
-const GET_MANAGER_SET_ABI = [
+const MANAGER_SET_ABI = [
   "function getManagerSet(uint16 chainId, uint32 index) view returns (bytes)",
+  "function getCurrentManagerSetIndex(uint16 chainId) view returns (uint32)",
 ];
 
 /**
@@ -27,7 +33,7 @@ const GET_MANAGER_SET_ABI = [
  * delegated-manager governance):
  *   [0] version (== 1), [1] mThreshold, [2] nTotal, [3..] nTotal × 33-byte pubkeys.
  */
-export function parseManagerSet(bytes: Buffer): ManagerSet {
+export function parseManagerSet(bytes: Buffer): ParsedManagerSet {
   if (bytes[0] !== 1) {
     throw new Error(`Unsupported manager set version: ${bytes[0]}`);
   }
@@ -48,18 +54,26 @@ export function parseManagerSet(bytes: Buffer): ManagerSet {
 }
 
 /**
- * Read the delegated manager set for `chainId`/`index` from the EVM contract.
+ * Read the delegated manager set for `chainId` from the EVM contract. Pass a
+ * specific `index`, or "latest" to resolve the current index on-chain.
  */
 export async function fetchDelegatedManagerSet(
   chainId: number,
-  index: number,
+  index: number | "latest",
   rpcUrl: string,
   address: string
 ): Promise<ManagerSet> {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const contract = new ethers.Contract(address, GET_MANAGER_SET_ABI, provider);
-  const hex: string = await contract.getManagerSet(chainId, index);
-  return parseManagerSet(Buffer.from(ethers.getBytes(hex)));
+  const contract = new ethers.Contract(address, MANAGER_SET_ABI, provider);
+  const resolvedIndex =
+    index === "latest"
+      ? Number(await contract.getCurrentManagerSetIndex(chainId))
+      : index;
+  const hex: string = await contract.getManagerSet(chainId, resolvedIndex);
+  return {
+    index: resolvedIndex,
+    ...parseManagerSet(Buffer.from(ethers.getBytes(hex))),
+  };
 }
 
 /** Sort signer entries by account ID — required by XRPL for SignerListSet. */

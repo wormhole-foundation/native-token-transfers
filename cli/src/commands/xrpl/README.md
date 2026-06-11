@@ -97,7 +97,7 @@ ntt xrpl authorize-mpt -n Testnet --mpt-id 00EE5E8C... --seed sEd7...
 Records the chosen custody account in the deployment file (`xrpl.manager`) so the
 other custody commands can default `--account` to it. No XRPL transaction.
 
-- `--account` — custody r-address, **or** `--seed` (env `SEED`) to derive it
+- `--account` (required) — custody r-address
 - `--path` — deployment file (default `deployment.json`)
 
 ```
@@ -112,11 +112,11 @@ settings: `base + inc × (tickets + 1) + buffer`.
 - `--account` — target (defaults to `xrpl.manager`)
 - `--amount` — XRP to fund (default: computed)
 - `--tickets` — ticket count to size the reserve for (default 200)
-- `--faucet` — use the testnet/devnet faucet (requires `--seed` for the account)
+- `--faucet` — use the testnet/devnet faucet to fund `--account` directly
 - `--from-seed` (env `FUNDER_SEED`) — funding source for a `Payment` (any network)
 
 ```
-ntt xrpl fund -n Testnet --faucet --seed sEd7...                            # faucet
+ntt xrpl fund -n Testnet --account r9qA... --faucet                         # faucet
 ntt xrpl fund -n Mainnet --account r9qA... --amount 50 --from-seed sEd7...  # payment
 ```
 
@@ -125,16 +125,16 @@ Pre-allocates tickets on the custody account (`TicketCreate`), signed by the
 creator before hand-off. Tickets decouple Guardian signing from sequence order.
 
 - `--count` — number of tickets, `1`–`250` (default 200)
-- `--seed` (or env `SEED`)
+- `--issuer-seed` (or env `ISSUER_SEED`)
 
 ```
-ntt xrpl reserve-tickets -n Testnet --count 200 --seed sEd7...
+ntt xrpl reserve-tickets -n Testnet --count 200 --issuer-seed sEd7...
 ```
 
 ### `init`
 Sends the `XRPLAppOnboarding` message — a `Payment` to the Wormhole Core (GMP)
 account carrying an onboarding memo — so the Guardians start watching the custody
-account. Signed by the **custody account** being onboarded (`--seed`).
+account. Signed by the **custody account** being onboarded (`--issuer-seed`).
 
 The memo carries: prefix `"XRPL"`, the `--admin` account, the `--app` type
 (left-padded to 32 bytes), the ticket range (`--initial-ticket` / `--ticket-count`),
@@ -150,16 +150,16 @@ Other options:
 - `--core-account` — destination Wormhole Core account (default: the testnet
   account `rpuMNy2dBzimaQHTFpXsfoCoqicgd8etQQ`; set this for other networks)
 - `--amount` — XRP sent with the message (default `0.000001`)
-- `--seed` (or env `SEED`)
+- `--issuer-seed` (or env `ISSUER_SEED`)
 
 ```
 # XRP custody account
 ntt xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 \
-  --token xrp --seed sEd7...
+  --token xrp --issuer-seed sEd7...
 
 # MPT custody account
 ntt xrpl init -n Testnet --admin r9qA... --initial-ticket 100 --ticket-count 150 \
-  --token mpt --decimals 9 --mpt-id 00EE5E8C... --seed sEd7...
+  --token mpt --decimals 9 --mpt-id 00EE5E8C... --issuer-seed sEd7...
 ```
 
 The memo uses `MemoFormat: application/x-wormhole-publish` and
@@ -172,21 +172,21 @@ explicitly. **This is the hand-off** — it prompts for confirmation unless `--y
 (The master key stays enabled until disabled separately.)
 
 Fetch from EVM — the quorum is the manager-set threshold (not overridable):
-- `--manager-chain-id` (default 66), `--manager-set-index`, `--rpc-eth`,
-  `--delegated-manager-set-addr`
+- `--manager-chain-id` (default 66), `--manager-set-index` (default `latest`,
+  resolved on-chain), `--rpc-eth`, `--delegated-manager-set-addr`
 
 Explicit signers:
 - `--signers` — comma-separated r-addresses; `--quorum` (required)
 
-Common: `--seed` (or env `SEED`), `--yes`.
+Common: `--issuer-seed` (or env `ISSUER_SEED`), `--yes`.
 
 ```
-# from the manager set on an EVM chain
-ntt xrpl set-signer-list -n Testnet --manager-set-index 0 \
-  --rpc-eth https://... --delegated-manager-set-addr 0x... --seed sEd7...
+# from the latest manager set on an EVM chain
+ntt xrpl set-signer-list -n Testnet \
+  --rpc-eth https://... --delegated-manager-set-addr 0x... --issuer-seed sEd7...
 
 # explicit signers
-ntt xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --seed sEd7...
+ntt xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --issuer-seed sEd7...
 ```
 
 ## deployment.json
@@ -217,8 +217,8 @@ Every subcommand accepts:
 Seeds are read from the flag, falling back to an environment variable so they
 need not appear in shell history:
 
-- Issuer-signed commands (`enable-rippling`, `create-mpt`) → `--issuer-seed` /
-  `ISSUER_SEED`.
-- Holder-/custody-signed commands (`trust-set`, `authorize-mpt`, `set-manager`,
-  `reserve-tickets`, `init`, `set-signer-list`) → `--seed` / `SEED`.
+- Issuer/custody-creator commands (`enable-rippling`, `create-mpt`,
+  `reserve-tickets`, `init`, `set-signer-list`) → `--issuer-seed` / `ISSUER_SEED`.
+- Holder commands (`trust-set`, `authorize-mpt`) → `--seed` / `SEED`.
 - `fund`'s `Payment` source → `--from-seed` / `FUNDER_SEED`.
+- `set-manager` takes no seed — just `--account`.

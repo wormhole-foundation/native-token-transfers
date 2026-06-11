@@ -7,6 +7,7 @@ import { xrpToDrops } from "xrpl";
 import { colors } from "../../colors.js";
 import { loadConfig } from "../../deployments";
 import {
+  XRPL_FAUCET_HOSTS,
   getReserveBase,
   loadSeed,
   resolveXrplEndpoint,
@@ -45,13 +46,9 @@ export function createXrplFundCommand(
           default: 200,
         })
         .option("faucet", {
-          describe: "Use the testnet/devnet faucet (requires --seed for the account)",
+          describe: "Use the testnet/devnet faucet to fund --account",
           type: "boolean",
           default: false,
-        })
-        .option("seed", {
-          describe: "Account seed, for the --faucet path (or env SEED)",
-          type: "string",
         })
         .option("from-seed", {
           describe: "Funding source seed for a Payment (or env FUNDER_SEED)",
@@ -63,7 +60,7 @@ export function createXrplFundCommand(
           default: "deployment.json",
         })
         .example(
-          "$0 xrpl fund -n Testnet --faucet --seed sEd7...",
+          "$0 xrpl fund -n Testnet --faucet --account r9qA...",
           "Fund the account from the testnet faucet"
         )
         .example(
@@ -75,21 +72,14 @@ export function createXrplFundCommand(
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
 
-        // Resolve the target account: --account, else the deployment's xrpl.manager,
-        // else derive it from --seed.
+        // Resolve the target account: --account, else the deployment's xrpl.manager.
         let target: string | undefined = argv.account;
         if (!target && fs.existsSync(argv.path)) {
           target = loadConfig(argv.path).xrpl?.manager;
         }
-        if (!target && (argv.seed || process.env.SEED)) {
-          target = walletFromSeed(
-            loadSeed(argv.seed, "seed", "SEED"),
-            argv.algorithm
-          ).address;
-        }
         if (!target) {
           throw new Error(
-            "No target account: pass --account, set xrpl.manager (ntt xrpl set-manager), or pass --seed"
+            "No target account: pass --account or set xrpl.manager (ntt xrpl set-manager)"
           );
         }
         validateRAddress(target);
@@ -106,25 +96,34 @@ export function createXrplFundCommand(
           );
 
           if (argv.faucet) {
-            if (network === "Mainnet") {
+            const host = XRPL_FAUCET_HOSTS[network];
+            if (!host) {
               throw new Error("--faucet is only available on Testnet/Devnet");
             }
-            const wallet = walletFromSeed(
-              loadSeed(argv.seed, "seed", "SEED"),
-              argv.algorithm
+            // The faucet requires a whole-XRP integer amount; round up so it
+            // still covers the reserve.
+            const xrpAmount = String(
+              Math.ceil(Number(argv.amount ?? requiredXrp))
             );
-            if (wallet.address !== target) {
+            console.log(
+              colors.blue(`Funding ${target} via faucet (${xrpAmount} XRP requested)`)
+            );
+            // The faucet funds the `destination` address directly — no key needed.
+            const res = await fetch(`https://${host}/accounts`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ destination: target, xrpAmount }),
+            });
+            if (!res.ok) {
               throw new Error(
-                `--seed derives ${wallet.address}, which does not match the target ${target}`
+                `Faucet request failed (${res.status}): ${await res.text()}`
               );
             }
-            const amount = argv.amount ?? String(requiredXrp);
-            console.log(
-              colors.blue(`Funding ${target} via faucet (${amount} XRP requested)`)
-            );
-            const res = await client.fundWallet(wallet, { amount });
-            console.log(colors.green("✅ Funded via faucet"));
-            console.log(`   balance: ${res.balance} XRP`);
+            const body: any = await res.json().catch(() => ({}));
+            console.log(colors.green("✅ Faucet funded the account"));
+            if (body?.balance !== undefined) {
+              console.log(`   balance: ${body.balance} XRP`);
+            }
             return;
           }
 
