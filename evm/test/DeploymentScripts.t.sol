@@ -11,15 +11,15 @@ import "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
 import "../src/interfaces/INttManager.sol";
 import "../src/interfaces/IManagerBase.sol";
 import "../src/interfaces/IWormholeTransceiver.sol";
-import "../src/interfaces/ICustomConsistencyLevel.sol";
-import "../src/libraries/ConfigMakers.sol";
+import {ICustomConsistencyLevel} from "wormhole-sdk/interfaces/ICustomConsistencyLevel.sol";
+import {CustomConsistencyLib} from "wormhole-sdk/libraries/CustomConsistency.sol";
 import {Utils} from "./libraries/Utils.sol";
 import {DummyToken} from "./NttManager.t.sol";
 
 import "../script/helpers/DeployWormholeNttBase.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {IWormhole} from "wormhole-solidity-sdk/interfaces/IWormhole.sol";
-import {WormholeSimulator} from "wormhole-solidity-sdk/testing/helpers/WormholeSimulator.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {WormholeOverride} from "wormhole-sdk/testing/WormholeOverride.sol";
 
 /// @title DeploymentScriptsTest
 /// @notice Tests for the deployment scripts to ensure they work correctly with the updated constructor signatures
@@ -37,11 +37,7 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
     uint16 constant ADDTL_BLOCKS = 3; // Wait 3 additional blocks beyond CCL
     uint64 constant RATE_LIMIT_DURATION = 1 days;
 
-    uint256 constant DEVNET_GUARDIAN_PK =
-        0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
-
-    IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
-    WormholeSimulator guardian;
+    ICoreBridge wormhole = ICoreBridge(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
 
     DummyToken token;
     // Real CCL contract address on Sepolia and Linea
@@ -52,7 +48,7 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
         string memory url = "https://ethereum-sepolia-rpc.publicnode.com";
         vm.createSelectFork(url);
 
-        guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
+        WormholeOverride.setUpOverride(wormhole);
 
         // Deploy test token
         token = new DummyToken();
@@ -158,8 +154,9 @@ contract DeploymentScriptsTest is Test, DeployWormholeNttBase {
         );
 
         // Verify that the CCL configuration was set in the CCL contract
-        bytes32 expectedConfig =
-            ConfigMakers.makeAdditionalBlocksConfig(CUSTOM_CONSISTENCY_LEVEL, ADDTL_BLOCKS);
+        bytes32 expectedConfig = CustomConsistencyLib.encodeAdditionalBlocksConfig(
+            CUSTOM_CONSISTENCY_LEVEL, ADDTL_BLOCKS
+        );
         bytes32 actualConfig =
             ICustomConsistencyLevel(CCL_CONTRACT_ADDRESS).getConfiguration(transceiver);
         assertEq(actualConfig, expectedConfig, "CCL configuration not set correctly in contract");

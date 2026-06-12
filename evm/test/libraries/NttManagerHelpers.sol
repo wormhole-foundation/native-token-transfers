@@ -5,6 +5,7 @@ pragma solidity >=0.8.8 <0.9.0;
 import "../../src/libraries/TrimmedAmount.sol";
 import "../../src/NttManager/NttManager.sol";
 import "../../src/interfaces/INttManager.sol";
+import "wormhole-sdk/Utils.sol";
 
 library NttManagerHelpersLib {
     uint16 constant SENDING_CHAIN_ID = 1;
@@ -26,7 +27,10 @@ library NttManagerHelpersLib {
 
         uint8 tokenDecimals = abi.decode(queriedDecimals, (uint8));
         recipientNttManager.setPeer(
-            SENDING_CHAIN_ID, toWormholeFormat(address(nttManager)), tokenDecimals, type(uint64).max
+            SENDING_CHAIN_ID,
+            toUniversalAddress(address(nttManager)),
+            tokenDecimals,
+            type(uint64).max
         );
         recipientNttManager.setInboundLimit(inboundLimit.untrim(decimals), SENDING_CHAIN_ID);
     }

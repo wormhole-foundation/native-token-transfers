@@ -7,6 +7,7 @@ import "../mocks/DummyTransceiver.sol";
 import "../../src/mocks/DummyToken.sol";
 import "../../src/NttManager/NttManager.sol";
 import "../../src/libraries/TrimmedAmount.sol";
+import "wormhole-sdk/Utils.sol";
 
 library TransceiverHelpersLib {
     using TrimmedAmountLib for TrimmedAmount;
@@ -52,8 +53,8 @@ library TransceiverHelpersLib {
         bytes memory encodedEm;
         (em, encodedEm) = TransceiverStructs.buildAndEncodeTransceiverMessage(
             TEST_TRANSCEIVER_PAYLOAD_PREFIX,
-            toWormholeFormat(address(nttManager)),
-            toWormholeFormat(address(recipientNttManager)),
+            toUniversalAddress(address(nttManager)),
+            toUniversalAddress(address(recipientNttManager)),
             encodedM,
             new bytes(0)
         );
@@ -81,8 +82,8 @@ library TransceiverHelpersLib {
             TransceiverStructs.encodeNativeTokenTransfer(
                 TransceiverStructs.NativeTokenTransfer({
                     amount: amount,
-                    sourceToken: toWormholeFormat(address(token)),
-                    to: toWormholeFormat(to),
+                    sourceToken: toUniversalAddress(address(token)),
+                    to: toUniversalAddress(to),
                     toChain: toChain,
                     additionalPayload: ""
                 })

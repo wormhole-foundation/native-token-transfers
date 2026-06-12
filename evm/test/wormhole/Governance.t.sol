@@ -5,7 +5,14 @@ import "../../src/wormhole/Governance.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
-import "wormhole-solidity-sdk/testing/helpers/WormholeSimulator.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {WormholeOverride} from "wormhole-sdk/testing/WormholeOverride.sol";
+import {
+    VaaLib,
+    Vaa,
+    VaaBody as PublishedMessage,
+    VaaEnvelope
+} from "wormhole-sdk/libraries/VaaLib.sol";
 
 contract GovernedContract is Ownable {
     error RandomError();
@@ -22,19 +29,16 @@ contract GovernedContract is Ownable {
 }
 
 contract GovernanceTest is Test {
-    uint256 constant DEVNET_GUARDIAN_PK =
-        0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
-
     Governance governance;
-    WormholeSimulator guardian;
     GovernedContract myContract;
-    IWormhole constant wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
+    ICoreBridgeGovernance constant wormhole =
+        ICoreBridgeGovernance(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
 
     function setUp() public {
         string memory url = "https://ethereum-sepolia-rpc.publicnode.com";
         vm.createSelectFork(url);
 
-        guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
+        WormholeOverride.setUpOverride(ICoreBridge(address(wormhole)));
         governance = new Governance(address(wormhole));
 
         myContract = new GovernedContract();
@@ -85,27 +89,25 @@ contract GovernanceTest is Test {
                 callData: callData
             });
 
-        IWormhole.VM memory vaa =
-            buildVaa(governance.encodeGeneralPurposeGovernanceMessage(message));
+        PublishedMessage memory body =
+            buildVaaBody(governance.encodeGeneralPurposeGovernanceMessage(message));
 
-        return guardian.encodeAndSignMessage(vaa);
+        return VaaLib.encode(WormholeOverride.sign(ICoreBridge(address(wormhole)), body));
     }
 
-    function buildVaa(
+    function buildVaaBody(
         bytes memory payload
-    ) public view returns (IWormhole.VM memory) {
-        return IWormhole.VM({
-            version: 1,
-            timestamp: uint32(block.timestamp),
-            nonce: 0,
-            emitterChainId: wormhole.governanceChainId(),
-            emitterAddress: wormhole.governanceContract(),
-            sequence: 0,
-            consistencyLevel: 200,
-            payload: payload,
-            guardianSetIndex: 0,
-            signatures: new IWormhole.Signature[](0),
-            hash: bytes32("")
+    ) public view returns (PublishedMessage memory) {
+        return PublishedMessage({
+            envelope: VaaEnvelope({
+                timestamp: uint32(block.timestamp),
+                nonce: 0,
+                emitterChainId: wormhole.governanceChainId(),
+                emitterAddress: wormhole.governanceContract(),
+                sequence: 0,
+                consistencyLevel: 200
+            }),
+            payload: payload
         });
     }
 

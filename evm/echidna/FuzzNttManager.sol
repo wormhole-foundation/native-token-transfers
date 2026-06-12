@@ -14,7 +14,7 @@ import "./helpers/FuzzingHelpers.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "solidity-bytes-utils/BytesLib.sol";
 import "../test/mocks/DummyTransceiver.sol";
-import "wormhole-solidity-sdk/Utils.sol";
+import "wormhole-sdk/Utils.sol";
 
 contract FuzzNttManager is FuzzingHelpers {
     uint64[] queuedOutboundTransfersArray;

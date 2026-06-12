@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {CoreBridgeLib} from "wormhole-sdk/libraries/CoreBridge.sol";
+import {VaaLib} from "wormhole-sdk/libraries/VaaLib.sol";
+
+/// @dev Extended interface for governance-specific methods not in ICoreBridge
+interface ICoreBridgeGovernance is ICoreBridge {
+    function governanceChainId() external view returns (uint16);
+    function governanceContract() external view returns (bytes32);
+    function governanceActionIsConsumed(
+        bytes32 hash
+    ) external view returns (bool);
+}
 
 contract Governance {
     using BytesParsing for bytes;
@@ -28,7 +39,7 @@ contract Governance {
         SOLANA_CALL
     }
 
-    IWormhole immutable wormhole;
+    ICoreBridgeGovernance immutable wormhole;
 
     error PayloadTooLong(uint256 size);
     error InvalidModule(bytes32 module);
@@ -77,15 +88,16 @@ contract Governance {
     constructor(
         address _wormhole
     ) {
-        wormhole = IWormhole(_wormhole);
+        wormhole = ICoreBridgeGovernance(_wormhole);
     }
 
     function performGovernance(
         bytes calldata vaa
     ) external {
-        IWormhole.VM memory verified = _verifyGovernanceVAA(vaa);
+        (,, bytes memory payload) = _verifyGovernanceVAA(vaa);
+
         GeneralPurposeGovernanceMessage memory message =
-            parseGeneralPurposeGovernanceMessage(verified.payload);
+            parseGeneralPurposeGovernanceMessage(payload);
 
         if (message.action != uint8(GovernanceAction.EVM_CALL)) {
             revert InvalidAction(message.action);
@@ -99,8 +111,6 @@ contract Governance {
             revert NotRecipientContract(message.governanceContract);
         }
 
-        // TODO: any other checks? the call is trusted (signed by guardians),
-        // but what's the worst that could happen to this contract?
         (bool success, bytes memory returnData) = message.governedContract.call(message.callData);
         if (!success) {
             revert(string(returnData));
@@ -118,26 +128,21 @@ contract Governance {
     }
 
     function _verifyGovernanceVAA(
-        bytes memory encodedVM
-    ) internal returns (IWormhole.VM memory parsedVM) {
-        (IWormhole.VM memory vm, bool valid, string memory reason) =
-            wormhole.parseAndVerifyVM(encodedVM);
+        bytes calldata encodedVM
+    ) internal returns (uint16 emitterChainId, bytes32 emitterAddress, bytes calldata payload) {
+        (,, emitterChainId, emitterAddress,,, payload) =
+            CoreBridgeLib.decodeAndVerifyVaaCd(address(wormhole), encodedVM);
 
-        if (!valid) {
-            revert(reason);
+        if (emitterChainId != wormhole.governanceChainId()) {
+            revert InvalidGovernanceChainId(emitterChainId);
         }
 
-        if (vm.emitterChainId != wormhole.governanceChainId()) {
-            revert InvalidGovernanceChainId(vm.emitterChainId);
+        if (emitterAddress != wormhole.governanceContract()) {
+            revert InvalidGovernanceContract(emitterAddress);
         }
 
-        if (vm.emitterAddress != wormhole.governanceContract()) {
-            revert InvalidGovernanceContract(vm.emitterAddress);
-        }
-
-        _replayProtect(vm.hash);
-
-        return vm;
+        bytes32 digest = VaaLib.calcVaaDoubleHashCd(encodedVM);
+        _replayProtect(digest);
     }
 
     function encodeGeneralPurposeGovernanceMessage(
@@ -164,18 +169,18 @@ contract Governance {
         uint256 offset = 0;
 
         bytes32 module;
-        (module, offset) = encoded.asBytes32Unchecked(offset);
+        (module, offset) = encoded.asBytes32MemUnchecked(offset);
         if (module != MODULE) {
             revert InvalidModule(module);
         }
 
-        (message.action, offset) = encoded.asUint8Unchecked(offset);
-        (message.chain, offset) = encoded.asUint16Unchecked(offset);
-        (message.governanceContract, offset) = encoded.asAddressUnchecked(offset);
-        (message.governedContract, offset) = encoded.asAddressUnchecked(offset);
+        (message.action, offset) = encoded.asUint8MemUnchecked(offset);
+        (message.chain, offset) = encoded.asUint16MemUnchecked(offset);
+        (message.governanceContract, offset) = encoded.asAddressMemUnchecked(offset);
+        (message.governedContract, offset) = encoded.asAddressMemUnchecked(offset);
         uint256 callDataLength;
-        (callDataLength, offset) = encoded.asUint16Unchecked(offset);
-        (message.callData, offset) = encoded.sliceUnchecked(offset, callDataLength);
-        encoded.checkLength(offset);
+        (callDataLength, offset) = encoded.asUint16MemUnchecked(offset);
+        (message.callData, offset) = encoded.sliceMemUnchecked(offset, callDataLength);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 }

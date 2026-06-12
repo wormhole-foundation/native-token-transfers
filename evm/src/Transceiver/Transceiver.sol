@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/Utils.sol";
+import "wormhole-sdk/Utils.sol";
 
 import "../libraries/TransceiverStructs.sol";
 import "../libraries/PausableOwnable.sol";
@@ -148,9 +148,9 @@ abstract contract Transceiver is
         bytes32 recipientNttManagerAddress,
         TransceiverStructs.NttManagerMessage memory payload
     ) internal virtual {
-        if (recipientNttManagerAddress != toWormholeFormat(nttManager)) {
+        if (recipientNttManagerAddress != toUniversalAddress(nttManager)) {
             revert UnexpectedRecipientNttManagerAddress(
-                toWormholeFormat(nttManager), recipientNttManagerAddress
+                toUniversalAddress(nttManager), recipientNttManagerAddress
             );
         }
         INttManager(nttManager).attestationReceived(sourceChainId, sourceNttManagerAddress, payload);
