@@ -13,13 +13,12 @@
     "test": "tests"
   },
   "license": "Apache-2.0",
-  "main": "./dist/cjs/ts/index.js",
-  "types": "./dist/cjs/ts/index.d.ts",
+  "main": "./dist/esm/ts/index.js",
+  "types": "./dist/esm/ts/index.d.ts",
   "module": "./dist/esm/ts/index.js",
   "description": "NTT SDK for Solana",
   "files": [
-    "dist/esm",
-    "dist/cjs"
+    "dist/esm"
   ],
   "keywords": [
     "wormhole",
@@ -33,12 +32,11 @@
   },
   "sideEffects": true,
   "scripts": {
-    "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "bun run build:esm && bun run build:cjs",
+    "build": "bun run build:esm",
     "rebuild": "bun run clean && bun run build",
     "clean": "rm -rf ./dist",
-    "test:ci": "jest --config ./jest.config.ts",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --config ./jest.config.ts",
     "build:contracts": "make build",
     "prettier": "prettier --write ./tests ./ts"
   },
@@ -60,20 +58,15 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/esm/ts/index.d.ts",
-        "default": "./dist/esm/ts/index.js"
-      },
-      "require": {
-        "types": "./dist/cjs/ts/index.d.ts",
-        "default": "./dist/cjs/ts/index.js"
-      }
+      "types": "./dist/esm/ts/index.d.ts",
+      "import": "./dist/esm/ts/index.js",
+      "default": "./dist/esm/ts/index.js"
     }
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.21.0",
-    "@wormhole-foundation/sdk-definitions": "^4.21.0",
-    "@wormhole-foundation/sdk-solana": "^4.21.0",
-    "@wormhole-foundation/sdk-solana-core": "^4.21.0"
+    "@wormhole-foundation/sdk-base": "^5.0.0-beta.0",
+    "@wormhole-foundation/sdk-definitions": "^5.0.0-beta.0",
+    "@wormhole-foundation/sdk-solana": "^5.0.0-beta.0",
+    "@wormhole-foundation/sdk-solana-core": "^5.0.0-beta.0"
   }
 }

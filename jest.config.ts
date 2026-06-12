@@ -6,12 +6,15 @@ const jestConfig: JestConfigWithTsJest = {
   roots: ["./sdk/__tests__"],
   testMatch: ["**/*.test.ts"],
   modulePathIgnorePatterns: ["mocks"],
-  preset: "ts-jest",
+  extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.test.json" }],
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      { tsconfig: "tsconfig.test.json", useESM: true, diagnostics: false },
+    ],
   },
 };
 

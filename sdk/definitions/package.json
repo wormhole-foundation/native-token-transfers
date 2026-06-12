@@ -12,46 +12,39 @@
   "directories": {
     "test": "__tests__"
   },
-  "main": "./dist/cjs/index.js",
+  "main": "./dist/esm/index.js",
   "module": "./dist/esm/index.js",
-  "types": "./dist/cjs/index.d.ts",
+  "types": "./dist/esm/index.d.ts",
   "files": [
-    "dist/esm",
-    "dist/cjs"
+    "dist/esm"
   ],
   "sideEffects": true,
   "exports": {
     ".": {
-      "require": {
-        "types": "./dist/cjs/index.d.ts",
-        "default": "./dist/cjs/index.js"
-      },
-      "import": {
-        "types": "./dist/esm/index.d.ts",
-        "default": "./dist/esm/index.js"
-      }
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/esm/index.js"
     }
   },
   "typesVersions": {
     "*": {
       "*": [
-        "./dist/cjs/index.d.ts",
+        "./dist/esm/index.d.ts",
         "./dist/esm/index.d.ts"
       ]
     }
   },
   "scripts": {
-    "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "bun run build:esm && bun run build:cjs",
+    "build": "bun run build:esm",
     "rebuild": "bun run clean && bun run build",
     "clean": "rm -rf ./dist",
-    "test": "jest --config ./jest.config.ts",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --config ./jest.config.ts",
     "prettier": "prettier --write ./src ./__tests__"
   },
   "type": "module",
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^4.21.0",
-    "@wormhole-foundation/sdk-definitions": "^4.21.0"
+    "@wormhole-foundation/sdk-base": "^5.0.0-beta.0",
+    "@wormhole-foundation/sdk-definitions": "^5.0.0-beta.0"
   }
 }

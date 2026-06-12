@@ -1,17 +1,25 @@
-import type { JestConfigWithTsJest } from "ts-jest";
+import type { Config } from "jest";
 
-const jestConfig: JestConfigWithTsJest = {
+const jestConfig: Config = {
+  testEnvironment: "node",
+  extensionsToTreatAsEsm: [".ts"],
   verbose: true,
   testTimeout: 10000000,
   roots: ["./__tests__"],
   testMatch: ["**/*.test.ts"],
   modulePathIgnorePatterns: ["mocks"],
-  preset: "ts-jest",
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.test.json" }],
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        useESM: true,
+        tsconfig: "tsconfig.esm.json",
+        diagnostics: false,
+      },
+    ],
   },
 };
 

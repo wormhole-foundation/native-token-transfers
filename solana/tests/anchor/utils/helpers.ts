@@ -16,6 +16,11 @@ import { IDL as WormholePostMessageShimIdl } from "../../../ts/idl/wormhole_shim
 import { derivePda } from "../../../ts/lib/utils.js";
 import { TxHash } from "@wormhole-foundation/sdk-definitions";
 
+// @coral-xyz/anchor is CJS with no `exports` map; under ESM (jest useESM) its
+// re-exported `BN` isn't hoisted onto the namespace, so reach it via `default`
+// (module.exports). Use anchor's own BN so `instanceof` matches its instances.
+const BN: typeof anchor.BN = (anchor as any).default?.BN ?? anchor.BN;
+
 export interface ErrorConstructor {
   new (...args: any[]): Error;
 }
@@ -50,9 +55,7 @@ export const assert = {
     equal: (expected: anchor.BN | number | string | bigint) => {
       expect(
         actual.eq(
-          expected instanceof anchor.BN
-            ? expected
-            : new anchor.BN(expected.toString())
+          expected instanceof BN ? expected : new BN(expected.toString())
         )
       ).toBeTruthy();
     },
@@ -731,8 +734,8 @@ export class TestWormholePostMessageShim {
     // TODO: BorshEventCoder, BorshCoder, etc. failed to decode
     // So we manually extract the event fields and return
     const emitter = new anchor.web3.PublicKey(decodedData.subarray(16, 48));
-    const sequence = new anchor.BN(decodedData.subarray(48, 56), "le");
-    const submissionTime = new anchor.BN(
+    const sequence = new BN(decodedData.subarray(48, 56), "le");
+    const submissionTime = new BN(
       decodedData.subarray(56, 60),
       "le"
     ).toNumber();

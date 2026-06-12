@@ -1,18 +1,17 @@
-import { SuiClient } from "@mysten/sui/client";
+import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { isValidSuiAddress } from "@mysten/sui/utils";
 import { bcs, fromBase64 } from "@mysten/bcs";
 import { NATIVE_TOKEN_IDENTIFIERS } from "./constants.js";
 import { InboxItemNative } from "./bcs-types.js";
-import { graphql } from "@mysten/sui/graphql/schemas/latest";
+import { graphql } from "@mysten/sui/graphql/schema";
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { graphQL, Network } from "@wormhole-foundation/sdk-base";
 
-// TypeScript types matching the Move structs
+// In @mysten/sui v2 (gRPC core API) object content is returned as a FLAT `object.json`
+// Move-struct map (no JSON-RPC `{ dataType, type, fields }` wrapper, no nested `.fields`).
 export interface SuiMoveObject {
-  dataType: "moveObject";
   type: string;
   fields: any;
-  hasPublicTransfer: boolean;
 }
 
 /**
@@ -23,83 +22,78 @@ export function isNativeToken(token: string): boolean {
 }
 
 /**
- * Extracts fields from a Sui object response
+ * Extracts the flat Move-struct fields (`object.json`) from a gRPC getObject result.
+ * Accepts either the `{ object }` response envelope or the unwrapped object.
  */
 export function getFieldsFromObjectResponse(object: any) {
-  return object.data?.content?.dataType === "moveObject"
-    ? object.data.content.fields
-    : null;
+  const obj = object?.object ?? object;
+  return obj?.json ?? null;
 }
 
 /**
  * Gets object fields with validation
  */
 export async function getObjectFields(
-  provider: SuiClient,
+  provider: SuiGrpcClient,
   objectId: string
 ): Promise<Record<string, any> | null> {
   if (!isValidSuiAddress(objectId)) {
     throw new Error(`Invalid object ID: ${objectId}`);
   }
 
-  const res = await provider.getObject({
-    id: objectId,
-    options: {
-      showContent: true,
-    },
+  const { object } = await provider.getObject({
+    objectId,
+    include: { json: true },
   });
-  return getFieldsFromObjectResponse(res);
+  return (object?.json as Record<string, any>) ?? null;
 }
 
 /**
  * Gets a Sui object with proper typing and validation
  */
 export async function getSuiObject(
-  client: SuiClient,
+  client: SuiGrpcClient,
   objectId: string,
   errorMessage?: string
 ): Promise<SuiMoveObject> {
-  const response = await client.getObject({
-    id: objectId,
-    options: { showContent: true },
+  const { object } = await client.getObject({
+    objectId,
+    include: { json: true },
   });
 
-  if (
-    !response.data?.content ||
-    response.data.content.dataType !== "moveObject"
-  ) {
+  if (!object || !object.json) {
     throw new Error(errorMessage || `Failed to fetch object ${objectId}`);
   }
 
-  return response.data.content as SuiMoveObject;
+  return { type: object.type, fields: object.json };
 }
 
 /**
  * Gets Wormhole package ID from core bridge state
  */
 export async function getWormholePackageId(
-  provider: SuiClient,
+  provider: SuiGrpcClient,
   coreBridgeStateId: string
 ): Promise<string> {
-  let currentPackage;
-  let nextCursor;
+  let currentPackage: { fieldId: string } | undefined;
+  let nextCursor: string | null | undefined;
   do {
-    const dynamicFields = await provider.getDynamicFields({
+    const dynamicFields = await provider.listDynamicFields({
       parentId: coreBridgeStateId,
       cursor: nextCursor,
     });
-    currentPackage = dynamicFields.data.find((field) =>
+    currentPackage = dynamicFields.dynamicFields.find((field) =>
       field.name.type.endsWith("CurrentPackage")
     );
-    nextCursor = dynamicFields.hasNextPage ? dynamicFields.nextCursor : null;
+    nextCursor = dynamicFields.hasNextPage ? dynamicFields.cursor : null;
   } while (nextCursor && !currentPackage);
 
   if (!currentPackage) {
     throw new Error("CurrentPackage not found");
   }
 
-  const fields = await getObjectFields(provider, currentPackage.objectId);
-  const packageId = fields?.["value"]?.fields?.package;
+  const fields = await getObjectFields(provider, currentPackage.fieldId);
+  const packageId = fields?.["value"]?.["package"];
   if (!packageId) {
     throw new Error("Unable to get current package");
   }
@@ -111,58 +105,50 @@ export async function getWormholePackageId(
  * Extracts package ID and fields from a state object
  */
 export async function getPackageId(
-  provider: SuiClient,
+  provider: SuiGrpcClient,
   stateId: string
 ): Promise<{ packageId: string; fields?: any }> {
-  const state = await provider.getObject({
-    id: stateId,
-    options: { showContent: true },
+  const { object } = await provider.getObject({
+    objectId: stateId,
+    include: { json: true },
   });
 
-  if (!state.data?.content || state.data.content.dataType !== "moveObject") {
+  if (!object || !object.json) {
     throw new Error("Failed to fetch state object");
   }
 
-  const objectType = state.data.content.type;
-  const packageId = objectType.split("::")[0];
+  const packageId = object.type.split("::")[0];
   if (!packageId || !packageId.startsWith("0x")) {
     throw new Error("Could not extract package ID from state object type");
   }
 
-  const fields = state.data.content.fields;
-
-  return { packageId, fields };
+  return { packageId, fields: object.json };
 }
 
 /**
  * Gets transceiver state IDs from transceiver registry
  */
 export async function getTransceivers(
-  provider: SuiClient,
+  provider: SuiGrpcClient,
   transceiverRegistryId: string
 ): Promise<string[]> {
-  const dynamicFields = await provider.getDynamicFields({
+  const dynamicFields = await provider.listDynamicFields({
     parentId: transceiverRegistryId,
   });
 
-  for (const field of dynamicFields.data) {
+  for (const field of dynamicFields.dynamicFields) {
     if (field.name?.type?.includes("transceiver_registry::Key")) {
       try {
-        const transceiverInfo = await provider.getObject({
-          id: field.objectId,
-          options: { showContent: true },
+        const { object } = await provider.getObject({
+          objectId: field.fieldId,
+          include: { json: true },
         });
 
-        if (
-          transceiverInfo.data?.content &&
-          transceiverInfo.data.content.dataType === "moveObject"
-        ) {
-          const infoFields = (transceiverInfo.data.content.fields as any).value
-            .fields;
-          const transceiverIndex = infoFields.id;
-
-          if (transceiverIndex === 0) {
-            return [infoFields.state_object_id as string];
+        if (object?.json) {
+          // flat json: the dynamic field's value struct
+          const value = (object.json as any).value;
+          if (value && Number(value.id) === 0) {
+            return [value.state_object_id as string];
           }
         }
       } catch (e) {
@@ -177,24 +163,19 @@ export async function getTransceivers(
  * Extracts the original package ID from an object type
  */
 export async function getOriginalPackageId(
-  provider: SuiClient,
+  provider: SuiGrpcClient,
   objectId: string
 ): Promise<string> {
-  const object = await provider.getObject({
-    id: objectId,
-    options: { showType: true },
-  });
+  const { object } = await provider.getObject({ objectId });
 
-  if (!object.data?.type) {
+  if (!object?.type) {
     throw new Error(`Unable to get type for object ${objectId}`);
   }
 
   // Extract package ID from type string (format: "0x123::module::Type")
-  const packageMatch = object.data.type.match(/^(0x[a-f0-9]+)::/i);
+  const packageMatch = object.type.match(/^(0x[a-f0-9]+)::/i);
   if (!packageMatch) {
-    throw new Error(
-      `Unable to extract package ID from type: ${object.data.type}`
-    );
+    throw new Error(`Unable to extract package ID from type: ${object.type}`);
   }
 
   return packageMatch[1]!;
@@ -204,7 +185,7 @@ export async function getOriginalPackageId(
  * Gets package ID from object with upgrade cap support
  */
 export async function getPackageIdFromObject(
-  client: SuiClient,
+  client: SuiGrpcClient,
   objectId: string
 ): Promise<{ original: string; current: string; object: SuiMoveObject }> {
   const object = await getSuiObject(
@@ -232,7 +213,7 @@ export async function getPackageIdFromObject(
     return {
       object,
       original: packageId,
-      current: upgradeCap.fields.cap.fields.package,
+      current: upgradeCap.fields.cap.package,
     };
   }
 
@@ -284,6 +265,71 @@ export function extractNttCommonPackageId(inboxType: string): string {
 }
 
 /**
+ * Derives the ntt-common package id (where the `native_token_transfer` /
+ * `ntt_manager_message` modules live) from an NTT `State` object.
+ *
+ * The flat gRPC `object.json` no longer carries nested struct `type`s, so the old
+ * approach of reading `state.inbox.type` does not work. Instead we introspect the
+ * Move `State` datatype and walk the `inbox` field's open signature to find the
+ * `NttManagerMessage` / `NativeTokenTransfer` datatype and extract its package id.
+ */
+export async function getNttCommonPackageId(
+  provider: SuiGrpcClient,
+  managerStateId: string
+): Promise<string> {
+  const { object } = await provider.getObject({ objectId: managerStateId });
+  if (!object?.type) {
+    throw new Error("Failed to fetch NTT state object type");
+  }
+
+  // type looks like "<nttPkg>::ntt::State<CoinType>"
+  const [packageId, moduleName] = object.type.split("::");
+  const datatypeName = object.type.split("::")[2]!.split("<")[0]!;
+
+  // gRPC MovePackageService.GetDatatype returns a UnaryCall whose `.response`
+  // carries the DatatypeDescriptor under `datatype`.
+  const { response } = await provider.movePackageService.getDatatype({
+    packageId,
+    moduleName,
+    name: datatypeName,
+  });
+  const datatype = response.datatype;
+
+  const inboxField = datatype?.fields.find((f) => f.name === "inbox");
+  if (!inboxField) {
+    throw new Error("inbox field not found on NTT State");
+  }
+
+  // Walk the field's OpenSignatureBody (gRPC shape: a `typeName` plus nested
+  // `typeParameterInstantiation` children) to find the NttManagerMessage /
+  // NativeTokenTransfer datatype and return its package id.
+  const walk = (body: any): string | null => {
+    if (!body) return null;
+    const tn: string | undefined = body.typeName;
+    if (
+      tn &&
+      (tn.includes("ntt_manager_message::NttManagerMessage") ||
+        tn.includes("native_token_transfer::NativeTokenTransfer"))
+    ) {
+      return tn.split("::")[0]!;
+    }
+    for (const tp of body.typeParameterInstantiation ?? []) {
+      const r = walk(tp);
+      if (r) return r;
+    }
+    return null;
+  };
+
+  const pkg = walk(inboxField.type);
+  if (!pkg) {
+    throw new Error(
+      "Unable to derive ntt_common package id from NTT State inbox type"
+    );
+  }
+  return pkg;
+}
+
+/**
  * Creates Move objects for NttManagerMessage construction in a Sui transaction
  */
 export function createNttManagerMessageObjects(
@@ -327,32 +373,29 @@ export function createNttManagerMessageObjects(
 }
 
 /**
- * Parses the result of devInspectTransactionBlock to extract and deserialize inbox item data
+ * Parses the result of simulateTransaction to extract and deserialize inbox item data.
+ * (gRPC: command results are under `commandResults`, return values carry BCS bytes.)
  */
 export function parseInboxItemResult(
   inspectResult: any,
   threshold: number
 ): { inboxItemFields: any; threshold: number } {
-  if (!inspectResult.results || inspectResult.results.length === 0) {
-    throw new Error("No results returned from devInspectTransactionBlock");
+  const commandResults = inspectResult.commandResults;
+  if (!commandResults || commandResults.length === 0) {
+    throw new Error("No command results returned from simulateTransaction");
   }
 
   // Get the last result which contains the serialized inbox item bytes from bcs::to_bytes call
-  const lastResult = inspectResult.results[inspectResult.results.length - 1];
-  const serializedInboxItem = lastResult?.returnValues?.[0];
+  const lastResult = commandResults[commandResults.length - 1];
+  const serializedInboxItem = lastResult?.returnValues?.[0]?.bcs;
 
-  if (!Array.isArray(serializedInboxItem)) {
-    throw new Error("Invalid result format from devInspectTransactionBlock");
-  }
-
-  const [bytesData, type] = serializedInboxItem;
-  if (type !== "vector<u8>" || !Array.isArray(bytesData)) {
-    throw new Error(`Expected vector<u8> but got ${type}`);
+  if (!serializedInboxItem) {
+    throw new Error("Invalid result format from simulateTransaction");
   }
 
   // Parse the serialized InboxItem using BCS
   // The data is wrapped as vector<u8>, so we need to unwrap it first
-  const outerBytes = new Uint8Array(bytesData);
+  const outerBytes = new Uint8Array(serializedInboxItem);
   const innerBytes = bcs.vector(bcs.u8()).parse(outerBytes);
   const parsedInboxItem = InboxItemNative.parse(Uint8Array.from(innerBytes));
 
@@ -378,6 +421,7 @@ export async function getCoinMetadataId(
 ): Promise<string> {
   const graphQLClient = new SuiGraphQLClient({
     url: graphQL.graphQLAddress(network, "Sui"),
+    network: network === "Mainnet" ? "mainnet" : "testnet",
   });
 
   const query = graphql(`
@@ -394,7 +438,7 @@ export async function getCoinMetadataId(
     query,
   });
 
-  const coinMetadataId = result.data?.objects.nodes?.[0]?.address;
+  const coinMetadataId = result.data?.objects?.nodes?.[0]?.address;
   if (!coinMetadataId) {
     throw new Error(`CoinMetadata object not found for type ${coinType}`);
   }

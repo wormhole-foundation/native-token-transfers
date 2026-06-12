@@ -1,7 +1,6 @@
 import type { Config } from "jest";
 
 const config: Config = {
-  preset: "ts-jest",
   testEnvironment: "node",
   extensionsToTreatAsEsm: [".ts"],
   maxWorkers: 1, // Run tests serially to avoid BigInt serialization issues
@@ -12,6 +11,8 @@ const config: Config = {
       "ts-jest",
       {
         useESM: true,
+        tsconfig: "tsconfig.esm.json",
+        diagnostics: false,
       },
     ],
   },

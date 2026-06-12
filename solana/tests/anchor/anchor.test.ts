@@ -41,6 +41,7 @@ import {
   assert,
   signSendWait,
 } from "./utils/helpers.js";
+import { fileURLToPath } from "url";
 
 // v5 NTT SDKs require explicit register() calls; auto-registration on import was removed.
 registerDefinitionsNtt();
@@ -49,6 +50,8 @@ registerSolanaNtt();
 /**
  * Test Config Constants
  */
+// Native ESM (jest useESM) has no __dirname; derive it from import.meta.url.
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const SOLANA_ROOT_DIR = `${__dirname}/../../`;
 const VERSION: IdlVersion = "3.0.0";
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
