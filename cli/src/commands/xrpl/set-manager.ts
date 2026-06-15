@@ -13,7 +13,8 @@ export function createXrplSetManagerCommand(
 ) {
   return {
     command: "set-manager",
-    describe: "Record the XRPL custody (manager) account in the deployment file",
+    describe:
+      "Record the XRPL custody (manager) account in the deployment file",
     builder: (yargs: any) =>
       yargs
         .option("account", {

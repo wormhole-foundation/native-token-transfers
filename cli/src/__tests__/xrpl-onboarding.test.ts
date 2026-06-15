@@ -42,9 +42,9 @@ describe("buildInitData", () => {
     const issuerHex = Buffer.from(decodeAccountID(ADMIN)).toString("hex");
     // 1 (decimals) + 42 (token_id padded) = 43 bytes => 86 hex chars
     expect(out.length).toBe(86);
-    expect(out.startsWith("09" + "01" + FOO_CURRENCY.toLowerCase() + issuerHex)).toBe(
-      true
-    );
+    expect(
+      out.startsWith("09" + "01" + FOO_CURRENCY.toLowerCase() + issuerHex)
+    ).toBe(true);
     // trailing byte is zero padding (41 bytes of data -> padded to 42)
     expect(out.endsWith("00")).toBe(true);
   });
@@ -64,7 +64,9 @@ describe("buildInitData", () => {
   });
 
   test("rejects decimals out of byte range", () => {
-    expect(() => buildInitData(256, { type: "xrp" })).toThrow(/one unsigned byte/);
+    expect(() => buildInitData(256, { type: "xrp" })).toThrow(
+      /one unsigned byte/
+    );
   });
 });
 

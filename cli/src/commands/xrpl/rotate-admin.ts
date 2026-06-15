@@ -33,7 +33,8 @@ export function createXrplRotateAdminCommand(
     builder: (yargs: any) =>
       withCommon(yargs)
         .option("manager", {
-          describe: "XRPL custody (manager) account r-address (default: xrpl.manager)",
+          describe:
+            "XRPL custody (manager) account r-address (default: xrpl.manager)",
           type: "string",
         })
         .option("new-admin", {
@@ -96,9 +97,12 @@ export function createXrplRotateAdminCommand(
         );
 
         if (!argv.yes) {
-          const ok = await promptYesNo("Publish the rotate-admin message anyway?", {
-            defaultYes: false,
-          });
+          const ok = await promptYesNo(
+            "Publish the rotate-admin message anyway?",
+            {
+              defaultYes: false,
+            }
+          );
           if (!ok) {
             console.log(colors.gray("Aborted."));
             return;

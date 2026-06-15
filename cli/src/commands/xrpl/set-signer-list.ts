@@ -31,7 +31,8 @@ export function createXrplSetSignerListCommand(
     builder: (yargs: any) =>
       withCommon(yargs)
         .option("signers", {
-          describe: "Explicit comma-separated signer r-addresses (skips the EVM fetch)",
+          describe:
+            "Explicit comma-separated signer r-addresses (skips the EVM fetch)",
           type: "string",
         })
         .option("manager-chain-id", {
@@ -74,7 +75,11 @@ export function createXrplSetSignerListCommand(
       runXrpl(async () => {
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
-        const seed = loadSeed(argv["issuer-seed"], "issuer-seed", "ISSUER_SEED");
+        const seed = loadSeed(
+          argv["issuer-seed"],
+          "issuer-seed",
+          "ISSUER_SEED"
+        );
         const wallet = walletFromSeed(seed, argv.algorithm);
 
         // Resolve signer entries + quorum, either from an explicit list or by
@@ -122,7 +127,11 @@ export function createXrplSetSignerListCommand(
           );
         }
 
-        if (!Number.isInteger(quorum) || quorum < 1 || quorum > entries.length) {
+        if (
+          !Number.isInteger(quorum) ||
+          quorum < 1 ||
+          quorum > entries.length
+        ) {
           throw new Error(
             `quorum ${quorum} must be between 1 and the signer count (${entries.length})`
           );

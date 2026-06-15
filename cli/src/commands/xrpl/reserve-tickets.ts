@@ -41,16 +41,24 @@ export function createXrplReserveTicketsCommand(
       runXrpl(async () => {
         const count: number = argv.count;
         if (!Number.isInteger(count) || count < 1 || count > MAX_TICKETS) {
-          throw new Error(`--count must be an integer between 1 and ${MAX_TICKETS}`);
+          throw new Error(
+            `--count must be an integer between 1 and ${MAX_TICKETS}`
+          );
         }
 
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
-        const seed = loadSeed(argv["issuer-seed"], "issuer-seed", "ISSUER_SEED");
+        const seed = loadSeed(
+          argv["issuer-seed"],
+          "issuer-seed",
+          "ISSUER_SEED"
+        );
         const wallet = walletFromSeed(seed, argv.algorithm);
 
         console.log(
-          colors.blue(`Creating ${count} tickets on ${wallet.address} (${network})`)
+          colors.blue(
+            `Creating ${count} tickets on ${wallet.address} (${network})`
+          )
         );
         const result = await withXrplClient(endpoint, (client) =>
           submitTx(client, wallet, {

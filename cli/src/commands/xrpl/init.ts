@@ -96,7 +96,8 @@ export function createXrplInitCommand(
           type: "string",
         })
         .option("core-account", {
-          describe: "Wormhole Core (GMP) account to send the onboarding message to",
+          describe:
+            "Wormhole Core (GMP) account to send the onboarding message to",
           type: "string",
           default: DEFAULT_TESTNET_CORE_ACCOUNT,
         })
@@ -121,7 +122,11 @@ export function createXrplInitCommand(
       runXrpl(async () => {
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
-        const seed = loadSeed(argv["issuer-seed"], "issuer-seed", "ISSUER_SEED");
+        const seed = loadSeed(
+          argv["issuer-seed"],
+          "issuer-seed",
+          "ISSUER_SEED"
+        );
         const wallet = walletFromSeed(seed, argv.algorithm);
 
         const token = resolveTokenInit(argv);

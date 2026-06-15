@@ -61,7 +61,11 @@ export function createCreateMptCommand(
       runXrpl(async () => {
         const network = argv.network as Network;
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
-        const seed = loadSeed(argv["issuer-seed"], "issuer-seed", "ISSUER_SEED");
+        const seed = loadSeed(
+          argv["issuer-seed"],
+          "issuer-seed",
+          "ISSUER_SEED"
+        );
         const wallet = walletFromSeed(seed, argv.algorithm);
         const flags = parseMptFlags(argv.flags);
         const metadata = loadMetadataHex(argv["metadata-json"]);
@@ -90,7 +94,9 @@ export function createCreateMptCommand(
         if (metadata !== undefined) tx.MPTokenMetadata = metadata;
 
         console.log(
-          colors.blue(`Creating MPT issuance from ${wallet.address} (${network})`)
+          colors.blue(
+            `Creating MPT issuance from ${wallet.address} (${network})`
+          )
         );
         const result = await withXrplClient(endpoint, (client) =>
           submitTx(client, wallet, tx)

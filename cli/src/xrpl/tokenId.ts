@@ -83,7 +83,7 @@ export function accountIdFrom(addr: string): Buffer {
   const hex = addr.replace(/^0x/, "");
   if (hex.length !== 40) {
     throw new Error(
-      `Expected an r-address or 20-byte hex (40 chars), got "${addr}"`,
+      `Expected an r-address or 20-byte hex (40 chars), got "${addr}"`
     );
   }
   return Buffer.from(hex, "hex");
@@ -104,7 +104,7 @@ export function encodeCurrency(currency: string): Buffer {
     const decoded = Buffer.from(currency, "hex");
     if (decoded.length !== 20) {
       throw new Error(
-        `Invalid currency hex: expected 20 bytes, got ${decoded.length}`,
+        `Invalid currency hex: expected 20 bytes, got ${decoded.length}`
       );
     }
     return decoded;
@@ -118,7 +118,7 @@ export function encodeCurrency(currency: string): Buffer {
     return buf;
   }
   throw new Error(
-    `Invalid currency code: must be 3-4 ASCII chars or 40-char hex, got "${currency}"`,
+    `Invalid currency code: must be 3-4 ASCII chars or 40-char hex, got "${currency}"`
   );
 }
 
@@ -188,7 +188,7 @@ export function buildTokenIdForEmitter(token: TokenId): Buffer {
  */
 export function computeEmitterAddress(
   accountId: Buffer,
-  token: TokenId,
+  token: TokenId
 ): Buffer {
   if (accountId.length !== 20) {
     throw new Error(`Account ID must be 20 bytes, got ${accountId.length}`);
@@ -196,7 +196,7 @@ export function computeEmitterAddress(
   const manager = ethers.zeroPadValue(ethers.hexlify(accountId), 32);
   const tokenId = ethers.hexlify(buildTokenIdForEmitter(token));
   const emitter = ethers.keccak256(
-    ethers.concat([ethers.hexlify(Buffer.from("ntt")), manager, tokenId]),
+    ethers.concat([ethers.hexlify(Buffer.from("ntt")), manager, tokenId])
   );
   return Buffer.from(emitter.slice(2), "hex");
 }
@@ -204,7 +204,7 @@ export function computeEmitterAddress(
 /** Convenience: compute emitter from an XRPL r-address. */
 export function computeEmitterAddressFromRAddress(
   rAddress: string,
-  token: TokenId,
+  token: TokenId
 ): Buffer {
   const accountId = Buffer.from(decodeAccountID(rAddress));
   return computeEmitterAddress(accountId, token);
@@ -274,6 +274,8 @@ export function tokenIdFromFlags(opts: {
       }
       return mptToken(opts.mptId);
     default:
-      throw new Error(`Unknown token type: ${opts.type} (expected xrp|iou|mpt)`);
+      throw new Error(
+        `Unknown token type: ${opts.type} (expected xrp|iou|mpt)`
+      );
   }
 }

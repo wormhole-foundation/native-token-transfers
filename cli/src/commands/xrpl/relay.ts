@@ -15,8 +15,16 @@ import {
   walletFromSeed,
   withXrplClient,
 } from "../../xrpl/helpers";
-import { DEFAULT_EXECUTOR_API, fetchQuote, submitStatusTx } from "../../xrpl/executor";
-import { CHAIN_ID_XRPL, DEFAULT_GUARDIAN_API, pollSignedVaa } from "../../xrpl/guardian";
+import {
+  DEFAULT_EXECUTOR_API,
+  fetchQuote,
+  submitStatusTx,
+} from "../../xrpl/executor";
+import {
+  CHAIN_ID_XRPL,
+  DEFAULT_GUARDIAN_API,
+  pollSignedVaa,
+} from "../../xrpl/guardian";
 import {
   RequestPrefix,
   buildGasInstructionHex,
@@ -83,7 +91,10 @@ function buildRequest(opts: {
     request: {
       prefix: RequestPrefix.ERN1,
       srcChain: CHAIN_ID_XRPL,
-      srcManager: ethers.zeroPadValue(srcManager as `0x${string}`, 32) as `0x${string}`,
+      srcManager: ethers.zeroPadValue(
+        srcManager as `0x${string}`,
+        32
+      ) as `0x${string}`,
       messageId: opts.messageId,
     },
   };
@@ -231,55 +242,65 @@ async function runRelay(
   // export.ts): a core VAA (erv1: onboarding / admin / register-peer) uses the
   // left-padded SENDER account, while an NTT transfer (ern1) uses the keccak
   // transceiver emitter keccak256("ntt" || custody || token).
-  const { emitterHex, sequence } = await withXrplClient(endpoint, async (client) => {
-    const resp = await client.request({ command: "tx", transaction: txHash });
-    const tx: any = resp.result;
-    const ledgerIndex = tx.ledger_index;
-    if (!ledgerIndex) throw new Error("Transaction not validated (no ledger_index)");
-    const meta = tx.meta ?? tx.metaData;
-    if (typeof meta !== "object" || meta === null || !("TransactionIndex" in meta)) {
-      throw new Error("Transaction metadata missing TransactionIndex");
-    }
-    const txIndex = (meta as any).TransactionIndex as number;
-    const sequence = (BigInt(ledgerIndex) << 32n) | BigInt(txIndex);
+  const { emitterHex, sequence } = await withXrplClient(
+    endpoint,
+    async (client) => {
+      const resp = await client.request({ command: "tx", transaction: txHash });
+      const tx: any = resp.result;
+      const ledgerIndex = tx.ledger_index;
+      if (!ledgerIndex)
+        throw new Error("Transaction not validated (no ledger_index)");
+      const meta = tx.meta ?? tx.metaData;
+      if (
+        typeof meta !== "object" ||
+        meta === null ||
+        !("TransactionIndex" in meta)
+      ) {
+        throw new Error("Transaction metadata missing TransactionIndex");
+      }
+      const txIndex = (meta as any).TransactionIndex as number;
+      const sequence = (BigInt(ledgerIndex) << 32n) | BigInt(txIndex);
 
-    let emitterHex: string;
-    if (requestType === "erv1") {
-      // Core VAA: emitter = the publishing (SENDER) account, left-padded to 32B.
-      const sender: string | undefined = tx.Account ?? tx.tx_json?.Account;
-      if (!sender) {
-        throw new Error("Could not determine the publishing account (tx.Account)");
-      }
-      emitterHex = xrplAccountToEmitter(Buffer.from(decodeAccountID(sender)));
-    } else {
-      // NTT transfer: emitter = keccak256("ntt" || custody || token), where the
-      // custody account is the tx destination and the token is the delivered asset.
-      const destination: string | undefined =
-        tx.Destination ?? tx.tx_json?.Destination;
-      if (!destination) {
-        throw new Error("Could not determine destination/custody address");
-      }
-      const deliveredAmount = (meta as any).delivered_amount;
-      let token: TokenId;
-      if (argv.token) {
-        token = tokenIdFromFlags({
-          type: argv.token,
-          currency: argv.currency,
-          issuer: argv.issuer,
-          mptId: argv["mpt-id"],
-        });
-      } else if (deliveredAmount) {
-        token = tokenIdFromXrplAmount(deliveredAmount);
+      let emitterHex: string;
+      if (requestType === "erv1") {
+        // Core VAA: emitter = the publishing (SENDER) account, left-padded to 32B.
+        const sender: string | undefined = tx.Account ?? tx.tx_json?.Account;
+        if (!sender) {
+          throw new Error(
+            "Could not determine the publishing account (tx.Account)"
+          );
+        }
+        emitterHex = xrplAccountToEmitter(Buffer.from(decodeAccountID(sender)));
       } else {
-        token = { type: "XRP" };
+        // NTT transfer: emitter = keccak256("ntt" || custody || token), where the
+        // custody account is the tx destination and the token is the delivered asset.
+        const destination: string | undefined =
+          tx.Destination ?? tx.tx_json?.Destination;
+        if (!destination) {
+          throw new Error("Could not determine destination/custody address");
+        }
+        const deliveredAmount = (meta as any).delivered_amount;
+        let token: TokenId;
+        if (argv.token) {
+          token = tokenIdFromFlags({
+            type: argv.token,
+            currency: argv.currency,
+            issuer: argv.issuer,
+            mptId: argv["mpt-id"],
+          });
+        } else if (deliveredAmount) {
+          token = tokenIdFromXrplAmount(deliveredAmount);
+        } else {
+          token = { type: "XRP" };
+        }
+        emitterHex = computeEmitterAddress(
+          Buffer.from(decodeAccountID(destination)),
+          token
+        ).toString("hex");
       }
-      emitterHex = computeEmitterAddress(
-        Buffer.from(decodeAccountID(destination)),
-        token
-      ).toString("hex");
+      return { emitterHex, sequence };
     }
-    return { emitterHex, sequence };
-  });
+  );
 
   const messageId = ethers.toBeHex(sequence, 32) as `0x${string}`;
   console.log(`  emitter:      ${colors.gray(emitterHex)}`);
@@ -353,7 +374,9 @@ async function runRelay(
   console.log(`  dst addr:             ${colors.gray(dstAddr)}`);
   console.log(`  refund addr:          ${colors.gray(refundAddr)}`);
   console.log(`  relay instructions:   ${colors.gray(relayInstructions)}`);
-  console.log(`  request (${requestType}):       ${colors.gray(serializeRequest(request))}`);
+  console.log(
+    `  request (${requestType}):       ${colors.gray(serializeRequest(request))}`
+  );
   console.log(`  RequestForExecution:  ${colors.gray(serialized)}`);
 
   // ── 5. Submit the XRPL Payment carrying the executor-request memo ──

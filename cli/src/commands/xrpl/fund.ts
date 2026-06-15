@@ -33,7 +33,8 @@ export function createXrplFundCommand(
     builder: (yargs: any) =>
       withCommon(yargs)
         .option("account", {
-          describe: "Account to fund (defaults to xrpl.manager from the deployment file)",
+          describe:
+            "Account to fund (defaults to xrpl.manager from the deployment file)",
           type: "string",
         })
         .option("amount", {
@@ -106,7 +107,9 @@ export function createXrplFundCommand(
               Math.ceil(Number(argv.amount ?? requiredXrp))
             );
             console.log(
-              colors.blue(`Funding ${target} via faucet (${xrpAmount} XRP requested)`)
+              colors.blue(
+                `Funding ${target} via faucet (${xrpAmount} XRP requested)`
+              )
             );
             // The faucet funds the `destination` address directly — no key needed.
             const res = await fetch(`https://${host}/accounts`, {
