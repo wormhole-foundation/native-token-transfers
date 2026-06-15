@@ -211,6 +211,22 @@ export function computeEmitterAddressFromRAddress(
 }
 
 /**
+ * Convert a 20-byte XRPL account ID to a 32-byte emitter address, left-padded
+ * with 12 zero bytes. This is the emitter scheme for *core* VAAs synthesized
+ * from XRPL publishes (onboarding / admin / register-peer) — the emitter is the
+ * raw sending account, NOT the keccak NTT transceiver emitter. Mirrors
+ * ripple/xrpl-client/src/export.ts::xrplAccountToEmitter.
+ */
+export function xrplAccountToEmitter(accountId: Buffer): string {
+  if (accountId.length !== 20) {
+    throw new Error(`account ID must be 20 bytes, got ${accountId.length}`);
+  }
+  const padded = Buffer.alloc(32);
+  accountId.copy(padded, 12);
+  return padded.toString("hex");
+}
+
+/**
  * Parse an XRPL Amount field (from tx metadata) into a TokenId.
  *
  *   XRP: string (drops)
