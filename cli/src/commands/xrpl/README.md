@@ -1,9 +1,7 @@
 # `ntt xrpl` commands
 
 XRP Ledger commands used when preparing an NTT deployment on XRPL. XRPL has no
-smart contracts, so NTT relies on a Guardian-controlled custody model (see
-[`ripple/SPEC.md`](../../../../ripple/SPEC.md) and
-[`ripple/DESIGN.md`](../../../../ripple/DESIGN.md)). These commands cover (1)
+smart contracts, so NTT relies on a Guardian-controlled custody model. These commands cover (1)
 creating/configuring the underlying XRPL token, (2) setting up the custody
 account and handing it off to the manager-set multisig, and (3) operating a live
 deployment (emitter derivation, VAA decoding, relaying).
@@ -23,41 +21,42 @@ request layouts ([`executor.ts`](../../xrpl/executor.ts),
 
 **Token setup**
 
-| Command | Signed by | XRPL transaction | Purpose |
-|---|---|---|---|
-| `enable-rippling` | issuer | `AccountSet(asfDefaultRipple)` | Enable DefaultRipple on an IOU issuer account |
-| `trust-set` | holder | `TrustSet` | Open a trust line so a holder can receive an IOU |
-| `create-mpt` | issuer | `MPTokenIssuanceCreate` | Create a Multi-Purpose Token issuance |
-| `authorize-mpt` | holder | `MPTokenAuthorize` | Opt a holder into an MPT |
+| Command           | Signed by | XRPL transaction               | Purpose                                          |
+| ----------------- | --------- | ------------------------------ | ------------------------------------------------ |
+| `enable-rippling` | issuer    | `AccountSet(asfDefaultRipple)` | Enable DefaultRipple on an IOU issuer account    |
+| `trust-set`       | holder    | `TrustSet`                     | Open a trust line so a holder can receive an IOU |
+| `create-mpt`      | issuer    | `MPTokenIssuanceCreate`        | Create a Multi-Purpose Token issuance            |
+| `authorize-mpt`   | holder    | `MPTokenAuthorize`             | Opt a holder into an MPT                         |
 
 "Creating" an IOU is just `enable-rippling` (issuer) + `trust-set` (each holder).
 An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder).
 
 **Custody-account setup** — run in order, while you still hold the account's key:
 
-| Command | Signed by | XRPL transaction | Purpose |
-|---|---|---|---|
-| `set-manager` | — | *(none — writes deployment.json)* | Record the custody account so later commands don't re-pass it |
-| `fund` | source / faucet | `Payment` / faucet | Fund the account for a signer list + tickets |
-| `reserve-tickets` | custody | `TicketCreate` | Pre-allocate tickets |
-| `init` | custody | `Payment` + onboarding memo | Onboard the account to the Wormhole Core |
-| `set-signer-list` | custody | `SignerListSet` | Hand off to the manager-set multisig (**irreversible-ish**) |
+| Command           | Signed by       | XRPL transaction                  | Purpose                                                       |
+| ----------------- | --------------- | --------------------------------- | ------------------------------------------------------------- |
+| `set-manager`     | —               | _(none — writes deployment.json)_ | Record the custody account so later commands don't re-pass it |
+| `fund`            | source / faucet | `Payment` / faucet                | Fund the account for a signer list + tickets                  |
+| `reserve-tickets` | custody         | `TicketCreate`                    | Pre-allocate tickets                                          |
+| `init`            | custody         | `Payment` + onboarding memo       | Onboard the account to the Wormhole Core                      |
+| `set-signer-list` | custody         | `SignerListSet`                   | Hand off to the manager-set multisig (**irreversible-ish**)   |
 
 **Operational** — once a deployment is live:
 
-| Command | Connects | Purpose |
-|---|---|---|
-| `emitter` | — *(offline)* | Compute the XRPL transceiver emitter address for a manager + token |
-| `parse-vaa` | — *(offline)* | Decode an XRPL-Wormhole VAA or payload (XREL/XRFL/XADM/onboarding/NTT) |
-| `relay` | relayer + Executor | Relay a VAA emitted by an XRPL tx to its destination via the Executor |
-| `register-peer` | admin | Register an NTT peer for the custody account (`XADM` RegisterPeer) |
-| `rotate-admin` | admin | Rotate the custody account's admin (`XADM` RotateAdmin) |
+| Command         | Connects           | Purpose                                                                |
+| --------------- | ------------------ | ---------------------------------------------------------------------- |
+| `emitter`       | — _(offline)_      | Compute the XRPL transceiver emitter address for a manager + token     |
+| `parse-vaa`     | — _(offline)_      | Decode an XRPL-Wormhole VAA or payload (XREL/XRFL/XADM/onboarding/NTT) |
+| `relay`         | relayer + Executor | Relay a VAA emitted by an XRPL tx to its destination via the Executor  |
+| `register-peer` | admin              | Register an NTT peer for the custody account (`XADM` RegisterPeer)     |
+| `rotate-admin`  | admin              | Rotate the custody account's admin (`XADM` RotateAdmin)                |
 
 `register-peer` and `rotate-admin` publish an `XADM` core message the same way as
 `init` — a `Payment` to the Wormhole Core account carrying an
 `application/x-wormhole-publish` memo — signed by the account's **admin**.
 
 ### `enable-rippling`
+
 Sets the `asfDefaultRipple` flag on the issuer account so balances of its IOU can
 ripple between trust lines — a prerequisite for the issuer's currency to be
 usable. Signed by the **issuer**.
@@ -69,6 +68,7 @@ ntt xrpl enable-rippling -n Testnet --issuer-seed sEd7...
 ```
 
 ### `trust-set`
+
 Opens a trust line from a **holder** to an issuer for a given currency, letting
 that holder receive and hold the IOU up to `--limit`. Signed by the holder that
 wants to receive the tokens.
@@ -83,6 +83,7 @@ ntt xrpl trust-set -n Testnet --currency FOO --issuer r9qA... --limit 1000000 --
 ```
 
 ### `create-mpt`
+
 Creates a Multi-Purpose Token issuance and prints the resulting
 `mpt_issuance_id` (needed for `authorize-mpt` and transfers). Signed by the
 **issuer**. Parameters are validated client-side before submission.
@@ -104,6 +105,7 @@ ntt xrpl create-mpt -n Testnet --asset-scale 9 --max-amount 10000000000000 \
 ```
 
 ### `authorize-mpt`
+
 A **holder** opts into an MPT so they can hold it. Signed by the account that
 wants to receive the issuer's MPT.
 
@@ -115,6 +117,7 @@ ntt xrpl authorize-mpt -n Testnet --mpt-id 00EE5E8C... --seed sEd7...
 ```
 
 ### `set-manager`
+
 Records the chosen custody account in the deployment file (`xrpl.manager`) so the
 other custody commands can default `--account` to it. No XRPL transaction.
 
@@ -126,6 +129,7 @@ ntt xrpl set-manager --account r9qA...
 ```
 
 ### `fund`
+
 Funds the custody account with enough XRP to cover the reserve for a signer list
 plus tickets. The default `--amount` is computed from the ledger's live reserve
 settings: `base + inc × (tickets + 1) + buffer`.
@@ -142,6 +146,7 @@ ntt xrpl fund -n Mainnet --account r9qA... --amount 50 --from-seed sEd7...  # pa
 ```
 
 ### `reserve-tickets`
+
 Pre-allocates tickets on the custody account (`TicketCreate`), signed by the
 creator before hand-off. Tickets decouple Guardian signing from sequence order.
 
@@ -153,6 +158,7 @@ ntt xrpl reserve-tickets -n Testnet --count 200 --issuer-seed sEd7...
 ```
 
 ### `init`
+
 Sends the `XRPLAppOnboarding` message — a `Payment` to the Wormhole Core (GMP)
 account carrying an onboarding memo — so the Guardians start watching the custody
 account. Signed by the **custody account** being onboarded (`--issuer-seed`).
@@ -161,13 +167,14 @@ The memo carries: prefix `"XRPL"`, the `--admin` account, the `--app` type
 (left-padded to 32 bytes), the ticket range (`--initial-ticket` / `--ticket-count`),
 and the token `init_data` (decimals + token identifier) selected via `--token`:
 
-| `--token` | extra args | `init_data` tail |
-|---|---|---|
-| `xrp` | `--decimals` (6) | `<decimals>` (short form) |
-| `iou` | `--decimals`, `--currency` (3-char or 40-hex), `--issuer` | `<decimals>` + `0x01` + currency[20] + issuer[20], right-padded to 42 bytes |
-| `mpt` | `--decimals`, `--mpt-id` (48-hex) | `<decimals>` + `0x02` + mpt_id[24], right-padded to 42 bytes |
+| `--token` | extra args                                                | `init_data` tail                                                            |
+| --------- | --------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `xrp`     | `--decimals` (6)                                          | `<decimals>` (short form)                                                   |
+| `iou`     | `--decimals`, `--currency` (3-char or 40-hex), `--issuer` | `<decimals>` + `0x01` + currency[20] + issuer[20], right-padded to 42 bytes |
+| `mpt`     | `--decimals`, `--mpt-id` (48-hex)                         | `<decimals>` + `0x02` + mpt_id[24], right-padded to 42 bytes                |
 
 Other options:
+
 - `--core-account` — destination Wormhole Core account (default: the testnet
   account `rpuMNy2dBzimaQHTFpXsfoCoqicgd8etQQ`; set this for other networks)
 - `--amount` — XRP sent with the message (default `0.000001`)
@@ -187,16 +194,19 @@ The memo uses `MemoFormat: application/x-wormhole-publish` and
 `MemoData = 01 + 00000000 + payload`.
 
 ### `set-signer-list`
+
 Replaces single-key control with the manager-set multisig (`SignerListSet`). The
 signer set is either fetched from the delegated-manager-set EVM contract or given
 explicitly. **This is the hand-off** — it prompts for confirmation unless `--yes`.
 (The master key stays enabled until disabled separately.)
 
 Fetch from EVM — the quorum is the manager-set threshold (not overridable):
+
 - `--manager-chain-id` (default 66), `--manager-set-index` (default `latest`,
   resolved on-chain), `--rpc-eth`, `--delegated-manager-set-addr`
 
 Explicit signers:
+
 - `--signers` — comma-separated r-addresses; `--quorum` (required)
 
 Common: `--issuer-seed` (or env `ISSUER_SEED`), `--yes`.
@@ -211,6 +221,7 @@ ntt xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --issuer-seed 
 ```
 
 ### `emitter`
+
 Computes the Wormhole transceiver emitter address for an XRPL custody account +
 token — `keccak256("ntt" + manager[32] + tokenId[32])`. Offline (no XRPL/RPC
 connection). Use the printed `0x…` value with `ntt manual set-transceiver-peer`.
@@ -225,6 +236,7 @@ ntt xrpl emitter --manager rnv8... --token iou --currency FOO --issuer rnv8...
 ```
 
 ### `parse-vaa`
+
 Decodes an XRPL-Wormhole VAA envelope and its inner payload (XREL release, XRFL
 ticket-refill, XADM admin, XRPL onboarding, or a wrapped NTT transfer). Offline.
 
@@ -237,6 +249,7 @@ ntt xrpl parse-vaa 5852504c... --payload-only  # bare payload
 ```
 
 ### `relay`
+
 Relays a VAA emitted by an XRPL transaction to its destination via the w7
 Executor: looks up the tx → derives emitter/sequence → polls the guardian for the
 signed VAA → fetches an Executor quote → submits a `Payment` to the Executor
@@ -263,6 +276,7 @@ ntt xrpl relay -n Testnet --tx-hash <hash> --dst-chain Solana --executor r… \
 ```
 
 ### `register-peer`
+
 Registers an NTT peer (a transceiver emitter on another chain) for the custody
 account by publishing an `XADM` RegisterPeer (`0x01`) core message. Signed by the
 **admin** (`--admin-seed`).
@@ -279,6 +293,7 @@ ntt xrpl register-peer -n Testnet --peer-chain Solana --peer-address 0x… --adm
 ```
 
 ### `rotate-admin`
+
 Rotates the custody account's admin by publishing an `XADM` RotateAdmin (`0x02`)
 core message. Signed by the **current admin** (`--admin-seed`).
 
