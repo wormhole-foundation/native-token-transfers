@@ -16,15 +16,13 @@ export function signedVaaUrl(
   guardianApi: string,
   chain: number,
   emitterHex: string,
-  sequence: bigint,
+  sequence: bigint
 ): string {
   return `${guardianApi}/v1/signed_vaa/${chain}/${emitterHex}/${sequence}`;
 }
 
 /** Fetch a signed VAA once; returns base64 vaaBytes or null if not yet available. */
-export async function fetchSignedVaaOnce(
-  url: string,
-): Promise<string | null> {
+export async function fetchSignedVaaOnce(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -65,6 +63,6 @@ export async function pollSignedVaa(opts: {
     await new Promise((r) => setTimeout(r, pollIntervalMs));
   }
   throw new Error(
-    `VAA not found after ${Math.round(pollTimeoutMs / 1000)}s (${attempt} attempts): ${url}`,
+    `VAA not found after ${Math.round(pollTimeoutMs / 1000)}s (${attempt} attempts): ${url}`
   );
 }

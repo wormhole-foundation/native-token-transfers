@@ -18,30 +18,30 @@ describe("computeEmitterAddress — known testnet vectors", () => {
   it("XRP deployment (manager rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny)", () => {
     const emitter = computeEmitterAddressFromRAddress(
       "rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny",
-      xrpToken(),
+      xrpToken()
     );
     expect(emitter.toString("hex")).toBe(
-      "3f7582b4a9df3bfd4f5b8b6634b1d1eaa4a4b96f33f0a56184a1c7584641e5e2",
+      "3f7582b4a9df3bfd4f5b8b6634b1d1eaa4a4b96f33f0a56184a1c7584641e5e2"
     );
   });
 
   it("IOU FOO deployment (manager+issuer rnv8uG8r7mewUqTZ7us3KESFE4cAEqsjm1)", () => {
     const emitter = computeEmitterAddressFromRAddress(
       "rnv8uG8r7mewUqTZ7us3KESFE4cAEqsjm1",
-      iouToken("FOO", "rnv8uG8r7mewUqTZ7us3KESFE4cAEqsjm1"),
+      iouToken("FOO", "rnv8uG8r7mewUqTZ7us3KESFE4cAEqsjm1")
     );
     expect(emitter.toString("hex")).toBe(
-      "23779ce2426c7ec8ef398cdf44bd6fc4d744aa80d0018cc34e7b86d6a30cd0e0",
+      "23779ce2426c7ec8ef398cdf44bd6fc4d744aa80d0018cc34e7b86d6a30cd0e0"
     );
   });
 
   it("MPT deployment (manager rf6VeCw74SzN9RQXm6qZUcUdJ1zziGRzU3)", () => {
     const emitter = computeEmitterAddressFromRAddress(
       "rf6VeCw74SzN9RQXm6qZUcUdJ1zziGRzU3",
-      mptToken("00F069F049794EF254FE5B399DBBC2622A50AE8747707B18"),
+      mptToken("00F069F049794EF254FE5B399DBBC2622A50AE8747707B18")
     );
     expect(emitter.toString("hex")).toBe(
-      "b97ab26d22bf8688ce7466aac3031abfde0af2ab86ca57854d773f485c3cbb8a",
+      "b97ab26d22bf8688ce7466aac3031abfde0af2ab86ca57854d773f485c3cbb8a"
     );
   });
 });
@@ -49,13 +49,13 @@ describe("computeEmitterAddress — known testnet vectors", () => {
 describe("buildTokenIdForEmitter — type discriminants", () => {
   it("XRP is 32 zero bytes", () => {
     expect(buildTokenIdForEmitter(xrpToken()).toString("hex")).toBe(
-      "00".repeat(32),
+      "00".repeat(32)
     );
   });
 
   it("IOU starts with 0x01", () => {
     const id = buildTokenIdForEmitter(
-      iouToken("FOO", "rnv8uG8r7mewUqTZ7us3KESFE4cAEqsjm1"),
+      iouToken("FOO", "rnv8uG8r7mewUqTZ7us3KESFE4cAEqsjm1")
     );
     expect(id[0]).toBe(0x01);
     expect(id.length).toBe(32);

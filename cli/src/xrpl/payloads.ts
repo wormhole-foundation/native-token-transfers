@@ -110,7 +110,9 @@ export function parseXrel(buffer: Buffer): XrelPayload {
 
   const ticketId = buffer.readBigUInt64BE(offset);
   offset += 8;
-  const xrplCustodyAccount = encodeAccountID(buffer.subarray(offset, offset + 20));
+  const xrplCustodyAccount = encodeAccountID(
+    buffer.subarray(offset, offset + 20)
+  );
   offset += 20;
   const xrplRecipient = encodeAccountID(buffer.subarray(offset, offset + 20));
   offset += 20;
@@ -134,7 +136,10 @@ export function parseXrel(buffer: Buffer): XrelPayload {
     if (buffer.length < offset + 40) {
       throw new Error("XREL: insufficient bytes for IOU token");
     }
-    const currency = buffer.subarray(offset, offset + 20).toString("hex").toUpperCase();
+    const currency = buffer
+      .subarray(offset, offset + 20)
+      .toString("hex")
+      .toUpperCase();
     offset += 20;
     const issuer = encodeAccountID(buffer.subarray(offset, offset + 20));
     offset += 20;
@@ -143,7 +148,10 @@ export function parseXrel(buffer: Buffer): XrelPayload {
     if (buffer.length < offset + 24) {
       throw new Error("XREL: insufficient bytes for MPT token");
     }
-    const mptIssuanceId = buffer.subarray(offset, offset + 24).toString("hex").toUpperCase();
+    const mptIssuanceId = buffer
+      .subarray(offset, offset + 24)
+      .toString("hex")
+      .toUpperCase();
     offset += 24;
     tokenId = { type: "MPT", mptIssuanceId };
   } else {
@@ -239,7 +247,11 @@ export function parseAdmin(buffer: Buffer): AdminPayload {
       newAdmin: encodeAccountID(buffer.subarray(25, 45)),
     };
   }
-  return { action, actionName: `Unknown(0x${action.toString(16)})`, targetAccount };
+  return {
+    action,
+    actionName: `Unknown(0x${action.toString(16)})`,
+    targetAccount,
+  };
 }
 
 /**
@@ -248,7 +260,9 @@ export function parseAdmin(buffer: Buffer): AdminPayload {
  */
 export function parseOnboarding(buffer: Buffer): OnboardingPayload {
   if (buffer.length < 72) {
-    throw new Error(`Onboarding payload too short: ${buffer.length} bytes (min 72)`);
+    throw new Error(
+      `Onboarding payload too short: ${buffer.length} bytes (min 72)`
+    );
   }
   const prefix = readAscii(buffer, 0, 4);
   if (prefix !== PREFIX_XRPL) {
@@ -289,7 +303,9 @@ export function parseNttTransfer(buffer: Buffer): NttTransferPayload {
   offset += 4;
   const sourceNttManager = buffer.subarray(offset, offset + 32).toString("hex");
   offset += 32;
-  const recipientNttManager = buffer.subarray(offset, offset + 32).toString("hex");
+  const recipientNttManager = buffer
+    .subarray(offset, offset + 32)
+    .toString("hex");
   offset += 32;
   const managerPayloadLength = buffer.readUInt16BE(offset);
   offset += 2;
@@ -333,7 +349,8 @@ export function parseNttTransfer(buffer: Buffer): NttTransferPayload {
 /** Dispatch a payload to the right parser based on its prefix. */
 export function parsePayload(payload: Buffer): ParsedPayload {
   const asciiPrefix = payload.length >= 4 ? readAscii(payload, 0, 4) : "";
-  const hexPrefix = payload.length >= 4 ? payload.subarray(0, 4).toString("hex") : "";
+  const hexPrefix =
+    payload.length >= 4 ? payload.subarray(0, 4).toString("hex") : "";
   try {
     switch (asciiPrefix) {
       case PREFIX_XREL:

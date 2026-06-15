@@ -48,7 +48,12 @@ export const signedQuoteLayout = [
         [EQ01_PREFIX, "EQ01"],
         [
           ...sharedQuoteBody,
-          { name: "signature", binary: "bytes", size: 65, custom: hexConversion },
+          {
+            name: "signature",
+            binary: "bytes",
+            size: 65,
+            custom: hexConversion,
+          },
         ],
       ],
       [[EQ02_PREFIX, "EQ02"], sharedQuoteBody],
@@ -59,7 +64,7 @@ export const signedQuoteLayout = [
 export type SignedQuote = DeriveType<typeof signedQuoteLayout>;
 
 export function deserializeSignedQuote(
-  signedQuoteBytes: `0x${string}`,
+  signedQuoteBytes: `0x${string}`
 ): SignedQuote {
   return deserialize(signedQuoteLayout, ethers.getBytes(signedQuoteBytes));
 }
@@ -97,7 +102,7 @@ export type RelayInstructions = DeriveType<typeof relayInstructionsLayout>;
 
 /** Decode a relay-instructions hex blob into structured form. */
 export function deserializeRelayInstructions(
-  hex: `0x${string}`,
+  hex: `0x${string}`
 ): RelayInstructions {
   return deserialize(relayInstructionsLayout, ethers.getBytes(hex));
 }
@@ -156,8 +161,18 @@ const requestForExecutionV0Layout = [
   { name: "dstChain", binary: "uint", size: 2 },
   { name: "dstAddr", binary: "bytes", size: 32, custom: hexConversion },
   { name: "refundAddr", binary: "bytes", size: 20, custom: hexConversion },
-  { name: "signedQuote", binary: "bytes", lengthSize: 2, layout: signedQuoteLayout },
-  { name: "requestBytes", binary: "bytes", lengthSize: 2, layout: requestLayout },
+  {
+    name: "signedQuote",
+    binary: "bytes",
+    lengthSize: 2,
+    layout: signedQuoteLayout,
+  },
+  {
+    name: "requestBytes",
+    binary: "bytes",
+    lengthSize: 2,
+    layout: requestLayout,
+  },
   {
     name: "relayInstructions",
     binary: "bytes",
@@ -172,20 +187,24 @@ export const requestForExecutionLayout = [
     binary: "switch",
     idSize: 1,
     idTag: "version",
-    layouts: [[[REQUEST_FOR_EXECUTION_VERSION_0, 0], requestForExecutionV0Layout]],
+    layouts: [
+      [[REQUEST_FOR_EXECUTION_VERSION_0, 0], requestForExecutionV0Layout],
+    ],
   },
 ] as const satisfies Layout;
 
 export type RequestForExecution = DeriveType<typeof requestForExecutionLayout>;
 
 export function serializeRequestForExecution(
-  request: RequestForExecution,
+  request: RequestForExecution
 ): `0x${string}` {
-  return ethers.hexlify(serialize(requestForExecutionLayout, request)) as `0x${string}`;
+  return ethers.hexlify(
+    serialize(requestForExecutionLayout, request)
+  ) as `0x${string}`;
 }
 
 export function deserializeRequestForExecution(
-  data: `0x${string}`,
+  data: `0x${string}`
 ): RequestForExecution {
   return deserialize(requestForExecutionLayout, ethers.getBytes(data));
 }
@@ -196,7 +215,7 @@ export function deserializeRequestForExecution(
  */
 export function buildGasInstructionHex(
   gasLimit: bigint,
-  msgValue: bigint,
+  msgValue: bigint
 ): `0x${string}` {
   const buf = Buffer.alloc(33);
   buf[0] = 0x01; // GasInstruction type ID

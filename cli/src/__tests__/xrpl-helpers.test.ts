@@ -82,9 +82,9 @@ describe("validateMptIssuanceParams", () => {
   });
 
   test("rejects out-of-range asset scale", () => {
-    expect(() =>
-      validateMptIssuanceParams({ ...ok, assetScale: 256 })
-    ).toThrow(/asset-scale/);
+    expect(() => validateMptIssuanceParams({ ...ok, assetScale: 256 })).toThrow(
+      /asset-scale/
+    );
   });
 
   test("rejects out-of-range transfer fee", () => {
@@ -107,9 +107,9 @@ describe("validateMptIssuanceParams", () => {
     expect(() =>
       validateMptIssuanceParams({ ...ok, maxAmount: "1000000" })
     ).not.toThrow();
-    expect(() =>
-      validateMptIssuanceParams({ ...ok, maxAmount: "0" })
-    ).toThrow(/greater than 0/);
+    expect(() => validateMptIssuanceParams({ ...ok, maxAmount: "0" })).toThrow(
+      /greater than 0/
+    );
     expect(() =>
       validateMptIssuanceParams({ ...ok, maxAmount: "1.5" })
     ).toThrow(/non-negative integer/);

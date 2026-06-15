@@ -14,7 +14,7 @@ function buildOnboardingHex(
   admin: string,
   initialTicket: number,
   ticketCount: number,
-  initDataHex: string,
+  initDataHex: string
 ): string {
   return (
     "5852504C" + // "XRPL"
@@ -41,7 +41,12 @@ describe("parseOnboarding — round-trips xrpl_accounts/init.ts encoding", () =>
   });
 
   it("dispatch via parsePayload tags it Onboarding", () => {
-    const hex = buildOnboardingHex("rypanhdnNhrtnDMGq6RRr497oDBLJnPeA", 1, 2, "06");
+    const hex = buildOnboardingHex(
+      "rypanhdnNhrtnDMGq6RRr497oDBLJnPeA",
+      1,
+      2,
+      "06"
+    );
     const parsed = parsePayload(Buffer.from(hex, "hex"));
     expect(parsed.kind).toBe("Onboarding");
   });

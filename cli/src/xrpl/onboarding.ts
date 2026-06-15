@@ -11,7 +11,8 @@ export const XRPL_ONBOARDING_PREFIX = "5852504C";
 export const WORMHOLE_PUBLISH_MEMO_FORMAT = "application/x-wormhole-publish";
 
 /** Wormhole Core (GMP) account on XRPL Testnet that Guardians watch. */
-export const DEFAULT_TESTNET_CORE_ACCOUNT = "rpuMNy2dBzimaQHTFpXsfoCoqicgd8etQQ";
+export const DEFAULT_TESTNET_CORE_ACCOUNT =
+  "rpuMNy2dBzimaQHTFpXsfoCoqicgd8etQQ";
 
 const TOKEN_TYPE_IOU = "01";
 const TOKEN_TYPE_MPT = "02";
@@ -90,7 +91,8 @@ export function buildInitData(decimals: number, token: TokenInit): string {
       const currency = currencyToHex40(token.currency);
       const issuer = accountIdHex(token.issuer);
       return (
-        dec + padRight(TOKEN_TYPE_IOU + currency + issuer, TOKEN_ID_PADDED_BYTES)
+        dec +
+        padRight(TOKEN_TYPE_IOU + currency + issuer, TOKEN_ID_PADDED_BYTES)
       );
     }
     case "mpt": {
@@ -99,7 +101,10 @@ export function buildInitData(decimals: number, token: TokenInit): string {
       }
       return (
         dec +
-        padRight(TOKEN_TYPE_MPT + token.mptId.toLowerCase(), TOKEN_ID_PADDED_BYTES)
+        padRight(
+          TOKEN_TYPE_MPT + token.mptId.toLowerCase(),
+          TOKEN_ID_PADDED_BYTES
+        )
       );
     }
   }
