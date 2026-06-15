@@ -55,7 +55,13 @@ const SOLANA_SUBCOMMANDS = [
   "build",
 ];
 
-const XRPL_SUBCOMMANDS = ["emitter", "parse-vaa", "relay"];
+const XRPL_SUBCOMMANDS = [
+  "emitter",
+  "parse-vaa",
+  "relay",
+  "register-peer",
+  "rotate-admin",
+];
 
 const CONFIG_SUBCOMMANDS = ["set-chain", "unset-chain", "get-chain"];
 

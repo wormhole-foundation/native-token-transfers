@@ -11,6 +11,7 @@ import type {
   Network,
   WormholeConfigOverrides,
 } from "@wormhole-foundation/sdk-connect";
+import { toChainId, type Chain } from "@wormhole-foundation/sdk";
 import { colors } from "../colors.js";
 
 /** Default public XRPL WebSocket endpoints, keyed by Wormhole network. */
@@ -263,6 +264,13 @@ export function normalizeCurrency(code: string): string {
   throw new Error(
     `Invalid currency '${code}': expected a 3-character code or a 40-character hex code`
   );
+}
+
+/** Resolve a chain reference (Wormhole chain name or numeric id) to a chain id. */
+export function resolveChainId(value: string | number): number {
+  if (typeof value === "number") return value;
+  if (/^\d+$/.test(value)) return parseInt(value, 10);
+  return toChainId(value as Chain);
 }
 
 /** Run a command body, printing errors in the CLI's style and exiting 1. */

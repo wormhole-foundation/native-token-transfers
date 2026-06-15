@@ -50,6 +50,12 @@ An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder).
 | `emitter` | — *(offline)* | Compute the XRPL transceiver emitter address for a manager + token |
 | `parse-vaa` | — *(offline)* | Decode an XRPL-Wormhole VAA or payload (XREL/XRFL/XADM/onboarding/NTT) |
 | `relay` | relayer + Executor | Relay a VAA emitted by an XRPL tx to its destination via the Executor |
+| `register-peer` | admin | Register an NTT peer for the custody account (`XADM` RegisterPeer) |
+| `rotate-admin` | admin | Rotate the custody account's admin (`XADM` RotateAdmin) |
+
+`register-peer` and `rotate-admin` publish an `XADM` core message the same way as
+`init` — a `Payment` to the Wormhole Core account carrying an
+`application/x-wormhole-publish` memo — signed by the account's **admin**.
 
 ### `enable-rippling`
 Sets the `asfDefaultRipple` flag on the issuer account so balances of its IOU can
@@ -256,6 +262,39 @@ ntt xrpl relay -n Testnet --tx-hash <hash> --dst-chain Solana --executor r… \
   --request-type ern1 --src-manager 0x… --dst-addr 0x… --seed sEd7...
 ```
 
+### `register-peer`
+Registers an NTT peer (a transceiver emitter on another chain) for the custody
+account by publishing an `XADM` RegisterPeer (`0x01`) core message. Signed by the
+**admin** (`--admin-seed`).
+
+- `--manager` — custody account (default: `xrpl.manager` from the deployment file)
+- `--peer-chain` (required) — peer chain (Wormhole name or numeric id)
+- `--peer-address` (required) — peer transceiver emitter, 32-byte hex
+- `--core-account` — Wormhole Core account (default: the testnet account)
+- `--amount` — XRP sent with the message (default `0.000001`)
+- `--admin-seed` (or env `ADMIN_SEED`)
+
+```
+ntt xrpl register-peer -n Testnet --peer-chain Solana --peer-address 0x… --admin-seed sEd7...
+```
+
+### `rotate-admin`
+Rotates the custody account's admin by publishing an `XADM` RotateAdmin (`0x02`)
+core message. Signed by the **current admin** (`--admin-seed`).
+
+> ⚠️ **Not yet supported by the Sequencer.** The message is published but will
+> not take effect until Sequencer support lands. The command prints a warning and
+> prompts for confirmation (skip with `--yes`).
+
+- `--manager` — custody account (default: `xrpl.manager` from the deployment file)
+- `--new-admin` (required) — new admin r-address
+- `--core-account`, `--amount` — as for `register-peer`
+- `--admin-seed` (or env `ADMIN_SEED`); `--yes`
+
+```
+ntt xrpl rotate-admin -n Testnet --new-admin r9qA... --admin-seed sEd7...
+```
+
 ## deployment.json
 
 `set-manager` records the custody account in a dedicated top-level `xrpl` section
@@ -288,5 +327,6 @@ need not appear in shell history:
   `reserve-tickets`, `init`, `set-signer-list`) → `--issuer-seed` / `ISSUER_SEED`.
 - Holder & operational commands (`trust-set`, `authorize-mpt`, `relay`) →
   `--seed` / `SEED`.
+- Admin commands (`register-peer`, `rotate-admin`) → `--admin-seed` / `ADMIN_SEED`.
 - `fund`'s `Payment` source → `--from-seed` / `FUNDER_SEED`.
 - `set-manager` takes no seed — just `--account`.

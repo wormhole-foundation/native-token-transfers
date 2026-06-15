@@ -14,6 +14,8 @@ import { createXrplSetSignerListCommand } from "./set-signer-list";
 import { createXrplEmitterCommand } from "./emitter";
 import { createXrplParseVaaCommand } from "./parse-vaa";
 import { createXrplRelayCommand } from "./relay";
+import { createXrplRegisterPeerCommand } from "./register-peer";
+import { createXrplRotateAdminCommand } from "./rotate-admin";
 
 /**
  * `ntt xrpl <subcommand>` — XRPL commands for preparing and operating an NTT
@@ -36,6 +38,8 @@ import { createXrplRelayCommand } from "./relay";
  *   emitter          — compute the transceiver emitter for a manager + token
  *   parse-vaa        — decode an XRPL-Wormhole VAA / payload
  *   relay            — relay an XRPL-emitted VAA to its destination (Executor)
+ *   register-peer    — register an NTT peer (XADM RegisterPeer)
+ *   rotate-admin     — rotate the custody account's admin (XADM RotateAdmin)
  *
  * "Creating" an IOU is just `enable-rippling` (issuer) + `trust-set` (holders).
  */
@@ -57,6 +61,8 @@ export function createXrplCommand(overrides: WormholeConfigOverrides<Network>) {
         .command(createXrplEmitterCommand(overrides))
         .command(createXrplParseVaaCommand(overrides))
         .command(createXrplRelayCommand(overrides))
+        .command(createXrplRegisterPeerCommand(overrides))
+        .command(createXrplRotateAdminCommand(overrides))
         .demandCommand(1, "Specify an xrpl subcommand")
         .strict(),
     handler: () => {},

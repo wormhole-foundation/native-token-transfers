@@ -2,12 +2,13 @@ import type {
   Network,
   WormholeConfigOverrides,
 } from "@wormhole-foundation/sdk-connect";
-import { toChainId, type Chain } from "@wormhole-foundation/sdk";
+import { toChain, toUniversal, type Chain } from "@wormhole-foundation/sdk";
 import { ethers } from "ethers";
 import { decodeAccountID } from "xrpl";
 import { colors } from "../../colors.js";
 import {
   loadSeed,
+  resolveChainId,
   resolveXrplEndpoint,
   runXrpl,
   submitTx,
@@ -21,6 +22,7 @@ import {
   buildGasInstructionHex,
   deserializeRelayInstructions,
   deserializeSignedQuote,
+  serializeRequest,
   serializeRequestForExecution,
   type RequestForExecution,
   type RequestLayout,
@@ -30,15 +32,22 @@ import {
   computeEmitterAddress,
   tokenIdFromFlags,
   tokenIdFromXrplAmount,
+  xrplAccountToEmitter,
   type TokenId,
 } from "../../xrpl/tokenId";
 import { withCommon } from "./common";
 
-/** Resolve a --dst-chain value (name or numeric id) to a Wormhole chain id. */
-function resolveChainId(value: string | number): number {
-  if (typeof value === "number") return value;
-  if (/^\d+$/.test(value)) return parseInt(value, 10);
-  return toChainId(value as Chain);
+/**
+ * Resolve a destination address to a 32-byte universal hex. Accepts the
+ * destination chain's native format (e.g. Solana base58, EVM hex) — parsed via
+ * the Wormhole SDK — or an already-universal 32-byte hex (passed through).
+ */
+function resolveUniversalAddr(chain: Chain, addr: string): `0x${string}` {
+  const hex = addr.replace(/^0x/i, "");
+  if (/^[0-9a-fA-F]{64}$/.test(hex)) {
+    return `0x${hex.toLowerCase()}`;
+  }
+  return toUniversal(chain, addr).toString() as `0x${string}`;
 }
 
 function buildRequest(opts: {
@@ -109,7 +118,7 @@ export function createXrplRelayCommand(
         })
         .option("dst-addr", {
           describe:
-            "Destination address (hex32). For ERN1 this is the recipient NTT manager.",
+            "Destination address — chain-native (e.g. Solana base58, EVM hex) or 32-byte universal hex. For ERN1 this is the recipient NTT manager.",
           type: "string",
         })
         .option("src-manager", {
@@ -217,7 +226,11 @@ async function runRelay(
   console.log(`  request type: ${colors.yellow(requestType)}`);
   console.log(`  from wallet:  ${colors.yellow(wallet.address)}`);
 
-  // ── 1. Look up the XRPL tx → emitter + sequence (messageId) + token ──
+  // ── 1. Look up the XRPL tx → emitter + sequence (messageId) ──
+  // The emitter scheme differs by request type (see ripple xrpl-client
+  // export.ts): a core VAA (erv1: onboarding / admin / register-peer) uses the
+  // left-padded SENDER account, while an NTT transfer (ern1) uses the keccak
+  // transceiver emitter keccak256("ntt" || custody || token).
   const { emitterHex, sequence } = await withXrplClient(endpoint, async (client) => {
     const resp = await client.request({ command: "tx", transaction: txHash });
     const tx: any = resp.result;
@@ -228,33 +241,44 @@ async function runRelay(
       throw new Error("Transaction metadata missing TransactionIndex");
     }
     const txIndex = (meta as any).TransactionIndex as number;
-
-    // Destination = custody account; delivered_amount → token (for emitter derivation)
-    const destination: string | undefined =
-      tx.Destination ?? tx.tx_json?.Destination;
-    if (!destination) throw new Error("Could not determine destination/custody address");
-
-    const deliveredAmount = (meta as any).delivered_amount;
-    let token: TokenId;
-    if (argv.token) {
-      token = tokenIdFromFlags({
-        type: argv.token,
-        currency: argv.currency,
-        issuer: argv.issuer,
-        mptId: argv["mpt-id"],
-      });
-    } else if (deliveredAmount) {
-      token = tokenIdFromXrplAmount(deliveredAmount);
-    } else {
-      token = { type: "XRP" };
-    }
-
-    const emitter = computeEmitterAddress(
-      Buffer.from(decodeAccountID(destination)),
-      token
-    );
     const sequence = (BigInt(ledgerIndex) << 32n) | BigInt(txIndex);
-    return { emitterHex: emitter.toString("hex"), sequence };
+
+    let emitterHex: string;
+    if (requestType === "erv1") {
+      // Core VAA: emitter = the publishing (SENDER) account, left-padded to 32B.
+      const sender: string | undefined = tx.Account ?? tx.tx_json?.Account;
+      if (!sender) {
+        throw new Error("Could not determine the publishing account (tx.Account)");
+      }
+      emitterHex = xrplAccountToEmitter(Buffer.from(decodeAccountID(sender)));
+    } else {
+      // NTT transfer: emitter = keccak256("ntt" || custody || token), where the
+      // custody account is the tx destination and the token is the delivered asset.
+      const destination: string | undefined =
+        tx.Destination ?? tx.tx_json?.Destination;
+      if (!destination) {
+        throw new Error("Could not determine destination/custody address");
+      }
+      const deliveredAmount = (meta as any).delivered_amount;
+      let token: TokenId;
+      if (argv.token) {
+        token = tokenIdFromFlags({
+          type: argv.token,
+          currency: argv.currency,
+          issuer: argv.issuer,
+          mptId: argv["mpt-id"],
+        });
+      } else if (deliveredAmount) {
+        token = tokenIdFromXrplAmount(deliveredAmount);
+      } else {
+        token = { type: "XRP" };
+      }
+      emitterHex = computeEmitterAddress(
+        Buffer.from(decodeAccountID(destination)),
+        token
+      ).toString("hex");
+    }
+    return { emitterHex, sequence };
   });
 
   const messageId = ethers.toBeHex(sequence, 32) as `0x${string}`;
@@ -303,10 +327,7 @@ async function runRelay(
       `--dst-addr is required (the destination ${requestType === "ern1" ? "NTT manager" : "contract"})`
     );
   }
-  const dstAddr = ethers.zeroPadValue(
-    argv["dst-addr"] as `0x${string}`,
-    32
-  ) as `0x${string}`;
+  const dstAddr = resolveUniversalAddr(toChain(dstChain), argv["dst-addr"]);
 
   const refundAddr = ethers.hexlify(
     decodeAccountID(wallet.classicAddress)
@@ -326,6 +347,15 @@ async function runRelay(
 
   const serialized = serializeRequestForExecution(rfe);
 
+  // Debug: surface the generated executor request before submitting it.
+  console.log(colors.blue("\n🧾 Executor request (generated)"));
+  console.log(`  dst chain:            ${dstChain}`);
+  console.log(`  dst addr:             ${colors.gray(dstAddr)}`);
+  console.log(`  refund addr:          ${colors.gray(refundAddr)}`);
+  console.log(`  relay instructions:   ${colors.gray(relayInstructions)}`);
+  console.log(`  request (${requestType}):       ${colors.gray(serializeRequest(request))}`);
+  console.log(`  RequestForExecution:  ${colors.gray(serialized)}`);
+
   // ── 5. Submit the XRPL Payment carrying the executor-request memo ──
   console.log(colors.blue("\n📤 Submitting executor request payment..."));
   const memoFormat = Buffer.from("application/x-executor-request")
@@ -333,14 +363,20 @@ async function runRelay(
     .toUpperCase();
   const memoData = serialized.slice(2).toUpperCase();
 
+  const payment = {
+    TransactionType: "Payment" as const,
+    Account: wallet.address,
+    Destination: executor,
+    Amount: quote.estimatedCost,
+    Memos: [{ Memo: { MemoFormat: memoFormat, MemoData: memoData } }],
+  };
+  console.log(`  executor:             ${colors.gray(executor)}`);
+  console.log(`  amount (drops):       ${colors.gray(quote.estimatedCost)}`);
+  console.log(`  memo format:          ${colors.gray(memoFormat)}`);
+  console.log(`  memo data:            ${colors.gray(memoData)}`);
+
   const result = await withXrplClient(endpoint, (client) =>
-    submitTx(client, wallet, {
-      TransactionType: "Payment",
-      Account: wallet.address,
-      Destination: executor,
-      Amount: quote.estimatedCost,
-      Memos: [{ Memo: { MemoFormat: memoFormat, MemoData: memoData } }],
-    })
+    submitTx(client, wallet, payment)
   );
   const memoTxHash = result.result.hash;
   console.log(colors.green("  tesSUCCESS"));
