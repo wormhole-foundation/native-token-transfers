@@ -13,13 +13,12 @@
     "test": "__tests__"
   },
   "license": "Apache-2.0",
-  "main": "./dist/cjs/index.js",
-  "types": "./dist/cjs/index.d.ts",
+  "main": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
   "module": "./dist/esm/index.js",
   "description": "Implementation of a Route usable by the Wormhole SDK",
   "files": [
-    "dist/esm",
-    "dist/cjs"
+    "dist/esm"
   ],
   "keywords": [
     "wormhole",
@@ -32,11 +31,10 @@
   },
   "sideEffects": true,
   "scripts": {
-    "build:cjs": "tsc -p ./tsconfig.cjs.json  && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "tsc -p ./tsconfig.esm.json",
-    "build": "bun run build:esm && bun run build:cjs",
+    "build": "bun run build:esm",
     "rebuild": "bun run clean && bun run build",
-    "test": "jest --config ./jest.config.ts",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --config ./jest.config.ts",
     "clean": "rm -rf ./dist",
     "prettier": "prettier --write ./src ./__tests__"
   },
@@ -51,20 +49,15 @@
     "@wormhole-foundation/sdk-solana-ntt": "1.0.0"
   },
   "peerDependencies": {
-    "@wormhole-foundation/sdk-connect": "^4.23.0",
+    "@wormhole-foundation/sdk-connect": "^5.0.0",
     "axios": "^1.9.0"
   },
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/esm/index.d.ts",
-        "default": "./dist/esm/index.js"
-      },
-      "require": {
-        "types": "./dist/cjs/index.d.ts",
-        "default": "./dist/cjs/index.js"
-      }
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/esm/index.js"
     }
   }
 }

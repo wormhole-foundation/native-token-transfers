@@ -1,251 +1,200 @@
-import { SuiClient } from "@mysten/sui/client";
+import { jest } from "@jest/globals";
+import { SuiGrpcClient } from "@mysten/sui/grpc";
 
-// Mock SuiClient responses
-export const mockSuiClient = (): jest.Mocked<SuiClient> => {
+// Base64 encoding of the 32-byte array [0, 1, 2, ..., 31]
+const ADDRESS_BYTES_0_31_BASE64 =
+  "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+// Base64 encoding of a 32-byte array filled with 0x01
+const ADDRESS_BYTES_FILL_1_BASE64 =
+  "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
+
+// Mock SuiGrpcClient responses (gRPC core methods)
+export const mockSuiClient = (): jest.Mocked<SuiGrpcClient> => {
   return {
     getObject: jest.fn(),
-    getOwnedObjects: jest.fn(),
-    getDynamicFieldObject: jest.fn(),
-    getDynamicFields: jest.fn(),
+    getDynamicField: jest.fn(),
+    listDynamicFields: jest.fn(),
     getCoinMetadata: jest.fn(),
-    getCoins: jest.fn(),
-    executeTransactionBlock: jest.fn(),
-    dryRunTransactionBlock: jest.fn(),
-    getBalance: jest.fn(),
-    getAllBalances: jest.fn(),
-    getTransactionBlock: jest.fn(),
-    multiGetObjects: jest.fn(),
-    getRpcApiVersion: jest.fn(),
-    requestSuiFromFaucet: jest.fn(),
+    listCoins: jest.fn(),
+    simulateTransaction: jest.fn(),
+    movePackageService: {
+      getDatatype: jest.fn(),
+    },
   } as any;
 };
 
-// Mock SuiMoveObject structure for NTT state
+// Mock NTT state object (flat gRPC json shape)
 export const mockNttState = (overrides: any = {}) => ({
-  data: {
-    digest: "mockDigest123",
-    objectId: "mockObjectId123",
-    version: "1",
-    content: {
-      dataType: "moveObject" as const,
-      type: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State<0x2::sui::SUI>",
-      hasPublicTransfer: false,
-      fields: {
-        id: { id: "mock-state-id" },
-        mode: { variant: overrides.mode || "Locking" },
-        balance: { value: "0" },
-        threshold: overrides.threshold || "2",
-        treasury_cap: null,
-        peers: {
-          fields: {
-            id: { id: "mock-peers-table-id" },
-            size: "0",
-          },
-        },
-        outbox: {
-          fields: {
-            entries: {
-              fields: {
-                id: { id: "mock-outbox-table-id" },
-                size: "0",
-              },
-            },
-            rate_limit: {
-              fields: {
-                limit: overrides.outboundLimit || "1000000000000",
-                capacity_at_last_tx:
-                  overrides.outboundCapacity || "1000000000000",
-                last_tx_timestamp: "0",
-              },
-            },
-          },
-        },
-        inbox: {
-          fields: {
-            entries: {
-              fields: {
-                id: { id: "mock-inbox-table-id" },
-                size: "0",
-              },
-            },
-          },
-        },
-        transceivers: {
-          fields: {
-            id: { id: "mock-transceivers-table-id" },
-            next_id: "1",
-            enabled_bitmap: "1",
-          },
-        },
-        chain_id: "21", // Sui chain ID
-        next_sequence: "0",
-        version: "1",
-        admin_cap_id:
-          overrides.adminCapId !== undefined
-            ? overrides.adminCapId
-            : "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-        upgrade_cap_id:
-          overrides.upgradeCapId !== undefined
-            ? overrides.upgradeCapId
-            : "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-        paused: overrides.paused || false,
-        ...overrides.fields,
+  object: {
+    type: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::ntt::State<0x2::sui::SUI>",
+    owner: { $kind: "Shared", Shared: { initialSharedVersion: "1" } },
+    json: {
+      id: "mock-state-id",
+      mode: { variant: overrides.mode || "Locking" },
+      balance: { value: "0" },
+      threshold: overrides.threshold || "2",
+      treasury_cap: null,
+      peers: {
+        id: "mock-peers-table-id",
+        size: "0",
       },
+      outbox: {
+        entries: {
+          id: "mock-outbox-table-id",
+          size: "0",
+        },
+        rate_limit: {
+          limit: overrides.outboundLimit || "1000000000000",
+          capacity_at_last_tx: overrides.outboundCapacity || "1000000000000",
+          last_tx_timestamp: "0",
+        },
+      },
+      inbox: {
+        entries: {
+          id: "mock-inbox-table-id",
+          size: "0",
+        },
+      },
+      transceivers: {
+        id: "mock-transceivers-table-id",
+        next_id: "1",
+        enabled_bitmap: "1",
+      },
+      chain_id: "21", // Sui chain ID
+      next_sequence: "0",
+      version: "1",
+      admin_cap_id:
+        overrides.adminCapId !== undefined
+          ? overrides.adminCapId
+          : "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      upgrade_cap_id:
+        overrides.upgradeCapId !== undefined
+          ? overrides.upgradeCapId
+          : "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      paused: overrides.paused || false,
+      ...overrides.fields,
     },
   },
 });
 
-// Mock AdminCap Object
+// Mock AdminCap Object (gRPC: owner is a discriminated union)
 export const mockAdminCap = (
   owner: string = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 ) => ({
-  data: {
-    objectId:
-      "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  object: {
+    type: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::admin::AdminCap",
     owner: {
+      $kind: "AddressOwner",
       AddressOwner: owner,
     },
   },
 });
 
-// Mock UpgradeCap Object
+// Mock UpgradeCap Object (getPackageIdFromObject reads upgradeCap.fields.cap.package)
 export const mockUpgradeCap = () => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      fields: {
-        cap: {
-          fields: {
-            package:
-              "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-          },
-        },
+  object: {
+    type: "0x2::package::UpgradeCap",
+    json: {
+      cap: {
+        package:
+          "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
       },
     },
   },
 });
 
-// Mock Coin Metadata for SUI
+// Mock Coin Metadata for SUI (returned via getCoinMetadata as { coinMetadata })
 export const mockCoinMetadata = (decimals: number = 9) => ({
-  id: "0x9876543210987654321098765432109876543210987654321098765432109876",
-  decimals,
-  name: "Sui",
-  symbol: "SUI",
-  description: "The native currency of Sui",
+  coinMetadata: {
+    id: "0x9876543210987654321098765432109876543210987654321098765432109876",
+    decimals,
+    name: "Sui",
+    symbol: "SUI",
+    description: "The native currency of Sui",
+  },
 });
 
-// Mock Peer Data from dynamic field
+// Mock Peer Data: the flat-json Field wrapper's value struct, accessed via
+// getDynamicField -> fieldId -> getObject(json).value
 export const mockPeerData = (overrides: any = {}) => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      fields: {
-        value: {
-          fields: {
-            address: {
-              fields: {
-                value: {
-                  fields: {
-                    data: [
-                      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-                      17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-                      31,
-                    ],
-                  },
-                },
-              },
-            },
-            token_decimals: overrides.tokenDecimals || "6",
-            inbound_rate_limit: {
-              fields: {
-                limit: overrides.inboundLimit || "500000000000",
-                capacity_at_last_tx:
-                  overrides.inboundCapacity || "500000000000",
-                last_tx_timestamp: overrides.lastTxTimestamp || "0",
-              },
-            },
+  object: {
+    json: {
+      value: {
+        address: {
+          value: {
+            data: ADDRESS_BYTES_0_31_BASE64,
           },
+        },
+        token_decimals: overrides.tokenDecimals || "6",
+        inbound_rate_limit: {
+          limit: overrides.inboundLimit || "500000000000",
+          capacity_at_last_tx: overrides.inboundCapacity || "500000000000",
+          last_tx_timestamp: overrides.lastTxTimestamp || "0",
         },
       },
     },
   },
 });
 
-// Mock Transceiver State
+// Mock the getDynamicField response that points at a peer field object
+export const mockPeerDynamicField = (fieldId: string = "0xpeerfield") => ({
+  dynamicField: {
+    fieldId,
+  },
+});
+
+// Mock Transceiver State (getTransceiver wrapper reads state.fields.emitter_cap.id)
 export const mockTransceiverState = () => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      type: "0x456::wormhole_transceiver::State",
-      fields: {
-        admin_cap_id:
-          "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-        peers: {
-          fields: {
-            id: { id: "mock-transceiver-peers-table-id" },
-            size: "0",
-          },
-        },
-        emitter_cap: {
-          fields: {
-            id: {
-              id: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-            },
-          },
-        },
+  object: {
+    type: "0x456::wormhole_transceiver::State",
+    json: {
+      admin_cap_id:
+        "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      peers: {
+        id: "mock-transceiver-peers-table-id",
+        size: "0",
+      },
+      emitter_cap: {
+        id: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
       },
     },
   },
 });
 
-// Mock Transceiver Peer Data
+// Mock Transceiver Peer Data (flat-json Field wrapper value, address bytes base64)
 export const mockTransceiverPeerData = () => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      fields: {
+  object: {
+    json: {
+      value: {
         value: {
-          fields: {
-            value: {
-              fields: {
-                data: [
-                  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-                  18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-                ],
-              },
-            },
-          },
+          data: ADDRESS_BYTES_0_31_BASE64,
         },
       },
     },
   },
 });
 
-// Mock Dynamic Fields response
+// Mock listDynamicFields response
 export const mockDynamicFields = () => ({
-  data: [
+  dynamicFields: [
     {
       name: {
         type: "0x123::transceiver_registry::Key",
-        value: { id: 0 },
       },
-      objectId: "mock-transceiver-info-id",
+      fieldId: "mock-transceiver-info-id",
     },
   ],
+  hasNextPage: false,
+  cursor: null,
 });
 
-// Mock Transceiver Info
+// Mock Transceiver Info (flat-json Field wrapper value)
 export const mockTransceiverInfo = () => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      fields: {
-        value: {
-          fields: {
-            id: 0,
-            state_object_id: "mock-wormhole-transceiver-state-id",
-          },
-        },
+  object: {
+    json: {
+      value: {
+        id: 0,
+        state_object_id: "mock-wormhole-transceiver-state-id",
       },
     },
   },
@@ -314,38 +263,17 @@ export const mockAttestation = (sourceChain: any = "Ethereum") =>
     },
   }) as any;
 
-// Mock standard Sui object response
-export const mockSuiObject = (type: string, fields: any) => ({
-  data: {
-    digest: "mockDigest",
-    objectId: "mockObjectId",
-    version: "1",
-    content: {
-      dataType: "moveObject" as const,
-      type,
-      hasPublicTransfer: false,
-      fields,
-    },
+// Mock standard Sui object response (flat gRPC json shape)
+export const mockSuiObject = (type: string, json: any) => ({
+  object: {
+    type,
+    owner: { $kind: "Shared", Shared: { initialSharedVersion: "1" } },
+    json,
   },
 });
 
-// Mock Inbox Item for transfer status checking
-export const mockInboxItem = (overrides: any = {}) => ({
-  data: {
-    content: {
-      dataType: "moveObject",
-      type: "0x123::inbox::InboxItem",
-      hasPublicTransfer: false,
-      fields: {
-        init: overrides.init !== undefined ? overrides.init : true,
-        recipient: overrides.recipient || "0x" + "1".repeat(64),
-        amount: overrides.amount || "1000000000",
-        release_status: {
-          released:
-            overrides.released !== undefined ? overrides.released : false,
-          release_after: overrides.releaseAfter || null,
-        },
-      },
-    },
-  },
-});
+// Base64 helpers exported for inline test usage
+export const TEST_BASE64 = {
+  BYTES_0_31: ADDRESS_BYTES_0_31_BASE64,
+  BYTES_FILL_1: ADDRESS_BYTES_FILL_1_BASE64,
+};

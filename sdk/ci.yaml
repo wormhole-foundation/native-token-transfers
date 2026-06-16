@@ -69,7 +69,8 @@ spec:
             - /bin/sh
             - -c
             # Use Node (not Bun) to run Jest - Bun has compatibility issues with jest-environment-node
-            - 'cd /usr/src && npx jest --config ./jest.config.ts && echo "done!" && touch /success'
+            # NODE_OPTIONS enables Jest's ESM mode (vm modules) now that the SDK is ESM-only.
+            - 'cd /usr/src && NODE_OPTIONS=--experimental-vm-modules npx jest --config ./jest.config.ts && echo "done!" && touch /success'
           readinessProbe:
             exec:
               command:

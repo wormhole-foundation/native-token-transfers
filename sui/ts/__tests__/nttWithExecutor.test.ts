@@ -1,16 +1,43 @@
-import { SuiNttWithExecutor } from "../src/nttWithExecutor.js";
-import { SuiNtt } from "../src/ntt.js";
+import { jest } from "@jest/globals";
 import { SuiAddress } from "@wormhole-foundation/sdk-sui";
 import {
   mockSuiClient,
   mockCoinMetadata,
+  mockSuiObject,
+  mockTransceiverInfo,
   TEST_ADDRESSES,
   TEST_CONTRACTS,
 } from "./mocks.js";
 
+// Mock SuiGraphQLClient (used by getCoinMetadataId). jest.mock does not hoist
+// under native-ESM jest, so use unstable_mockModule + dynamic import.
+const mockQuery = jest.fn<any>().mockResolvedValue({
+  data: {
+    objects: {
+      nodes: [
+        {
+          address:
+            "0x9876543210987654321098765432109876543210987654321098765432109876",
+        },
+      ],
+    },
+  },
+});
+
+jest.unstable_mockModule("@mysten/sui/graphql", () => ({
+  SuiGraphQLClient: jest.fn().mockImplementation(() => ({
+    query: mockQuery,
+  })),
+}));
+
+const { SuiNttWithExecutor } = await import("../src/nttWithExecutor.js");
+const { SuiNtt } = await import("../src/ntt.js");
+
 describe("SuiNttWithExecutor", () => {
-  let suiNttWithExecutor: SuiNttWithExecutor<"Testnet", "Sui">;
-  let suiNtt: SuiNtt<"Testnet", "Sui">;
+  let suiNttWithExecutor: InstanceType<
+    typeof SuiNttWithExecutor<"Testnet", "Sui">
+  >;
+  let suiNtt: InstanceType<typeof SuiNtt<"Testnet", "Sui">>;
   let mockClient: jest.Mocked<any>;
 
   const mockQuote = {
@@ -44,123 +71,105 @@ describe("SuiNttWithExecutor", () => {
       coreBridge: TEST_CONTRACTS.coreBridge,
     });
 
-    // Setup common mocks
-    mockClient.getObject
-      .mockResolvedValueOnce({
+    // Setup common getObject mocks keyed by objectId.
+    mockClient.getObject.mockImplementation((params: any) => {
+      if (params.objectId === TEST_CONTRACTS.ntt.manager) {
         // getPackageId for manager state
-        data: {
-          content: {
-            dataType: "moveObject",
-            type: "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456::ntt::State",
-            fields: {
+        return Promise.resolve(
+          mockSuiObject(
+            "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456::ntt::State<0x2::sui::SUI>",
+            {
               transceivers: {
-                fields: {
-                  id: {
-                    id: "0xtransceiverregistryid567890abcdef1234567890abcdef1234567890abcd",
-                  },
-                },
+                id: "0xtransceiverregistryid567890abcdef1234567890abcdef1234567890abcd",
               },
+            }
+          )
+        );
+      } else if (
+        params.objectId ===
+        "0xtransceiverinfoobj90abcdef1234567890abcdef12345678901234567890"
+      ) {
+        // transceiver info from registry (getTransceivers)
+        return Promise.resolve(
+          mockSuiObject("0x123::transceiver_registry::Info", {
+            value: {
+              id: 0,
+              state_object_id:
+                "0xtransceiverstateid890abcdef1234567890abcdef12345678901234567890",
             },
-          },
-        },
-      })
-      .mockResolvedValueOnce({
-        // transceiver info from registry
-        data: {
-          content: {
-            dataType: "moveObject",
-            fields: {
-              value: {
-                fields: {
-                  id: 0,
-                  state_object_id:
-                    "0xtransceiverstateid890abcdef1234567890abcdef12345678901234567890",
-                },
-              },
-            },
-          },
-        },
-      })
-      .mockResolvedValueOnce({
+          })
+        );
+      } else if (
+        params.objectId ===
+        "0xtransceiverstateid890abcdef1234567890abcdef12345678901234567890"
+      ) {
         // getPackageId for transceiver state
-        data: {
-          content: {
-            dataType: "moveObject",
-            type: "0xabcdef1234567890abcdef1234567890abcdef12345678901234567890abcdef::wormhole_transceiver::State",
-            fields: {},
-          },
-        },
-      })
-      .mockResolvedValue(mockCoinMetadata()); // getCoinMetadata - use mockResolvedValue to reuse for multiple calls
+        return Promise.resolve(
+          mockSuiObject(
+            "0xabcdef1234567890abcdef1234567890abcdef12345678901234567890abcdef::wormhole_transceiver::State",
+            {}
+          )
+        );
+      } else if (
+        params.objectId ===
+        "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+      ) {
+        // CurrentPackage object (getWormholePackageId)
+        return Promise.resolve(
+          mockSuiObject("CurrentPackage", {
+            value: {
+              package:
+                "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            },
+          })
+        );
+      }
+      // Fallback
+      return Promise.resolve(mockTransceiverInfo());
+    });
 
-    mockClient.getCoinMetadata.mockResolvedValue(mockCoinMetadata()); // Mock getCoinMetadata method
+    mockClient.getCoinMetadata.mockResolvedValue(mockCoinMetadata());
 
-    // Mock getCoins for transfer operations
-    mockClient.getCoins.mockResolvedValue({
-      data: [
+    // Mock listCoins for transfer operations (gRPC-shaped, consumed by
+    // SuiPlatform.getCoins, which reads `objects[].{type,objectId}`)
+    mockClient.listCoins.mockResolvedValue({
+      objects: [
         {
-          coinType: "0x2::sui::SUI",
-          coinObjectId:
+          type: "0x2::sui::SUI",
+          objectId:
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-          balance: "1000000000", // 1 SUI
-          lockedUntilEpoch: null,
-          previousTransaction: "mockTxDigest",
         },
       ],
-      nextCursor: null,
+      cursor: null,
       hasNextPage: false,
     });
 
-    // Mock getDynamicFields for both getWormholePackageId and getTransceivers
-    mockClient.getDynamicFields
+    // Mock listDynamicFields for both getTransceivers and getWormholePackageId
+    mockClient.listDynamicFields
       .mockResolvedValueOnce({
         // For getTransceivers
-        data: [
+        dynamicFields: [
           {
-            name: { type: "transceiver_registry::Key" },
-            objectId:
+            name: { type: "0x123::transceiver_registry::Key" },
+            fieldId:
               "0xtransceiverinfoobj90abcdef1234567890abcdef12345678901234567890",
           },
         ],
         hasNextPage: false,
-        nextCursor: null,
+        cursor: null,
       })
       .mockResolvedValue({
         // For getWormholePackageId
-        data: [
+        dynamicFields: [
           {
             name: { type: "CurrentPackage" },
-            objectId:
+            fieldId:
               "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456",
           },
         ],
         hasNextPage: false,
-        nextCursor: null,
+        cursor: null,
       });
-
-    // Add additional mock for the CurrentPackage object that will be fetched by getObjectFields
-    mockClient.getObject.mockResolvedValueOnce({
-      // Mock the CurrentPackage object response
-      data: {
-        digest: "mockDigest",
-        objectId:
-          "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456",
-        version: "1",
-        content: {
-          dataType: "moveObject" as const,
-          type: "CurrentPackage",
-          hasPublicTransfer: false,
-          fields: {
-            value: {
-              fields: {
-                package:
-                  "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-              },
-            },
-          },
-        },
-      },
-    });
   });
 
   describe("constructor", () => {
@@ -249,8 +258,8 @@ describe("SuiNttWithExecutor", () => {
       const { value: tx } = await txGenerator.next();
       expect(tx).toBeDefined();
 
-      // For native tokens, getCoins should not be called since we split from gas
-      expect(mockClient.getCoins).not.toHaveBeenCalledWith(
+      // For native tokens, listCoins should not be called since we split from gas
+      expect(mockClient.listCoins).not.toHaveBeenCalledWith(
         expect.objectContaining({
           coinType: "0x2::sui::SUI",
         })
@@ -274,24 +283,22 @@ describe("SuiNttWithExecutor", () => {
         .spyOn(suiNtt, "getPeer")
         .mockImplementation(() => Promise.resolve(null));
 
-      // Mock user's coins for the non-native token
+      // Mock user's coins for the non-native token (gRPC listCoins shape)
       const mockCoins = [
         {
-          coinObjectId: "token1",
-          coinType: nonNativeToken,
-          balance: "1000000000",
+          objectId: "token1",
+          type: nonNativeToken,
         },
         {
-          coinObjectId: "token2",
-          coinType: nonNativeToken,
-          balance: "1000000000",
+          objectId: "token2",
+          type: nonNativeToken,
         },
       ];
 
       // Reset and configure mocks for non-native token
-      mockClient.getCoins.mockResolvedValueOnce({
-        data: mockCoins,
-        nextCursor: null,
+      mockClient.listCoins.mockResolvedValueOnce({
+        objects: mockCoins,
+        cursor: null,
         hasNextPage: false,
       });
 
@@ -306,8 +313,8 @@ describe("SuiNttWithExecutor", () => {
       const { value: tx } = await txGenerator.next();
       expect(tx).toBeDefined();
 
-      // For non-native tokens, getCoins should be called to fetch user's coins
-      expect(mockClient.getCoins).toHaveBeenCalledWith({
+      // For non-native tokens, listCoins should be called to fetch user's coins
+      expect(mockClient.listCoins).toHaveBeenCalledWith({
         owner: expect.any(String),
         coinType: nonNativeToken,
         cursor: null,

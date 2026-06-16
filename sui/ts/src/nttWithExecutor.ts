@@ -17,7 +17,7 @@ import {
   SuiUnsignedTransaction,
 } from "@wormhole-foundation/sdk-sui";
 import { PublicKey } from "@solana/web3.js";
-import { SuiClient } from "@mysten/sui/client";
+import { SuiGrpcClient } from "@mysten/sui/grpc";
 import {
   Transaction,
   TransactionObjectArgument,
@@ -44,7 +44,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
   constructor(
     readonly network: N,
     readonly chain: C,
-    readonly provider: SuiClient,
+    readonly provider: SuiGrpcClient,
     readonly contracts: Contracts & { ntt?: Ntt.Contracts }
   ) {
     if (!SUI_ADDRESSES[network as keyof typeof SUI_ADDRESSES]) {
@@ -61,10 +61,10 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
   }
 
   static async fromRpc<N extends Network>(
-    provider: SuiClient,
+    provider: SuiGrpcClient,
     config: ChainsConfig<N, SuiPlatformType>
   ): Promise<SuiNttWithExecutor<N, SuiChains>> {
-    const [network, chain] = await SuiPlatform.chainFromRpc(provider as any);
+    const [network, chain] = await SuiPlatform.chainFromRpc(provider);
     const conf = config[chain]!;
     if (conf.network !== network)
       throw new Error(`Network mismatch: ${conf.network} != ${network}`);
@@ -107,7 +107,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
 
     // Create and return the complete transaction
     const executorTx = new SuiUnsignedTransaction(
-      tx as any,
+      tx,
       this.network,
       this.chain,
       "NTT Transfer with Executor"
@@ -143,7 +143,7 @@ export class SuiNttWithExecutor<N extends Network, C extends SuiChains>
     // Get transceiver info
     const [transceiverStateId] = await getTransceivers(
       ntt.provider,
-      fields.transceivers.fields.id.id
+      fields.transceivers.id
     );
 
     if (!transceiverStateId) {
