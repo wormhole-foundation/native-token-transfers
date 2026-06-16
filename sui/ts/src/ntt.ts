@@ -330,7 +330,7 @@ export class SuiNtt<N extends Network, C extends SuiChains>
       coinType: this.contracts.ntt!["token"],
     });
 
-    if (!coinMetadata?.decimals) {
+    if (!coinMetadata) {
       throw new Error(
         `CoinMetadata not found for ${this.contracts.ntt!["token"]}`
       );
