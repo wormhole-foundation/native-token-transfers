@@ -152,6 +152,15 @@ export function createSolanaCommand(
                 describe: "Token address",
                 type: "string",
               })
+              .option("instance", {
+                describe:
+                  "(Multi-tenant / v4) The Instance pubkey under the program. " +
+                  "v4 token_authority PDAs are scoped by instance, so this " +
+                  "flag is required when the undeployed program is " +
+                  "multi-tenant. For a deployed program the instance is read " +
+                  "from the deployment file.",
+                type: "string",
+              })
               .option("path", options.deploymentPath)
               .option("yes", options.yes)
               .option("payer", { ...options.payer, demandOption: true })
@@ -192,6 +201,17 @@ export function createSolanaCommand(
               process.exit(1);
             }
 
+            const instance = argv["instance"]
+              ? new PublicKey(argv["instance"])
+              : undefined;
+            if (instance && !manager) {
+              console.error(
+                "--instance is only valid together with --token and --manager; " +
+                  "for a deployed program the instance is read from the deployment file"
+              );
+              process.exit(1);
+            }
+
             const wh = new Wormhole(
               network,
               [solana.Platform, evm.Platform],
@@ -201,7 +221,7 @@ export function createSolanaCommand(
             const connection: Connection = await ch.getRpc();
 
             let solanaNtt: SolanaNtt<typeof network, SolanaChains> | undefined;
-            let managerKey: PublicKey;
+            let tokenAuthority: PublicKey;
             let major: number;
             let tokenProgram: PublicKey;
 
@@ -221,9 +241,12 @@ export function createSolanaCommand(
                 chainConfig.instance
               );
               solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
-              managerKey = new PublicKey(chainConfig.manager);
               major = Number(solanaNtt.version.split(".")[0]);
               tokenProgram = (await solanaNtt.getConfig()).tokenProgram;
+              // `solanaNtt.pdas` is scoped by `chainConfig.instance` for v4
+              // (multi-tenant) managers, so this derives the instance-scoped
+              // token authority; for v3 it's the legacy derivation.
+              tokenAuthority = solanaNtt.pdas.tokenAuthority();
             }
             // default values as undeployed program
             else {
@@ -239,12 +262,13 @@ export function createSolanaCommand(
               spl.unpackMint(tokenMint, mintInfo, mintInfo.owner);
 
               solanaNtt = undefined;
-              managerKey = new PublicKey(manager!);
               major = -1;
               tokenProgram = mintInfo.owner;
+              tokenAuthority = NTT.pdas(
+                new PublicKey(manager!),
+                instance
+              ).tokenAuthority();
             }
-
-            const tokenAuthority = NTT.pdas(managerKey).tokenAuthority();
 
             // check if SPL-Multisig is supported for manager version
             // undeployed -- assume version compatible via warning
