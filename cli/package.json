@@ -24,14 +24,14 @@
     "yargs": "18.0.0"
   },
   "overrides": {
-    "@wormhole-foundation/sdk-base": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-definitions": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-evm": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-evm-core": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-connect": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-solana": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-solana-core": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-sui": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-sui-core": "^5.0.0-beta.2"
+    "@wormhole-foundation/sdk-base": "^5.0.0",
+    "@wormhole-foundation/sdk-definitions": "^5.0.0",
+    "@wormhole-foundation/sdk-evm": "^5.0.0",
+    "@wormhole-foundation/sdk-evm-core": "^5.0.0",
+    "@wormhole-foundation/sdk-connect": "^5.0.0",
+    "@wormhole-foundation/sdk-solana": "^5.0.0",
+    "@wormhole-foundation/sdk-solana-core": "^5.0.0",
+    "@wormhole-foundation/sdk-sui": "^5.0.0",
+    "@wormhole-foundation/sdk-sui-core": "^5.0.0"
   }
 }

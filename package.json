@@ -27,7 +27,7 @@
     "@solana/web3.js": "^1.95.8",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.2",
-    "@wormhole-foundation/sdk": "^5.0.0-beta.2",
+    "@wormhole-foundation/sdk": "^5.0.0",
     "@wormhole-foundation/wormchain-sdk": "^0.0.1",
     "ethers": "^6.5.1",
     "prettier": "3.6.2",
@@ -47,11 +47,11 @@
   ],
   "overrides": {
     "@types/jest": "^29.5.12",
-    "@wormhole-foundation/sdk-sui": "5.0.0-beta.2",
-    "@wormhole-foundation/sdk-sui-core": "5.0.0-beta.2"
+    "@wormhole-foundation/sdk-sui": "5.0.0",
+    "@wormhole-foundation/sdk-sui-core": "5.0.0"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-sui": "^5.0.0-beta.2",
-    "@wormhole-foundation/sdk-sui-core": "^5.0.0-beta.2"
+    "@wormhole-foundation/sdk-sui": "^5.0.0",
+    "@wormhole-foundation/sdk-sui-core": "^5.0.0"
   }
 }
