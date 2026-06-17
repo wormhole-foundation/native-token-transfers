@@ -100,7 +100,7 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
   }
 
   async sign(tx: UnsignedTransaction<N, C>[]): Promise<SignedTx[]> {
-    const chain = this.chain();
+    const chain: EvmChains = this.chain();
 
     const signed = [];
 
@@ -108,9 +108,6 @@ export class EvmNativeSigner<N extends Network, C extends EvmChains = EvmChains>
 
     // Per-chain gas limit overrides where the default 500k is insufficient
     switch (chain) {
-      case "Mantle":
-        gasLimit = 2600_000_000_000n;
-        break;
       case "ArbitrumSepolia":
         gasLimit = 4_000_000n;
         break;

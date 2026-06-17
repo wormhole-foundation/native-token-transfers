@@ -15,12 +15,12 @@ import {
   type SuiChains,
   _platform,
 } from "@wormhole-foundation/sdk-sui";
-import { SuiClient } from "@mysten/sui/client";
+import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
 
 export async function getSuiSigner(
-  rpc: SuiClient,
+  rpc: SuiGrpcClient,
   key: string | Ed25519Keypair,
   opts?: {
     debug?: boolean;
@@ -43,7 +43,7 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
     _chain: C,
     _address: string,
     _signer: Ed25519Keypair,
-    readonly client: SuiClient,
+    readonly client: SuiGrpcClient,
     readonly opts?: { debug?: boolean }
   ) {
     super(_chain, _address, _signer);
@@ -112,10 +112,7 @@ export class SuiNativeSigner<N extends Network, C extends SuiChains = SuiChains>
         console.error("ERROR: Transaction context at time of failure:");
         console.error("  - Description:", description);
         console.error("  - Transaction type:", typeof transaction);
-        console.error(
-          "  - Transaction blockData exists:",
-          !!transaction.blockData
-        );
+        console.error("  - Transaction data exists:", !!transaction.getData());
         console.error("  - Signer exists:", !!this._signer);
         console.error("  - Client exists:", !!this.client);
 
