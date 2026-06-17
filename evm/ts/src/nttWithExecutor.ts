@@ -29,6 +29,7 @@ const nttManagerWithExecutorAddresses: Partial<
 > = {
   Mainnet: {
     Arbitrum: "0x5029a23E0EE11f6c9120EAb7eB48a94a49907EC4",
+    Arc: "0xBd9e400d4A64DFEf7B51666d751A29ccBff4e97C",
     Avalanche: "0xf1Aa9693265E0Ba892C4a7AE77591424eEEd5cE9",
     Base: "0x27db1967D469D89318B7119Ced5609f327095de4",
     Berachain: "0x7424E82D27dD80ca47eab5e739C4D5A2D220f64f",
