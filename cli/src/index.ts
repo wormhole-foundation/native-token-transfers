@@ -30,6 +30,7 @@ import {
   createTransferOwnershipCommand,
   createUpdateCommand,
   createUpgradeCommand,
+  createXrplCommand,
 } from "./commands";
 import { loadOverrides } from "./overrides.js";
 import { formatNttVersion, nttVersion } from "./version.js";
@@ -65,6 +66,7 @@ yargs(hideBin(process.argv))
   .command(createHypeCommand(overrides))
   .command(createManualCommand(overrides))
   .command(createSuiCommand(overrides))
+  .command(createXrplCommand(overrides))
   .help()
   .strict()
   .demandCommand()
