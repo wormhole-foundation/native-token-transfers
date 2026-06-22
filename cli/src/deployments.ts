@@ -33,6 +33,14 @@ export type HyperCoreConfig = {
 // the full ChainConfig shape.
 export type XrplConfig = {
   manager?: string;
+  // The NTT token: "native" for native XRP, otherwise the Wormhole SDK XRPL
+  // platform address (`XrplAddress` from `@wormhole-foundation/sdk-xrpl`) — an
+  // IOU "CODE.rIssuer" or a 48-char hex MPT issuance id. Recorded by
+  // `ntt xrpl set-token`.
+  token?: string;
+  // Token decimals on XRPL (e.g. 6 for XRP, the MPT AssetScale, or the chosen
+  // precision for an IOU). Recorded by `ntt xrpl set-token`.
+  decimals?: number;
 };
 
 export type Config = {

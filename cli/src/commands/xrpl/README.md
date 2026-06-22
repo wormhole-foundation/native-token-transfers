@@ -36,6 +36,7 @@ An MPT is `create-mpt` (issuer) + `authorize-mpt` (each holder).
 | Command           | Signed by       | XRPL transaction                  | Purpose                                                       |
 | ----------------- | --------------- | --------------------------------- | ------------------------------------------------------------- |
 | `set-manager`     | —               | _(none — writes deployment.json)_ | Record the custody account so later commands don't re-pass it |
+| `set-token`       | —               | _(none — writes deployment.json)_ | Record the NTT token address + decimals                       |
 | `fund`            | source / faucet | `Payment` / faucet                | Fund the account for a signer list + tickets                  |
 | `reserve-tickets` | custody         | `TicketCreate`                    | Pre-allocate tickets                                          |
 | `init`            | custody         | `Payment` + onboarding memo       | Onboard the account to the Wormhole Core                      |
@@ -126,6 +127,24 @@ other custody commands can default `--account` to it. No XRPL transaction.
 
 ```
 ntt xrpl set-manager --account r9qA...
+```
+
+### `set-token`
+
+Records the deployment's NTT token in the deployment file (`xrpl.token` +
+`xrpl.decimals`). Native XRP is recorded as `"native"`; IOU/MPT identifiers are
+validated and normalized with the Wormhole SDK's XRPL address conventions
+(`XrplAddress` from `@wormhole-foundation/sdk-xrpl`). No XRPL transaction.
+
+- `--token` (required) — `native` for native XRP, an IOU `CODE.rIssuer`, or a
+  48-char hex MPT issuance id
+- `--decimals` (required) — token decimals on XRPL (e.g. `6` for XRP), `0`–`255`
+- `--path` — deployment file (default `deployment.json`)
+
+```
+ntt xrpl set-token --token native --decimals 6                                  # native XRP
+ntt xrpl set-token --token FOO.rBa2jdUu8S2ZzaCJv8y1Lx9Pdrns51hJj --decimals 9   # IOU
+ntt xrpl set-token --token 00EE5E8C9F... --decimals 9                           # MPT
 ```
 
 ### `fund`
@@ -316,11 +335,17 @@ ntt xrpl rotate-admin -n Testnet --new-admin r9qA... --admin-seed sEd7...
 (kept out of `chains`, which expects a full NTT config):
 
 ```json
-{ "network": "Testnet", "chains": { … }, "xrpl": { "manager": "r9qA..." } }
+{
+  "network": "Testnet",
+  "chains": { … },
+  "xrpl": { "manager": "r9qA...", "token": "native", "decimals": 6 }
+}
 ```
 
 `fund`, `reserve-tickets`, and `set-signer-list` read `xrpl.manager` as the
-default account when `--account` is omitted.
+default account when `--account` is omitted. `set-token` records the optional
+`token` and `decimals` — the token (`"native"` for native XRP, an IOU
+`CODE.rIssuer`, or a 48-char hex MPT issuance id) and its decimals on XRPL.
 
 ## Common options
 

@@ -8,6 +8,7 @@ import { createEnableRipplingCommand } from "./enable-rippling";
 import { createTrustSetCommand } from "./trust-set";
 import { createXrplInitCommand } from "./init";
 import { createXrplSetManagerCommand } from "./set-manager";
+import { createXrplSetTokenCommand } from "./set-token";
 import { createXrplFundCommand } from "./fund";
 import { createXrplReserveTicketsCommand } from "./reserve-tickets";
 import { createXrplSetSignerListCommand } from "./set-signer-list";
@@ -29,6 +30,7 @@ import { createXrplRotateAdminCommand } from "./rotate-admin";
  *
  * Custody-account setup (run in order, while you still hold the account key):
  *   set-manager      — record the custody account in the deployment file
+ *   set-token        — record the NTT token (address + decimals) in the deployment file
  *   fund             — fund the account for a signer list + tickets
  *   reserve-tickets  — pre-allocate tickets (TicketCreate)
  *   init             — send the XRPLAppOnboarding message
@@ -54,6 +56,7 @@ export function createXrplCommand(overrides: WormholeConfigOverrides<Network>) {
         .command(createCreateMptCommand(overrides))
         .command(createAuthorizeMptCommand(overrides))
         .command(createXrplSetManagerCommand(overrides))
+        .command(createXrplSetTokenCommand(overrides))
         .command(createXrplFundCommand(overrides))
         .command(createXrplReserveTicketsCommand(overrides))
         .command(createXrplInitCommand(overrides))
