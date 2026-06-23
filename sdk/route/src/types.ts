@@ -474,13 +474,23 @@ export namespace MultiTokenNttRoute {
     return gasLimit;
   }
 
+  /**
+   * Reads the destination chain's inbound rate limit for the given token and
+   * source chain. Always returns `currentCapacity` (the amount that can be
+   * transferred right now) when a rate limit is configured, and additionally a
+   * `DestinationCapacityWarning` when the received amount is close enough to the
+   * capacity that the transfer is likely to be queued/delayed.
+   */
   export async function checkRateLimit<N extends Network>(
     destinationNtt: MultiTokenNtt<N, Chain>,
     fromChain: Chain,
     originalTokenId: MultiTokenNtt.OriginalTokenId,
     receivedAmount: amount.Amount,
     duration: bigint
-  ): Promise<QuoteWarning[] | undefined> {
+  ): Promise<{
+    warnings?: QuoteWarning[];
+    currentCapacity?: amount.Amount;
+  }> {
     if (duration > 0n) {
       const inboundLimit = await destinationNtt.getInboundLimit(
         originalTokenId,
@@ -493,22 +503,28 @@ export namespace MultiTokenNttRoute {
           fromChain
         );
 
-        if (
+        const currentCapacity = amount.fromBaseUnits(
+          capacity,
+          receivedAmount.decimals
+        );
+
+        const warnings: QuoteWarning[] | undefined =
           NttRoute.isCapacityThresholdExceeded(
             amount.units(receivedAmount),
             capacity
           )
-        ) {
-          return [
-            {
-              type: "DestinationCapacityWarning",
-              delayDurationSec: Number(duration),
-            },
-          ];
-        }
+            ? [
+                {
+                  type: "DestinationCapacityWarning",
+                  delayDurationSec: Number(duration),
+                },
+              ]
+            : undefined;
+
+        return { warnings, currentCapacity };
       }
     }
-    return undefined;
+    return {};
   }
 
   export async function isWrappedToken<N extends Network>(

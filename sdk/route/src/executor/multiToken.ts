@@ -76,7 +76,15 @@ type Vr = routes.ValidationResult<Op>;
 
 type Vp = MultiTokenNttRoute.ValidatedParams;
 
-type Q = routes.Quote<Op, Vp, MultiTokenNttWithExecutor.Quote>;
+// Route-specific quote details. Extends the executor quote with the
+// destination chain's current inbound rate-limit capacity so consumers can
+// always surface "how much can be transferred right now", even when the
+// transfer isn't large enough to trigger a DestinationCapacityWarning.
+type QuoteDetails = MultiTokenNttWithExecutor.Quote & {
+  currentInboundCapacity?: amount.Amount;
+};
+
+type Q = routes.Quote<Op, Vp, QuoteDetails>;
 type QR = routes.QuoteResult<Op, Vp>;
 
 type R = MultiTokenNttRoute.TransferReceipt;
@@ -304,15 +312,19 @@ export class MultiTokenNttExecutorRoute<N extends Network>
       });
 
       const duration = await destinationNtt.getRateLimitDuration();
-      const warnings = await MultiTokenNttRoute.checkRateLimit(
-        destinationNtt,
-        fromChain.chain,
-        params.normalizedParams.originalTokenId,
-        receivedAmount,
-        duration
-      );
+      const { warnings, currentCapacity } =
+        await MultiTokenNttRoute.checkRateLimit(
+          destinationNtt,
+          fromChain.chain,
+          params.normalizedParams.originalTokenId,
+          receivedAmount,
+          duration
+        );
       if (warnings) {
         result.warnings = warnings;
+      }
+      if (currentCapacity) {
+        result.details.currentInboundCapacity = currentCapacity;
       }
 
       return result;

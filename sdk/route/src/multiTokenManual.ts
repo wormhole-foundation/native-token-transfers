@@ -215,7 +215,7 @@ export class MultiTokenNttManualRoute<N extends Network>
     });
 
     const duration = await destinationNtt.getRateLimitDuration();
-    const warnings = await MultiTokenNttRoute.checkRateLimit(
+    const { warnings } = await MultiTokenNttRoute.checkRateLimit(
       destinationNtt,
       fromChain.chain,
       params.normalizedParams.originalTokenId,
