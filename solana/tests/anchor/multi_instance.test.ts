@@ -30,10 +30,13 @@ import {
 } from "../../ts/sdk/index.js";
 import { NTT } from "../../ts/index.js";
 import { TestHelper, TestMint, assert, signSendWait } from "./utils/helpers.js";
+import { fileURLToPath } from "url";
 
 registerDefinitionsNtt();
 registerSolanaNtt();
 
+// Native ESM (jest useESM) has no __dirname; derive it from import.meta.url.
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const SOLANA_ROOT_DIR = `${__dirname}/../../`;
 const VERSION: IdlVersion = "4.0.0";
 const TOKEN_PROGRAM = spl.TOKEN_2022_PROGRAM_ID;
