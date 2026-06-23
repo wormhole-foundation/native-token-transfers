@@ -55,6 +55,15 @@ export function createSetMintAuthorityCommand(
           describe: "Token address",
           type: "string",
         })
+        .option("instance", {
+          describe:
+            "(Multi-tenant / v4) The Instance pubkey under the program. " +
+            "v4 token_authority PDAs are scoped by instance, so this " +
+            "flag is required when the undeployed program is " +
+            "multi-tenant. For a deployed program the instance is read " +
+            "from the deployment file.",
+          type: "string",
+        })
         .option("path", options.deploymentPath)
         .option("yes", options.yes)
         .option("payer", { ...options.payer, demandOption: true })
@@ -108,10 +117,22 @@ export function createSetMintAuthorityCommand(
         process.exit(1);
       }
 
+      const instance = argv["instance"]
+        ? new PublicKey(argv["instance"])
+        : undefined;
+      if (instance && !manager) {
+        console.error(
+          "--instance is only valid together with --token and --manager; " +
+            "for a deployed program the instance is read from the deployment file"
+        );
+        process.exit(1);
+      }
+
       let solanaNtt: SolanaNtt<typeof network, SolanaChains> | undefined;
       let tokenMint: PublicKey;
       let managerKey: PublicKey;
       let major: number;
+      let tokenAuthority: PublicKey;
 
       // program deployed so fetch token and manager addresses from deployment
       if (!token && !manager) {
@@ -132,6 +153,10 @@ export function createSetMintAuthorityCommand(
         tokenMint = (await solanaNtt.getConfig()).mint;
         managerKey = new PublicKey(chainConfig.manager);
         major = Number(solanaNtt.version.split(".")[0]);
+        // `solanaNtt.pdas` is scoped by `chainConfig.instance` for v4
+        // (multi-tenant) managers, so this derives the instance-scoped token
+        // authority; for v3 it's the legacy derivation.
+        tokenAuthority = solanaNtt.pdas.tokenAuthority();
       }
       // default values as undeployed program
       else {
@@ -139,6 +164,7 @@ export function createSetMintAuthorityCommand(
         tokenMint = new PublicKey(token!);
         managerKey = new PublicKey(manager!);
         major = -1;
+        tokenAuthority = NTT.pdas(managerKey, instance).tokenAuthority();
       }
 
       const wh = new Wormhole(
@@ -148,8 +174,6 @@ export function createSetMintAuthorityCommand(
       );
       const ch = wh.getChain(chain);
       const connection: Connection = await ch.getRpc();
-
-      const tokenAuthority = NTT.pdas(managerKey).tokenAuthority();
 
       // verify current mint authority is not token authority
       const mintInfo = await connection.getAccountInfo(tokenMint);
