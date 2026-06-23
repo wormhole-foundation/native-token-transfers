@@ -32,6 +32,13 @@ pub struct ReleaseOutbound<'info> {
     pub outbox_item: Account<'info, OutboxItem>,
 
     #[account(
+        // sanity check: derive the RegisteredTransceiver PDA as a second layer.
+        // It's a manager-owned account (hence `seeds::program` points at the
+        // manager, unlike the standalone transceiver which lives in the manager
+        // program), and is already validated by the CPI below.
+        seeds = [RegisteredTransceiver::SEED_PREFIX, config.key().as_ref(), transceiver.transceiver_address.as_ref()],
+        bump,
+        seeds::program = example_native_token_transfers::ID,
         constraint = transceiver.transceiver_address == crate::ID,
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver
     )]
