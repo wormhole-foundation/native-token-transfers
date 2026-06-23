@@ -23,6 +23,10 @@ pub struct ReleaseOutbound<'info> {
 
     #[account(
         mut,
+        // sanity check: the outbox item must belong to this instance. This is
+        // already enforced by the `mark_outbox_item_as_released` CPI below, but
+        // mirror the standalone transceiver and check it here as a second layer.
+        constraint = outbox_item.manager == config.key() @ NTTError::InvalidOutboxItem,
         constraint = !outbox_item.released.get(transceiver.id)? @ NTTError::MessageAlreadySent,
     )]
     pub outbox_item: Account<'info, OutboxItem>,
