@@ -8,6 +8,7 @@ import {
   encoding,
   isNetwork,
   toUniversal,
+  UniversalAddress,
   type Chain,
 } from "@wormhole-foundation/sdk";
 
@@ -19,6 +20,8 @@ import { newSignSendWaiter } from "../signers/signSendWait.js";
 import { options } from "./shared";
 import { pullChainConfig } from "../index";
 import { validatePayerOption } from "../validation";
+
+const isUniversalHex = (address: string): boolean => /^(0x)?[0-9a-fA-F]{64}$/.test(address);
 
 export function createManualCommand(
   overrides: WormholeConfigOverrides<Network>
@@ -118,10 +121,15 @@ export function createManualCommand(
                 `\nSource NTT Manager: ${colors.yellow(sourceConfig.manager)}`
               );
 
-              // Create peer address object
+              // Create peer address object. A peer NTT manager address is a raw
+              // 32-byte universal value, so accept hex directly — routing it
+              // through the chain-specific parser (toUniversal) fails for chains
+              // whose native encoding isn't hex (e.g. XRPL base58).
               const peerChainAddress = {
                 chain: peerChain,
-                address: toUniversal(peerChain, peerAddress),
+                address: isUniversalHex(peerAddress)
+                  ? new UniversalAddress(peerAddress)
+                  : toUniversal(peerChain, peerAddress),
               };
 
               // Get signer for the source chain
@@ -337,10 +345,15 @@ export function createManualCommand(
                 `\nSource NTT Manager: ${colors.yellow(sourceConfig.manager)}`
               );
 
-              // Create peer address object
+              // Create peer address object. A transceiver peer is always a raw
+              // 32-byte universal address, so accept hex directly — routing it
+              // through the chain-specific parser (toUniversal) fails for chains
+              // whose native encoding isn't hex (e.g. XRPL base58).
               const peerChainAddress = {
                 chain: peerChain,
-                address: toUniversal(peerChain, peerAddress),
+                address: isUniversalHex(peerAddress)
+                  ? new UniversalAddress(peerAddress)
+                  : toUniversal(peerChain, peerAddress),
               };
 
               // Get signer for the source chain

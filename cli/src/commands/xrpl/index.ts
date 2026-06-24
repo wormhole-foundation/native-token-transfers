@@ -17,6 +17,7 @@ import { createXrplParseVaaCommand } from "./parse-vaa";
 import { createXrplRelayCommand } from "./relay";
 import { createXrplRegisterPeerCommand } from "./register-peer";
 import { createXrplRotateAdminCommand } from "./rotate-admin";
+import { createXrplTransferCommand } from "./transfer";
 
 /**
  * `ntt xrpl <subcommand>` — XRPL commands for preparing and operating an NTT
@@ -66,6 +67,7 @@ export function createXrplCommand(overrides: WormholeConfigOverrides<Network>) {
         .command(createXrplRelayCommand(overrides))
         .command(createXrplRegisterPeerCommand(overrides))
         .command(createXrplRotateAdminCommand(overrides))
+        .command(createXrplTransferCommand(overrides))
         .demandCommand(1, "Specify an xrpl subcommand")
         .strict(),
     handler: () => {},

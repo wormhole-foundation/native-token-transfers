@@ -211,7 +211,7 @@ export function createXrplRelayCommand(
   };
 }
 
-async function runRelay(
+export async function runRelay(
   argv: any,
   overrides: WormholeConfigOverrides<Network>
 ): Promise<void> {
@@ -221,12 +221,12 @@ async function runRelay(
   const dstChain = resolveChainId(argv["dst-chain"]);
   const requestType: "ern1" | "erv1" = argv["request-type"];
   const executor: string = argv.executor;
-  const executorApi: string = argv["executor-api"];
-  const guardianApi: string = argv["guardian-api"];
+  const executorApi: string = argv["executor-api"] ?? DEFAULT_EXECUTOR_API;
+  const guardianApi: string = argv["guardian-api"] ?? DEFAULT_GUARDIAN_API;
   const gasLimit = BigInt(argv["gas-limit"]);
   const msgValue = BigInt(argv["msg-value"]);
-  const pollInterval = argv["poll-interval"];
-  const pollTimeout = argv["poll-timeout"];
+  const pollInterval = argv["poll-interval"] ?? 5_000;
+  const pollTimeout = argv["poll-timeout"] ?? 120_000;
 
   const seed = loadSeed(argv.seed, "seed", "SEED");
   const wallet = walletFromSeed(seed, argv.algorithm);
