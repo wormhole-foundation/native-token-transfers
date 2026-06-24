@@ -163,8 +163,14 @@ export function createXrplTransferCommand(
           type: "string",
         })
         .option("currency", { describe: "IOU currency [IOU]", type: "string" })
-        .option("issuer", { describe: "IOU issuer r-address [IOU]", type: "string" })
-        .option("mpt-id", { describe: "MPT issuance id, 48-hex [MPT]", type: "string" })
+        .option("issuer", {
+          describe: "IOU issuer r-address [IOU]",
+          type: "string",
+        })
+        .option("mpt-id", {
+          describe: "MPT issuance id, 48-hex [MPT]",
+          type: "string",
+        })
         .option("seed", {
           describe: "XRPL seed of the sending wallet (or env SEED)",
           type: "string",
@@ -239,7 +245,12 @@ export async function runTransfer(
   const memoFormat = Buffer.from(NTT_TRANSFER_MEMO_FORMAT, "ascii")
     .toString("hex")
     .toUpperCase();
-  const paymentAmount = buildAmount({ currency, issuer, mptIssuanceId, amount });
+  const paymentAmount = buildAmount({
+    currency,
+    issuer,
+    mptIssuanceId,
+    amount,
+  });
 
   const tokenLabel = isMpt ? "MPT" : isIou ? currency : "XRP";
   console.log(colors.blue("💸 XRPL NTT transfer"));

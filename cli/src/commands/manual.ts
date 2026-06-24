@@ -21,7 +21,8 @@ import { options } from "./shared";
 import { pullChainConfig } from "../index";
 import { validatePayerOption } from "../validation";
 
-const isUniversalHex = (address: string): boolean => /^(0x)?[0-9a-fA-F]{64}$/.test(address);
+const isUniversalHex = (address: string): boolean =>
+  /^(0x)?[0-9a-fA-F]{64}$/.test(address);
 
 export function createManualCommand(
   overrides: WormholeConfigOverrides<Network>
