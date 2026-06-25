@@ -2,6 +2,8 @@ import type {
   Network,
   WormholeConfigOverrides,
 } from "@wormhole-foundation/sdk-connect";
+import { RequestPrefix } from "@wormhole-foundation/sdk-connect";
+import { fetchQuote, fetchStatus } from "@wormhole-foundation/sdk-connect";
 import { toChain, toUniversal, type Chain } from "@wormhole-foundation/sdk";
 import { ethers } from "ethers";
 import { decodeAccountID } from "xrpl";
@@ -15,21 +17,14 @@ import {
   walletFromSeed,
   withXrplClient,
 } from "../../xrpl/helpers";
-import {
-  getDefaultExecutorApiForNetwork,
-  fetchQuote,
-  submitStatusTx,
-} from "../../xrpl/executor";
+import { getDefaultExecutorApiForNetwork } from "../../xrpl/executor";
 import {
   CHAIN_ID_XRPL,
   getDefaultGuardianApiForNetwork,
   pollSignedVaa,
 } from "../../xrpl/guardian";
 import {
-  RequestPrefix,
   buildGasInstructionHex,
-  deserializeRelayInstructions,
-  deserializeSignedQuote,
   serializeRequest,
   serializeRequestForExecution,
   type RequestForExecution,
@@ -331,13 +326,17 @@ export async function runRelay(
     buildGasInstructionHex(gasLimit, msgValue);
 
   console.log(colors.blue("\n💱 Fetching executor quote..."));
-  const quote = await fetchQuote({
+  const quote = await fetchQuote(
     executorApi,
-    srcChain: CHAIN_ID_XRPL,
-    dstChain,
-    relayInstructions,
-  });
-  console.log(`  estimated cost: ${colors.yellow(quote.estimatedCost)} drops`);
+    toChain(CHAIN_ID_XRPL),
+    toChain(dstChain),
+    relayInstructions
+  );
+  if (!quote.estimatedCost) {
+    throw new Error("Executor quote did not include an estimatedCost");
+  }
+  const estimatedCost = quote.estimatedCost;
+  console.log(`  estimated cost: ${colors.yellow(estimatedCost)} drops`);
 
   // ── 4. Build the request + RequestForExecution ──
   const request = buildRequest({
@@ -366,9 +365,9 @@ export async function runRelay(
       dstChain,
       dstAddr,
       refundAddr,
-      signedQuote: deserializeSignedQuote(quote.signedQuote),
-      requestBytes: request,
-      relayInstructions: deserializeRelayInstructions(relayInstructions),
+      signedQuote: quote.signedQuote,
+      requestBytes: serializeRequest(request),
+      relayInstructions,
     },
   };
 
@@ -396,11 +395,11 @@ export async function runRelay(
     TransactionType: "Payment" as const,
     Account: wallet.address,
     Destination: executor,
-    Amount: quote.estimatedCost,
+    Amount: estimatedCost,
     Memos: [{ Memo: { MemoFormat: memoFormat, MemoData: memoData } }],
   };
   console.log(`  executor:             ${colors.gray(executor)}`);
-  console.log(`  amount (drops):       ${colors.gray(quote.estimatedCost)}`);
+  console.log(`  amount (drops):       ${colors.gray(estimatedCost)}`);
   console.log(`  memo format:          ${colors.gray(memoFormat)}`);
   console.log(`  memo data:            ${colors.gray(memoData)}`);
 
@@ -413,11 +412,11 @@ export async function runRelay(
 
   // ── 6. Trigger executor indexing + report status ──
   console.log(colors.blue("\n📡 Notifying executor (/v0/status/tx)..."));
-  const status = await submitStatusTx({
+  const status = await fetchStatus(
     executorApi,
-    chainId: CHAIN_ID_XRPL,
-    txHash: memoTxHash,
-  });
+    memoTxHash,
+    toChain(CHAIN_ID_XRPL)
+  );
   console.log(
     JSON.stringify(
       status,

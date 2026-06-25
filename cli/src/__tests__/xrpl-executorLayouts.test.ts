@@ -2,10 +2,10 @@ import { describe, it, expect } from "bun:test";
 import {
   serializeRequest,
   deserializeRequest,
-  RequestPrefix,
   buildGasInstructionHex,
   type RequestLayout,
 } from "../xrpl/executorLayouts";
+import { RequestPrefix } from "@wormhole-foundation/sdk-connect";
 
 describe("request layout round-trip", () => {
   it("ERN1 (NTT transfer) serializes with prefix 0x45524e31 and round-trips", () => {
