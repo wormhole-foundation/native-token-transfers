@@ -243,17 +243,27 @@ ntt xrpl set-signer-list -n Testnet --signers r1,r2,r3 --quorum 2 --issuer-seed 
 
 ### `emitter`
 
-Computes the Wormhole transceiver emitter address for an XRPL custody account +
-token — `keccak256("ntt" + manager[32] + tokenId[32])`. Offline (no XRPL/RPC
-connection). Use the printed `0x…` value with `ntt manual set-transceiver-peer`.
+Computes an XRPL emitter address for a custody account. Offline (no XRPL/RPC
+connection). Two kinds, selected with `--kind` (default `transceiver`):
+
+- `transceiver` — the Wormhole NTT transceiver emitter,
+  `keccak256("ntt" + manager[32] + tokenId[32])`. Use the printed `0x…` value
+  with `ntt manual set-transceiver-peer`. Requires `--token`.
+- `generated` — the emitter the watcher uses for the account's automated
+  messages (acks such as XACK/XTCF): `"XRPL"[4] + 00×8 + account[20]`. This
+  namespace is distinct from a core publish (`00×12 + account`), so such
+  messages can't be forged through the core bridge. Useful for looking the
+  resulting VAA up by `(chain, emitter, sequence)`. `--token` is ignored.
 
 - `--manager` (required) — custody account (r-address or 20-byte hex)
-- `--token` (required) — `xrp` | `iou` | `mpt`
+- `--kind` — `transceiver` (default) | `generated`
+- `--token` — `xrp` | `iou` | `mpt` (required for `--kind transceiver`)
 - `--currency`, `--issuer` [`--token iou`]; `--mpt-id` [`--token mpt`]
 
 ```
 ntt xrpl emitter --manager rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny --token xrp
 ntt xrpl emitter --manager rnv8... --token iou --currency FOO --issuer rnv8...
+ntt xrpl emitter --manager rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny --kind generated
 ```
 
 ### `parse-vaa`

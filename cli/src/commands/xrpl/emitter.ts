@@ -9,6 +9,7 @@ import {
   computeEmitterAddress,
   formatTokenId,
   tokenIdFromFlags,
+  xrplGeneratedEmitter,
   type TokenId,
 } from "../../xrpl/tokenId";
 
@@ -18,7 +19,7 @@ export function createXrplEmitterCommand(
   return {
     command: "emitter",
     describe:
-      "Compute the XRPL transceiver emitter address for a manager + token (no tx)",
+      "Compute an XRPL emitter address for a manager / custody account (no tx)",
     builder: (yargs: any) =>
       yargs
         .option("manager", {
@@ -27,11 +28,17 @@ export function createXrplEmitterCommand(
           type: "string",
           demandOption: true,
         })
+        .option("kind", {
+          describe:
+            "Emitter kind: transceiver (NTT, needs --token) or generated (watcher acks XACK/XTCF)",
+          type: "string",
+          choices: ["transceiver", "generated"] as const,
+          default: "transceiver",
+        })
         .option("token", {
-          describe: "XRPL token type",
+          describe: "XRPL token type [--kind transceiver]",
           type: "string",
           choices: ["xrp", "iou", "mpt"] as const,
-          demandOption: true,
         })
         .option("currency", {
           describe: "IOU currency: 3-4 char ASCII or 40-char hex [--token iou]",
@@ -47,21 +54,39 @@ export function createXrplEmitterCommand(
         })
         .example(
           "$0 xrpl emitter --manager rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny --token xrp",
-          "Emitter for an XRP custody account"
+          "Transceiver emitter for an XRP custody account"
         )
         .example(
           "$0 xrpl emitter --manager rnv8... --token iou --currency FOO --issuer rnv8...",
-          "Emitter for an IOU deployment"
+          "Transceiver emitter for an IOU deployment"
+        )
+        .example(
+          "$0 xrpl emitter --manager rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny --kind generated",
+          "Emitter the watcher uses for that account's automated acks (XACK/XTCF)"
         ),
     handler: (argv: any) =>
       runXrpl(async () => {
+        const accountId = accountIdFrom(argv.manager);
+
+        if (argv.kind === "generated") {
+          const hex = xrplGeneratedEmitter(accountId);
+          console.log(colors.blue("🧮 XRPL generated-message emitter"));
+          console.log(`  manager: ${colors.yellow(argv.manager)}`);
+          console.log(`  kind:    ${colors.yellow("generated (XACK/XTCF)")}`);
+          console.log(`  emitter: ${colors.green(hex)}`);
+          console.log(`  0x form: ${colors.green("0x" + hex)}`);
+          return;
+        }
+
+        if (!argv.token) {
+          throw new Error("--token is required for --kind transceiver");
+        }
         const token: TokenId = tokenIdFromFlags({
           type: argv.token,
           currency: argv.currency,
           issuer: argv.issuer,
           mptId: argv["mpt-id"],
         });
-        const accountId = accountIdFrom(argv.manager);
         const emitter = computeEmitterAddress(accountId, token);
         const hex = emitter.toString("hex");
 

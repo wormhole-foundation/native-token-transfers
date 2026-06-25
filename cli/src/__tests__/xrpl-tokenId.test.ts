@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test";
+import { decodeAccountID } from "xrpl";
 import {
   computeEmitterAddressFromRAddress,
   iouToken,
@@ -9,6 +10,10 @@ import {
   buildTokenIdForEmitter,
   tokenIdFromFlags,
   formatTokenId,
+  xrplAccountToEmitter,
+  xrplGeneratedEmitter,
+  xrplGeneratedEmitterFromRAddress,
+  XRPL_GENERATED_EMITTER_PREFIX,
 } from "../xrpl/tokenId";
 
 // Known-good vectors from full_docs.md "New Sequencer Setups" — these are the
@@ -43,6 +48,46 @@ describe("computeEmitterAddress — known testnet vectors", () => {
     expect(emitter.toString("hex")).toBe(
       "b97ab26d22bf8688ce7466aac3031abfde0af2ab86ca57854d773f485c3cbb8a"
     );
+  });
+});
+
+describe("xrplGeneratedEmitter — watcher-generated message emitter", () => {
+  const rAddress = "rfeMQr71KJQwNUbRwGTgCfVLoUVdWuvyny";
+  const accountId = Buffer.from(decodeAccountID(rAddress));
+
+  it("is 32 bytes / 64 hex chars", () => {
+    expect(xrplGeneratedEmitter(accountId).length).toBe(64);
+  });
+
+  it("starts with the 'XRPL' (0x5852504c) prefix", () => {
+    expect(XRPL_GENERATED_EMITTER_PREFIX).toBe("5852504c");
+    expect(xrplGeneratedEmitter(accountId).startsWith("5852504c")).toBe(true);
+  });
+
+  it("has 8 zero bytes between the prefix and the account", () => {
+    const hex = xrplGeneratedEmitter(accountId);
+    expect(hex.slice(8, 24)).toBe("00".repeat(8));
+  });
+
+  it("preserves the account in the last 20 bytes", () => {
+    const hex = xrplGeneratedEmitter(accountId);
+    expect(hex.slice(24)).toBe(accountId.toString("hex"));
+  });
+
+  it("differs from the raw core account emitter for the same account", () => {
+    expect(xrplGeneratedEmitter(accountId)).not.toBe(
+      xrplAccountToEmitter(accountId)
+    );
+  });
+
+  it("FromRAddress matches the buffer form", () => {
+    expect(xrplGeneratedEmitterFromRAddress(rAddress)).toBe(
+      xrplGeneratedEmitter(accountId)
+    );
+  });
+
+  it("rejects a non-20-byte account id", () => {
+    expect(() => xrplGeneratedEmitter(Buffer.alloc(19))).toThrow();
   });
 });
 

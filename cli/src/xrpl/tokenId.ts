@@ -212,10 +212,13 @@ export function computeEmitterAddressFromRAddress(
 
 /**
  * Convert a 20-byte XRPL account ID to a 32-byte emitter address, left-padded
- * with 12 zero bytes. This is the emitter scheme for *core* VAAs synthesized
- * from XRPL publishes (onboarding / admin / register-peer) — the emitter is the
+ * with 12 zero bytes. This is the emitter scheme for *core* VAAs published by
+ * the account itself (onboarding / admin / register-peer) — the emitter is the
  * raw sending account, NOT the keccak NTT transceiver emitter. Mirrors
  * ripple/xrpl-client/src/export.ts::xrplAccountToEmitter.
+ *
+ * Do NOT use this for the watcher's automated messages (XACK / XTCF): those use
+ * {@link xrplGeneratedEmitter} so they cannot be forged via a core publish.
  */
 export function xrplAccountToEmitter(accountId: Buffer): string {
   if (accountId.length !== 20) {
@@ -224,6 +227,39 @@ export function xrplAccountToEmitter(accountId: Buffer): string {
   const padded = Buffer.alloc(32);
   accountId.copy(padded, 12);
   return padded.toString("hex");
+}
+
+/** ASCII "XRPL" (0x5852504C) — 4-byte prefix marking a watcher-generated emitter. */
+export const XRPL_GENERATED_EMITTER_PREFIX = "5852504c";
+
+/**
+ * Derive the 32-byte emitter address for a *watcher-generated* automated
+ * message (the acks the watcher synthesizes for custody txs — e.g. XACK / XTCF).
+ *
+ *   emitter = "XRPL"[4] || 0x00 * 8 || accountId[20]
+ *
+ * These messages are not published by the account, so giving them a distinct
+ * "XRPL"-prefixed namespace makes them impossible to forge with a core-bridge
+ * publish: a core publish always yields 0x00..00 || account (see
+ * {@link xrplAccountToEmitter}), never the "XRPL" prefix. The account is still
+ * recoverable as the last 20 bytes — but note the first 4 bytes are no longer
+ * zero, so anything asserting the leading 12 bytes are zero must be updated.
+ *
+ * @param accountId - 20-byte XRPL account ID
+ */
+export function xrplGeneratedEmitter(accountId: Buffer): string {
+  if (accountId.length !== 20) {
+    throw new Error(`account ID must be 20 bytes, got ${accountId.length}`);
+  }
+  const emitter = Buffer.alloc(32);
+  emitter.write(XRPL_GENERATED_EMITTER_PREFIX, 0, "hex");
+  accountId.copy(emitter, 12);
+  return emitter.toString("hex");
+}
+
+/** Convenience: derive the watcher-generated emitter from an XRPL r-address. */
+export function xrplGeneratedEmitterFromRAddress(rAddress: string): string {
+  return xrplGeneratedEmitter(Buffer.from(decodeAccountID(rAddress)));
 }
 
 /**
