@@ -18,7 +18,13 @@ import {
   XrplPlatformType,
   XrplUnsignedTransaction,
 } from "@wormhole-foundation/sdk-xrpl";
-import { Client, SubmittableTransaction, decodeAccountID } from "xrpl";
+import {
+  Client,
+  SubmittableTransaction,
+  decodeAccountID,
+  type AccountTxTransaction,
+  type Payment,
+} from "xrpl";
 import { executorRequestLayout, requestForExecutionLayout } from "./layouts.js";
 import { XrplNtt } from "./ntt.js";
 import {
@@ -93,39 +99,62 @@ export class XrplNttWithExecutor<N extends Network, C extends XrplChains>
       "NTT transfer"
     ) as unknown as UnsignedTransaction<N, C>;
 
-    // After the NTT payment is submitted and confirmed, look up the result
-    // to compute the messageId = (ledgerIndex << 32) | txIndex
     if (!this.provider.isConnected()) {
       await this.provider.connect();
     }
     const senderAddr = sender.toString();
+
+    // The memo data uniquely identifies the payment we yielded (XRPL stores
+    // memo fields as uppercase hex). nttPayment is a Payment with one memo.
+    const yieldedPayment = nttPayment as Payment;
+    const expectedMemoData =
+      yieldedPayment.Memos?.[0]?.Memo?.MemoData?.toUpperCase();
+    const expectedDestination = yieldedPayment.Destination;
+
     const accountTx = await this.provider.request({
       command: "account_tx",
       account: senderAddr,
-      limit: 1,
+      limit: 20,
       forward: false,
     });
 
-    const lastTx = accountTx.result.transactions[0];
-    if (!lastTx || !lastTx.meta || typeof lastTx.meta === "string") {
-      throw new Error("Could not retrieve NTT transfer transaction result");
+    // account_tx response shape varies by API version: the transaction body is
+    // under `tx_json` (v2) or `tx` (v1); both are typed as Transaction.
+    const txBody = (entry: AccountTxTransaction): Payment | undefined => {
+      const body = entry.tx_json ?? entry.tx;
+      return body?.TransactionType === "Payment" ? body : undefined;
+    };
+
+    const match = accountTx.result.transactions.find((entry) => {
+      const body = txBody(entry);
+      if (!body) return false;
+      if (expectedDestination && body.Destination !== expectedDestination)
+        return false;
+      const memoData = body.Memos?.[0]?.Memo?.MemoData?.toUpperCase();
+      return (
+        expectedMemoData !== undefined &&
+        memoData === expectedMemoData &&
+        typeof entry.meta !== "string"
+      );
+    });
+
+    if (!match) {
+      throw new Error(
+        "Could not locate the submitted NTT transfer transaction in the " +
+          "sender's recent account transactions"
+      );
     }
 
-    // account_tx response shape varies by API version:
-    // v1: { tx: { ledger_index, ... }, meta: { TransactionIndex, ... } }
-    // v2: { tx_json: { ledger_index, ... }, meta: { TransactionIndex, ... }, ledger_index }
-    const entry = lastTx as any;
-    const ledgerIndex =
-      entry.ledger_index ??
-      entry.tx_json?.ledger_index ??
-      entry.tx?.ledger_index;
-    const txIndex = (entry.meta as any)?.TransactionIndex;
+    // `ledger_index` is on the entry directly; `meta` is the validated
+    // TransactionMetadata (string form already excluded by the match above).
+    const ledgerIndex = match.ledger_index;
+    const meta = match.meta;
+    const txIndex =
+      typeof meta !== "string" ? meta?.TransactionIndex : undefined;
 
     if (ledgerIndex === undefined || txIndex === undefined) {
       throw new Error(
-        `Could not determine ledgerIndex or txIndex from NTT transfer result. ` +
-          `Keys: ${Object.keys(entry).join(", ")}, ` +
-          `meta keys: ${typeof entry.meta === "object" ? Object.keys(entry.meta).join(", ") : "N/A"}`
+        "Could not determine ledgerIndex or txIndex from NTT transfer result"
       );
     }
 
