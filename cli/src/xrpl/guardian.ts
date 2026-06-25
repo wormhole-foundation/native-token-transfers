@@ -4,7 +4,28 @@
 // watcher synthesizes a VAA from an XRPL payment; this fetches it by
 // (chain, emitter, sequence) and polls until it is available.
 
+import type { Network } from "@wormhole-foundation/sdk-connect";
+
 export const DEFAULT_GUARDIAN_API = "https://api.testnet.wormholescan.io";
+
+const DEFAULT_GUARDIAN_APIS: Partial<Record<Network, string>> = {
+  Testnet: DEFAULT_GUARDIAN_API,
+};
+
+/**
+ * Default Guardian / Wormholescan API base URL for a network. Throws if there
+ * is no default for that network (e.g. not deployed yet) — pass `--guardian-api`
+ * explicitly in that case.
+ */
+export function getDefaultGuardianApiForNetwork(network: Network): string {
+  const api = DEFAULT_GUARDIAN_APIS[network];
+  if (!api) {
+    throw new Error(
+      `No default Guardian API for ${network}; pass --guardian-api`
+    );
+  }
+  return api;
+}
 
 export const CHAIN_ID_XRPL = 66;
 

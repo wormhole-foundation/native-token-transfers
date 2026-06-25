@@ -182,9 +182,10 @@ Sends the `XRPLAppOnboarding` message — a `Payment` to the Wormhole Core (GMP)
 account carrying an onboarding memo — so the Guardians start watching the custody
 account. Signed by the **custody account** being onboarded (`--issuer-seed`).
 
-The memo carries: prefix `"XRPL"`, the `--admin` account, the `--app` type
-(left-padded to 32 bytes), the ticket range (`--initial-ticket` / `--ticket-count`),
-and the token `init_data` (decimals + token identifier) selected via `--token`:
+The memo carries: prefix `"XRPL"`, the `--admin` account, the app type (always
+`"NTT"` — this tool doesn't onboard WTT/CORE — left-padded to 32 bytes), the
+ticket range (`--initial-ticket` / `--ticket-count`), and the token `init_data`
+(decimals + token identifier) selected via `--token`:
 
 | `--token` | extra args                                                | `init_data` tail                                                            |
 | --------- | --------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -194,8 +195,9 @@ and the token `init_data` (decimals + token identifier) selected via `--token`:
 
 Other options:
 
-- `--core-account` — destination Wormhole Core account (default: the testnet
-  account `rpuMNy2dBzimaQHTFpXsfoCoqicgd8etQQ`; set this for other networks)
+- `--core-account` — destination Wormhole Core account. Defaults to the
+  per-network account (Testnet only for now); required on networks without a
+  configured default.
 - `--amount` — XRP sent with the message (default `0.000001`)
 - `--issuer-seed` (or env `ISSUER_SEED`)
 
@@ -284,7 +286,8 @@ the relaying account (`--seed`).
 - `--token` (+ `--currency`/`--issuer`/`--mpt-id`) — defaults to the token inferred
   from the tx's delivered amount
 - `--executor` (required) — Executor XRPL address to pay
-- `--executor-api`, `--guardian-api` — API base URLs (default: testnet)
+- `--executor-api`, `--guardian-api` — API base URLs. Default to the per-network
+  values (Testnet only for now); required on networks without a configured default.
 - `--gas-limit`, `--msg-value`, `--relay-instructions` — relay sizing
 - `--poll-interval`, `--poll-timeout` — VAA polling (ms)
 - `--seed` (or env `SEED`)
@@ -315,10 +318,6 @@ ntt xrpl register-peer -n Testnet --peer-chain Solana --peer-address 0x… --adm
 
 Rotates the custody account's admin by publishing an `XADM` RotateAdmin (`0x02`)
 core message. Signed by the **current admin** (`--admin-seed`).
-
-> ⚠️ **Not yet supported by the Sequencer.** The message is published but will
-> not take effect until Sequencer support lands. The command prints a warning and
-> prompts for confirmation (skip with `--yes`).
 
 - `--manager` — custody account (default: `xrpl.manager` from the deployment file)
 - `--new-admin` (required) — new admin r-address

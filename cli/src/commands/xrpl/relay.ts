@@ -16,13 +16,13 @@ import {
   withXrplClient,
 } from "../../xrpl/helpers";
 import {
-  DEFAULT_EXECUTOR_API,
+  getDefaultExecutorApiForNetwork,
   fetchQuote,
   submitStatusTx,
 } from "../../xrpl/executor";
 import {
   CHAIN_ID_XRPL,
-  DEFAULT_GUARDIAN_API,
+  getDefaultGuardianApiForNetwork,
   pollSignedVaa,
 } from "../../xrpl/guardian";
 import {
@@ -59,23 +59,28 @@ function resolveUniversalAddr(chain: Chain, addr: string): `0x${string}` {
 }
 
 function buildRequest(opts: {
-  requestType: "ern1" | "erv1";
+  requestType: RequestPrefix;
   emitterHex: string;
   sequence: bigint;
   messageId: `0x${string}`;
   srcManager?: string;
   manager?: string;
 }): RequestLayout {
-  if (opts.requestType === "erv1") {
+  if (opts.requestType === RequestPrefix.ERV1) {
     return {
       request: {
-        prefix: RequestPrefix.ERV1,
+        prefix: opts.requestType,
         chain: CHAIN_ID_XRPL,
         address: `0x${opts.emitterHex}` as `0x${string}`,
         sequence: opts.sequence,
       },
     };
   }
+
+  if (opts.requestType !== RequestPrefix.ERN1) {
+    throw new Error(`Unsupported request type ${opts.requestType}`);
+  }
+
   // ERN1: srcManager is the source NTT manager emitter (32 bytes).
   const srcManager =
     opts.srcManager ??
@@ -89,7 +94,7 @@ function buildRequest(opts: {
   }
   return {
     request: {
-      prefix: RequestPrefix.ERN1,
+      prefix: opts.requestType,
       srcChain: CHAIN_ID_XRPL,
       srcManager: ethers.zeroPadValue(
         srcManager as `0x${string}`,
@@ -165,14 +170,13 @@ export function createXrplRelayCommand(
           demandOption: true,
         })
         .option("executor-api", {
-          describe: "Executor API base URL",
+          describe: "Executor API base URL (default: resolved per network)",
           type: "string",
-          default: DEFAULT_EXECUTOR_API,
         })
         .option("guardian-api", {
-          describe: "Guardian / Wormholescan API base URL",
+          describe:
+            "Guardian / Wormholescan API base URL (default: resolved per network)",
           type: "string",
-          default: DEFAULT_GUARDIAN_API,
         })
         .option("gas-limit", {
           describe: "Relay gas limit",
@@ -219,10 +223,12 @@ export async function runRelay(
   const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
   const txHash: string = argv["tx-hash"];
   const dstChain = resolveChainId(argv["dst-chain"]);
-  const requestType: "ern1" | "erv1" = argv["request-type"];
+  const requestType: RequestPrefix = argv["request-type"];
   const executor: string = argv.executor;
-  const executorApi: string = argv["executor-api"] ?? DEFAULT_EXECUTOR_API;
-  const guardianApi: string = argv["guardian-api"] ?? DEFAULT_GUARDIAN_API;
+  const executorApi: string =
+    argv["executor-api"] ?? getDefaultExecutorApiForNetwork(network);
+  const guardianApi: string =
+    argv["guardian-api"] ?? getDefaultGuardianApiForNetwork(network);
   const gasLimit = BigInt(argv["gas-limit"]);
   const msgValue = BigInt(argv["msg-value"]);
   const pollInterval = argv["poll-interval"] ?? 5_000;
@@ -262,7 +268,7 @@ export async function runRelay(
       const sequence = (BigInt(ledgerIndex) << 32n) | BigInt(txIndex);
 
       let emitterHex: string;
-      if (requestType === "erv1") {
+      if (requestType === RequestPrefix.ERV1) {
         // Core VAA: emitter = the publishing (SENDER) account, left-padded to 32B.
         const sender: string | undefined = tx.Account ?? tx.tx_json?.Account;
         if (!sender) {
@@ -345,7 +351,7 @@ export async function runRelay(
 
   if (!argv["dst-addr"]) {
     throw new Error(
-      `--dst-addr is required (the destination ${requestType === "ern1" ? "NTT manager" : "contract"})`
+      `--dst-addr is required (the destination ${requestType === RequestPrefix.ERN1 ? "NTT manager" : "contract"})`
     );
   }
   const dstAddr = resolveUniversalAddr(toChain(dstChain), argv["dst-addr"]);

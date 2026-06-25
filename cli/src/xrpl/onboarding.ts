@@ -1,4 +1,5 @@
 import { decodeAccountID } from "xrpl";
+import type { Network } from "@wormhole-foundation/sdk-connect";
 
 // XRPLAppOnboarding payload builders. Mirrors the reference scripts
 // (xrpl-scripts/init_iou.ts, init_mpt.ts) and the SPEC app-onboarding flow:
@@ -13,6 +14,25 @@ export const WORMHOLE_PUBLISH_MEMO_FORMAT = "application/x-wormhole-publish";
 /** Wormhole Core (GMP) account on XRPL Testnet that Guardians watch. */
 export const DEFAULT_TESTNET_CORE_ACCOUNT =
   "rpuMNy2dBzimaQHTFpXsfoCoqicgd8etQQ";
+
+const DEFAULT_CORE_ACCOUNTS: Partial<Record<Network, string>> = {
+  Testnet: DEFAULT_TESTNET_CORE_ACCOUNT,
+};
+
+/**
+ * Default Wormhole Core (GMP) account for a network. Throws if there is no
+ * default for that network (e.g. not deployed yet) — pass `--core-account`
+ * explicitly in that case.
+ */
+export function getDefaultCoreAccountForNetwork(network: Network): string {
+  const account = DEFAULT_CORE_ACCOUNTS[network];
+  if (!account) {
+    throw new Error(
+      `No default Wormhole Core account for ${network}; pass --core-account`
+    );
+  }
+  return account;
+}
 
 const TOKEN_TYPE_IOU = "01";
 const TOKEN_TYPE_MPT = "02";

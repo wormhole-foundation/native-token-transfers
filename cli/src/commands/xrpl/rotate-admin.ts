@@ -88,17 +88,10 @@ export function createXrplRotateAdminCommand(
         );
         console.log(`   new admin:    ${newAdmin}`);
         console.log(`   core account: ${argv["core-account"]}`);
-        console.log(
-          colors.yellow(
-            "⚠️  RotateAdmin (XADM/0x02) is not yet processed by the Sequencer.\n" +
-              "    The message will be published but will NOT take effect until\n" +
-              "    Sequencer support lands."
-          )
-        );
 
         if (!argv.yes) {
           const ok = await promptYesNo(
-            "Publish the rotate-admin message anyway?",
+            "Proceed with RotateAdmin?",
             {
               defaultYes: false,
             }

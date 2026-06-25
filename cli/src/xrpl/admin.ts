@@ -1,8 +1,6 @@
 import { decodeAccountID } from "xrpl";
 
-// XADM (Admin) payload builders. Mirrors the reference scripts
-// (xrpl-scripts/register_peer.ts, rotate_admin.ts) and the decoder in
-// `payloads.ts` (parseAdmin). Published like XRPLAppOnboarding — wrap the
+// XADM (Admin) payload builders. Published like XRPLAppOnboarding — wrap the
 // payload with buildPublishMemoData (see onboarding.ts) and send it as a
 // Payment to the Wormhole Core account.
 

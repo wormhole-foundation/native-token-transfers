@@ -13,7 +13,7 @@ import {
   withXrplClient,
 } from "../../xrpl/helpers";
 import {
-  DEFAULT_TESTNET_CORE_ACCOUNT,
+  getDefaultCoreAccountForNetwork,
   WORMHOLE_PUBLISH_MEMO_FORMAT,
   buildInitData,
   buildOnboardingPayload,
@@ -21,6 +21,10 @@ import {
   type TokenInit,
 } from "../../xrpl/onboarding";
 import { withCommon } from "./common";
+
+// This tool only onboards NTT deployments; WTT/CORE are intentionally not
+// exposed, so the onboarding payload's app type is always "NTT".
+const APP_TYPE = "NTT";
 
 /** Resolve and validate the token selector args into a TokenInit. */
 function resolveTokenInit(argv: any): TokenInit {
@@ -66,14 +70,8 @@ export function createXrplInitCommand(
           type: "number",
           demandOption: true,
         })
-        .option("app", {
-          describe: "App type",
-          type: "string",
-          choices: ["NTT", "WTT", "Core"] as const,
-          default: "NTT",
-        })
         .option("token", {
-          describe: "Token type for the NTT/WTT deployment",
+          describe: "Token type for the NTT deployment",
           type: "string",
           choices: ["xrp", "iou", "mpt"] as const,
           demandOption: true,
@@ -97,9 +95,8 @@ export function createXrplInitCommand(
         })
         .option("core-account", {
           describe:
-            "Wormhole Core (GMP) account to send the onboarding message to",
+            "Wormhole Core (GMP) account to send the onboarding message to (default: resolved per network)",
           type: "string",
-          default: DEFAULT_TESTNET_CORE_ACCOUNT,
         })
         .option("amount", {
           describe: "XRP amount to send with the onboarding message",
@@ -121,6 +118,8 @@ export function createXrplInitCommand(
     handler: (argv: any) =>
       runXrpl(async () => {
         const network = argv.network as Network;
+        const coreAccount =
+          argv["core-account"] ?? getDefaultCoreAccountForNetwork(network);
         const endpoint = resolveXrplEndpoint(network, argv.rpc, overrides);
         const seed = loadSeed(
           argv["issuer-seed"],
@@ -135,7 +134,7 @@ export function createXrplInitCommand(
         const initData = buildInitData(decimals, token);
         const payload = buildOnboardingPayload({
           admin: argv.admin,
-          app: argv.app,
+          app: APP_TYPE,
           initialTicket: argv["initial-ticket"],
           ticketCount: argv["ticket-count"],
           initData,
@@ -144,20 +143,20 @@ export function createXrplInitCommand(
 
         console.log(
           colors.blue(
-            `Onboarding ${wallet.address} as ${argv.app} (${token.type.toUpperCase()}, ${decimals} decimals) on ${network}`
+            `Onboarding ${wallet.address} as ${APP_TYPE} (${token.type.toUpperCase()}, ${decimals} decimals) on ${network}`
           )
         );
         console.log(`   admin:        ${argv.admin}`);
         console.log(
           `   tickets:      ${argv["ticket-count"]} starting at ${argv["initial-ticket"]}`
         );
-        console.log(`   core account: ${argv["core-account"]}`);
+        console.log(`   core account: ${coreAccount}`);
 
         const result = await withXrplClient(endpoint, (client) =>
           submitTx(client, wallet, {
             TransactionType: "Payment",
             Account: wallet.address,
-            Destination: argv["core-account"],
+            Destination: coreAccount,
             Amount: xrpToDrops(argv.amount),
             Memos: [
               {
