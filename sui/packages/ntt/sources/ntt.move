@@ -160,7 +160,7 @@ module ntt::ntt {
             // consumed. refill inbox rate limit
             state.borrow_peer_mut(recipient_chain)
                  .borrow_inbound_rate_limit_mut()
-                 .refill(clock, trimmed_amount.amount());
+                 .refill(clock, trimmed_amount.untrim(coin_meta.get_decimals()));
             clock.timestamp_ms()
         };
 
