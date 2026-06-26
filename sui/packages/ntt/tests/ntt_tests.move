@@ -904,4 +904,1119 @@ module ntt::ntt_tests {
         test_scenario::return_to_address(admin, admin_cap);
         scenario.end();
     }
+
+
+    #[test]
+    fun test_transfer_with_refill() {
+        let (_, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        scenario.next_tx(user_a);
+
+        // Take state and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+
+        // Drain limit for the rate limit refill 
+        let drain: u64 = 2_000_000_000; //
+        let result = state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+            .borrow_inbound_rate_limit_mut()
+            .consume_or_delay(&clock, drain);
+        assert!(result.is_consumed()); // sanity: drain < limit (5e9), so consumed
+
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        let coins = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        // Create transfer ticket
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            coins,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(), // recipient_chain
+            recipient,
+            option::none(),
+            false // should_queue
+        );
+
+        assert!(dust.value() == TEST_DUST);
+
+        // Initial balance check
+        let initial_balance = if (state.borrow_mode().is_locking()) {
+            state.borrow_balance().value()
+        } else {
+            state.borrow_treasury_cap().total_supply()
+        };
+
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_before = outbound_capacity.limit();
+        let outbound_capacity_before = outbound_capacity.capacity_at_last_tx();
+        let outbound_last_tx_timestamp_before = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_before       = inbound.limit();
+        let inbound_capacity_before    = inbound.capacity_at_last_tx();
+        
+        // Execute transfer
+        let outbox_key = ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        // Rate limit data after the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_after = outbound_capacity.limit();
+        let outbound_capacity_after = outbound_capacity.capacity_at_last_tx();
+        let outbound_last_tx_timestamp_after = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_after       = inbound.limit();
+        let inbound_capacity_after    = inbound.capacity_at_last_tx();
+        let inbound_last_tx_after     = inbound.last_tx_timestamp();
+
+        // Outbound and inbound rate limit comparisons
+        assert!(outbound_limit_after == outbound_limit_before);   
+        assert!(outbound_last_tx_timestamp_after > outbound_last_tx_timestamp_before);             
+        assert!(outbound_last_tx_timestamp_after == clock.timestamp_ms());      
+        assert!(outbound_capacity_after == (outbound_capacity_before) - (TEST_AMOUNT - TEST_DUST));  
+        assert!(inbound_limit_after == inbound_limit_before);               
+        assert!(inbound_last_tx_after == clock.timestamp_ms());      
+        assert!(inbound_capacity_after == (inbound_capacity_before) + (TEST_AMOUNT - TEST_DUST));  
+
+        // Verify state after transfer
+        if (state.borrow_mode().is_locking()) {
+            // In locking mode, tokens should be in the state's balance
+            assert!(state.borrow_balance().value() == initial_balance + (TEST_AMOUNT - TEST_DUST))
+        } else {
+            assert!(state.borrow_treasury_cap().total_supply() == initial_balance - (TEST_AMOUNT - TEST_DUST))
+        };
+
+        // Verify outbox item
+        let message = *state.borrow_outbox().borrow(outbox_key).borrow_data();
+
+        // Verify message contents
+        let (message_id, _, transfer) = message.destruct();
+        let (trimmed_amount, _, recipient_addr, to_chain, _payload) = transfer.destruct();
+        assert!(trimmed_amount.untrim(ntt_scenario::decimals()) == TEST_AMOUNT - TEST_DUST);
+        assert!(to_chain == ntt_scenario::peer_chain_id());
+        assert!(recipient_addr.to_bytes() == recipient);
+
+        // Advance past the 24h queue delay so the item becomes releasable.
+        clock.increment_for_testing(86_400_000);
+
+        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::TransceiverAuth, _>(
+            message_id,
+            &clock
+        );
+
+        let transceiver_b_message = state.create_transceiver_message<test_transceiver_b::TransceiverAuth, _>(
+            message_id,
+            &clock
+        );
+
+        let (manager_message_a, source_manager_a, recipient_manager_a) =
+            transceiver_a_message.unwrap_outbound_message(&test_transceiver_a::auth());
+
+        let (manager_message_b, source_manager_b, recipient_manager_b) =
+            transceiver_b_message.unwrap_outbound_message(&test_transceiver_b::auth());
+
+        assert!(manager_message_a == manager_message_b);
+        assert!(source_manager_a == source_manager_b);
+        assert!(recipient_manager_a == recipient_manager_b);
+
+        assert!(source_manager_a == external_address::from_address(object::id_address(&state)));
+
+        let manager_message = ntt_manager_message::map!(manager_message_a, |x| native_token_transfer::parse(x));
+
+        assert!(manager_message == ntt_manager_message::new(
+            message_id,
+            external_address::from_address(user_a),
+            native_token_transfer::new(
+                ntt_common::trimmed_amount::new(
+                    TEST_AMOUNT / 10, // token has 9 decimals
+                    8
+                ),
+                external_address::from_id(object::id(&coin_meta)),
+                recipient_addr,
+                ntt_scenario::peer_chain_id(),
+                option::none()
+            )
+        ));
+
+        // Clean up
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        std::unit_test::destroy(dust);
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_transfer_queued_released_after_delay() {
+        let (_, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        scenario.next_tx(user_a);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Set the rate limit
+        let limit: u64 = 1;
+        state::set_outbound_rate_limit(&admin_cap, &mut state, limit, &clock); 
+
+        let coins = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        // Create transfer ticket
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            coins,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(), // recipient_chain
+            recipient,
+            option::none(),
+            true // should_queue
+        );
+
+        // Rate limit information before the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_before = outbound_capacity.limit();
+        let outbound_capacity_before = outbound_capacity.capacity_at_last_tx();
+        let outbound_last_tx_timestamp_before = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_before       = inbound.limit();
+        let inbound_capacity_before    = inbound.capacity_at_last_tx();
+        let inbound_last_tx_before     = inbound.last_tx_timestamp();
+
+        // Execute transfer but with a later timestamp
+        let outbox_key = ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        // Rate limit data after the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_after = outbound_capacity.limit();
+        let outbound_capacity_after = outbound_capacity.capacity_at_last_tx();
+        let outbound_last_tx_timestamp_after = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_after       = inbound.limit();
+        let inbound_capacity_after    = inbound.capacity_at_last_tx();
+        let inbound_last_tx_after     = inbound.last_tx_timestamp();
+
+        // Outbound and inbound rate limit comparisons
+        assert!(outbound_limit_after == outbound_limit_before);   
+        assert!(outbound_last_tx_timestamp_after == outbound_last_tx_timestamp_before);             
+        assert!(outbound_capacity_after == outbound_capacity_before);  
+        assert!(inbound_limit_after == inbound_limit_before);               
+        assert!(inbound_last_tx_after == inbound_last_tx_before);             
+        assert!(inbound_capacity_after == inbound_capacity_before);  
+
+        // queued transfer at clock t: release is now + RATE_LIMIT_DURATION (24h)=
+        let release_timestamp = state.borrow_outbox().borrow(outbox_key).borrow_release_timestamp();
+        assert!(release_timestamp == clock.timestamp_ms() + 86_400_000);
+
+        let message = *state.borrow_outbox().borrow(outbox_key).borrow_data();
+
+        // Verify it's the transfer we expect.
+        let (message_id, _sender, transfer) = message.destruct();
+        let (trimmed_amount, _src_token, recipient_addr, to_chain, _payload) = transfer.destruct();
+        assert!(trimmed_amount.untrim(ntt_scenario::decimals()) == TEST_AMOUNT - TEST_DUST);
+        assert!(to_chain == ntt_scenario::peer_chain_id());
+        assert!(recipient_addr.to_bytes() == recipient);
+
+        // Advance past the 24h queue delay so the item becomes releasable.
+        clock.increment_for_testing(86_400_000);
+
+        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::TransceiverAuth, _>(
+            message_id,
+            &clock
+        );
+
+        let transceiver_b_message = state.create_transceiver_message<test_transceiver_b::TransceiverAuth, _>(
+            message_id,
+            &clock
+        );
+
+        let (manager_message_a, source_manager_a, recipient_manager_a) =
+            transceiver_a_message.unwrap_outbound_message(&test_transceiver_a::auth());
+
+        let (manager_message_b, source_manager_b, recipient_manager_b) =
+            transceiver_b_message.unwrap_outbound_message(&test_transceiver_b::auth());
+
+        assert!(manager_message_a == manager_message_b);
+        assert!(source_manager_a == source_manager_b);
+        assert!(recipient_manager_a == recipient_manager_b);
+
+        assert!(source_manager_a == external_address::from_address(object::id_address(&state)));
+
+        let manager_message = ntt_manager_message::map!(manager_message_a, |x| native_token_transfer::parse(x));
+
+        assert!(manager_message == ntt_manager_message::new(
+            message_id,
+            external_address::from_address(user_a),
+            native_token_transfer::new(
+                ntt_common::trimmed_amount::new(
+                    TEST_AMOUNT / 10, // token has 9 decimals
+                    8
+                ),
+                external_address::from_id(object::id(&coin_meta)),
+                recipient_addr,
+                ntt_scenario::peer_chain_id(),
+                option::none()
+            )
+        ));
+
+        // Clean up
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(dust);
+        test_scenario::end(scenario);
+    }
+
+     #[test, expected_failure(abort_code = ::ntt::ntt::ETransferExceedsRateLimit)]
+    fun test_transfer_exceeds_rate_limit_no_queue() {
+        let (_, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        scenario.next_tx(user_a);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Set the rate limit
+        let limit: u64 = 1;
+        state::set_outbound_rate_limit(&admin_cap, &mut state, limit, &clock); 
+
+        let coins = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        // Create transfer ticket
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            coins,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(), // recipient_chain
+            recipient,
+            option::none(),
+            false // should_queue
+        );
+
+        // Execute transfer but with a later timestamp
+        let _outbox_key = ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        // Clean up
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(dust);
+        test_scenario::end(scenario);
+
+    }
+    #[test, expected_failure]
+    fun test_transfer_queued_release_too_early() {
+        let (_, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        scenario.next_tx(user_a);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Set the rate limit
+        let limit: u64 = 1;
+        state::set_outbound_rate_limit(&admin_cap, &mut state, limit, &clock); 
+
+        let coins = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        // Create transfer ticket
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            coins,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(), // recipient_chain
+            recipient,
+            option::none(),
+            true // should_queue
+        );
+
+        // Rate limit information before the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_before = outbound_capacity.limit();
+        let outbound_capacity_before = outbound_capacity.capacity_at_last_tx();
+        let outbound_last_tx_timestamp_before = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_before       = inbound.limit();
+        let inbound_capacity_before    = inbound.capacity_at_last_tx();
+        let inbound_last_tx_before     = inbound.last_tx_timestamp();
+
+        // Execute transfer but with a later timestamp
+        let outbox_key = ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        // Rate limit data after the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_after = outbound_capacity.limit();
+        let outbound_capacity_after = outbound_capacity.capacity_at_last_tx();
+        let outbound_last_tx_timestamp_after = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_after       = inbound.limit();
+        let inbound_capacity_after    = inbound.capacity_at_last_tx();
+        let inbound_last_tx_after     = inbound.last_tx_timestamp();
+
+        // Outbound and inbound rate limit comparisons
+        assert!(outbound_limit_after == outbound_limit_before);   
+        assert!(outbound_last_tx_timestamp_after == outbound_last_tx_timestamp_before);             
+        assert!(outbound_capacity_after == outbound_capacity_before);  
+        assert!(inbound_limit_after == inbound_limit_before);               
+        assert!(inbound_last_tx_after == inbound_last_tx_before);             
+        assert!(inbound_capacity_after == inbound_capacity_before);  
+
+        // queued transfer at clock t: release is now + RATE_LIMIT_DURATION (24h)=
+        let release_timestamp = state.borrow_outbox().borrow(outbox_key).borrow_release_timestamp();
+        assert!(release_timestamp == clock.timestamp_ms() + 86_400_000);
+
+        let message = *state.borrow_outbox().borrow(outbox_key).borrow_data();
+
+        // Verify it's the transfer we expect.
+        let (message_id, _sender, transfer) = message.destruct();
+        let (trimmed_amount, _src_token, recipient_addr, to_chain, _payload) = transfer.destruct();
+        assert!(trimmed_amount.untrim(ntt_scenario::decimals()) == TEST_AMOUNT - TEST_DUST);
+        assert!(to_chain == ntt_scenario::peer_chain_id());
+        assert!(recipient_addr.to_bytes() == recipient);
+
+        // DO NOT advance past the 24h queue delay. Don't want this to be releasable. 
+        // Fails here
+        let transceiver_a_message = state.create_transceiver_message<test_transceiver_a::TransceiverAuth, _>(
+            message_id,
+            &clock
+        );
+
+        // Clean up
+        std::unit_test::destroy(transceiver_a_message);
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(dust);
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_transfer_queued_rate_limit_unchanged() {
+        let (_, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        scenario.next_tx(user_a);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Set the rate limit
+        let limit: u64 = 1;
+        state::set_outbound_rate_limit(&admin_cap, &mut state, limit, &clock); 
+
+        let coins = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        // Create transfer ticket
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            coins,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(), // recipient_chain
+            recipient,
+            option::none(),
+            true // should_queue
+        );
+
+        // Rate limit information before the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_before = outbound_capacity.limit();
+        let outbound_capacity_before = outbound_capacity.capacity_at_last_tx();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_before       = inbound.limit();
+        let inbound_capacity_before    = inbound.capacity_at_last_tx();
+        let inbound_last_tx_before     = inbound.last_tx_timestamp();
+
+        // Execute transfer but with a later timestamp
+        let outbox_key = ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        // Rate limit data after the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_after = outbound_capacity.limit();
+        let outbound_capacity_after = outbound_capacity.capacity_at_last_tx();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_after       = inbound.limit();
+        let inbound_capacity_after    = inbound.capacity_at_last_tx();
+        let inbound_last_tx_after     = inbound.last_tx_timestamp();
+
+        // Outbound and inbound rate limit comparisons
+        assert!(outbound_limit_after == outbound_limit_before);   
+        assert!(outbound_capacity_after == outbound_capacity_before);  
+        assert!(inbound_limit_after == inbound_limit_before);               
+        assert!(inbound_last_tx_after == inbound_last_tx_before);             
+        assert!(inbound_capacity_after == inbound_capacity_before);  
+
+        // queued transfer at clock t: release is now + RATE_LIMIT_DURATION (24h)=
+        let release_timestamp = state.borrow_outbox().borrow(outbox_key).borrow_release_timestamp();
+        assert!(release_timestamp == clock.timestamp_ms() + 86_400_000);
+
+        let message = *state.borrow_outbox().borrow(outbox_key).borrow_data();
+
+        // Verify it's the transfer we expect.
+        let (_message_id, _sender, transfer) = message.destruct();
+        let (trimmed_amount, _src_token, recipient_addr, to_chain, _payload) = transfer.destruct();
+        assert!(trimmed_amount.untrim(ntt_scenario::decimals()) == TEST_AMOUNT - TEST_DUST);
+        assert!(to_chain == ntt_scenario::peer_chain_id());
+        assert!(recipient_addr.to_bytes() == recipient);
+
+    
+        // Clean up
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(dust);
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_transfer_rate_limit_timestamps() {
+        let (_, user_a, _, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        scenario.next_tx(user_a);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        let coins = state.mint_for_test(TEST_AMOUNT, scenario.ctx());
+
+        // Increase time
+        clock.increment_for_testing(1_000);
+
+        // Create transfer ticket
+        let recipient = x"000000000000000000000000000000000000000000000000000000000000dead";
+        let (ticket, dust) = ntt::prepare_transfer(
+            &state,
+            coins,
+            &coin_meta,
+            ntt_scenario::peer_chain_id(), // recipient_chain
+            recipient,
+            option::none(),
+            true // should_queue
+        );
+
+        // Rate limit information before the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_last_tx_before = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_last_tx_before     = inbound.last_tx_timestamp();
+
+        // Execute transfer but with a later timestamp
+        let outbox_key = ntt::transfer_tx_sender(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            ticket,
+            &clock,
+            scenario.ctx()
+        );
+
+        // Rate limit data after the transfer
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_last_tx_after = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_last_tx_after     = inbound.last_tx_timestamp();
+
+        // Outbound and inbound rate limit comparisons            
+        assert!(inbound_last_tx_after != inbound_last_tx_before);             
+        assert!(inbound_last_tx_after > inbound_last_tx_before); 
+        assert!(outbound_last_tx_after != outbound_last_tx_before);             
+        assert!(outbound_last_tx_after > outbound_last_tx_before); 
+        assert!(outbound_last_tx_after == inbound_last_tx_after); 
+
+        let message = *state.borrow_outbox().borrow(outbox_key).borrow_data();
+
+        // Verify it's the transfer we expect.
+        let (_message_id, _sender, transfer) = message.destruct();
+        let (trimmed_amount, _src_token, recipient_addr, to_chain, _payload) = transfer.destruct();
+        assert!(trimmed_amount.untrim(ntt_scenario::decimals()) == TEST_AMOUNT - TEST_DUST);
+        assert!(to_chain == ntt_scenario::peer_chain_id());
+        assert!(recipient_addr.to_bytes() == recipient);
+
+    
+        // Clean up
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(dust);
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_redeem_queued() {
+        let (_, user_a, user_b, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Set the rate limit
+        // set_peer performs a rate limit update if called in this way
+        let low_inbound_limit: u64 = 1; 
+        state::set_peer(
+            &admin_cap,
+            &mut state,
+            ntt_scenario::peer_chain_id(),   
+            ntt_scenario::peer_manager_address(), 
+            ntt_scenario::decimals(),
+            low_inbound_limit,
+            &clock,
+        );
+
+        let message_id = wormhole::bytes32::from_u256_be(100);
+        let manager_message = ntt_manager_message::new(
+            message_id,
+            external_address::from_address(user_a),
+            native_token_transfer::new(
+                ntt_common::trimmed_amount::new(
+                    TEST_AMOUNT / 10, // token has 9 decimals
+                    8
+                ),
+                external_address::from_id(object::id(&coin_meta)),
+                external_address::from_address(user_b),
+                ntt_scenario::chain_id(),
+                option::none()
+            )
+        );
+
+        let manager_message_encoded = ntt_manager_message::map!(manager_message, |x| x.to_bytes());
+
+        let validated_transceiver_message_a = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_a::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        let validated_transceiver_message_b = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_b::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_a,
+            &clock
+        );
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_b,
+            &clock
+        );
+
+        let inbox_item = state::borrow_inbox_item(&state, ntt_scenario::peer_chain_id(), manager_message);
+
+        // Both transceivers voted, and the low inbound limit forced the transfer
+        // into the delayed-release queue (24h from the redeem timestamp).
+        assert!(inbox_item.count_votes() == 2);
+        assert!(inbox_item.is_release_after());
+        assert!(!inbox_item.is_released());
+        assert!(inbox_item.release_after_timestamp() == clock.timestamp_ms() + 86_400_000);
+
+        // Wait out the queue delay, then complete it:
+        clock.increment_for_testing(86_400_000);
+        ntt::release(
+            &mut state,
+            upgrades::new_version_gated(),
+            ntt_scenario::peer_chain_id(),
+            manager_message,
+            &coin_meta,
+            &clock,
+            scenario.ctx()
+        );
+
+        let inbox_item = state::borrow_inbox_item(&state, ntt_scenario::peer_chain_id(), manager_message);
+        assert!(inbox_item.is_released());
+
+        scenario.next_tx(user_a);
+
+        let coins = scenario.take_from_address<Coin<ntt_scenario::NTT_SCENARIO>>(user_b);
+
+        assert!(coins.value() == TEST_AMOUNT - TEST_DUST);
+
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(coins);
+        scenario.end();
+    }
+
+    #[test]
+    fun test_redeem_rate_limit_values() {
+        let (_, user_a, user_b, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Drain outbox limit to test backflow
+        let drain: u64 = 2_000_000_000; 
+        let r = state.borrow_outbox_mut().borrow_rate_limit_mut().consume_or_delay(&clock, drain);
+        assert!(r.is_consumed());
+
+        let message_id = wormhole::bytes32::from_u256_be(100);
+        let manager_message = ntt_manager_message::new(
+            message_id,
+            external_address::from_address(user_a),
+            native_token_transfer::new(
+                ntt_common::trimmed_amount::new(
+                    TEST_AMOUNT / 10, // token has 9 decimals
+                    8
+                ),
+                external_address::from_id(object::id(&coin_meta)),
+                external_address::from_address(user_b),
+                ntt_scenario::chain_id(),
+                option::none()
+            )
+        );
+
+        let manager_message_encoded = ntt_manager_message::map!(manager_message, |x| x.to_bytes());
+
+        let validated_transceiver_message_a = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_a::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        let validated_transceiver_message_b = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_b::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_before = outbound_capacity.limit();
+        let outbound_capacity_before = outbound_capacity.capacity_at_last_tx();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_before       = inbound.limit();
+        let inbound_capacity_before    = inbound.capacity_at_last_tx();
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_a,
+            &clock
+        );
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_b,
+            &clock
+        );
+
+        ntt::release(
+            &mut state,
+            upgrades::new_version_gated(),
+            ntt_scenario::peer_chain_id(),
+            manager_message,
+            &coin_meta,
+            &clock,
+            scenario.ctx()
+        );
+
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_limit_after = outbound_capacity.limit();
+        let outbound_capacity_after = outbound_capacity.capacity_at_last_tx();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_limit_after       = inbound.limit();
+        let inbound_capacity_after    = inbound.capacity_at_last_tx();
+
+        // Rate limit validations
+        assert!(inbound_limit_after == inbound_limit_before);
+        assert!(outbound_limit_after == outbound_limit_before);
+        assert!(outbound_capacity_after == (outbound_capacity_before + (TEST_AMOUNT - TEST_DUST)));
+        assert!(inbound_capacity_after == (inbound_capacity_before - (TEST_AMOUNT - TEST_DUST)));
+
+        scenario.next_tx(user_a);
+
+        let coins = scenario.take_from_address<Coin<ntt_scenario::NTT_SCENARIO>>(user_b);
+
+        assert!(coins.value() == TEST_AMOUNT - TEST_DUST);
+
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(coins);
+        scenario.end();
+    }
+
+    #[test]
+    fun test_redeem_rate_limit_timestamps() {
+        let (_, user_a, user_b, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Drain outbox limit to test backflow
+        let drain: u64 = 2_000_000_000; 
+        let r = state.borrow_outbox_mut().borrow_rate_limit_mut().consume_or_delay(&clock, drain);
+        assert!(r.is_consumed());
+
+        let message_id = wormhole::bytes32::from_u256_be(100);
+        let manager_message = ntt_manager_message::new(
+            message_id,
+            external_address::from_address(user_a),
+            native_token_transfer::new(
+                ntt_common::trimmed_amount::new(
+                    TEST_AMOUNT / 10, // token has 9 decimals
+                    8
+                ),
+                external_address::from_id(object::id(&coin_meta)),
+                external_address::from_address(user_b),
+                ntt_scenario::chain_id(), 
+                option::none()
+            )
+        );
+
+        let manager_message_encoded = ntt_manager_message::map!(manager_message, |x| x.to_bytes());
+
+        let validated_transceiver_message_a = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_a::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        let validated_transceiver_message_b = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_b::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_last_tx_timestamp_before = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_last_tx_timestamp_before    = inbound.last_tx_timestamp();
+
+        // Increment the clock for the transfer
+        let time_increase = 500; 
+        clock.increment_for_testing(time_increase);
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_a,
+            &clock
+        );
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_b,
+            &clock
+        );
+
+        ntt::release(
+            &mut state,
+            upgrades::new_version_gated(),
+            ntt_scenario::peer_chain_id(),
+            manager_message,
+            &coin_meta,
+            &clock,
+            scenario.ctx()
+        );
+
+        let outbound_capacity = state.borrow_outbox_mut().borrow_rate_limit_mut(); 
+        let outbound_last_tx_timestamp_after = outbound_capacity.last_tx_timestamp();
+
+        let inbound =
+            state.borrow_peer_mut(ntt_scenario::peer_chain_id())
+                .borrow_inbound_rate_limit_mut();
+
+        let inbound_last_tx_timestamp_after    = inbound.last_tx_timestamp();
+
+        // Ensure that the inbound, and outbound last_tx_timestamp value was updated
+        assert!(inbound_last_tx_timestamp_after == clock.timestamp_ms());
+        assert!(inbound_last_tx_timestamp_after > inbound_last_tx_timestamp_before);
+        assert!(outbound_last_tx_timestamp_after == clock.timestamp_ms());
+        assert!(outbound_last_tx_timestamp_after > outbound_last_tx_timestamp_before);
+
+        scenario.next_tx(user_a);
+
+        let coins = scenario.take_from_address<Coin<ntt_scenario::NTT_SCENARIO>>(user_b);
+
+        assert!(coins.value() == TEST_AMOUNT - TEST_DUST);
+
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        std::unit_test::destroy(coins);
+        scenario.end();
+    }
+
+    #[test, expected_failure(abort_code = ::ntt::ntt::ECantReleaseYet)]
+    fun test_redeem_queued_release_too_early() {
+        let (_, user_a, user_b, _) = ntt_scenario::test_addresses();
+        let mut scenario = test_scenario::begin(user_a);
+        ntt_scenario::setup(&mut scenario);
+
+        // Take state, adminCap, and clock
+        let mut state = ntt_scenario::take_state(&scenario);
+        let admin_cap = ntt_scenario::take_admin_cap(&scenario);
+        let mut clock = ntt_scenario::take_clock(&mut scenario);
+        clock.increment_for_testing(1_000);
+        let coin_meta = ntt_scenario::take_coin_metadata(&scenario);
+
+        // Set the rate limit
+        // set_peer performs a rate limit update if called in this way
+        let low_inbound_limit: u64 = 1; 
+        state::set_peer(
+            &admin_cap,
+            &mut state,
+            ntt_scenario::peer_chain_id(),   
+            ntt_scenario::peer_manager_address(), 
+            ntt_scenario::decimals(),
+            low_inbound_limit,
+            &clock,
+        );
+
+        let message_id = wormhole::bytes32::from_u256_be(100);
+        let manager_message = ntt_manager_message::new(
+            message_id,
+            external_address::from_address(user_a),
+            native_token_transfer::new(
+                ntt_common::trimmed_amount::new(
+                    TEST_AMOUNT / 10, // token has 9 decimals
+                    8
+                ),
+                external_address::from_id(object::id(&coin_meta)),
+                external_address::from_address(user_b),
+                ntt_scenario::chain_id(),
+                option::none()
+            )
+        );
+
+        let manager_message_encoded = ntt_manager_message::map!(manager_message, |x| x.to_bytes());
+
+        let validated_transceiver_message_a = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_a::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        let validated_transceiver_message_b = ntt_common::validated_transceiver_message::new(
+            &test_transceiver_b::auth(),
+            ntt_scenario::peer_chain_id(),
+            ntt_common::transceiver_message_data::new(
+                ntt_scenario::peer_manager_address(),
+                external_address::from_address(object::id_address(&state)),
+                manager_message_encoded
+            )
+        );
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_a,
+            &clock
+        );
+
+        ntt::redeem(
+            &mut state,
+            upgrades::new_version_gated(),
+            &coin_meta,
+            validated_transceiver_message_b,
+            &clock
+        );
+
+        // DON'T wait out the queue delay. Fail if withdrawn too early.
+        ntt::release(
+            &mut state,
+            upgrades::new_version_gated(),
+            ntt_scenario::peer_chain_id(),
+            manager_message,
+            &coin_meta,
+            &clock,
+            scenario.ctx()
+        );
+
+        ntt_scenario::return_state(state);
+        ntt_scenario::return_clock(clock);
+        ntt_scenario::return_coin_metadata(coin_meta);
+        ntt_scenario::return_admin_cap(admin_cap);
+        scenario.end();
+    }
+
 }
