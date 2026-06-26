@@ -52,7 +52,7 @@ describe("buildInitData", () => {
   test("mpt: decimals + 0x02 + mpt_id, right-padded to 43 bytes total", () => {
     const out = buildInitData(9, { type: "mpt", mptId: MPT_ID });
     expect(out.length).toBe(86);
-    expect(out.startsWith("09" + "02" + MPT_ID.toLowerCase())).toBe(true);
+    expect(out.startsWith("09" + "02" + MPT_ID)).toBe(true);
     // 1 + 2 + 48 = 51 hex of data, padded to 84 -> ends in zeros
     expect(out.endsWith("0000")).toBe(true);
   });

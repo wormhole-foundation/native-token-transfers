@@ -53,12 +53,26 @@ function u8Hex(n: number): string {
   return n.toString(16).padStart(2, "0");
 }
 
-/** Encode a non-negative integer as a big-endian 8-byte (16 hex char) value. */
-function u64Hex(n: number): string {
-  if (!Number.isInteger(n) || n < 0) {
-    throw new Error(`value ${n} must be a non-negative integer`);
+const U64_MAX = (1n << 64n) - 1n;
+
+/**
+ * Encode a non-negative integer that fits in a u64 as a big-endian 8-byte
+ * (16 hex char) value. Accepts a number, bigint, or decimal string.
+ */
+function u64Hex(n: string | number | bigint): string {
+  if (typeof n === "number" && !Number.isInteger(n)) {
+    throw new Error(`value ${n} must be an integer`);
   }
-  return BigInt(n).toString(16).padStart(16, "0");
+  let v: bigint;
+  try {
+    v = BigInt(n);
+  } catch {
+    throw new Error(`value "${n}" is not a valid integer`);
+  }
+  if (v < 0n || v > U64_MAX) {
+    throw new Error(`value ${n} must be in the range [0, ${U64_MAX}] (u64)`);
+  }
+  return v.toString(16).padStart(16, "0");
 }
 
 /** Decode an XRPL r-address to its 20-byte account ID (40 hex chars). */
@@ -122,7 +136,7 @@ export function buildInitData(decimals: number, token: TokenInit): string {
       return (
         dec +
         padRight(
-          TOKEN_TYPE_MPT + token.mptId.toLowerCase(),
+          TOKEN_TYPE_MPT + token.mptId,
           TOKEN_ID_PADDED_BYTES
         )
       );
