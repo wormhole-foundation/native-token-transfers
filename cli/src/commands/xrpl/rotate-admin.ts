@@ -90,12 +90,9 @@ export function createXrplRotateAdminCommand(
         console.log(`   core account: ${argv["core-account"]}`);
 
         if (!argv.yes) {
-          const ok = await promptYesNo(
-            "Proceed with RotateAdmin?",
-            {
-              defaultYes: false,
-            }
-          );
+          const ok = await promptYesNo("Proceed with RotateAdmin?", {
+            defaultYes: false,
+          });
           if (!ok) {
             console.log(colors.gray("Aborted."));
             return;

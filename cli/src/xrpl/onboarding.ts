@@ -134,11 +134,7 @@ export function buildInitData(decimals: number, token: TokenInit): string {
         throw new Error("expected mpt issuance id length of 48 (hex)");
       }
       return (
-        dec +
-        padRight(
-          TOKEN_TYPE_MPT + token.mptId,
-          TOKEN_ID_PADDED_BYTES
-        )
+        dec + padRight(TOKEN_TYPE_MPT + token.mptId, TOKEN_ID_PADDED_BYTES)
       );
     }
   }
