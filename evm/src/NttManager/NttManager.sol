@@ -196,7 +196,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bytes32 nttManagerMessageHash = _recordTransceiverAttestation(sourceChainId, payload);
 
         if (isMessageApproved(nttManagerMessageHash)) {
-            executeMsg(sourceChainId, sourceNttManagerAddress, payload);
+            executeMsgInner(sourceChainId, sourceNttManagerAddress, payload);
         }
     }
 
@@ -206,6 +206,15 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bytes32 sourceNttManagerAddress,
         TransceiverStructs.NttManagerMessage memory message
     ) public whenNotPaused {
+        _verifyPeer(sourceChainId, sourceNttManagerAddress);
+        executeMsgInner(sourceChainId, sourceNttManagerAddress, message);
+    }
+
+    function executeMsgInner(
+        uint16 sourceChainId,
+        bytes32 sourceNttManagerAddress,
+        TransceiverStructs.NttManagerMessage memory message
+    ) private {
         (bytes32 digest, bool alreadyExecuted) =
             _isMessageExecuted(sourceChainId, sourceNttManagerAddress, message);
 
