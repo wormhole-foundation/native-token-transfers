@@ -1529,12 +1529,21 @@ module ntt::ntt_tests {
 
         let inbound_last_tx_after     = inbound.last_tx_timestamp();
 
-        // Outbound and inbound rate limit comparisons            
-        assert!(inbound_last_tx_after != inbound_last_tx_before);             
-        assert!(inbound_last_tx_after > inbound_last_tx_before); 
-        assert!(outbound_last_tx_after != outbound_last_tx_before);             
-        assert!(outbound_last_tx_after > outbound_last_tx_before); 
-        assert!(outbound_last_tx_after == inbound_last_tx_after); 
+        // The transfer records the current clock time as last_tx_timestamp for
+        // both the inbound and outbound rate limiters. The clock is not advanced
+        // between the snapshots, so `before + time == after` holds exactly.
+        let time = clock.timestamp_ms();
+
+        // Both limiters started at 0 (set during setup at clock time 0).
+        assert!(inbound_last_tx_before == 0);
+        assert!(outbound_last_tx_before == 0);
+
+        // Inbound and outbound timestamps advance to exactly the transfer time.
+        assert!(inbound_last_tx_after == inbound_last_tx_before + time);
+        assert!(outbound_last_tx_after == outbound_last_tx_before + time);
+
+        // Both limiters are updated to the same timestamp.
+        assert!(outbound_last_tx_after == inbound_last_tx_after);
 
         let message = *state.borrow_outbox().borrow(outbox_key).borrow_data();
 
