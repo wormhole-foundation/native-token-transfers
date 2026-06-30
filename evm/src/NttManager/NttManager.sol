@@ -274,7 +274,10 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     /// @dev Override this function to process an additional payload on the NativeTokenTransfer
     /// For integrator flexibility, this function is *not* marked pure or view
     /// @param - The Wormhole chain id of the sender
-    /// @param - The address of the sender's NTT Manager contract.
+    /// @param - The address verified to equal the peer currently registered for the source chain —
+    ///          not necessarily the manager that originally sent the message, since the peer may have
+    ///          been changed while the message was in flight. Integrators must not treat this as the
+    ///          authenticated original sender.
     /// @param - The message id from the NttManagerMessage.
     /// @param - The original message sender address from the NttManagerMessage.
     /// @param - The parsed NativeTokenTransfer, which includes the additionalPayload field
