@@ -217,9 +217,13 @@ interface INttManager is IManagerBase {
     ///         the command in the message. This function will decode the payload
     ///         as an NttManagerMessage to extract the sequence, msgType, and other parameters.
     /// @dev This function is exposed as a fallback for when an `Transceiver` is deregistered
-    ///      when a message is in flight.
+    ///      when a message is in flight. It verifies that `sourceNttManagerAddress` matches the
+    ///      peer currently registered for `sourceChainId` and reverts with `InvalidPeer` otherwise;
+    ///      note this is the *current* peer, which may differ from the manager that originally
+    ///      emitted the message if the peer has since been changed.
     /// @param sourceChainId The Wormhole chain id of the sender.
-    /// @param sourceNttManagerAddress The address of the sender's nttManager contract.
+    /// @param sourceNttManagerAddress The address expected to equal the peer currently registered
+    ///        for `sourceChainId` — not necessarily the manager that originally sent the message.
     /// @param message The message to execute.
     function executeMsg(
         uint16 sourceChainId,
