@@ -43,6 +43,20 @@ pub struct Redeem<'info> {
         constraint = ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.recipient_ntt_manager() == config.key().to_bytes() @ NTTError::InvalidRecipientNttManager,
         // NOTE: we don't replay protect VAAs. Instead, we replay protect
         // executing the messages themselves with the [`released`] flag.
+        // Cryptographically bind this account to the instance: since
+        // receive_message seeds transceiver_message with config.key(), a message
+        // created for instance A cannot be passed here for instance B.
+        seeds = [
+            ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::SEED_PREFIX,
+            config.key().as_ref(),
+            ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::from_chain(&transceiver_message)?.id.to_be_bytes().as_ref(),
+            ValidatedTransceiverMessage::<NativeTokenTransfer<Payload>>::message(&transceiver_message.try_borrow_data()?[..])?.ntt_manager_payload().id.as_ref(),
+        ],
+        seeds::program = transceiver.transceiver_address,
+        bump,
+        // `owner` is implied by the seeds check above (a valid PDA of
+        // `transceiver.transceiver_address` must be owned by it), but kept
+        // here for clarity.
         owner = transceiver.transceiver_address
     )]
     /// CHECK: `transceiver_message` has to be manually deserialized as Anchor
