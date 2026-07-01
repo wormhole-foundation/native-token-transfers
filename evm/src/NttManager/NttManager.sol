@@ -41,7 +41,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     using TrimmedAmountLib for uint256;
     using TrimmedAmountLib for TrimmedAmount;
 
-    string public constant NTT_MANAGER_VERSION = "2.0.0";
+    string public constant NTT_MANAGER_VERSION = "2.0.1";
 
     // =============== Setup =================================================================
 
@@ -196,7 +196,7 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bytes32 nttManagerMessageHash = _recordTransceiverAttestation(sourceChainId, payload);
 
         if (isMessageApproved(nttManagerMessageHash)) {
-            executeMsg(sourceChainId, sourceNttManagerAddress, payload);
+            executeMsgInner(sourceChainId, sourceNttManagerAddress, payload);
         }
     }
 
@@ -206,6 +206,15 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
         bytes32 sourceNttManagerAddress,
         TransceiverStructs.NttManagerMessage memory message
     ) public whenNotPaused {
+        _verifyPeer(sourceChainId, sourceNttManagerAddress);
+        executeMsgInner(sourceChainId, sourceNttManagerAddress, message);
+    }
+
+    function executeMsgInner(
+        uint16 sourceChainId,
+        bytes32 sourceNttManagerAddress,
+        TransceiverStructs.NttManagerMessage memory message
+    ) private {
         (bytes32 digest, bool alreadyExecuted) =
             _isMessageExecuted(sourceChainId, sourceNttManagerAddress, message);
 
@@ -265,7 +274,10 @@ contract NttManager is INttManager, RateLimiter, ManagerBase {
     /// @dev Override this function to process an additional payload on the NativeTokenTransfer
     /// For integrator flexibility, this function is *not* marked pure or view
     /// @param - The Wormhole chain id of the sender
-    /// @param - The address of the sender's NTT Manager contract.
+    /// @param - The address verified to equal the peer currently registered for the source chain —
+    ///          not necessarily the manager that originally sent the message, since the peer may have
+    ///          been changed while the message was in flight. Integrators must not treat this as the
+    ///          authenticated original sender.
     /// @param - The message id from the NttManagerMessage.
     /// @param - The original message sender address from the NttManagerMessage.
     /// @param - The parsed NativeTokenTransfer, which includes the additionalPayload field
