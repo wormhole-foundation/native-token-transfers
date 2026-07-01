@@ -243,9 +243,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
     function test_executeMsg_revertsOnInvalidPeer() public {
         // Register a known, valid peer for the sending chain.
         bytes32 realPeer = toWormholeFormat(address(nttManagerOther));
-        nttManager.setPeer(
-            TransceiverHelpersLib.SENDING_CHAIN_ID, realPeer, 9, type(uint64).max
-        );
+        nttManager.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, realPeer, 9, type(uint64).max);
         TransceiverStructs.NttManagerMessage memory message =
             TransceiverStructs.NttManagerMessage(bytes32(0), realPeer, abi.encode("payload"));
 
@@ -253,9 +251,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         bytes32 wrongPeer = toWormholeFormat(address(0x1337));
         vm.expectRevert(
             abi.encodeWithSelector(
-                INttManager.InvalidPeer.selector,
-                TransceiverHelpersLib.SENDING_CHAIN_ID,
-                wrongPeer
+                INttManager.InvalidPeer.selector, TransceiverHelpersLib.SENDING_CHAIN_ID, wrongPeer
             )
         );
         nttManager.executeMsg(TransceiverHelpersLib.SENDING_CHAIN_ID, wrongPeer, message);
@@ -289,12 +285,12 @@ contract TestNttManager is Test, IRateLimiterEvents {
         );
         TransceiverStructs.NttManagerMessage memory message;
         bytes memory transceiverMessage;
-        (message, transceiverMessage) = TransceiverHelpersLib
-            .buildTransceiverMessageWithNttManagerPayload(
-            bytes32(uint256(1)), bytes32(0), peer, toWormholeFormat(address(nttManager)), ntt
-        );
+        (message, transceiverMessage) =
+            TransceiverHelpersLib.buildTransceiverMessageWithNttManagerPayload(
+                bytes32(uint256(1)), bytes32(0), peer, toWormholeFormat(address(nttManager)), ntt
+            );
 
-        // Not executed because of 2/2 threshold. 
+        // Not executed because of 2/2 threshold.
         dummyTransceiver.receiveMessage(transceiverMessage);
         bytes32 digest = TransceiverStructs.nttManagerMessageDigest(
             TransceiverHelpersLib.SENDING_CHAIN_ID, message
