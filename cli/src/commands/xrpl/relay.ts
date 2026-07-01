@@ -122,10 +122,10 @@ export function createXrplRelayCommand(
         })
         .option("request-type", {
           describe:
-            "ern1 (NTT transfer) or erv1 (onboarding/register-peer → Sequencer)",
+            "ERN1 (NTT transfer) or ERV1 (onboarding/register-peer → Sequencer)",
           type: "string",
-          choices: ["ern1", "erv1"] as const,
-          default: "ern1",
+          choices: ["ERN1", "ERV1"] as const,
+          default: "ERN1",
         })
         .option("dst-addr", {
           describe:
