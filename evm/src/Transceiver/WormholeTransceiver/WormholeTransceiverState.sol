@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
-import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
-
+import "wormhole-sdk/libraries/BytesParsing.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
 import "../../libraries/TransceiverHelpers.sol";
 import "../../libraries/TransceiverStructs.sol";
-import "../../libraries/ConfigMakers.sol";
+import {CustomConsistencyLib} from "wormhole-sdk/libraries/CustomConsistency.sol";
 
 import "../../interfaces/IWormholeTransceiver.sol";
 import "../../interfaces/IWormholeTransceiverState.sol";
 import "../../interfaces/INttManager.sol";
-import "../../interfaces/ICustomConsistencyLevel.sol";
 
 import "../Transceiver.sol";
 
@@ -23,7 +21,7 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     uint8 public immutable customConsistencyLevel;
     uint16 public immutable additionalBlocks;
     address public immutable customConsistencyLevelAddress;
-    IWormhole public immutable wormhole;
+    ICoreBridge public immutable wormhole;
     /// @dev We don't check this in `_checkImmutables` since it's set at construction
     ///      through `block.chainid`.
     uint256 immutable wormholeTransceiver_evmChainId;
@@ -56,7 +54,7 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
         uint16 _additionalBlocks,
         address _customConsistencyLevelAddress
     ) Transceiver(nttManager) {
-        wormhole = IWormhole(wormholeCoreBridge);
+        wormhole = ICoreBridge(wormholeCoreBridge);
         wormholeTransceiver_evmChainId = block.chainid;
         consistencyLevel = _consistencyLevel;
         customConsistencyLevel = _customConsistencyLevel;
@@ -76,16 +74,16 @@ abstract contract WormholeTransceiverState is IWormholeTransceiverState, Transce
     function _initializeTransceiver() internal {
         TransceiverStructs.TransceiverInit memory init = TransceiverStructs.TransceiverInit({
             transceiverIdentifier: WH_TRANSCEIVER_INIT_PREFIX,
-            nttManagerAddress: toWormholeFormat(nttManager),
+            nttManagerAddress: toUniversalAddress(nttManager),
             nttManagerMode: INttManager(nttManager).getMode(),
-            tokenAddress: toWormholeFormat(nttManagerToken),
+            tokenAddress: toUniversalAddress(nttManagerToken),
             tokenDecimals: INttManager(nttManager).tokenDecimals()
         });
 
         if (consistencyLevel == CONSISTENCY_LEVEL_CUSTOM) {
-            bytes32 config =
-                ConfigMakers.makeAdditionalBlocksConfig(customConsistencyLevel, additionalBlocks);
-            ICustomConsistencyLevel(customConsistencyLevelAddress).configure(config);
+            CustomConsistencyLib.setAdditionalBlocksConfig(
+                customConsistencyLevelAddress, customConsistencyLevel, additionalBlocks
+            );
         }
 
         wormhole.publishMessage{value: msg.value}(

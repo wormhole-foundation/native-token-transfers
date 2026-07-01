@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity ^0.8.0;
 
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 
 library ConfigMakers {
     using BytesParsing for bytes;
@@ -19,6 +19,6 @@ library ConfigMakers {
         bytes28 padding;
         bytes memory encoded =
             abi.encodePacked(TYPE_ADDITIONAL_BLOCKS, consistencyLevel, blocksToWait, padding);
-        (config,) = encoded.asBytes32Unchecked(0);
+        (config,) = encoded.asBytes32MemUnchecked(0);
     }
 }

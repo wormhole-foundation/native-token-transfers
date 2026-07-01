@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 import "./TrimmedAmount.sol";
 
 library TransceiverStructs {
@@ -59,7 +59,9 @@ library TransceiverStructs {
         uint16 sourceChainId,
         NttManagerMessage memory m
     ) public pure returns (bytes32) {
-        return _nttManagerMessageDigest(sourceChainId, encodeNttManagerMessage(m));
+        return keccak256(
+            abi.encodePacked(sourceChainId, m.id, m.sender, uint16(m.payload.length), m.payload)
+        );
     }
 
     function _nttManagerMessageDigest(
@@ -86,12 +88,12 @@ library TransceiverStructs {
         bytes memory encoded
     ) public pure returns (NttManagerMessage memory nttManagerMessage) {
         uint256 offset = 0;
-        (nttManagerMessage.id, offset) = encoded.asBytes32Unchecked(offset);
-        (nttManagerMessage.sender, offset) = encoded.asBytes32Unchecked(offset);
+        (nttManagerMessage.id, offset) = encoded.asBytes32MemUnchecked(offset);
+        (nttManagerMessage.sender, offset) = encoded.asBytes32MemUnchecked(offset);
         uint256 payloadLength;
-        (payloadLength, offset) = encoded.asUint16Unchecked(offset);
-        (nttManagerMessage.payload, offset) = encoded.sliceUnchecked(offset, payloadLength);
-        encoded.checkLength(offset);
+        (payloadLength, offset) = encoded.asUint16MemUnchecked(offset);
+        (nttManagerMessage.payload, offset) = encoded.sliceMemUnchecked(offset, payloadLength);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 
     /// @dev Native Token Transfer payload.
@@ -158,7 +160,7 @@ library TransceiverStructs {
     ) public pure returns (NativeTokenTransfer memory nativeTokenTransfer) {
         uint256 offset = 0;
         bytes4 prefix;
-        (prefix, offset) = encoded.asBytes4Unchecked(offset);
+        (prefix, offset) = encoded.asBytes4MemUnchecked(offset);
         if (prefix != NTT_PREFIX) {
             revert IncorrectPrefix(prefix);
         }
@@ -166,23 +168,23 @@ library TransceiverStructs {
         // The `amount` and `decimals` fields are parsed in reverse order compared to how they are declared in the
         // `TrimmedAmount` struct. This is consistent with the Rust NTT implementation.
         uint8 numDecimals;
-        (numDecimals, offset) = encoded.asUint8Unchecked(offset);
+        (numDecimals, offset) = encoded.asUint8MemUnchecked(offset);
         uint64 amount;
-        (amount, offset) = encoded.asUint64Unchecked(offset);
+        (amount, offset) = encoded.asUint64MemUnchecked(offset);
         nativeTokenTransfer.amount = packTrimmedAmount(amount, numDecimals);
 
-        (nativeTokenTransfer.sourceToken, offset) = encoded.asBytes32Unchecked(offset);
-        (nativeTokenTransfer.to, offset) = encoded.asBytes32Unchecked(offset);
-        (nativeTokenTransfer.toChain, offset) = encoded.asUint16Unchecked(offset);
+        (nativeTokenTransfer.sourceToken, offset) = encoded.asBytes32MemUnchecked(offset);
+        (nativeTokenTransfer.to, offset) = encoded.asBytes32MemUnchecked(offset);
+        (nativeTokenTransfer.toChain, offset) = encoded.asUint16MemUnchecked(offset);
         // The additional payload may be omitted, but if it is included, it is prefixed by a u16 for its length.
         // If there are at least 2 bytes remaining, attempt to parse the additional payload.
         if (encoded.length >= offset + 2) {
             uint256 payloadLength;
-            (payloadLength, offset) = encoded.asUint16Unchecked(offset);
+            (payloadLength, offset) = encoded.asUint16MemUnchecked(offset);
             (nativeTokenTransfer.additionalPayload, offset) =
-                encoded.sliceUnchecked(offset, payloadLength);
+                encoded.sliceMemUnchecked(offset, payloadLength);
         }
-        encoded.checkLength(offset);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 
     /// @dev Message emitted by Transceiver implementations.
@@ -266,25 +268,26 @@ library TransceiverStructs {
         uint256 offset = 0;
         bytes4 prefix;
 
-        (prefix, offset) = encoded.asBytes4Unchecked(offset);
+        (prefix, offset) = encoded.asBytes4MemUnchecked(offset);
 
         if (prefix != expectedPrefix) {
             revert IncorrectPrefix(prefix);
         }
 
-        (transceiverMessage.sourceNttManagerAddress, offset) = encoded.asBytes32Unchecked(offset);
-        (transceiverMessage.recipientNttManagerAddress, offset) = encoded.asBytes32Unchecked(offset);
+        (transceiverMessage.sourceNttManagerAddress, offset) = encoded.asBytes32MemUnchecked(offset);
+        (transceiverMessage.recipientNttManagerAddress, offset) =
+            encoded.asBytes32MemUnchecked(offset);
         uint16 nttManagerPayloadLength;
-        (nttManagerPayloadLength, offset) = encoded.asUint16Unchecked(offset);
+        (nttManagerPayloadLength, offset) = encoded.asUint16MemUnchecked(offset);
         (transceiverMessage.nttManagerPayload, offset) =
-            encoded.sliceUnchecked(offset, nttManagerPayloadLength);
+            encoded.sliceMemUnchecked(offset, nttManagerPayloadLength);
         uint16 transceiverPayloadLength;
-        (transceiverPayloadLength, offset) = encoded.asUint16Unchecked(offset);
+        (transceiverPayloadLength, offset) = encoded.asUint16MemUnchecked(offset);
         (transceiverMessage.transceiverPayload, offset) =
-            encoded.sliceUnchecked(offset, transceiverPayloadLength);
+            encoded.sliceMemUnchecked(offset, transceiverPayloadLength);
 
         // Check if the entire byte array has been processed
-        encoded.checkLength(offset);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 
     /// @dev Parses the payload of an Transceiver message and returns
@@ -331,10 +334,10 @@ library TransceiverStructs {
         bytes memory encoded,
         uint256 offset
     ) public pure returns (TransceiverInstruction memory instruction, uint256 nextOffset) {
-        (instruction.index, nextOffset) = encoded.asUint8Unchecked(offset);
+        (instruction.index, nextOffset) = encoded.asUint8MemUnchecked(offset);
         uint8 instructionLength;
-        (instructionLength, nextOffset) = encoded.asUint8Unchecked(nextOffset);
-        (instruction.payload, nextOffset) = encoded.sliceUnchecked(nextOffset, instructionLength);
+        (instructionLength, nextOffset) = encoded.asUint8MemUnchecked(nextOffset);
+        (instruction.payload, nextOffset) = encoded.sliceMemUnchecked(nextOffset, instructionLength);
     }
 
     function parseTransceiverInstructionChecked(
@@ -342,7 +345,7 @@ library TransceiverStructs {
     ) public pure returns (TransceiverInstruction memory instruction) {
         uint256 offset = 0;
         (instruction, offset) = parseTransceiverInstructionUnchecked(encoded, offset);
-        encoded.checkLength(offset);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 
     /// @dev Encode an array of multiple variable-length transceiver-specific instructions.
@@ -371,7 +374,7 @@ library TransceiverStructs {
     ) public pure returns (TransceiverInstruction[] memory) {
         uint256 offset = 0;
         uint256 instructionsLength;
-        (instructionsLength, offset) = encoded.asUint8Unchecked(offset);
+        (instructionsLength, offset) = encoded.asUint8MemUnchecked(offset);
 
         // We allocate an array with the length of the number of registered transceivers
         // This gives us the flexibility to not have to pass instructions for transceivers that
@@ -401,7 +404,7 @@ library TransceiverStructs {
             instructions[instructionIndex] = instruction;
         }
 
-        encoded.checkLength(offset);
+        BytesParsing.checkLength(encoded.length, offset);
 
         return instructions;
     }
@@ -430,12 +433,12 @@ library TransceiverStructs {
         bytes memory encoded
     ) public pure returns (TransceiverInit memory init) {
         uint256 offset = 0;
-        (init.transceiverIdentifier, offset) = encoded.asBytes4Unchecked(offset);
-        (init.nttManagerAddress, offset) = encoded.asBytes32Unchecked(offset);
-        (init.nttManagerMode, offset) = encoded.asUint8Unchecked(offset);
-        (init.tokenAddress, offset) = encoded.asBytes32Unchecked(offset);
-        (init.tokenDecimals, offset) = encoded.asUint8Unchecked(offset);
-        encoded.checkLength(offset);
+        (init.transceiverIdentifier, offset) = encoded.asBytes4MemUnchecked(offset);
+        (init.nttManagerAddress, offset) = encoded.asBytes32MemUnchecked(offset);
+        (init.nttManagerMode, offset) = encoded.asUint8MemUnchecked(offset);
+        (init.tokenAddress, offset) = encoded.asBytes32MemUnchecked(offset);
+        (init.tokenDecimals, offset) = encoded.asUint8MemUnchecked(offset);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 
     struct TransceiverRegistration {
@@ -458,9 +461,9 @@ library TransceiverStructs {
         bytes memory encoded
     ) public pure returns (TransceiverRegistration memory registration) {
         uint256 offset = 0;
-        (registration.transceiverIdentifier, offset) = encoded.asBytes4Unchecked(offset);
-        (registration.transceiverChainId, offset) = encoded.asUint16Unchecked(offset);
-        (registration.transceiverAddress, offset) = encoded.asBytes32Unchecked(offset);
-        encoded.checkLength(offset);
+        (registration.transceiverIdentifier, offset) = encoded.asBytes4MemUnchecked(offset);
+        (registration.transceiverChainId, offset) = encoded.asUint16MemUnchecked(offset);
+        (registration.transceiverAddress, offset) = encoded.asBytes32MemUnchecked(offset);
+        BytesParsing.checkLength(encoded.length, offset);
     }
 }

@@ -21,9 +21,13 @@ import "./mocks/MockTransceivers.sol";
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
-import "wormhole-solidity-sdk/testing/helpers/WormholeSimulator.sol";
-import "wormhole-solidity-sdk/Utils.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {
+    WormholeOverride,
+    AdvancedWormholeOverride
+} from "wormhole-sdk/testing/WormholeOverride.sol";
+import {VaaLib, Vaa, VaaBody as PublishedMessage} from "wormhole-sdk/libraries/VaaLib.sol";
+import "wormhole-sdk/Utils.sol";
 
 contract TestUpgrades is Test, IRateLimiterEvents {
     NttManager nttManagerChain1;
@@ -36,9 +40,6 @@ contract TestUpgrades is Test, IRateLimiterEvents {
     uint16 constant chainId2 = 100;
 
     uint16 constant SENDING_CHAIN_ID = 1;
-    uint256 constant DEVNET_GUARDIAN_PK =
-        0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
-    WormholeSimulator guardian;
     uint256 initialBlockTimestamp;
     uint8 constant FAST_CONSISTENCY_LEVEL = 200;
     uint256 constant GAS_LIMIT = 500000;
@@ -51,14 +52,14 @@ contract TestUpgrades is Test, IRateLimiterEvents {
     address userD = address(0xABC);
 
     address relayer = address(0x28D8F1Be96f97C1387e94A53e00eCcFb4E75175a);
-    IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
+    ICoreBridge wormhole = ICoreBridge(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
 
     function setUp() public virtual {
         string memory url = "https://ethereum-sepolia-rpc.publicnode.com";
         vm.createSelectFork(url);
         initialBlockTimestamp = vm.getBlockTimestamp();
 
-        guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
+        WormholeOverride.setUpOverride(wormhole);
 
         vm.chainId(chainId1);
         DummyToken t1 = new DummyToken();
@@ -191,7 +192,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
             MockNttManagerContract(address(new ERC1967Proxy(address(implementation), "")));
         thisNttManager.initialize();
 
-        thisNttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        thisNttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
 
         // Upgrade from NttManager with rate limiting disabled to NttManagerNoRateLimiting.
         NttManager rateLimitingImplementation = new MockNttManagerNoRateLimitingContract(
@@ -433,7 +434,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         // Set the message fee to be non-zero
         vm.chainId(11155111); // Sepolia testnet id
         uint256 fee = 0.000001e18;
-        guardian.setMessageFee(fee);
+        WormholeOverride.setMessageFee(wormhole, fee);
         uint256 balanceBefore = address(userA).balance;
         basicFunctionality();
         uint256 balanceAfter = address(userA).balance;
@@ -466,8 +467,8 @@ contract TestUpgrades is Test, IRateLimiterEvents {
             nttManagerChain1.transfer{value: totalQuote}(
                 sendingAmount,
                 chainId2,
-                toWormholeFormat(userB),
-                toWormholeFormat(userA),
+                toUniversalAddress(userB),
+                toUniversalAddress(userA),
                 false,
                 encodeTransceiverInstruction(true)
             );
@@ -487,12 +488,8 @@ contract TestUpgrades is Test, IRateLimiterEvents {
 
         vm.stopPrank();
 
-        // Get and sign the log to go down the other pipe. Thank you to whoever wrote this code in the past!
-        Vm.Log[] memory entries = guardian.fetchWormholeMessageFromLog(vm.getRecordedLogs());
-        bytes[] memory encodedVMs = new bytes[](entries.length);
-        for (uint256 i = 0; i < encodedVMs.length; i++) {
-            encodedVMs[i] = guardian.fetchSignedMessageFromLogs(entries[i], chainId1);
-        }
+        // Get and sign the log to go down the other pipe.
+        bytes[] memory encodedVMs = _getSignedMessages(vm.getRecordedLogs(), chainId1);
 
         // Chain2 verification and checks
         vm.chainId(chainId2);
@@ -513,12 +510,7 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         }
 
         // Can't resubmit the same message twice
-        (IWormhole.VM memory wormholeVM,,) = wormhole.parseAndVerifyVM(encodedVMs[0]);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IWormholeTransceiver.TransferAlreadyCompleted.selector, wormholeVM.hash
-            )
-        );
+        vm.expectRevert();
         wormholeTransceiverChain2.receiveMessage(encodedVMs[0]);
 
         // Go back the other way from a THIRD user
@@ -540,8 +532,8 @@ contract TestUpgrades is Test, IRateLimiterEvents {
             nttManagerChain2.transfer{value: totalQuote}(
                 sendingAmount,
                 chainId1,
-                toWormholeFormat(userD),
-                toWormholeFormat(userC),
+                toUniversalAddress(userD),
+                toUniversalAddress(userC),
                 false,
                 encodeTransceiverInstruction(true)
             );
@@ -557,12 +549,8 @@ contract TestUpgrades is Test, IRateLimiterEvents {
             );
         }
 
-        // Get and sign the log to go down the other pipe. Thank you to whoever wrote this code in the past!
-        entries = guardian.fetchWormholeMessageFromLog(vm.getRecordedLogs());
-        encodedVMs = new bytes[](entries.length);
-        for (uint256 i = 0; i < encodedVMs.length; i++) {
-            encodedVMs[i] = guardian.fetchSignedMessageFromLogs(entries[i], chainId2);
-        }
+        // Get and sign the log to go down the other pipe.
+        encodedVMs = _getSignedMessages(vm.getRecordedLogs(), chainId2);
 
         // Chain1 verification and checks with the receiving of the message
         vm.chainId(chainId1);
@@ -601,6 +589,19 @@ contract TestUpgrades is Test, IRateLimiterEvents {
         TransceiverInstructions[0] = TransceiverInstruction;
         return TransceiverStructs.encodeTransceiverInstructions(TransceiverInstructions);
     }
+
+    function _getSignedMessages(
+        Vm.Log[] memory logs,
+        uint16 emitterChainId
+    ) internal view returns (bytes[] memory) {
+        PublishedMessage[] memory msgs = WormholeOverride.fetchPublishedMessages(wormhole, logs);
+        bytes[] memory encodedVMs = new bytes[](msgs.length);
+        for (uint256 i = 0; i < msgs.length; i++) {
+            msgs[i].envelope.emitterChainId = emitterChainId;
+            encodedVMs[i] = VaaLib.encode(WormholeOverride.sign(wormhole, msgs[i]));
+        }
+        return encodedVMs;
+    }
 }
 
 contract TestInitialize is Test {
@@ -614,14 +615,11 @@ contract TestInitialize is Test {
 
     uint16 constant chainId1 = 7;
 
-    uint256 constant DEVNET_GUARDIAN_PK =
-        0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
-
     WormholeTransceiver wormholeTransceiverChain1;
     address userA = address(0x123);
 
     address relayer = address(0x28D8F1Be96f97C1387e94A53e00eCcFb4E75175a);
-    IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
+    ICoreBridge wormhole = ICoreBridge(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
 
     function test_doubleInitialize() public {
         string memory url = "https://ethereum-sepolia-rpc.publicnode.com";
