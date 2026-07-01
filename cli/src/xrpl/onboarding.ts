@@ -59,10 +59,7 @@ const U64_MAX = (1n << 64n) - 1n;
  * Encode a non-negative integer that fits in a u64 as a big-endian 8-byte
  * (16 hex char) value. Accepts a number, bigint, or decimal string.
  */
-function u64Hex(n: string | number | bigint): string {
-  if (typeof n === "number" && !Number.isInteger(n)) {
-    throw new Error(`value ${n} must be an integer`);
-  }
+function u64Hex(n: string | bigint): string {
   let v: bigint;
   try {
     v = BigInt(n);
@@ -148,8 +145,8 @@ export function buildInitData(decimals: number, token: TokenInit): string {
 export function buildOnboardingPayload(params: {
   admin: string;
   app: string;
-  initialTicket: number;
-  ticketCount: number;
+  initialTicket: bigint;
+  ticketCount: bigint;
   initData: string;
 }): string {
   const adminHex = accountIdHex(params.admin);

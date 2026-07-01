@@ -8,22 +8,6 @@ import type { CustomConversion, DeriveType, Layout } from "binary-layout";
 import { deserialize, serialize } from "binary-layout";
 import { ethers } from "ethers";
 
-const DEFAULT_EXECUTOR_API = "https://executor-testnet.labsapis.com";
-
-const DEFAULT_EXECUTOR_APIS: Partial<Record<Network, string>> = {
-  Testnet: DEFAULT_EXECUTOR_API,
-};
-
-export function getDefaultExecutorApiForNetwork(network: Network): string {
-  const api = DEFAULT_EXECUTOR_APIS[network];
-  if (!api) {
-    throw new Error(
-      `No default Executor API for ${network}; pass --executor-api`
-    );
-  }
-  return api;
-}
-
 export const hexConversion = {
   to: (encoded: Uint8Array) => ethers.hexlify(encoded) as `0x${string}`,
   from: (decoded: `0x${string}`) => ethers.getBytes(decoded),

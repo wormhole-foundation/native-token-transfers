@@ -62,12 +62,12 @@ export function createXrplInitCommand(
         })
         .option("initial-ticket", {
           describe: "First ticket ID in the pre-allocated range",
-          type: "number",
+          type: "string",
           demandOption: true,
         })
         .option("ticket-count", {
           describe: "Number of tickets available",
-          type: "number",
+          type: "string",
           demandOption: true,
         })
         .option("token", {
@@ -135,8 +135,8 @@ export function createXrplInitCommand(
         const payload = buildOnboardingPayload({
           admin: argv.admin,
           app: APP_TYPE,
-          initialTicket: argv["initial-ticket"],
-          ticketCount: argv["ticket-count"],
+          initialTicket: BigInt(argv["initial-ticket"]),
+          ticketCount: BigInt(argv["ticket-count"]),
           initData,
         });
         const memoData = buildPublishMemoData(payload);

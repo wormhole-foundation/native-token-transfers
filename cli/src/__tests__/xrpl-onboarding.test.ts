@@ -76,8 +76,8 @@ describe("buildOnboardingPayload", () => {
     const out = buildOnboardingPayload({
       admin: ADMIN,
       app: "NTT",
-      initialTicket: 100,
-      ticketCount: 150,
+      initialTicket: 100n,
+      ticketCount: 150n,
       initData,
     });
 
@@ -104,8 +104,8 @@ describe("buildOnboardingPayload", () => {
     const out = buildOnboardingPayload({
       admin: ADMIN,
       app: "NTT",
-      initialTicket: 1,
-      ticketCount: 2,
+      initialTicket: 1n,
+      ticketCount: 2n,
       initData,
     });
     // 72 (fixed) + 43 (init_data) = 115 bytes => 230 hex chars

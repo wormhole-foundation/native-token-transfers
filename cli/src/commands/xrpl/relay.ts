@@ -2,9 +2,18 @@ import type {
   Network,
   WormholeConfigOverrides,
 } from "@wormhole-foundation/sdk-connect";
-import { RequestPrefix } from "@wormhole-foundation/sdk-connect";
+import {
+  RequestPrefix,
+  UniversalAddress,
+} from "@wormhole-foundation/sdk-connect";
 import { fetchQuote, fetchStatus } from "@wormhole-foundation/sdk-connect";
-import { toChain, toUniversal, type Chain } from "@wormhole-foundation/sdk";
+import {
+  toChain,
+  toUniversal,
+  type Chain,
+  executor,
+  CONFIG,
+} from "@wormhole-foundation/sdk";
 import { ethers } from "ethers";
 import { decodeAccountID } from "xrpl";
 import { colors } from "../../colors.js";
@@ -17,12 +26,6 @@ import {
   walletFromSeed,
   withXrplClient,
 } from "../../xrpl/helpers";
-import { getDefaultExecutorApiForNetwork } from "../../xrpl/executor";
-import {
-  CHAIN_ID_XRPL,
-  getDefaultGuardianApiForNetwork,
-  pollSignedVaa,
-} from "../../xrpl/guardian";
 import {
   buildGasInstructionHex,
   serializeRequest,
@@ -39,6 +42,9 @@ import {
   type TokenId,
 } from "../../xrpl/tokenId";
 import { withCommon } from "./common";
+import { getVaaBytesWithRetry } from "@wormhole-foundation/sdk-connect/whscan-api";
+
+const CHAIN_ID_XRPL = 66;
 
 /**
  * Resolve a destination address to a 32-byte universal hex. Accepts the
@@ -309,15 +315,15 @@ export async function runRelay(
 
   // ── 2. Poll the guardian API for the signed VAA ──
   console.log(colors.blue("\n⏳ Waiting for guardian VAA..."));
-  await pollSignedVaa({
+  await getVaaBytesWithRetry(
     guardianApi,
-    chain: CHAIN_ID_XRPL,
-    emitterHex,
-    sequence,
-    pollIntervalMs: pollInterval,
-    pollTimeoutMs: pollTimeout,
-    onAttempt: (n, url) => console.log(colors.dim(`  attempt ${n}: ${url}`)),
-  });
+    {
+      chain: toChain(CHAIN_ID_XRPL),
+      emitter: new UniversalAddress(emitterHex),
+      sequence: sequence,
+    },
+    pollTimeout
+  );
   console.log(colors.green("  VAA available."));
 
   // ── 3. Fetch a quote ──
@@ -432,4 +438,34 @@ export async function runRelay(
       "Acks back to the Sequencer (XACK/XTCF/XBRN) are handled automatically by the executor's XRPL poller."
     )
   );
+}
+
+/**
+ * Default Executor API base URL for a network. Throws if there is no default
+ * for that network (e.g. not deployed yet) — pass `--executor-api` explicitly
+ * in that case.
+ */
+export function getDefaultExecutorApiForNetwork(network: Network): string {
+  const api = executor.executorAPI.get(network);
+  if (!api) {
+    throw new Error(
+      `No default Executor API for ${network}; pass --executor-api`
+    );
+  }
+  return api;
+}
+
+/**
+ * Default Guardian / Wormholescan API base URL for a network. Throws if there
+ * is no default for that network (e.g. not deployed yet) — pass `--guardian-api`
+ * explicitly in that case.
+ */
+export function getDefaultGuardianApiForNetwork(network: Network): string {
+  const api = CONFIG[network].api;
+  if (!api) {
+    throw new Error(
+      `No default Guardian API for ${network}; pass --guardian-api`
+    );
+  }
+  return api;
 }
