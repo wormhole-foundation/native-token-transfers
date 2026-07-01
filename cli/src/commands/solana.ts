@@ -6,6 +6,7 @@ import { encoding } from "@wormhole-foundation/sdk-connect";
 import {
   Wormhole,
   chainToPlatform,
+  chains,
   toUniversal,
   type Chain,
 } from "@wormhole-foundation/sdk";
@@ -18,6 +19,7 @@ import {
   Keypair,
   PublicKey,
   SendTransactionError,
+  Transaction,
 } from "@solana/web3.js";
 import * as spl from "@solana/spl-token";
 
@@ -382,6 +384,154 @@ export function createSolanaCommand(
             console.log(`Program ID: ${buildResult.programId}`);
             console.log(`Binary: ${buildResult.binary}`);
             console.log(`Keypair: ${buildResult.programKeypairPath}`);
+          }
+        )
+        .command(
+          "cancel-ownership-transfer <chain>",
+          "cancel an in-progress NTT manager ownership transfer",
+          (yargs: any) =>
+            yargs
+              .positional("chain", {
+                ...options.chain,
+                choices: chains.filter((c) => chainToPlatform(c) === "Solana"),
+              })
+              .option("path", options.deploymentPath)
+              .option("yes", options.yes)
+              .option("payer", { ...options.payer, demandOption: true })
+              .example(
+                "$0 svm cancel-ownership-transfer Solana --payer <SOLANA_KEYPAIR_PATH>",
+                "Cancel a pending ownership transfer on Solana, restoring upgrade authority to the current owner"
+              ),
+          async (argv: any) => {
+            const path = argv["path"];
+            const deployments: Config = loadConfig(path);
+            const chain: Chain = argv["chain"];
+            const network = deployments.network as Network;
+
+            const platform = chainToPlatform(chain);
+            if (platform !== "Solana") {
+              console.error(
+                `cancel-ownership-transfer is only supported for SVM chains. Got platform: ${platform}`
+              );
+              process.exit(1);
+            }
+
+            const payerPath = validatePayerOption(
+              argv["payer"],
+              chain,
+              (message) => new Error(message),
+              (message) => console.warn(colors.yellow(message))
+            );
+            if (!payerPath) {
+              console.error("Payer not found. Specify with --payer");
+              process.exit(1);
+            }
+            const payerKeypair = Keypair.fromSecretKey(
+              new Uint8Array(JSON.parse(fs.readFileSync(payerPath).toString()))
+            );
+
+            if (!(chain in deployments.chains)) {
+              console.error(
+                `Chain ${chain} not found in deployment configuration`
+              );
+              process.exit(1);
+            }
+
+            const chainConfig = deployments.chains[chain]!;
+            console.log(
+              `Cancelling ownership transfer on ${chain} (${network})`
+            );
+            console.log(`Manager address: ${chainConfig.manager}`);
+
+            const [, , ntt] = await pullChainConfig(
+              network,
+              { chain, address: toUniversal(chain, chainConfig.manager) },
+              overrides
+            );
+            const solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
+
+            const config = await solanaNtt.getConfig();
+            const currentOwner = config.owner;
+            const pendingOwner = config.pendingOwner;
+
+            console.log(`Current owner: ${currentOwner.toBase58()}`);
+
+            if (!pendingOwner) {
+              console.error(
+                "No ownership transfer in progress (pending_owner is null). Nothing to cancel."
+              );
+              process.exit(1);
+            }
+
+            console.log(`Pending owner: ${pendingOwner.toBase58()}`);
+
+            if (!currentOwner.equals(payerKeypair.publicKey)) {
+              console.error(
+                `Payer ${payerKeypair.publicKey.toBase58()} is not the current owner. Only the current owner can cancel a pending ownership transfer.`
+              );
+              process.exit(1);
+            }
+
+            if (!argv["yes"]) {
+              await askForConfirmation(
+                `Cancel pending ownership transfer to ${pendingOwner.toBase58()}?`
+              );
+            }
+
+            const wh = new Wormhole(network, [solana.Platform], overrides);
+            const ch = wh.getChain(chain);
+            const connection: Connection = await ch.getRpc();
+
+            try {
+              // Cancellation is performed by the current owner re-invoking
+              // claim_ownership. This restores the upgrade authority from the
+              // upgrade_lock PDA back to the owner and clears pending_owner.
+              const ix = await NTT.createClaimOwnershipInstruction(
+                solanaNtt.program,
+                { newOwner: currentOwner }
+              );
+
+              const tx = new Transaction().add(ix);
+              tx.feePayer = payerKeypair.publicKey;
+              const { blockhash, lastValidBlockHeight } =
+                await connection.getLatestBlockhash();
+              tx.recentBlockhash = blockhash;
+              tx.sign(payerKeypair);
+
+              const signature = await connection.sendRawTransaction(
+                tx.serialize()
+              );
+              console.log(`Transaction signature: ${signature}`);
+              console.log(`Waiting for finalization...`);
+              await connection.confirmTransaction(
+                { signature, blockhash, lastValidBlockHeight },
+                "finalized"
+              );
+
+              const refreshed = await NTT.getConfig(
+                solanaNtt.program,
+                solanaNtt.pdas
+              );
+              if (refreshed.pendingOwner === null) {
+                console.log("Pending ownership transfer cancelled");
+              } else {
+                console.error(
+                  `Cancellation verification failed; pending_owner is still ${refreshed.pendingOwner.toBase58()}`
+                );
+                process.exit(1);
+              }
+            } catch (error: any) {
+              if (error instanceof SendTransactionError) {
+                console.error("Failed to cancel ownership transfer:");
+                console.error(error.logs);
+              } else {
+                console.error(
+                  "Failed to cancel ownership transfer:",
+                  error.message ?? error
+                );
+              }
+              process.exit(1);
+            }
           }
         )
         .demandCommand();

@@ -20,9 +20,34 @@ import { getSigner, type SignerType } from "../signers/getSigner";
 import { newSignSendWaiter } from "../signers/signSendWait.js";
 import { registerSolanaTransceiver } from "../solana/transceiver";
 import { collectMissingConfigs, validatePayerOption } from "../validation";
-import type { Deployment } from "../validation";
-import { options } from "./shared";
+import type { Deployment, MissingImplicitConfig } from "../validation";
+import { diffObjects } from "../diff";
+import { options, EXCLUDED_DIFF_PATHS } from "./shared";
 import { pullDeployments, checkConfigErrors, pushDeployment } from "../index";
+
+function hasPendingChanges(
+  deployment: Deployment<Chain>,
+  missing: MissingImplicitConfig | undefined
+): boolean {
+  if (
+    missing &&
+    (missing.managerPeers.length > 0 ||
+      missing.transceiverPeers.length > 0 ||
+      missing.solanaWormholeTransceiver ||
+      missing.solanaUpdateLUT)
+  ) {
+    return true;
+  }
+  const local = deployment.config.local;
+  const remote = deployment.config.remote;
+  if (!local || !remote) {
+    // If either side is missing, defer to existing handling — treat as
+    // "needs work" so the original code paths run.
+    return true;
+  }
+  const diff = diffObjects(local, remote, EXCLUDED_DIFF_PATHS);
+  return Object.keys(diff).length > 0;
+}
 
 export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
   return {
@@ -132,6 +157,11 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
         }
         assertChain(chain);
         if (chainToPlatform(chain) === "Evm") {
+          if (!hasPendingChanges(deps[chain]!, missing[chain])) {
+            // No-op for this chain — don't require ownership of contracts the
+            // user isn't trying to modify.
+            continue;
+          }
           const ntt = deps[chain]!.ntt;
           const ctx = deps[chain]!.ctx;
           const signer = await getSigner(ctx, signerType, undefined, payerPath);
