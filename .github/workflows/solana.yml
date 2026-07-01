@@ -85,7 +85,7 @@ jobs:
 
       - name: Restore cached SBF artifacts
         id: cache-sbf
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: solana/target/deploy
           key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/**/Cargo.toml', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
@@ -114,7 +114,7 @@ jobs:
 
       - name: Cache solana tools
         id: cache-solana
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         env:
           cache-name: solana-tools
         with:
@@ -143,7 +143,7 @@ jobs:
 
       - name: Save SBF artifacts to cache
         if: steps.verify-cache.outputs.valid != 'true'
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: solana/target/deploy
           key: solana-sbf-${{ steps.solana.outputs.version }}-${{ hashFiles('solana/Cargo.lock', 'solana/**/Cargo.toml', 'solana/programs/**/*.rs', 'solana/modules/**/*.rs') }}
@@ -202,7 +202,7 @@ jobs:
           node-version: ${{ env.node-version }}
 
       - name: Cache node_modules
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ./solana/node_modules/
           key: node-modules-${{ runner.os }}-build-${{ env.node-version }}
