@@ -19,6 +19,7 @@ import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 import { NTT, SolanaNtt } from "@wormhole-foundation/sdk-solana-ntt";
 
 import { getSigner, type SignerType } from "../signers/getSigner";
+import { U64_MAX } from "../constants.js";
 import { handleDeploymentError } from "../error";
 import { ensureNttRoot } from "../validation";
 import { askForConfirmation } from "../prompts.js";
@@ -446,7 +447,7 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
       {
         mint: new PublicKey(token),
         mode,
-        outboundLimit: 100000000n,
+        outboundLimit: U64_MAX,
         ...(mode === "burning" &&
           !mint.mintAuthority!.equals(tokenAuthority) && {
             multisigTokenAuthority: mint.mintAuthority!,
