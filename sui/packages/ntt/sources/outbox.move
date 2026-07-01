@@ -79,6 +79,11 @@ module ntt::outbox {
         &outbox_item.recipient_ntt_manager
     }
 
+    #[test_only]
+    public fun borrow_release_timestamp<T: store>(outbox_item: &OutboxItem<T>): u64 {
+        outbox_item.release_timestamp
+    }
+
     public(package) fun try_release<T: store>(
         outbox: &mut Outbox<T>,
         key: OutboxKey,
