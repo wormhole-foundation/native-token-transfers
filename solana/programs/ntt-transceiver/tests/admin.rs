@@ -23,6 +23,7 @@ use wormhole_svm_definitions::solana::{POST_MESSAGE_SHIM_PROGRAM_ID, VERIFY_VAA_
 #[tokio::test]
 async fn test_invalid_transceiver() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     // try registering system program
     let err = register_transceiver(
@@ -48,6 +49,8 @@ async fn test_invalid_transceiver() {
 #[tokio::test]
 async fn test_reregister_all_transceivers() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     // Transceivers are expected to be executable which requires them to be added on setup
     // Thus, we pass all available executable program IDs as dummy_transceivers
@@ -141,6 +144,8 @@ async fn test_reregister_all_transceivers() {
 #[tokio::test]
 async fn test_deregister_last_enabled_transceiver() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     // attempt to deregister only enabled transceiver (standalone transceiver)
     let err = deregister_transceiver(

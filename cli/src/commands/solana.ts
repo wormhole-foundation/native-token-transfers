@@ -37,6 +37,7 @@ import {
   askForConfirmation,
   buildSvm,
   createWorkTree,
+  uploadSolanaProgram,
 } from "../index";
 
 export function createSolanaCommand(
@@ -69,14 +70,29 @@ export function createSolanaCommand(
           "token-authority <programId>",
           "print the token authority address for a given program ID",
           (yargs: any) =>
-            yargs.positional("programId", {
-              describe: "Program ID",
-              type: "string",
-              demandOption: true,
-            }),
+            yargs
+              .positional("programId", {
+                describe: "Program ID",
+                type: "string",
+                demandOption: true,
+              })
+              .option("instance", {
+                describe:
+                  "(Multi-tenant / v4) The Instance pubkey under the program. " +
+                  "v4 token_authority PDAs are scoped by instance, so this " +
+                  "flag is required when the program is multi-tenant.",
+                type: "string",
+                demandOption: false,
+              }),
           (argv: any) => {
             const programId = new PublicKey(argv["programId"]);
-            const tokenAuthority = NTT.pdas(programId).tokenAuthority();
+            const instance = argv["instance"]
+              ? new PublicKey(argv["instance"])
+              : undefined;
+            const tokenAuthority = NTT.pdas(
+              programId,
+              instance
+            ).tokenAuthority();
             console.log(tokenAuthority.toBase58());
           }
         )
@@ -136,6 +152,15 @@ export function createSolanaCommand(
                 describe: "Token address",
                 type: "string",
               })
+              .option("instance", {
+                describe:
+                  "(Multi-tenant / v4) The Instance pubkey under the program. " +
+                  "v4 token_authority PDAs are scoped by instance, so this " +
+                  "flag is required when the undeployed program is " +
+                  "multi-tenant. For a deployed program the instance is read " +
+                  "from the deployment file.",
+                type: "string",
+              })
               .option("path", options.deploymentPath)
               .option("yes", options.yes)
               .option("payer", { ...options.payer, demandOption: true })
@@ -176,6 +201,17 @@ export function createSolanaCommand(
               process.exit(1);
             }
 
+            const instance = argv["instance"]
+              ? new PublicKey(argv["instance"])
+              : undefined;
+            if (instance && !manager) {
+              console.error(
+                "--instance is only valid together with --token and --manager; " +
+                  "for a deployed program the instance is read from the deployment file"
+              );
+              process.exit(1);
+            }
+
             const wh = new Wormhole(
               network,
               [solana.Platform, evm.Platform],
@@ -185,7 +221,7 @@ export function createSolanaCommand(
             const connection: Connection = await ch.getRpc();
 
             let solanaNtt: SolanaNtt<typeof network, SolanaChains> | undefined;
-            let managerKey: PublicKey;
+            let tokenAuthority: PublicKey;
             let major: number;
             let tokenProgram: PublicKey;
 
@@ -201,12 +237,16 @@ export function createSolanaCommand(
               const [, , ntt] = await pullChainConfig(
                 network,
                 { chain, address: toUniversal(chain, chainConfig.manager) },
-                overrides
+                overrides,
+                chainConfig.instance
               );
               solanaNtt = ntt as SolanaNtt<typeof network, SolanaChains>;
-              managerKey = new PublicKey(chainConfig.manager);
               major = Number(solanaNtt.version.split(".")[0]);
               tokenProgram = (await solanaNtt.getConfig()).tokenProgram;
+              // `solanaNtt.pdas` is scoped by `chainConfig.instance` for v4
+              // (multi-tenant) managers, so this derives the instance-scoped
+              // token authority; for v3 it's the legacy derivation.
+              tokenAuthority = solanaNtt.pdas.tokenAuthority();
             }
             // default values as undeployed program
             else {
@@ -222,12 +262,13 @@ export function createSolanaCommand(
               spl.unpackMint(tokenMint, mintInfo, mintInfo.owner);
 
               solanaNtt = undefined;
-              managerKey = new PublicKey(manager!);
               major = -1;
               tokenProgram = mintInfo.owner;
+              tokenAuthority = NTT.pdas(
+                new PublicKey(manager!),
+                instance
+              ).tokenAuthority();
             }
-
-            const tokenAuthority = NTT.pdas(managerKey).tokenAuthority();
 
             // check if SPL-Multisig is supported for manager version
             // undeployed -- assume version compatible via warning
@@ -382,6 +423,114 @@ export function createSolanaCommand(
             console.log(`Program ID: ${buildResult.programId}`);
             console.log(`Binary: ${buildResult.binary}`);
             console.log(`Keypair: ${buildResult.programKeypairPath}`);
+          }
+        )
+        .command(
+          "deploy-program <chain>",
+          "build (or reuse) and upload the SVM program binary, without initializing an instance",
+          (yargs: any) =>
+            yargs
+              .positional("chain", options.chain)
+              .option("network", options.network)
+              .option("payer", { ...options.payer, demandOption: true })
+              .option("program-key", {
+                describe: "Path to program key json",
+                type: "string",
+              })
+              .option("binary", {
+                describe:
+                  "Path to pre-built program binary (.so file); skips build if provided",
+                type: "string",
+              })
+              .option("solana-priority-fee", {
+                describe: "Priority fee for SVM deployment (in microlamports)",
+                type: "number",
+                default: 50000,
+              })
+              .option("ver", options.version)
+              .option("latest", options.latest)
+              .option("local", options.local)
+              .example(
+                "$0 svm deploy-program Solana --network Mainnet --latest --payer ./payer.json",
+                "Build and deploy the latest program; no instance is created"
+              )
+              .example(
+                "$0 svm deploy-program Solana --network Mainnet --ver 4.0.0 --payer ./payer.json --program-key ./prog-keypair.json",
+                "Deploy a specific version with a chosen program keypair (run `ntt add-chain Solana --instance-of <programId>` next)"
+              ),
+          async (argv: any) => {
+            const chain: Chain = argv["chain"];
+            const network = argv["network"] as Network;
+
+            const platform = chainToPlatform(chain);
+            if (platform !== "Solana") {
+              console.error(
+                `deploy-program is only supported for Solana chains. Got platform: ${platform}`
+              );
+              process.exit(1);
+            }
+
+            validateChain(network, chain);
+
+            const payerPath = validatePayerOption(
+              argv["payer"],
+              chain,
+              (m) => new Error(m),
+              (m) => console.warn(colors.yellow(m))
+            );
+            if (!payerPath) {
+              console.error("Payer not found. Specify with --payer");
+              process.exit(1);
+            }
+
+            const version = resolveVersion(
+              argv["latest"],
+              argv["ver"],
+              argv["local"],
+              platform
+            );
+
+            const worktree = version ? createWorkTree(platform, version) : ".";
+
+            const wh = new Wormhole(
+              network,
+              [solana.Platform, evm.Platform, sui.Platform],
+              overrides
+            );
+            const ch = wh.getChain(chain);
+            const wormhole = ch.config.contracts.coreBridge;
+            if (!wormhole) {
+              console.error("Core bridge not found");
+              process.exit(1);
+            }
+
+            console.log(`Building SVM program for ${chain} on ${network}...`);
+            const { binary, programId, programKeypairPath } = await buildSvm(
+              worktree,
+              network,
+              chain,
+              wormhole,
+              version,
+              argv["program-key"],
+              argv["binary"],
+              overrides
+            );
+
+            console.log(
+              `Deploying program ${programId} to ${chain} ${network}...`
+            );
+            await uploadSolanaProgram({
+              binary,
+              programKeypairPath,
+              payerPath,
+              rpc: ch.config.rpc,
+              priorityFee: argv["solana-priority-fee"],
+            });
+
+            console.log(`Deployed program: ${colors.green(programId)}`);
+            console.log(
+              `Next: \`ntt add-chain ${chain} --instance-of ${programId} --token <mint> --mode <locking|burning> --payer ${payerPath}\``
+            );
           }
         )
         .demandCommand();

@@ -72,6 +72,22 @@ export function createAddChainCommand(
           type: "number" as const,
           default: 50000,
         })
+        .option("instance-of", {
+          describe:
+            "(SVM v4 only) Skip program deploy and create a new instance under the existing program at this address. Mutually exclusive with --deploy-program/--binary/--program-key.",
+          type: "string" as const,
+        })
+        .option("deploy-program", {
+          describe:
+            "(SVM) Deploy a fresh program AND create the first instance under it. One of --deploy-program or --instance-of is required for Solana. For v4+ the recommended flow is to first run `ntt solana deploy-program` and then `add-chain --instance-of <programId>`.",
+          type: "boolean" as const,
+          default: false,
+        })
+        .option("instance-key", {
+          describe:
+            "(SVM v4 only) Path to the keypair file to use as the Instance account. Defaults to a freshly-generated keypair (written to `<chain>-instance.json` in the deployment dir).",
+          type: "string" as const,
+        })
         .option("sui-gas-budget", {
           describe: "Gas budget for Sui deployment",
           type: "number" as const,
@@ -290,6 +306,106 @@ export function createAddChainCommand(
       );
       const ch = wh.getChain(chain);
 
+      // v4 multi-host path: --instance-of <programId> creates a fresh Instance
+      // under the existing program rather than deploying a new one.
+      const instanceOf = argv["instance-of"] as string | undefined;
+      const deployProgramFlag = Boolean(argv["deploy-program"]);
+
+      if (platform === "Solana") {
+        if (!instanceOf && !deployProgramFlag) {
+          console.error(
+            colors.red(
+              "Solana add-chain now requires one of:\n" +
+                "  --deploy-program           deploy a fresh program AND create the first instance under it.\n" +
+                "  --instance-of <programId>  create an instance under an existing program (v4+).\n" +
+                "\n" +
+                "For v4+ the recommended flow is two steps:\n" +
+                "  1. ntt solana deploy-program <chain> --payer <payer.json> [--ver <version> | --latest]\n" +
+                "  2. ntt add-chain <chain> --instance-of <programId> --token <mint> --mode <locking|burning> --payer <payer.json>"
+            )
+          );
+          process.exit(1);
+        }
+        if (instanceOf && deployProgramFlag) {
+          console.error(
+            colors.red(
+              "--instance-of and --deploy-program are mutually exclusive"
+            )
+          );
+          process.exit(1);
+        }
+      } else if (deployProgramFlag) {
+        console.error(
+          colors.red("--deploy-program is only supported on Solana")
+        );
+        process.exit(1);
+      }
+
+      if (instanceOf !== undefined) {
+        if (platform !== "Solana") {
+          console.error(
+            colors.red("--instance-of is only supported on Solana (v4)")
+          );
+          process.exit(1);
+        }
+        if (argv["binary"] || argv["program-key"]) {
+          console.error(
+            colors.red(
+              "--instance-of is mutually exclusive with --binary / --program-key"
+            )
+          );
+          process.exit(1);
+        }
+        const resolvedVersion = version ?? "4.0.0";
+        const resolvedMajor = parseInt(
+          resolvedVersion.split(".")[0] ?? "0",
+          10
+        );
+        if (resolvedMajor < 4) {
+          console.error(
+            colors.red(
+              `--instance-of requires Solana NTT v4 or later (got ${resolvedVersion})`
+            )
+          );
+          process.exit(1);
+        }
+        if (!payerPath) {
+          console.error(colors.red("--payer is required for Solana"));
+          process.exit(1);
+        }
+
+        const { addSolanaInstance } = await import("../solana/deploy");
+        const { manager: deployedManager, instance } = await addSolanaInstance(
+          resolvedVersion,
+          mode,
+          ch as any,
+          token,
+          payerPath,
+          instanceOf,
+          argv["instance-key"]
+        );
+
+        const [config, _ctx, _ntt, decimals] = await pullChainConfig(
+          network,
+          deployedManager,
+          overrides,
+          instance.toBase58()
+        );
+
+        console.log("token decimals:", colors.yellow(decimals));
+        deployments.chains[chain] = config;
+        await configureInboundLimitsForNewChain(
+          deployments,
+          chain,
+          Boolean(argv["yes"])
+        );
+        fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
+        console.log(
+          `Added ${chain} to ${path} (instance ${instance.toBase58()} under program ${instanceOf})`
+        );
+        return;
+      }
+
       // TODO: make manager configurable
       const deployedManager = await deploy(
         version,
@@ -310,13 +426,26 @@ export function createAddChainCommand(
         argv["sui-treasury-cap"],
         argv["gas-estimate-multiplier"],
         cclConfig,
-        overrides
+        overrides,
+        argv["instance-key"]
       );
+
+      // Multi-tenant Solana deploys return the per-instance Config pubkey
+      // alongside the manager program ID. Thread it into pullChainConfig so
+      // the SDK constructs against the multi-tenant layout (it throws
+      // otherwise) and persist it on the resulting config.
+      const solanaInstance =
+        platform === "Solana" &&
+        "instance" in deployedManager &&
+        typeof deployedManager.instance === "string"
+          ? deployedManager.instance
+          : undefined;
 
       const [config, _ctx, _ntt, decimals] = await pullChainConfig(
         network,
         deployedManager,
         overrides,
+        solanaInstance,
         { waitForTransceiver: true }
       );
 

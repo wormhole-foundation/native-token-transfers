@@ -30,7 +30,9 @@ use wormhole_svm_definitions::{EncodeFinality, Finality::Finalized};
 
 #[tokio::test]
 async fn test_broadcast_peer() {
-    let (mut ctx, _test_data) = setup(Mode::Locking).await;
+    let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let ix = broadcast_peer(
         &good_ntt,
@@ -65,6 +67,8 @@ async fn test_broadcast_peer() {
 #[tokio::test]
 async fn test_broadcast_id() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let ix = broadcast_id(
         &good_ntt,
@@ -90,7 +94,8 @@ async fn test_broadcast_id() {
     assert_eq!(
         WormholeTransceiverInfo::deserialize(&mut &msg.payload[..]).unwrap(),
         WormholeTransceiverInfo {
-            manager_address: good_ntt.program().to_bytes(),
+            // v4: on-the-wire manager identity is the instance pubkey, not the program ID.
+            manager_address: good_ntt.config().to_bytes(),
             manager_mode: Mode::Locking,
             token_address: test_data.mint.to_bytes(),
             token_decimals: 9,
