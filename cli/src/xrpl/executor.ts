@@ -1,9 +1,8 @@
 import type { Network } from "@wormhole-foundation/sdk-connect";
 
-const DEFAULT_EXECUTOR_API = "https://executor-testnet.labsapis.com";
-
 const DEFAULT_EXECUTOR_APIS: Partial<Record<Network, string>> = {
-  Testnet: DEFAULT_EXECUTOR_API,
+  Testnet: "https://executor-testnet.labsapis.com/v0",
+  Mainnet: "https://executor.labsapis.com/v0",
 };
 
 /**
