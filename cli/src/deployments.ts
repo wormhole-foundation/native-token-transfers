@@ -28,6 +28,21 @@ export type HyperCoreConfig = {
   weiDecimals?: number;
 };
 
+// XRPL custody-account config. Kept as a dedicated top-level section (not under
+// `chains`) since the XRPL NTT account is set up incrementally and doesn't fit
+// the full ChainConfig shape.
+export type XrplConfig = {
+  manager?: string;
+  // The NTT token: "native" for native XRP, otherwise the Wormhole SDK XRPL
+  // platform address (`XrplAddress` from `@wormhole-foundation/sdk-xrpl`) — an
+  // IOU "CODE.rIssuer" or a 48-char hex MPT issuance id. Recorded by
+  // `ntt xrpl set-token`.
+  token?: string;
+  // Token decimals on XRPL (e.g. 6 for XRP, the MPT AssetScale, or the chosen
+  // precision for an IOU). Recorded by `ntt xrpl set-token`.
+  decimals?: number;
+};
+
 export type Config = {
   network: Network;
   chains: Partial<{
@@ -37,6 +52,7 @@ export type Config = {
     outbound: string;
   };
   hypercore?: HyperCoreConfig;
+  xrpl?: XrplConfig;
 };
 
 export function loadConfig(path: string): Config {

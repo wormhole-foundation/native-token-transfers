@@ -14,3 +14,4 @@ export { createSuiCommand } from "./sui";
 export { createTransferOwnershipCommand } from "./transfer-ownership";
 export { createUpdateCommand } from "./update";
 export { createUpgradeCommand } from "./upgrade";
+export { createXrplCommand } from "./xrpl";
