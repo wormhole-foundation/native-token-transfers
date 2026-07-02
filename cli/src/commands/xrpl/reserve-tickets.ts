@@ -13,8 +13,8 @@ import {
 } from "../../xrpl/helpers";
 import { withCommon } from "./common";
 
-// XRPL caps an account at 250 tickets.
-const MAX_TICKETS = 250;
+// XRPL caps an account at 175 tickets.
+const MAX_TICKETS = 175;
 
 export function createXrplReserveTicketsCommand(
   overrides: WormholeConfigOverrides<Network>
@@ -27,15 +27,15 @@ export function createXrplReserveTicketsCommand(
         .option("count", {
           describe: `Number of tickets to create (1-${MAX_TICKETS})`,
           type: "number",
-          default: 200,
+          default: 150,
         })
         .option("issuer-seed", {
           describe: "Custody account seed (or env ISSUER_SEED)",
           type: "string",
         })
         .example(
-          "$0 xrpl reserve-tickets -n Testnet --count 200 --issuer-seed sEd7...",
-          "Reserve 200 tickets on the custody account"
+          "$0 xrpl reserve-tickets -n Testnet --count 150 --issuer-seed sEd7...",
+          "Reserve 150 tickets on the custody account"
         ),
     handler: (argv: any) =>
       runXrpl(async () => {
