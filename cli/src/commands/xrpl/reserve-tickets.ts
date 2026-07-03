@@ -13,8 +13,8 @@ import {
 } from "../../xrpl/helpers";
 import { withCommon } from "./common";
 
-// XRPL caps an account at 175 tickets.
-const MAX_TICKETS = 175;
+// XRPL caps an account at 170 tickets.
+const MAX_TICKETS = 170;
 
 export function createXrplReserveTicketsCommand(
   overrides: WormholeConfigOverrides<Network>
