@@ -33,28 +33,25 @@ describe("buildInitData", () => {
     expect(buildInitData(8, { type: "xrp" })).toBe("08");
   });
 
-  test("iou: decimals + 0x01 + currency + issuer, right-padded to 43 bytes total", () => {
+  test("iou: decimals + 0x01 + currency + issuer is exactly 42 bytes", () => {
     const out = buildInitData(9, {
       type: "iou",
       currency: FOO_CURRENCY,
       issuer: ADMIN,
     });
     const issuerHex = Buffer.from(decodeAccountID(ADMIN)).toString("hex");
-    // 1 (decimals) + 42 (token_id padded) = 43 bytes => 86 hex chars
-    expect(out.length).toBe(86);
-    expect(
-      out.startsWith("09" + "01" + FOO_CURRENCY.toLowerCase() + issuerHex)
-    ).toBe(true);
-    // trailing byte is zero padding (41 bytes of data -> padded to 42)
-    expect(out.endsWith("00")).toBe(true);
+    // 1 (decimals) + 1 (type) + 20 (currency) + 20 (issuer) = 42 bytes exactly,
+    // no padding — the Sequencer rejects any other init_data length.
+    expect(out.length).toBe(84);
+    expect(out).toBe("09" + "01" + FOO_CURRENCY.toLowerCase() + issuerHex);
   });
 
-  test("mpt: decimals + 0x02 + mpt_id, right-padded to 43 bytes total", () => {
+  test("mpt: decimals + 0x02 + mpt_id, right-padded to 42 bytes total", () => {
     const out = buildInitData(9, { type: "mpt", mptId: MPT_ID });
-    expect(out.length).toBe(86);
+    expect(out.length).toBe(84);
     expect(out.startsWith("09" + "02" + MPT_ID)).toBe(true);
-    // 1 + 2 + 48 = 51 hex of data, padded to 84 -> ends in zeros
-    expect(out.endsWith("0000")).toBe(true);
+    // 1 + 1 + 24 = 26 bytes of data, padded to 42 -> 16 zero bytes
+    expect(out.slice(52)).toBe("00".repeat(16));
   });
 
   test("mpt: rejects a wrong-length issuance id", () => {
@@ -95,7 +92,7 @@ describe("buildOnboardingPayload", () => {
     expect(out.length).toBe(146);
   });
 
-  test("full form (iou) is 115 bytes", () => {
+  test("full form (iou) is 114 bytes", () => {
     const initData = buildInitData(8, {
       type: "iou",
       currency: FOO_CURRENCY,
@@ -108,8 +105,8 @@ describe("buildOnboardingPayload", () => {
       ticketCount: 2n,
       initData,
     });
-    // 72 (fixed) + 43 (init_data) = 115 bytes => 230 hex chars
-    expect(out.length).toBe(230);
+    // 72 (fixed) + 42 (init_data) = 114 bytes => 228 hex chars
+    expect(out.length).toBe(228);
   });
 });
 

@@ -39,6 +39,7 @@ import {
   tokenIdFromFlags,
   tokenIdFromXrplAmount,
   xrplAccountToEmitter,
+  xrplGeneratedEmitter,
   type TokenId,
 } from "../../xrpl/tokenId";
 import { withCommon } from "./common";
@@ -132,6 +133,13 @@ export function createXrplRelayCommand(
           type: "string",
           choices: ["ERN1", "ERV1"] as const,
           default: "ERN1",
+        })
+        .option("emitter-kind", {
+          describe:
+            "ERV1 emitter namespace: core (a message the account published — init/register-peer) or generated (a watcher ack for a custody tx — XACK/XTCF, e.g. a TicketCreate)",
+          type: "string",
+          choices: ["core", "generated"] as const,
+          default: "core",
         })
         .option("dst-addr", {
           describe:
@@ -270,14 +278,22 @@ export async function runRelay(
 
       let emitterHex: string;
       if (requestType === RequestPrefix.ERV1) {
-        // Core VAA: emitter = the publishing (SENDER) account, left-padded to 32B.
+        // The emitter is derived from the SENDER account, in one of two
+        // namespaces: `core` (00×12 + account) for a message the account
+        // published itself via a core memo (init / register-peer), or
+        // `generated` ("XRPL" + 00×8 + account) for an ack the watcher
+        // synthesizes for a custody tx (XACK / XTCF).
         const sender: string | undefined = tx.Account ?? tx.tx_json?.Account;
         if (!sender) {
           throw new Error(
             "Could not determine the publishing account (tx.Account)"
           );
         }
-        emitterHex = xrplAccountToEmitter(Buffer.from(decodeAccountID(sender)));
+        const senderId = Buffer.from(decodeAccountID(sender));
+        emitterHex =
+          argv["emitter-kind"] === "generated"
+            ? xrplGeneratedEmitter(senderId)
+            : xrplAccountToEmitter(senderId);
       } else {
         // NTT transfer: emitter = keccak256("ntt" || custody || token), where the
         // custody account is the tx destination and the token is the delivered asset.
