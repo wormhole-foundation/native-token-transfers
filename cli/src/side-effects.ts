@@ -1,3 +1,9 @@
+import { initOutputMode } from "./output";
+
+// Activate `--json` / `WL_NTT_JSON=1` stdout hijack before any other import
+// has a chance to log.
+initOutputMode();
+
 // <sigh>
 // when the native secp256k1 is missing, the eccrypto library decides TO PRINT A MESSAGE TO STDOUT:
 // https://github.com/bitchan/eccrypto/blob/a4f4a5f85ef5aa1776dfa1b7801cad808264a19c/index.js#L23

@@ -16,6 +16,7 @@ import type { Argv } from "yargs";
 import { ethers, Interface } from "ethers";
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
+import { emitResult } from "../output.js";
 import { getSigner, type SignerType } from "../signers/getSigner";
 import { newSignSendWaiter } from "../signers/signSendWait.js";
 import { registerSolanaTransceiver } from "../solana/transceiver";
@@ -264,6 +265,7 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
         process.exit(1);
       }
 
+      const chainsTouched: string[] = [];
       for (const [chain, deployment] of Object.entries(
         depsAfterRegistrations
       )) {
@@ -284,7 +286,17 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
           argv["dangerously-transfer-ownership-in-one-step"],
           overrides
         );
+        chainsTouched.push(chain);
       }
+      emitResult("push", {
+        path: argv["path"],
+        chainsTouched,
+        skipChains,
+        onlyChains,
+        ownershipTransferredOneStep: Boolean(
+          argv["dangerously-transfer-ownership-in-one-step"]
+        ),
+      });
     },
   };
 }
