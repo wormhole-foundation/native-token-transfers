@@ -26,7 +26,7 @@ import type { SolanaChains } from "@wormhole-foundation/sdk-solana";
 
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
-import { emitResult } from "../output.js";
+import { emitRaw, emitResult } from "../output.js";
 import { validatePayerOption } from "../validation";
 import fs from "fs";
 
@@ -63,7 +63,10 @@ export function createSolanaCommand(
                 JSON.parse(fs.readFileSync(argv["keypair"]).toString())
               )
             );
-            console.log(encoding.b58.encode(keypair.secretKey));
+            // Private key: write straight to real stdout, never through the
+            // JSON-mode console.log -> stderr redirect, so it can't leak into
+            // stderr logs.
+            emitRaw(encoding.b58.encode(keypair.secretKey));
           }
         )
         .command(
