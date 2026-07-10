@@ -14,6 +14,7 @@ import type { Argv } from "yargs";
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
 import { enableBigBlocks } from "../evm/hyperliquid.js";
+import { emitResult } from "../output.js";
 import { promptYesNo } from "../prompts.js";
 import { promptSolanaMainnetOverridesIfNeeded } from "../overrides.js";
 import { validatePayerOption } from "../validation";
@@ -335,6 +336,14 @@ export function createAddChainCommand(
       );
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
       console.log(`Added ${chain} to ${path}`);
+      emitResult("add-chain", {
+        path,
+        chain,
+        manager: deployedManager.address.toString(),
+        decimals,
+        mode,
+        token,
+      });
     },
   };
 }

@@ -2,6 +2,7 @@ import fs from "fs";
 import { isNetwork } from "@wormhole-foundation/sdk";
 import type { Argv } from "yargs";
 import { colors } from "../colors.js";
+import { emitResult } from "../output.js";
 import { options } from "./shared";
 
 export function createInitCommand() {
@@ -48,6 +49,7 @@ export function createInitCommand() {
           `\nTip: To use custom RPC endpoints, rename example-overrides.json to overrides.json and edit as needed.`
         )
       );
+      emitResult("init", { path, network: argv["network"] });
     },
   };
 }
