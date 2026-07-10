@@ -7,6 +7,7 @@ import {
   afterEach,
   setDefaultTimeout,
 } from "bun:test";
+import { Keypair } from "@solana/web3.js";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -126,5 +127,26 @@ describe("--json output mode", () => {
     expect(stderr).toContain(`${deploymentPath} created`);
     // stdout must be ONLY the JSON envelope.
     expect(stdout.trim()).toMatch(/^\{.*\}$/);
+  });
+
+  it("solana key-base58 --json keeps the private key on stdout, never stderr", async () => {
+    if (!cliAvailable) return;
+    const keypairPath = path.join(workDir, "keypair.json");
+    const secret = Array.from(Keypair.generate().secretKey);
+    fs.writeFileSync(keypairPath, JSON.stringify(secret));
+
+    const { stdout, stderr, exitCode } = await runCli([
+      "solana",
+      "key-base58",
+      keypairPath,
+      "--json",
+    ]);
+    expect(exitCode, `stderr:\n${stderr}\nstdout:\n${stdout}`).toBe(0);
+
+    const key = stdout.trim();
+    expect(key.length).toBeGreaterThan(0);
+    expect(key).not.toContain("\n");
+    expect(key).not.toContain("{");
+    expect(stderr).not.toContain(key);
   });
 });

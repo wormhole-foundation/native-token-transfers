@@ -61,6 +61,14 @@ export function isJsonMode(): boolean {
   return mode === "json";
 }
 
+export function emitRaw(line: string): void {
+  if (mode === "json" && originalStdoutWrite) {
+    originalStdoutWrite(line + "\n");
+    return;
+  }
+  console.log(line);
+}
+
 /**
  * Emit the final `{ ok: true, command, data }` line on stdout. No-op in human
  * mode. Call this exactly once at the end of a successful command handler.
