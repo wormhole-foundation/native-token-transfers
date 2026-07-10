@@ -47,10 +47,13 @@ describe("--json output mode", () => {
   });
 
   it("ntt init --json emits a single JSON envelope on stdout", async () => {
-    const { stdout, exitCode } = await runCli(["init", "Testnet", "--json"], {
-      cwd: workDir,
-    });
-    expect(exitCode).toBe(0);
+    const { stdout, stderr, exitCode } = await runCli(
+      ["init", "Testnet", "--json"],
+      {
+        cwd: workDir,
+      }
+    );
+    expect(exitCode, `stderr:\n${stderr}\nstdout:\n${stdout}`).toBe(0);
     // stdout should be exactly the JSON envelope (plus trailing newline).
     const lines = stdout.trim().split("\n").filter(Boolean);
     expect(lines.length).toBe(1);
@@ -62,11 +65,11 @@ describe("--json output mode", () => {
   });
 
   it("WL_NTT_JSON=1 activates the same envelope without --json flag", async () => {
-    const { stdout, exitCode } = await runCli(["init", "Mainnet"], {
+    const { stdout, stderr, exitCode } = await runCli(["init", "Mainnet"], {
       cwd: workDir,
       env: { WL_NTT_JSON: "1" },
     });
-    expect(exitCode).toBe(0);
+    expect(exitCode, `stderr:\n${stderr}\nstdout:\n${stdout}`).toBe(0);
     const lines = stdout.trim().split("\n").filter(Boolean);
     expect(lines.length).toBe(1);
     const parsed = JSON.parse(lines[0]!);
@@ -79,7 +82,7 @@ describe("--json output mode", () => {
     const { stdout, stderr, exitCode } = await runCli(["init", "Testnet"], {
       cwd: workDir,
     });
-    expect(exitCode).toBe(0);
+    expect(exitCode, `stderr:\n${stderr}\nstdout:\n${stdout}`).toBe(0);
     // Human-readable messages on stdout, no JSON envelope.
     expect(stdout).toContain("deployment.json created");
     expect(stdout).not.toContain('"ok":true');
@@ -92,7 +95,7 @@ describe("--json output mode", () => {
       ["init", "Testnet", "--json"],
       { cwd: workDir }
     );
-    expect(exitCode).toBe(0);
+    expect(exitCode, `stderr:\n${stderr}\nstdout:\n${stdout}`).toBe(0);
     expect(stderr).toContain("deployment.json created");
     // stdout must be ONLY the JSON envelope.
     expect(stdout.trim()).toMatch(/^\{.*\}$/);
