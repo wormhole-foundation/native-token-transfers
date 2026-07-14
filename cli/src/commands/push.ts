@@ -126,6 +126,11 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
 
       const nttOwnerForChain: Record<string, string | undefined> = {};
 
+      // Non-fatal errors that are logged and skipped below but must not be
+      // reported as success. If any accumulate, we abort with a non-zero exit
+      // instead of emitting the { ok: true } push envelope.
+      const pushErrors: string[] = [];
+
       for (const [chain, _] of Object.entries(deps)) {
         if (shouldSkipChain(chain)) {
           console.log(`skipping registration for chain ${chain}`);
@@ -148,9 +153,9 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
               contractOwner.address.toString()
             );
             if (contractCode.length <= 2) {
-              console.error(
-                `cannot update ${chain} because the configured private key does not correspond to owner ${contractOwner.address}`
-              );
+              const message = `cannot update ${chain} because the configured private key does not correspond to owner ${contractOwner.address}`;
+              console.error(message);
+              pushErrors.push(message);
               continue;
             } else {
               const eip165Interface = new Interface([
@@ -215,9 +220,10 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
         }
         if (missingConfig.solanaWormholeTransceiver) {
           if (chainToPlatform(chain) !== "Solana") {
-            console.error(
-              "Solana wormhole transceiver can only be set on Solana chains"
-            );
+            const message =
+              "Solana wormhole transceiver can only be set on Solana chains";
+            console.error(message);
+            pushErrors.push(`${chain}: ${message}`);
             continue;
           }
           const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
@@ -226,11 +232,19 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
             await registerSolanaTransceiver(solanaNtt, solanaCtx, signer);
           } catch (e: any) {
             console.error(e.logs);
+            pushErrors.push(
+              `${chain}: failed to register Solana wormhole transceiver: ${
+                e.message ?? e
+              }`
+            );
           }
         }
         if (missingConfig.solanaUpdateLUT) {
           if (chainToPlatform(chain) !== "Solana") {
-            console.error("Solana update LUT can only be set on Solana chains");
+            const message =
+              "Solana update LUT can only be set on Solana chains";
+            console.error(message);
+            pushErrors.push(`${chain}: ${message}`);
             continue;
           }
           const solanaNtt = ntt as SolanaNtt<Network, SolanaChains>;
@@ -240,6 +254,9 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
             await signSendWait(ctx, tx, signer.signer);
           } catch (e: any) {
             console.error(e.logs);
+            pushErrors.push(
+              `${chain}: failed to update Solana LUT: ${e.message ?? e}`
+            );
           }
         }
       }
@@ -288,6 +305,19 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
         );
         chainsTouched.push(chain);
       }
+
+      // Some registration steps above log an error and continue rather than
+      // throwing. Don't report success if any of them failed — surface them on
+      // stderr and exit non-zero (the --json contract treats a non-zero exit +
+      // stderr as failure).
+      if (pushErrors.length > 0) {
+        console.error("Push completed with errors:");
+        for (const message of pushErrors) {
+          console.error(`  ${message}`);
+        }
+        process.exit(1);
+      }
+
       emitResult("push", {
         path: argv["path"],
         chainsTouched,
