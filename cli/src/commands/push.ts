@@ -261,6 +261,14 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
         }
       }
 
+      if (pushErrors.length > 0) {
+        console.error("Push aborted due to registration errors:");
+        for (const message of pushErrors) {
+          console.error(`  ${message}`);
+        }
+        process.exit(1);
+      }
+
       // pull deps again after registrations
       const {
         deps: depsAfterRegistrations,
@@ -304,18 +312,6 @@ export function createPushCommand(overrides: WormholeConfigOverrides<Network>) {
           overrides
         );
         chainsTouched.push(chain);
-      }
-
-      // Some registration steps above log an error and continue rather than
-      // throwing. Don't report success if any of them failed — surface them on
-      // stderr and exit non-zero (the --json contract treats a non-zero exit +
-      // stderr as failure).
-      if (pushErrors.length > 0) {
-        console.error("Push completed with errors:");
-        for (const message of pushErrors) {
-          console.error(`  ${message}`);
-        }
-        process.exit(1);
       }
 
       emitResult("push", {
