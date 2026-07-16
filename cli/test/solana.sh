@@ -236,7 +236,18 @@ else
 fi
 ntt status || true
 
-ntt push --payer "$keypair" --yes || true
+push_exit=0
+push_output=$(ntt push --payer "$keypair" --yes 2>&1) || push_exit=$?
+echo "$push_output"
+if [ "$push_exit" -ne 0 ]; then
+    if echo "$push_output" | grep -q "Push aborted due to registration errors" \
+        && echo "$push_output" | grep -q "AccountNotInitialized"; then
+        echo "ntt push failed as expected (Wormhole program not loaded in the local validator); continuing."
+    else
+        echo "ntt push failed for an unexpected reason (exit $push_exit)" >&2
+        exit "$push_exit"
+    fi
+fi
 
 cat "$DEPLOYMENT_FILE"
 
