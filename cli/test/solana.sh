@@ -236,7 +236,7 @@ else
 fi
 ntt status || true
 
-ntt push --payer "$keypair" --yes
+ntt push --payer "$keypair" --yes || true
 
 cat "$DEPLOYMENT_FILE"
 
