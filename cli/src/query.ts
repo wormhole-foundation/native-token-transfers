@@ -89,8 +89,12 @@ export async function getPdas<N extends Network, C extends Chain>(
   }
   const solanaNtt = ntt as SolanaNtt<N, SolanaChains>;
   const config = solanaNtt.pdas.configAccount();
+  // Scope by the v4 instance pubkey so this derives the instance's emitter
+  // (`[b"emitter", config.key()]`); `instance` is undefined for v3, which
+  // falls back to the legacy unscoped derivation.
   const emitter = NTT.transceiverPdas(
-    solanaNtt.program.programId
+    solanaNtt.program.programId,
+    solanaNtt.instance
   ).emitterAccount();
   const outboxRateLimit = solanaNtt.pdas.outboxRateLimitAccount();
   const tokenAuthority = solanaNtt.pdas.tokenAuthority();
