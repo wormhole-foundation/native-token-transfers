@@ -40,6 +40,7 @@ import {
 } from "./query";
 import { askForConfirmation } from "./prompts.js";
 import { upgrade } from "./deploy";
+import { canUpgrade } from "./upgradeBarriers";
 import { runTaskPoolWithSequential } from "./utils/concurrency";
 
 export async function pushDeployment<C extends Chain>(
@@ -81,8 +82,20 @@ export async function pushDeployment<C extends Chain>(
   let managerUpgrade: { from: string; to: string } | undefined;
   for (const k of Object.keys(diff)) {
     if (k === "version") {
-      // TODO: check against existing version, and make sure no major version changes
-      managerUpgrade = { from: diff[k]!.pull!, to: diff[k]!.push! };
+      const from = diff[k]!.pull!;
+      const to = diff[k]!.push!;
+      // Enforce the same breaking-change barrier as the dedicated `upgrade`
+      // command: a config push must not drive a version change across an
+      // incompatible on-chain layout (e.g. Solana v3<->v4 in place, which
+      // would strand custody). See canUpgrade / UPGRADE_BARRIERS.
+      const check = canUpgrade(deployment.manager.chain, from, to);
+      if (!check.ok) {
+        console.error(
+          `Refusing to change ${deployment.manager.chain} version from ${from} to ${to} via push:\n${check.reason}`
+        );
+        process.exit(1);
+      }
+      managerUpgrade = { from, to };
     } else if (k === "owner") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
