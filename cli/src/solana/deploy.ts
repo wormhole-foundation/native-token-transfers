@@ -345,7 +345,13 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   binaryPath?: string,
   priorityFee?: number,
   overrides?: WormholeConfigOverrides<Network>,
-  instanceKeyPath?: string
+  instanceKeyPath?: string,
+  // Upgrade path only: the existing deployment's Instance pubkey. When set, the
+  // program is redeployed against this instance instead of a freshly generated
+  // one (which would derive a different token authority and break the
+  // burning-mode mint-authority check). Only the pubkey is needed here because
+  // an upgrade does not run `initialize`, so nothing has to co-sign as it.
+  existingInstance?: PublicKey
 ): Promise<{
   chain: C;
   address: ChainAddress<C>["address"];
@@ -364,14 +370,24 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   // instance-scoped PDAs throughout.
   const major = version ? parseInt(version.split(".")[0] ?? "0", 10) : 0;
   const multiTenant = major >= 4;
+  // The keypair is only needed to co-sign `initialize` (fresh deploy). The
+  // pubkey is what every PDA derivation below actually consumes, so track it
+  // separately: on upgrade we have only the pubkey of the existing instance.
   let instanceKeypair: Keypair | undefined;
+  let instancePubkey: PublicKey | undefined;
   if (multiTenant) {
-    if (instanceKeyPath) {
+    if (existingInstance) {
+      // Upgrade: reuse the existing instance so PDAs (and the burning-mode
+      // mint-authority check) resolve against the real deployment.
+      instancePubkey = existingInstance;
+    } else if (instanceKeyPath) {
       instanceKeypair = Keypair.fromSecretKey(
         new Uint8Array(JSON.parse(fs.readFileSync(instanceKeyPath).toString()))
       );
-    } else {
+      instancePubkey = instanceKeypair.publicKey;
+    } else if (initialize) {
       instanceKeypair = Keypair.generate();
+      instancePubkey = instanceKeypair.publicKey;
       const generatedPath = `${ch.chain}-instance.json`;
       fs.writeFileSync(
         generatedPath,
@@ -379,6 +395,13 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
       );
       console.log(
         `Generated instance keypair at ${generatedPath} (pubkey: ${instanceKeypair.publicKey.toBase58()})`
+      );
+    } else {
+      // Redeploy without initializing and without a known instance would
+      // silently derive the wrong (fresh) authorities. Fail instead.
+      throw new Error(
+        "Multi-tenant Solana redeploy requires the existing instance pubkey " +
+          "(pass `existingInstance`); refusing to generate a new one."
       );
     }
   }
@@ -410,7 +433,7 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   // pubkey. EVM/Sui peers register against this address.
   const emitter = NTT.transceiverPdas(
     providedProgramId,
-    multiTenant ? instanceKeypair!.publicKey : undefined
+    multiTenant ? instancePubkey! : undefined
   )
     .emitterAccount()
     .toBase58();
@@ -446,7 +469,7 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
         // The constructor refuses a multi-tenant version without `instance`
         // (and a singleton version with it).
         ...(multiTenant && {
-          instance: instanceKeypair!.publicKey.toBase58(),
+          instance: instancePubkey!.toBase58(),
         }),
       },
     },
@@ -552,7 +575,7 @@ export async function deploySvm<N extends Network, C extends SolanaChains>(
   return {
     chain: ch.chain,
     address: toUniversal(ch.chain, providedProgramId),
-    ...(multiTenant && { instance: instanceKeypair!.publicKey }),
+    ...(multiTenant && { instance: instancePubkey! }),
   };
 }
 
@@ -691,21 +714,30 @@ export async function addSolanaInstance<
   // The initialize generator yields the initialize ix first, then
   // initializeOrUpdateLUT. The latter CPIs into the wormhole core bridge,
   // which can be unavailable in dev environments (e.g. a bare
-  // solana-test-validator without the bridge loaded). Log and continue —
-  // matches the same swallow-on-LUT-failure shape that `deploySvm` uses for
-  // legacy deployments, so the rest of the flow (writing deployment.json,
-  // registering the transceiver) still runs.
+  // solana-test-validator without the bridge loaded). Log and continue — the
+  // LUT can be (re)built later via `ntt push`. A genuine `initialize` failure
+  // still surfaces, because the transceiver registration below then fails and
+  // is propagated. Log the full error, not just `e.logs` (undefined for
+  // non-SendTransactionError, which would otherwise be silent).
   try {
     await signSendWait(ch, initTxs, signer.signer);
   } catch (e: any) {
-    console.error(e.logs);
+    console.error("Instance initialize/LUT step failed:", e.logs ?? e);
   }
 
-  // After initialize, register the Wormhole transceiver under the new instance.
+  // Register the Wormhole transceiver under the new instance. Unlike the LUT,
+  // this is not optional: an instance with no registered transceiver cannot
+  // send or receive. Fail loudly rather than persist a broken instance to the
+  // deployment file (the caller only records the return value on success).
   try {
     await registerSolanaTransceiver(ntt as any, ch, signer);
   } catch (e: any) {
-    console.error(e.logs);
+    console.error("Transceiver registration failed:", e.logs ?? e);
+    throw new Error(
+      `Failed to register the Wormhole transceiver for the new ${ch.chain} ` +
+        `instance ${instanceKeypair.publicKey.toBase58()}; it cannot transfer ` +
+        `without one. Not recording it in the deployment.`
+    );
   }
 
   return {
@@ -740,7 +772,12 @@ export async function upgradeSolana<N extends Network, C extends SolanaChains>(
     programKeyPath,
     binaryPath,
     undefined,
-    overrides
+    overrides,
+    undefined,
+    // Redeploy against the existing instance so PDAs and the burning-mode
+    // mint-authority check resolve against the live deployment rather than a
+    // freshly generated (and wrong) instance.
+    ntt.instance
   );
   // TODO: call initializeOrUpdateLUT. currently it's done in the following 'ntt push' step.
 }
