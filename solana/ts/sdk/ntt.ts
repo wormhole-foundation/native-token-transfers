@@ -701,6 +701,22 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     this.pdas = NTT.pdas(this.program.programId, this.instance);
   }
 
+  /**
+   * The on-the-wire NTT manager identity of this deployment — the address a
+   * peer on another chain must register, and the value written into and checked
+   * against a message's `recipient_ntt_manager`.
+   *
+   * v4 (multi-tenant) uses the per-deployment Instance (Config) pubkey; v3
+   * (singleton) uses the program ID. This is the single source of truth for
+   * that identity: callers deriving a peer address, verifying a registration,
+   * or reporting deployment state must use it rather than the raw program ID,
+   * otherwise a v4 instance would be registered under an address whose
+   * transfers it rejects (`recipient_ntt_manager != config.key()`).
+   */
+  peerManagerAddress(): PublicKey {
+    return this.instance ?? this.program.programId;
+  }
+
   async getTransceiver<T extends number>(
     ix: T
   ): Promise<
