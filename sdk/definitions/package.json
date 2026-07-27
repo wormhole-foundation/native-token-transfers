@@ -44,7 +44,7 @@
   },
   "type": "module",
   "peerDependencies": {
-    "@wormhole-foundation/sdk-base": "^5.0.0",
-    "@wormhole-foundation/sdk-definitions": "^5.0.0"
+    "@wormhole-foundation/sdk-base": "6.1.4",
+    "@wormhole-foundation/sdk-definitions": "6.1.4"
   }
 }
