@@ -3,6 +3,7 @@
 pragma solidity >=0.8.8 <0.9.0;
 
 import "../../src/NttManager/NttManagerNoRateLimiting.sol";
+import "wormhole-sdk/Utils.sol";
 
 contract MockNttManagerAdditionalPayloadContract is NttManagerNoRateLimiting {
     constructor(
@@ -25,7 +26,7 @@ contract MockNttManagerAdditionalPayloadContract is NttManagerNoRateLimiting {
         bytes memory additionalPayload = abi.encodePacked("banana");
         emit AdditionalPayloadSent(additionalPayload);
         return TransceiverStructs.NativeTokenTransfer(
-            amount, toWormholeFormat(token), recipient, recipientChain, additionalPayload
+            amount, toUniversalAddress(token), recipient, recipientChain, additionalPayload
         );
     }
 

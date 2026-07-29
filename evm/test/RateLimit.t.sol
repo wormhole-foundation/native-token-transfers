@@ -7,11 +7,16 @@ import "../src/NttManager/NttManager.sol";
 import "./mocks/DummyTransceiver.sol";
 import "../src/mocks/DummyToken.sol";
 import "./mocks/MockNttManager.sol";
-import "wormhole-solidity-sdk/testing/helpers/WormholeSimulator.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {
+    WormholeOverride,
+    AdvancedWormholeOverride
+} from "wormhole-sdk/testing/WormholeOverride.sol";
+import {VaaLib, Vaa, VaaBody as PublishedMessage} from "wormhole-sdk/libraries/VaaLib.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./libraries/TransceiverHelpers.sol";
 import "./libraries/NttManagerHelpers.sol";
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 
 pragma solidity >=0.8.8 <0.9.0;
 
@@ -25,18 +30,15 @@ contract TestRateLimit is Test, IRateLimiterEvents {
     uint16 constant chainId = 7;
     uint16 constant chainId2 = 8;
 
-    uint256 constant DEVNET_GUARDIAN_PK =
-        0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
-    WormholeSimulator guardian;
     uint256 initialBlockTimestamp;
 
     function setUp() public {
         string memory url = "https://ethereum-sepolia-rpc.publicnode.com";
-        IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
+        ICoreBridge wormhole = ICoreBridge(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
         vm.createSelectFork(url);
         initialBlockTimestamp = vm.getBlockTimestamp();
 
-        guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
+        WormholeOverride.setUpOverride(wormhole);
 
         DummyToken t = new DummyToken();
         NttManager implementation = new MockNttManagerContract(
@@ -46,7 +48,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager = MockNttManagerContract(address(new ERC1967Proxy(address(implementation), "")));
         nttManager.initialize();
 
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        nttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
 
         DummyTransceiver e = new DummyTransceiver(address(nttManager));
         nttManager.setTransceiver(address(e));
@@ -90,8 +92,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -137,8 +139,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -184,8 +186,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -226,8 +228,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -280,8 +282,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -330,8 +332,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -389,8 +391,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -415,8 +417,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -443,8 +445,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             badTransferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -476,8 +478,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint64 qSeq = nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             true,
             new bytes(1)
         );
@@ -487,7 +489,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         IRateLimiter.OutboundQueuedTransfer memory qt = nttManager.getOutboundQueuedTransfer(0);
         assertEq(qt.amount.getAmount(), transferAmount.trim(decimals, decimals).getAmount());
         assertEq(qt.recipientChain, chainId2);
-        assertEq(qt.recipient, toWormholeFormat(user_B));
+        assertEq(qt.recipient, toUniversalAddress(user_B));
         assertEq(qt.txTimestamp, initialBlockTimestamp);
 
         // assert that the contract also locked funds from the user
@@ -644,7 +646,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // replay protection on executeMsg
         vm.recordLogs();
         nttManager.executeMsg(
-            TransceiverHelpersLib.SENDING_CHAIN_ID, toWormholeFormat(address(nttManager)), m
+            TransceiverHelpersLib.SENDING_CHAIN_ID, toUniversalAddress(address(nttManager)), m
         );
 
         {
@@ -652,7 +654,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             assertEq(entries.length, 1);
             assertEq(entries[0].topics.length, 3);
             assertEq(entries[0].topics[0], keccak256("MessageAlreadyExecuted(bytes32,bytes32)"));
-            assertEq(entries[0].topics[1], toWormholeFormat(address(nttManager)));
+            assertEq(entries[0].topics[1], toUniversalAddress(address(nttManager)));
             assertEq(
                 entries[0].topics[2],
                 TransceiverStructs.nttManagerMessageDigest(
@@ -684,8 +686,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount.untrim(decimals),
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -763,8 +765,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount.untrim(decimals),
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(userA),
+            toUniversalAddress(user_B),
+            toUniversalAddress(userA),
             false,
             new bytes(1)
         );
@@ -828,7 +830,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         console.log("result: %s", result.length);
         // // compare revert strings
         bytes32 expectedRevertHash = keccak256(abi.encode(expectedRevert));
-        (bytes memory res,) = result.slice(4, result.length - 4);
+        (bytes memory res,) = result.sliceMem(4, result.length - 4);
         bytes32 actualRevertHash = keccak256(abi.encodePacked(res));
         require(expectedRevertHash == actualRevertHash, "call did not revert as expected");
     }
@@ -876,8 +878,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             nttManager.transfer(
                 transferAmount.untrim(decimals),
                 chainId2,
-                toWormholeFormat(user_B),
-                toWormholeFormat(user_A),
+                toUniversalAddress(user_B),
+                toUniversalAddress(user_A),
                 false,
                 new bytes(1)
             );
@@ -889,8 +891,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount.untrim(decimals),
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -959,8 +961,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         nttManager.transfer(
             transferAmount.untrim(decimals),
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -1022,8 +1024,8 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         uint64 qSeq = nttManager.transfer(
             transferAmount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             true,
             new bytes(1)
         );
@@ -1033,7 +1035,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         IRateLimiter.OutboundQueuedTransfer memory qt = nttManager.getOutboundQueuedTransfer(0);
         assertEq(qt.amount.getAmount(), transferAmount.trim(decimals, decimals).getAmount());
         assertEq(qt.recipientChain, chainId2);
-        assertEq(qt.recipient, toWormholeFormat(user_B));
+        assertEq(qt.recipient, toUniversalAddress(user_B));
         assertEq(qt.txTimestamp, initialBlockTimestamp);
 
         // assert that the contract also locked funds from the user
@@ -1161,7 +1163,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
         // replay protection on executeMsg
         vm.recordLogs();
         nttManager.executeMsg(
-            TransceiverHelpersLib.SENDING_CHAIN_ID, toWormholeFormat(address(nttManager)), m
+            TransceiverHelpersLib.SENDING_CHAIN_ID, toUniversalAddress(address(nttManager)), m
         );
 
         {
@@ -1169,7 +1171,7 @@ contract TestRateLimit is Test, IRateLimiterEvents {
             assertEq(entries.length, 1);
             assertEq(entries[0].topics.length, 3);
             assertEq(entries[0].topics[0], keccak256("MessageAlreadyExecuted(bytes32,bytes32)"));
-            assertEq(entries[0].topics[1], toWormholeFormat(address(nttManager)));
+            assertEq(entries[0].topics[1], toUniversalAddress(address(nttManager)));
             assertEq(
                 entries[0].topics[2],
                 TransceiverStructs.nttManagerMessageDigest(

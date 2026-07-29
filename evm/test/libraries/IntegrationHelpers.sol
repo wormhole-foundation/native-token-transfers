@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache 2
-pragma solidity 0.8.19;
+pragma solidity >=0.8.8 <0.9.0;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -10,11 +10,15 @@ import {DummyToken, DummyTokenMintAndBurn} from "../../src/mocks/DummyToken.sol"
 import "../../src/libraries/TrimmedAmount.sol";
 import {Utils} from "./../libraries/Utils.sol";
 import "../../src/libraries/TransceiverStructs.sol";
-import "wormhole-solidity-sdk/Utils.sol";
+import "wormhole-sdk/Utils.sol";
 import "../../src/interfaces/IWormholeTransceiver.sol";
-import {WormholeRelayerBasicTest} from "wormhole-solidity-sdk/testing/WormholeRelayerTest.sol";
 import "../../src/NttManager/NttManager.sol";
-import "wormhole-solidity-sdk/testing/helpers/WormholeSimulator.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {
+    WormholeOverride,
+    AdvancedWormholeOverride
+} from "wormhole-sdk/testing/WormholeOverride.sol";
+import {VaaLib, Vaa, VaaBody as PublishedMessage} from "wormhole-sdk/libraries/VaaLib.sol";
 
 contract IntegrationHelpers is Test {
     using TrimmedAmountLib for uint256;
@@ -64,7 +68,7 @@ contract IntegrationHelpers is Test {
     ) internal {
         for (uint256 i; i < transceivers.length; i++) {
             transceivers[i].setWormholePeer(
-                chainIds[i], toWormholeFormat(address(transceiverPeers[i]))
+                chainIds[i], toUniversalAddress(address(transceiverPeers[i]))
             );
         }
     }
@@ -77,7 +81,7 @@ contract IntegrationHelpers is Test {
         uint64 inboundLimit
     ) internal {
         sourceManager.setPeer(
-            peerChainId, toWormholeFormat(address(peerManagerAddr)), peerDecimals, inboundLimit
+            peerChainId, toUniversalAddress(address(peerManagerAddr)), peerDecimals, inboundLimit
         );
     }
 
@@ -121,12 +125,12 @@ contract IntegrationHelpers is Test {
         TransceiverStructs.NttManagerMessage memory nttManagerMessage;
         nttManagerMessage = TransceiverStructs.NttManagerMessage(
             0,
-            toWormholeFormat(from),
+            toUniversalAddress(from),
             TransceiverStructs.encodeNativeTokenTransfer(
                 TransceiverStructs.NativeTokenTransfer({
                     amount: sendingAmount,
-                    sourceToken: toWormholeFormat(tokenAddr),
-                    to: toWormholeFormat(to),
+                    sourceToken: toUniversalAddress(tokenAddr),
+                    to: toUniversalAddress(to),
                     toChain: recipientChainId,
                     additionalPayload: ""
                 })
@@ -160,24 +164,25 @@ contract IntegrationHelpers is Test {
         sourceManager.transfer{value: quoteSum}(
             sendingAmount,
             recipientChainId,
-            toWormholeFormat(to),
-            toWormholeFormat(refund),
+            toUniversalAddress(to),
+            toUniversalAddress(refund),
             relayer_off,
             encodeTransceiverInstruction(relayer_off)
         );
     }
 
     function _getWormholeMessage(
-        WormholeSimulator guardian,
+        ICoreBridge coreBridge,
         Vm.Log[] memory logs,
-        uint16 emitterChain
+        uint16 emitterChainId
     ) internal view returns (bytes[] memory) {
-        Vm.Log[] memory entries = guardian.fetchWormholeMessageFromLog(logs);
-        bytes[] memory encodedVMs = new bytes[](entries.length);
-        for (uint256 i = 0; i < encodedVMs.length; i++) {
-            encodedVMs[i] = guardian.fetchSignedMessageFromLogs(entries[i], emitterChain);
+        PublishedMessage[] memory msgs = WormholeOverride.fetchPublishedMessages(coreBridge, logs);
+        bytes[] memory encodedVaas = new bytes[](msgs.length);
+        for (uint256 i = 0; i < msgs.length; i++) {
+            msgs[i].envelope.emitterChainId = emitterChainId;
+            encodedVaas[i] = VaaLib.encode(WormholeOverride.sign(coreBridge, msgs[i]));
         }
 
-        return encodedVMs;
+        return encodedVaas;
     }
 }

@@ -16,9 +16,13 @@ import {Utils} from "./libraries/Utils.sol";
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
-import "wormhole-solidity-sdk/testing/helpers/WormholeSimulator.sol";
-import "wormhole-solidity-sdk/Utils.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {
+    WormholeOverride,
+    AdvancedWormholeOverride
+} from "wormhole-sdk/testing/WormholeOverride.sol";
+import {VaaLib, Vaa, VaaBody as PublishedMessage} from "wormhole-sdk/libraries/VaaLib.sol";
+import "wormhole-sdk/Utils.sol";
 import "./libraries/TransceiverHelpers.sol";
 import "./libraries/NttManagerHelpers.sol";
 import "./interfaces/ITransceiverReceiver.sol";
@@ -40,19 +44,18 @@ contract TestNttManager is Test, IRateLimiterEvents {
     // 0x99'E''T''T'
     uint16 constant chainId = 7;
     uint16 constant chainId2 = 8;
-    uint256 constant DEVNET_GUARDIAN_PK =
-        0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
-    WormholeSimulator guardian;
     uint256 initialBlockTimestamp;
+    uint256 cachedEvmChainId;
     DummyTransceiver dummyTransceiver;
 
     function setUp() public {
         string memory url = "https://ethereum-sepolia-rpc.publicnode.com";
-        IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
+        ICoreBridge wormhole = ICoreBridge(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
         vm.createSelectFork(url);
         initialBlockTimestamp = vm.getBlockTimestamp();
+        cachedEvmChainId = block.chainid;
 
-        guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
+        WormholeOverride.setUpOverride(wormhole);
 
         DummyToken t = new DummyToken();
         NttManager implementation = new MockNttManagerContract(
@@ -116,7 +119,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         uint8 decimals = t.decimals();
 
         nttManagerZeroRateLimiter.setPeer(
-            chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max
+            chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max
         );
 
         t.mintDummy(address(user_A), 5 * 10 ** decimals);
@@ -126,13 +129,13 @@ contract TestNttManager is Test, IRateLimiterEvents {
         t.approve(address(nttManagerZeroRateLimiter), 3 * 10 ** decimals);
 
         uint64 s1 = nttManagerZeroRateLimiter.transfer(
-            1 * 10 ** decimals, chainId2, toWormholeFormat(user_B)
+            1 * 10 ** decimals, chainId2, toUniversalAddress(user_B)
         );
         uint64 s2 = nttManagerZeroRateLimiter.transfer(
-            1 * 10 ** decimals, chainId2, toWormholeFormat(user_B)
+            1 * 10 ** decimals, chainId2, toUniversalAddress(user_B)
         );
         uint64 s3 = nttManagerZeroRateLimiter.transfer(
-            1 * 10 ** decimals, chainId2, toWormholeFormat(user_B)
+            1 * 10 ** decimals, chainId2, toUniversalAddress(user_B)
         );
         vm.stopPrank();
 
@@ -145,7 +148,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManagerZeroRateLimiter.setThreshold(2);
 
         // register nttManager peer
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
         nttManagerZeroRateLimiter.setPeer(
             TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max
         );
@@ -157,7 +160,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
                 0,
                 bytes32(0),
                 peer,
-                toWormholeFormat(address(nttManagerZeroRateLimiter)),
+                toUniversalAddress(address(nttManagerZeroRateLimiter)),
                 abi.encode("payload")
             );
 
@@ -224,8 +227,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         (, transceiverMessage) = TransceiverHelpersLib.buildTransceiverMessageWithNttManagerPayload(
             0,
             bytes32(0),
-            toWormholeFormat(address(nttManagerOther)),
-            toWormholeFormat(address(nttManager)),
+            toUniversalAddress(address(nttManagerOther)),
+            toUniversalAddress(address(nttManager)),
             abi.encode("payload")
         );
         vm.expectRevert(
@@ -367,7 +370,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         uint8 decimals = token.decimals();
 
-        newNttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        newNttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
         newNttManager.setOutboundLimit(packTrimmedAmount(type(uint64).max, 8).untrim(decimals));
 
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
@@ -380,8 +383,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         newNttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -429,7 +432,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         uint8 decimals = token.decimals();
 
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        nttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
         nttManager.setOutboundLimit(packTrimmedAmount(type(uint64).max, 8).untrim(decimals));
 
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
@@ -450,8 +453,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             instructions
         );
@@ -465,7 +468,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         uint8 decimals = token.decimals();
 
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        nttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
         nttManager.setOutboundLimit(0);
 
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
@@ -480,8 +483,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         uint64 s1 = nttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             true,
             new bytes(1)
         );
@@ -517,8 +520,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         uint64 s2 = nttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             true,
             new bytes(1)
         );
@@ -566,7 +569,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
     // == threshold
 
     function test_peerRegistrationLimitsCanBeUpdated() public {
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
         nttManager.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, 0);
 
         IRateLimiter.RateLimitParams memory params =
@@ -585,12 +588,12 @@ contract TestNttManager is Test, IRateLimiterEvents {
     function test_onlyEnabledTransceiversCanAttest() public {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
         nttManagerOther.removeTransceiver(address(e1));
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
         nttManagerOther.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max);
 
         bytes memory transceiverMessage;
         (, transceiverMessage) = TransceiverHelpersLib.buildTransceiverMessageWithNttManagerPayload(
-            0, bytes32(0), peer, toWormholeFormat(address(nttManagerOther)), abi.encode("payload")
+            0, bytes32(0), peer, toUniversalAddress(address(nttManagerOther)), abi.encode("payload")
         );
 
         vm.expectRevert(
@@ -603,7 +606,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
         nttManagerOther.setThreshold(2);
 
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
 
         TransceiverStructs.NttManagerMessage memory nttManagerMessage;
         bytes memory transceiverMessage;
@@ -612,7 +615,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
                 0,
                 bytes32(0),
                 peer,
-                toWormholeFormat(address(nttManagerOther)),
+                toUniversalAddress(address(nttManagerOther)),
                 abi.encode("payload")
             );
 
@@ -629,7 +632,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManagerOther.setThreshold(2);
 
         // register nttManager peer
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
         nttManagerOther.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max);
 
         TransceiverStructs.NttManagerMessage memory nttManagerMessage;
@@ -639,7 +642,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
                 0,
                 bytes32(0),
                 peer,
-                toWormholeFormat(address(nttManagerOther)),
+                toUniversalAddress(address(nttManagerOther)),
                 abi.encode("payload")
             );
 
@@ -656,7 +659,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManagerOther.setThreshold(2);
 
         // register nttManager peer
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
         nttManagerOther.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max);
 
         TransceiverStructs.NttManagerMessage memory nttManagerMessage;
@@ -666,7 +669,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
                 0,
                 bytes32(0),
                 peer,
-                toWormholeFormat(address(nttManagerOther)),
+                toUniversalAddress(address(nttManagerOther)),
                 abi.encode("payload")
             );
 
@@ -688,7 +691,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         (DummyTransceiver e1,) = TransceiverHelpersLib.setup_transceivers(nttManagerOther);
         nttManagerOther.setThreshold(2);
 
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
         nttManagerOther.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max);
 
         ITransceiverReceiver[] memory transceivers = new ITransceiverReceiver[](1);
@@ -726,7 +729,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         uint8 decimals = token.decimals();
 
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        nttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
         nttManager.setOutboundLimit(packTrimmedAmount(type(uint64).max, 8).untrim(decimals));
 
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
@@ -738,24 +741,24 @@ contract TestNttManager is Test, IRateLimiterEvents {
         uint64 s1 = nttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
         uint64 s2 = nttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
         uint64 s3 = nttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -767,7 +770,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
     function test_transferWithAmountAndDecimalsThatCouldOverflow() public {
         // The source chain has 18 decimals trimmed to 8, and the peer has 6 decimals trimmed to 6
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 6, type(uint64).max);
+        nttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 6, type(uint64).max);
 
         address user_A = address(0x123);
         address user_B = address(0x456);
@@ -790,8 +793,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.transfer(
             amount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -801,8 +804,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.transfer(
             amount,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -858,7 +861,12 @@ contract TestNttManager is Test, IRateLimiterEvents {
     }
 
     function test_transfersOnForkedChains() public {
-        uint256 evmChainId = block.chainid;
+        // NOTE: We use the state variable cachedEvmChainId (set in setUp) instead of a local
+        // `uint256 evmChainId = block.chainid` because the via_ir Yul optimizer treats the
+        // CHAINID opcode as a pure/movable expression and may substitute a stale value after
+        // vm.chainId() changes block.chainid mid-function.
+        // See: https://github.com/foundry-rs/foundry/issues/1373
+        uint256 evmChainId = cachedEvmChainId;
 
         address user_A = address(0x123);
         address user_B = address(0x456);
@@ -869,7 +877,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         nttManager.setPeer(
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(address(nttManagerOther)),
+            toUniversalAddress(address(nttManagerOther)),
             9,
             type(uint64).max
         );
@@ -884,8 +892,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         uint64 sequence = nttManager.transfer(
             1 * 10 ** decimals,
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             true,
             new bytes(1)
         );
@@ -907,8 +915,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.transfer(
             1 * 10 ** decimals,
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             true,
             new bytes(1)
         );
@@ -921,8 +929,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.transfer(
             1 * 10 ** decimals,
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -932,8 +940,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         bytes memory tokenTransferMessage = TransceiverStructs.encodeNativeTokenTransfer(
             TransceiverStructs.NativeTokenTransfer({
                 amount: packTrimmedAmount(100, 8),
-                sourceToken: toWormholeFormat(address(token)),
-                to: toWormholeFormat(user_B),
+                sourceToken: toUniversalAddress(address(token)),
+                to: toUniversalAddress(user_B),
                 toChain: chainId,
                 additionalPayload: ""
             })
@@ -944,9 +952,9 @@ contract TestNttManager is Test, IRateLimiterEvents {
         (nttManagerMessage, transceiverMessage) =
             TransceiverHelpersLib.buildTransceiverMessageWithNttManagerPayload(
                 0,
-                toWormholeFormat(address(0x1)),
-                toWormholeFormat(address(nttManagerOther)),
-                toWormholeFormat(address(nttManager)),
+                toUniversalAddress(address(0x1)),
+                toUniversalAddress(address(nttManagerOther)),
+                toUniversalAddress(address(nttManager)),
                 tokenTransferMessage
             );
 
@@ -1012,7 +1020,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         uint256 maxAmount = 5 * 10 ** decimals;
         token.mintDummy(from, maxAmount);
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        nttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
         nttManager.setOutboundLimit(packTrimmedAmount(type(uint64).max, 8).untrim(decimals));
         nttManager.setInboundLimit(
             packTrimmedAmount(type(uint64).max, 8).untrim(decimals),
@@ -1038,8 +1046,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.transfer(
             amountWithDust,
             chainId2,
-            toWormholeFormat(to),
-            toWormholeFormat(from),
+            toUniversalAddress(to),
+            toUniversalAddress(from),
             false,
             new bytes(1)
         );
@@ -1137,7 +1145,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
         newNttManager.initialize();
 
         // register nttManager peer and transceiver
-        bytes32 peer = toWormholeFormat(address(nttManager));
+        bytes32 peer = toUniversalAddress(address(nttManager));
         newNttManager.setPeer(TransceiverHelpersLib.SENDING_CHAIN_ID, peer, 9, type(uint64).max);
         {
             DummyTransceiver e = new DummyTransceiver(address(newNttManager));
@@ -1154,8 +1162,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         newNttManager.transfer(
             1 * 10 ** t.decimals(),
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -1173,15 +1181,15 @@ contract TestNttManager is Test, IRateLimiterEvents {
         tokenTransferMessage = TransceiverStructs.encodeNativeTokenTransfer(
             TransceiverStructs.NativeTokenTransfer({
                 amount: transferAmount,
-                sourceToken: toWormholeFormat(address(t)),
-                to: toWormholeFormat(user_B),
+                sourceToken: toUniversalAddress(address(t)),
+                to: toUniversalAddress(user_B),
                 toChain: chainId,
                 additionalPayload: ""
             })
         );
 
         (, transceiverMessage) = TransceiverHelpersLib.buildTransceiverMessageWithNttManagerPayload(
-            0, bytes32(0), peer, toWormholeFormat(address(newNttManager)), tokenTransferMessage
+            0, bytes32(0), peer, toUniversalAddress(address(newNttManager)), tokenTransferMessage
         );
 
         e1.receiveMessage(transceiverMessage);
@@ -1196,8 +1204,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         newNttManager.transfer(
             1 * 10 ** 10,
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -1207,7 +1215,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
             bytes32("1"),
             bytes32(0),
             peer,
-            toWormholeFormat(address(newNttManager)),
+            toUniversalAddress(address(newNttManager)),
             tokenTransferMessage
         );
         e1.receiveMessage(transceiverMessage);
@@ -1224,8 +1232,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         newNttManager.transfer(
             1 * 10 ** 7,
             TransceiverHelpersLib.SENDING_CHAIN_ID,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             new bytes(1)
         );
@@ -1235,7 +1243,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
             bytes32("2"),
             bytes32(0),
             peer,
-            toWormholeFormat(address(newNttManager)),
+            toUniversalAddress(address(newNttManager)),
             tokenTransferMessage
         );
         vm.expectRevert(abi.encodeWithSelector(NumberOfDecimalsNotEqual.selector, 8, 7));
@@ -1258,7 +1266,7 @@ contract TestNttManager is Test, IRateLimiterEvents {
 
         uint8 decimals = token.decimals();
 
-        nttManager.setPeer(chainId2, toWormholeFormat(address(0x1)), 9, type(uint64).max);
+        nttManager.setPeer(chainId2, toUniversalAddress(address(0x1)), 9, type(uint64).max);
         nttManager.setOutboundLimit(packTrimmedAmount(type(uint64).max, 8).untrim(decimals));
 
         token.mintDummy(address(user_A), 5 * 10 ** decimals);
@@ -1273,8 +1281,8 @@ contract TestNttManager is Test, IRateLimiterEvents {
         nttManager.transfer(
             1 * 10 ** decimals,
             chainId2,
-            toWormholeFormat(user_B),
-            toWormholeFormat(user_A),
+            toUniversalAddress(user_B),
+            toUniversalAddress(user_A),
             false,
             encodedInstructions
         );

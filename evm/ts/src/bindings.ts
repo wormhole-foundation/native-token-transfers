@@ -6,6 +6,7 @@ import {
   _1_1_0,
   _1_3_1,
   _2_0_0,
+  _2_1_0,
 } from "./ethers-contracts/index.js";
 import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 
@@ -13,6 +14,7 @@ import { Ntt } from "@wormhole-foundation/sdk-definitions-ntt";
 // We check for the first match in descending order, allowing for higher minor and patch versions
 // being used by the live contract (these are supposed to still be compatible with older ABIs).
 export const abiVersions = [
+  ["2.1.0", _2_1_0],
   ["2.0.0", _2_0_0],
   ["1.3.1", _1_3_1],
   ["1.1.0", _1_1_0],

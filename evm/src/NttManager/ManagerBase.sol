@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache 2
 pragma solidity >=0.8.8 <0.9.0;
 
-import "wormhole-solidity-sdk/Utils.sol";
-import "wormhole-solidity-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/Utils.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import "../libraries/external/OwnableUpgradeable.sol";
 import "../libraries/external/ReentrancyGuardUpgradeable.sol";
@@ -108,7 +108,7 @@ abstract contract ManagerBase is
 
         TransceiverStructs.TransceiverInstruction[] memory instructions =
             TransceiverStructs.parseTransceiverInstructions(
-                transceiverInstructions, enabledTransceivers.length
+                transceiverInstructions, _getRegisteredTransceiversStorage().length
             );
 
         return _quoteDeliveryPrice(recipientChain, instructions, enabledTransceivers);
@@ -146,16 +146,20 @@ abstract contract ManagerBase is
         bytes32 nttManagerMessageHash =
             TransceiverStructs.nttManagerMessageDigest(sourceChainId, payload);
 
+        // Cache the transceiver index to avoid redundant storage reads.
+        uint8 index = _getTransceiverInfosStorage()[msg.sender].index;
+
         // set the attested flag for this transceiver.
         // NOTE: Attestation is idempotent (bitwise or 1), but we revert
         // anyway to ensure that the client does not continue to initiate calls
         // to receive the same message through the same transceiver.
-        if (transceiverAttestedToMessage(
-                nttManagerMessageHash, _getTransceiverInfosStorage()[msg.sender].index
-            )) {
+        if (transceiverAttestedToMessage(nttManagerMessageHash, index)) {
             revert TransceiverAlreadyAttestedToMessage(nttManagerMessageHash);
         }
-        _setTransceiverAttestedToMessage(nttManagerMessageHash, msg.sender);
+        _setTransceiverAttestedToMessage(nttManagerMessageHash, index);
+
+        // msg.sender is the transceiver address (guaranteed by onlyTransceiver modifier)
+        emit MessageAttestedTo(nttManagerMessageHash, msg.sender, index);
 
         return nttManagerMessageHash;
     }
@@ -428,17 +432,6 @@ abstract contract ManagerBase is
         uint8 index
     ) internal {
         _getMessageAttestationsStorage()[digest].attestedTransceivers |= uint64(1 << index);
-    }
-
-    function _setTransceiverAttestedToMessage(
-        bytes32 digest,
-        address transceiver
-    ) internal {
-        _setTransceiverAttestedToMessage(digest, _getTransceiverInfosStorage()[transceiver].index);
-
-        emit MessageAttestedTo(
-            digest, transceiver, _getTransceiverInfosStorage()[transceiver].index
-        );
     }
 
     /// @dev Returns the bitmap of attestations from enabled transceivers for a given message.

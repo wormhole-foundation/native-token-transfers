@@ -10,20 +10,24 @@ import "../src/interfaces/IRateLimiter.sol";
 import "../src/interfaces/ITransceiver.sol";
 import "../src/interfaces/IManagerBase.sol";
 import "../src/interfaces/IRateLimiterEvents.sol";
-import "../src/interfaces/ICustomConsistencyLevel.sol";
+import {ICustomConsistencyLevel} from "wormhole-sdk/interfaces/ICustomConsistencyLevel.sol";
 import {Utils} from "./libraries/Utils.sol";
 import {DummyToken, DummyTokenMintAndBurn} from "./NttManager.t.sol";
 import "../src/interfaces/IWormholeTransceiver.sol";
 import {WormholeTransceiver} from "../src/Transceiver/WormholeTransceiver/WormholeTransceiver.sol";
 import "../src/libraries/TransceiverStructs.sol";
-import "../src/libraries/ConfigMakers.sol";
+import {CustomConsistencyLib} from "wormhole-sdk/libraries/CustomConsistency.sol";
 import "./mocks/MockNttManager.sol";
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "wormhole-solidity-sdk/interfaces/IWormhole.sol";
-import "wormhole-solidity-sdk/testing/helpers/WormholeSimulator.sol";
-import "wormhole-solidity-sdk/Utils.sol";
+import {ICoreBridge} from "wormhole-sdk/interfaces/ICoreBridge.sol";
+import {
+    WormholeOverride,
+    AdvancedWormholeOverride
+} from "wormhole-sdk/testing/WormholeOverride.sol";
+import {VaaLib, Vaa, VaaBody as PublishedMessage} from "wormhole-sdk/libraries/VaaLib.sol";
+import "wormhole-sdk/Utils.sol";
 
 contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
     NttManager nttManagerChain1;
@@ -39,9 +43,6 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
     uint16 constant ADDTL_BLOCKS = 5;
     uint256 constant GAS_LIMIT = 500000;
 
-    uint256 constant DEVNET_GUARDIAN_PK =
-        0xcfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0;
-    WormholeSimulator guardian;
     uint256 initialBlockTimestamp;
 
     WormholeTransceiver wormholeTransceiverChain1;
@@ -51,7 +52,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
 
     // Testnet addresses
     // Ethereum Sepolia Wormhole: https://wormhole.com/docs/products/reference/chain-ids/
-    IWormhole wormhole = IWormhole(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
+    ICoreBridge wormhole = ICoreBridge(0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78);
     address customConsistencyLevelAddress = 0x6A4B4A882F5F0a447078b4Fd0b4B571A82371ec2;
 
     function setUp() public {
@@ -59,7 +60,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
         vm.createSelectFork(url);
         initialBlockTimestamp = vm.getBlockTimestamp();
 
-        guardian = new WormholeSimulator(address(wormhole), DEVNET_GUARDIAN_PK);
+        WormholeOverride.setUpOverride(wormhole);
 
         vm.chainId(chainId1);
         DummyToken t1 = new DummyToken();
@@ -103,7 +104,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
                     require(
                         emitterAddr == address(wormholeTransceiverChain1), "Wrong emitter address"
                     );
-                    bytes32 expectedConfig = ConfigMakers.makeAdditionalBlocksConfig(
+                    bytes32 expectedConfig = CustomConsistencyLib.encodeAdditionalBlocksConfig(
                         BASE_CONSISTENCY_LEVEL, ADDTL_BLOCKS
                     );
                     require(configData == expectedConfig, "Wrong config data");
@@ -172,7 +173,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
 
         // Verify CCL configuration was set during initialization
         bytes32 expectedConfig =
-            ConfigMakers.makeAdditionalBlocksConfig(BASE_CONSISTENCY_LEVEL, ADDTL_BLOCKS);
+            CustomConsistencyLib.encodeAdditionalBlocksConfig(BASE_CONSISTENCY_LEVEL, ADDTL_BLOCKS);
         bytes32 actualConfig = ICustomConsistencyLevel(customConsistencyLevelAddress)
             .getConfiguration(address(wormholeTransceiverChain1));
         require(actualConfig == expectedConfig, "CCL configuration not set correctly");
@@ -222,11 +223,7 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
         require(sentEventDigest != bytes32(0), "TransferSent(bytes32) event should be found");
 
         // Get and sign the log to go to chain2
-        Vm.Log[] memory entries = guardian.fetchWormholeMessageFromLog(recordedLogs);
-        bytes[] memory encodedVMs = new bytes[](entries.length);
-        for (uint256 i = 0; i < encodedVMs.length; i++) {
-            encodedVMs[i] = guardian.fetchSignedMessageFromLogs(entries[i], chainId1);
-        }
+        bytes[] memory encodedVMs = _getSignedMessages(recordedLogs, chainId1);
 
         // Chain2 verification and checks
         vm.chainId(chainId2);
@@ -302,5 +299,18 @@ contract TestCustomConsistencySepolia is Test, IRateLimiterEvents {
         bytes32 config = ICustomConsistencyLevel(customConsistencyLevelAddress)
             .getConfiguration(address(testTransceiver));
         require(config == bytes32(0), "CCL should not be configured for regular consistency");
+    }
+
+    function _getSignedMessages(
+        Vm.Log[] memory logs,
+        uint16 emitterChainId
+    ) internal view returns (bytes[] memory) {
+        PublishedMessage[] memory msgs = WormholeOverride.fetchPublishedMessages(wormhole, logs);
+        bytes[] memory encodedVMs = new bytes[](msgs.length);
+        for (uint256 i = 0; i < msgs.length; i++) {
+            msgs[i].envelope.emitterChainId = emitterChainId;
+            encodedVMs[i] = VaaLib.encode(WormholeOverride.sign(wormhole, msgs[i]));
+        }
+        return encodedVMs;
     }
 }
