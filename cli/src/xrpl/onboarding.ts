@@ -37,8 +37,12 @@ export function getDefaultCoreAccountForNetwork(network: Network): string {
 const TOKEN_TYPE_IOU = "01";
 const TOKEN_TYPE_MPT = "02";
 
-// Size (in bytes) the token_id portion of init_data is right-padded to.
-const TOKEN_ID_PADDED_BYTES = 42;
+// Total size (in bytes) of an IOU/MPT init_data: decimals[1] + token type[1] +
+// token id, right-padded so the WHOLE init_data is 42 bytes. An IOU
+// (1+1+20+20) fills it exactly; an MPT (1+1+24) gets 16 bytes of padding.
+// The Sequencer's InitializeXrplAccount enforces this length strictly — a
+// 43-byte init_data is rejected with InvalidNttPayload.
+const INIT_DATA_PADDED_BYTES = 42;
 
 export type TokenInit =
   | { type: "xrp" }
@@ -110,8 +114,8 @@ export function currencyToHex40(currency: string): string {
 /**
  * Build the NTT/WTT `init_data` tail (hex, no 0x prefix):
  *  - xrp: short form — just the decimals byte.
- *  - iou: decimals byte + (0x01 + currency[20] + issuer[20]) right-padded to 42 bytes.
- *  - mpt: decimals byte + (0x02 + mpt_issuance_id[24]) right-padded to 42 bytes.
+ *  - iou: decimals + 0x01 + currency[20] + issuer[20] — exactly 42 bytes.
+ *  - mpt: decimals + 0x02 + mpt_issuance_id[24], right-padded to 42 bytes.
  */
 export function buildInitData(decimals: number, token: TokenInit): string {
   const dec = u8Hex(decimals);
@@ -121,17 +125,18 @@ export function buildInitData(decimals: number, token: TokenInit): string {
     case "iou": {
       const currency = currencyToHex40(token.currency);
       const issuer = accountIdHex(token.issuer);
-      return (
-        dec +
-        padRight(TOKEN_TYPE_IOU + currency + issuer, TOKEN_ID_PADDED_BYTES)
+      return padRight(
+        dec + TOKEN_TYPE_IOU + currency + issuer,
+        INIT_DATA_PADDED_BYTES
       );
     }
     case "mpt": {
       if (!/^[0-9a-fA-F]{48}$/.test(token.mptId)) {
         throw new Error("expected mpt issuance id length of 48 (hex)");
       }
-      return (
-        dec + padRight(TOKEN_TYPE_MPT + token.mptId, TOKEN_ID_PADDED_BYTES)
+      return padRight(
+        dec + TOKEN_TYPE_MPT + token.mptId,
+        INIT_DATA_PADDED_BYTES
       );
     }
   }

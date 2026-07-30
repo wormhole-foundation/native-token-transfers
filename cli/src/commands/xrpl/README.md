@@ -187,11 +187,11 @@ The memo carries: prefix `"XRPL"`, the `--admin` account, the app type (always
 ticket range (`--initial-ticket` / `--ticket-count`), and the token `init_data`
 (decimals + token identifier) selected via `--token`:
 
-| `--token` | extra args                                                | `init_data` tail                                                            |
-| --------- | --------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `xrp`     | `--decimals` (6)                                          | `<decimals>` (short form)                                                   |
-| `iou`     | `--decimals`, `--currency` (3-char or 40-hex), `--issuer` | `<decimals>` + `0x01` + currency[20] + issuer[20], right-padded to 42 bytes |
-| `mpt`     | `--decimals`, `--mpt-id` (48-hex)                         | `<decimals>` + `0x02` + mpt_id[24], right-padded to 42 bytes                |
+| `--token` | extra args                                                | `init_data` (42 bytes total for iou/mpt)                             |
+| --------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `xrp`     | `--decimals` (6)                                          | `<decimals>` (short form)                                            |
+| `iou`     | `--decimals`, `--currency` (3-char or 40-hex), `--issuer` | `<decimals>` + `0x01` + currency[20] + issuer[20] (exactly 42 bytes) |
+| `mpt`     | `--decimals`, `--mpt-id` (48-hex)                         | `<decimals>` + `0x02` + mpt_id[24], right-padded to 42 bytes total   |
 
 Other options:
 
@@ -289,7 +289,10 @@ the relaying account (`--seed`).
 
 - `--tx-hash` (required) — XRPL tx that emitted the VAA
 - `--dst-chain` (required) — destination chain (name or id)
-- `--request-type` — `ern1` (NTT transfer) or `erv1` (onboarding / register-peer)
+- `--request-type` — `ERN1` (NTT transfer) or `ERV1` (onboarding / register-peer)
+- `--emitter-kind` [`ERV1`] — `core` (default; a message the account published,
+  e.g. init / register-peer) or `generated` (a watcher ack for a custody tx —
+  XACK/XTCF, e.g. relaying a manual `TicketCreate` to the Sequencer)
 - `--dst-addr` — destination address (hex32; recipient NTT manager for `ern1`)
 - `--src-manager` / `--manager` — source NTT manager emitter (hex32), or derive it
   from the manager r-address/hex
