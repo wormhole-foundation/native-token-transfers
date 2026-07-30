@@ -111,6 +111,8 @@ module ntt::rate_limit {
         let new_amount = min!(new_amount, 0xFFFF_FFFF_FFFF_FFFF) as u64;
 
         self.capacity_at_last_tx = min!(new_amount, self.limit);
+        let now = clock.timestamp_ms();
+        self.last_tx_timestamp = now;
     }
 
     public fun set_limit(self: &mut RateLimitState, limit: u64, clock: &Clock) {
@@ -139,4 +141,14 @@ module ntt::rate_limit {
         self.capacity_at_last_tx = new_capacity.min(limit);
         self.last_tx_timestamp = now;
     }
+
+    #[test_only]
+    public fun limit(self: &RateLimitState): u64 { self.limit }
+
+    #[test_only]
+    public fun capacity_at_last_tx(self: &RateLimitState): u64 { self.capacity_at_last_tx }
+
+    #[test_only]
+    public fun last_tx_timestamp(self: &RateLimitState): u64 { self.last_tx_timestamp }
+
 }

@@ -126,4 +126,37 @@ module ntt::inbox {
     public fun borrow_inbox_item<K: store + copy + drop>(inbox: &Inbox<K>, key: InboxKey<K>): &InboxItem<K> {
         inbox.entries.borrow(key)
     }
+
+    #[test_only]
+    /// True if the item is queued for delayed release (`ReleaseAfter`).
+    public fun is_release_after<K>(self: &InboxItem<K>): bool {
+        match (&self.release_status) {
+            ReleaseStatus::ReleaseAfter(_) => true,
+            _ => false,
+        }
+    }
+
+    #[test_only]
+    /// The release timestamp of a queued item. Aborts unless the item is in the
+    /// `ReleaseAfter` state.
+    public fun release_after_timestamp<K>(self: &InboxItem<K>): u64 {
+        match (&self.release_status) {
+            ReleaseStatus::ReleaseAfter(release_timestamp) => *release_timestamp,
+            _ => abort ETransferCannotBeRedeemed,
+        }
+    }
+
+    #[test_only]
+    public fun is_released<K>(self: &InboxItem<K>): bool {
+        match (&self.release_status) {
+            ReleaseStatus::Released => true,
+            _ => false,
+        }
+    }
+
+    #[test_only]
+    /// Number of votes recorded on the item, regardless of which transceivers are enabled.
+    public fun count_votes<K>(self: &InboxItem<K>): u8 {
+        self.votes.count_ones()
+    }
 }
