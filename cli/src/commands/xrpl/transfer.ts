@@ -277,7 +277,7 @@ export async function runTransfer(
   if (!argv.relay) {
     console.log(
       colors.dim(
-        `\nRelay later with:\n  ntt xrpl relay -n ${network} --request-type ern1 \\\n    --tx-hash ${txHash} --dst-chain ${argv["dst-chain"]} \\\n    --dst-addr ${argv.recipient} --manager ${custody} --executor <executor> --seed <seed>`
+        `\nRelay later with:\n  ntt xrpl relay -n ${network} --request-type ERN1 \\\n    --tx-hash ${txHash} --dst-chain ${argv["dst-chain"]} \\\n    --dst-addr ${argv.recipient} --manager ${custody} --executor <executor> --seed <seed>`
       )
     );
     return;
@@ -287,10 +287,10 @@ export async function runTransfer(
     throw new Error("--executor is required to relay (or pass --no-relay)");
   }
 
-  // Hand off to the existing relay flow: it re-derives the ern1 transceiver
+  // Hand off to the existing relay flow: it re-derives the ERN1 transceiver
   // emitter + sequence from the tx, polls the VAA, and sends the executor memo.
   // `--manager custody` lets relay derive the source NTT manager emitter.
-  console.log(colors.blue("\n↪ Relaying transfer (ern1)..."));
+  console.log(colors.blue("\n↪ Relaying transfer (ERN1)..."));
   await runRelay(
     {
       network,
@@ -298,7 +298,7 @@ export async function runTransfer(
       algorithm: argv.algorithm,
       "tx-hash": txHash,
       "dst-chain": argv["dst-chain"],
-      "request-type": "ern1",
+      "request-type": "ERN1",
       "dst-addr": argv.recipient,
       manager: custody,
       "src-manager": argv["src-manager"],

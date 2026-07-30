@@ -38,7 +38,9 @@ const TOKEN_TYPE_IOU = "01";
 const TOKEN_TYPE_MPT = "02";
 
 // Size (in bytes) the token_id portion of init_data is right-padded to.
-const TOKEN_ID_PADDED_BYTES = 42;
+// Must match the Sequencer's `XrplTokenId::STORAGE_SIZE` (41 bytes:
+// 1 discriminant + 20 currency + 20 issuer for the largest, IOU, variant).
+const TOKEN_ID_PADDED_BYTES = 41;
 
 export type TokenInit =
   | { type: "xrp" }
@@ -110,8 +112,8 @@ export function currencyToHex40(currency: string): string {
 /**
  * Build the NTT/WTT `init_data` tail (hex, no 0x prefix):
  *  - xrp: short form — just the decimals byte.
- *  - iou: decimals byte + (0x01 + currency[20] + issuer[20]) right-padded to 42 bytes.
- *  - mpt: decimals byte + (0x02 + mpt_issuance_id[24]) right-padded to 42 bytes.
+ *  - iou: decimals byte + (0x01 + currency[20] + issuer[20]) = 41 bytes (no padding).
+ *  - mpt: decimals byte + (0x02 + mpt_issuance_id[24]) right-padded to 41 bytes.
  */
 export function buildInitData(decimals: number, token: TokenInit): string {
   const dec = u8Hex(decimals);
