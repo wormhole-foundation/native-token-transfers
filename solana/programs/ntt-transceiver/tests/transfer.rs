@@ -49,6 +49,8 @@ pub async fn test_transfer_burning() {
 /// This tests the happy path of a transfer, with all the relevant account checks.
 /// Written as a helper function so both modes can be tested.
 async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode: Mode) {
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
     let outbox_item = Keypair::new();
 
     let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
@@ -75,6 +77,8 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
     assert_eq!(
         outbox_item_account,
         OutboxItem {
+            // v4: outbox item is bound to its source instance.
+            manager: good_ntt.config(),
             amount: TrimmedAmount {
                 amount: 1,
                 decimals: 7
@@ -123,7 +127,8 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
         )
         .unwrap(),
         TransceiverMessage::new(
-            example_native_token_transfers::ID.to_bytes(),
+            // v4: source_ntt_manager is the instance pubkey, not the program ID.
+            good_ntt.config().to_bytes(),
             OTHER_MANAGER,
             NttManagerMessage {
                 id: outbox_item.pubkey().to_bytes(),
@@ -147,6 +152,8 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
 #[tokio::test]
 async fn test_cant_release_queued() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -222,6 +229,8 @@ async fn test_cant_release_queued() {
 #[tokio::test]
 async fn test_cant_release_twice() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 

@@ -23,11 +23,22 @@ pub struct ReleaseOutbound<'info> {
 
     #[account(
         mut,
+        // sanity check: the outbox item must belong to this instance. This is
+        // already enforced by the `mark_outbox_item_as_released` CPI below, but
+        // mirror the standalone transceiver and check it here as a second layer.
+        constraint = outbox_item.manager == config.key() @ NTTError::InvalidOutboxItem,
         constraint = !outbox_item.released.get(transceiver.id)? @ NTTError::MessageAlreadySent,
     )]
     pub outbox_item: Account<'info, OutboxItem>,
 
     #[account(
+        // sanity check: derive the RegisteredTransceiver PDA as a second layer.
+        // It's a manager-owned account (hence `seeds::program` points at the
+        // manager, unlike the standalone transceiver which lives in the manager
+        // program), and is already validated by the CPI below.
+        seeds = [RegisteredTransceiver::SEED_PREFIX, config.key().as_ref(), transceiver.transceiver_address.as_ref()],
+        bump,
+        seeds::program = example_native_token_transfers::ID,
         constraint = transceiver.transceiver_address == crate::ID,
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver
     )]
@@ -38,7 +49,7 @@ pub struct ReleaseOutbound<'info> {
     pub wormhole_message: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [b"emitter"],
+        seeds = [b"emitter", config.key().as_ref()],
         bump
     )]
     // TODO: do we want to put anything in here?
@@ -52,7 +63,7 @@ pub struct ReleaseOutbound<'info> {
     pub manager: Program<'info, ExampleNativeTokenTransfers>,
 
     #[account(
-        seeds = [OUTBOX_ITEM_SIGNER_SEED],
+        seeds = [OUTBOX_ITEM_SIGNER_SEED, config.key().as_ref()],
         bump
     )]
     /// CHECK: this PDA is used to sign the CPI into NTT manager program
@@ -61,6 +72,7 @@ pub struct ReleaseOutbound<'info> {
 
 impl<'info> ReleaseOutbound<'info> {
     pub fn mark_outbox_item_as_released(&self, bump_seed: u8) -> Result<bool> {
+        let config_key = self.config.key();
         let result = example_native_token_transfers::cpi::mark_outbox_item_as_released(
             CpiContext::new_with_signer(
                 self.manager.to_account_info(),
@@ -73,7 +85,7 @@ impl<'info> ReleaseOutbound<'info> {
                     transceiver: self.transceiver.to_account_info(),
                 },
                 // signer seeds
-                &[&[OUTBOX_ITEM_SIGNER_SEED, &[bump_seed]]],
+                &[&[OUTBOX_ITEM_SIGNER_SEED, config_key.as_ref(), &[bump_seed]]],
             ),
         )?;
         Ok(result.get())
@@ -100,10 +112,12 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
     accs.outbox_item.reload()?;
     assert!(accs.outbox_item.released.get(accs.transceiver.id)?);
 
+    // v4: source manager identity is the instance's `config` pubkey, not the
+    // program ID. Matches the `recipient_ntt_manager` check in `redeem` and the
+    // `manager_address` field in `broadcast_id`.
     let message: TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>> =
         TransceiverMessage::new(
-            // TODO: should we just put the ntt id here statically?
-            accs.outbox_item.to_account_info().owner.to_bytes(),
+            accs.config.key().to_bytes(),
             accs.outbox_item.recipient_ntt_manager,
             NttManagerMessage {
                 id: accs.outbox_item.key().to_bytes(),
@@ -125,6 +139,7 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
         accs.wormhole_message.to_account_info(),
         accs.emitter.to_account_info(),
         ctx.bumps.emitter,
+        accs.config.key(),
         &message,
     )?;
 

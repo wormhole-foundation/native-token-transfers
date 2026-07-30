@@ -65,7 +65,7 @@ pub const TOKEN_AUTHORITY_SEED: &[u8] = b"token_authority";
 /// user, atomically).
 pub const SESSION_AUTHORITY_SEED: &[u8] = b"session_authority";
 
-pub const VERSION: &str = "3.0.0";
+pub const VERSION: &str = "4.0.0";
 
 #[program]
 pub mod example_native_token_transfers {

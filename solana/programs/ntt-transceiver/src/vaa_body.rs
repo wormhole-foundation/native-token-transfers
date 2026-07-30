@@ -47,6 +47,16 @@ impl<'a> VaaBodyBytes<'a> {
         self.span[10..42].try_into().unwrap()
     }
 
+    /// The `recipient_ntt_manager` of the wrapped `TransceiverMessage`.
+    /// Layout within the VAA body: the Wormhole payload starts at byte 51, then
+    /// the `TransceiverMessage` is `prefix[4] ‖ source_ntt_manager[32] ‖
+    /// recipient_ntt_manager[32] ‖ payload_len[2] ‖ ntt_manager_payload…`, so
+    /// `recipient_ntt_manager` lives at `51 + 4 + 32 = 87..119` (immediately
+    /// before [`id`], which the existing `121..153` slice confirms).
+    pub fn recipient_ntt_manager(&self) -> &[u8; 32] {
+        self.span[87..119].try_into().unwrap()
+    }
+
     pub fn id(&self) -> &[u8; 32] {
         self.span[121..153].try_into().unwrap()
     }

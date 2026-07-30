@@ -20,7 +20,7 @@ pub struct SetTransceiverPeer<'info> {
         init,
         space = 8 + TransceiverPeer::INIT_SPACE,
         payer = payer,
-        seeds = [TransceiverPeer::SEED_PREFIX, args.chain_id.id.to_be_bytes().as_ref()],
+        seeds = [TransceiverPeer::SEED_PREFIX, config.key().as_ref(), args.chain_id.id.to_be_bytes().as_ref()],
         bump
     )]
     pub peer: Account<'info, TransceiverPeer>,

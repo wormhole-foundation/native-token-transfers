@@ -21,28 +21,33 @@ pub mod anchor_reexports {
     }
 }
 
+// TODO(v4-rename): consider renaming `Config` → `Instance` to reflect the v4
+// semantics — there can be many of these per program; each is the on-the-wire
+// "manager identity" for one NTT deployment. Held off for now to keep the v4
+// diff small and reviewable.
 #[account]
 #[derive(InitSpace)]
 pub struct Config {
-    pub bump: u8,
-    /// Owner of the program.
+    /// Owner of this instance. Distinct from the program's upgrade authority —
+    /// instance ownership transfers are pure data mutations and never touch the
+    /// BPF loader (v4 trust model).
     pub owner: Pubkey,
     /// Pending next owner (before claiming ownership).
     pub pending_owner: Option<Pubkey>,
-    /// Mint address of the token managed by this program.
+    /// Mint address of the token managed by this instance.
     pub mint: Pubkey,
     /// Address of the token program (token or token22). This could always be queried
     /// from the [`mint`] account's owner, but storing it here avoids an indirection
     /// on the client side.
     pub token_program: Pubkey,
-    /// The mode that this program is running in. This is used to determine
+    /// The mode that this instance is running in. This is used to determine
     /// whether the program is burning tokens or locking tokens.
     pub mode: Mode,
     /// The chain id of the chain that this program is running on. We don't
     /// hardcode this so that the program is deployable on any potential SVM
     /// forks.
     pub chain_id: ChainId,
-    /// The next transceiver id to use when registering an transceiver.
+    /// The next transceiver id to use when registering a transceiver under this instance.
     pub next_transceiver_id: u8,
     /// The number of transceivers that must attest to a transfer before it is
     /// accepted.
@@ -56,16 +61,20 @@ pub struct Config {
     pub custody: Pubkey,
 }
 
-impl Config {
-    pub const SEED_PREFIX: &'static [u8] = b"config";
-}
-
 #[derive(Accounts)]
 pub struct NotPausedConfig<'info> {
     #[account(
         constraint = !config.paused @ crate::error::NTTError::Paused,
     )]
     pub config: Account<'info, Config>,
+}
+
+impl<'info> NotPausedConfig<'info> {
+    /// Pass-through to the inner `Account<Config>`'s key.
+    /// Useful in v4 where PDA seeds and signer-seed slices need `config.key()`.
+    pub fn key(&self) -> Pubkey {
+        self.config.key()
+    }
 }
 
 impl<'info> Deref for NotPausedConfig<'info> {

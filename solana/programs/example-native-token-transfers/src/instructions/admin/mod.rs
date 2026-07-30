@@ -35,7 +35,7 @@ pub struct SetPeer<'info> {
         init_if_needed,
         space = 8 + NttManagerPeer::INIT_SPACE,
         payer = payer,
-        seeds = [NttManagerPeer::SEED_PREFIX, args.chain_id.id.to_be_bytes().as_ref()],
+        seeds = [NttManagerPeer::SEED_PREFIX, config.key().as_ref(), args.chain_id.id.to_be_bytes().as_ref()],
         bump
     )]
     pub peer: Account<'info, NttManagerPeer>,
@@ -46,6 +46,7 @@ pub struct SetPeer<'info> {
         payer = payer,
         seeds = [
             InboxRateLimit::SEED_PREFIX,
+            config.key().as_ref(),
             args.chain_id.id.to_be_bytes().as_ref()
         ],
         bump,
@@ -113,7 +114,7 @@ pub struct RegisterTransceiver<'info> {
         init_if_needed,
         space = 8 + RegisteredTransceiver::INIT_SPACE,
         payer = payer,
-        seeds = [RegisteredTransceiver::SEED_PREFIX, transceiver.key().as_ref()],
+        seeds = [RegisteredTransceiver::SEED_PREFIX, config.key().as_ref(), transceiver.key().as_ref()],
         bump
     )]
     pub registered_transceiver: Account<'info, RegisteredTransceiver>,
@@ -154,7 +155,7 @@ pub struct DeregisterTransceiver<'info> {
     pub owner: Signer<'info>,
 
     #[account(
-        seeds = [RegisteredTransceiver::SEED_PREFIX, registered_transceiver.transceiver_address.as_ref()],
+        seeds = [RegisteredTransceiver::SEED_PREFIX, config.key().as_ref(), registered_transceiver.transceiver_address.as_ref()],
         bump,
         constraint = config.enabled_transceivers.get(registered_transceiver.id)? @ NTTError::DisabledTransceiver,
     )]
@@ -190,7 +191,11 @@ pub struct SetOutboundLimit<'info> {
 
     pub owner: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [OutboxRateLimit::SEED_PREFIX, config.key().as_ref()],
+        bump,
+    )]
     pub rate_limit: Account<'info, OutboxRateLimit>,
 }
 
@@ -221,6 +226,7 @@ pub struct SetInboundLimit<'info> {
         mut,
         seeds = [
             InboxRateLimit::SEED_PREFIX,
+            config.key().as_ref(),
             args.chain_id.id.to_be_bytes().as_ref()
         ],
         bump = rate_limit.bump

@@ -19,11 +19,14 @@ pub struct ReleaseOutbound<'info> {
 
     #[account(
         mut,
+        constraint = outbox_item.manager == config.key() @ NTTError::InvalidOutboxItem,
         constraint = !outbox_item.released.get(transceiver.id)? @ NTTError::MessageAlreadySent,
     )]
     pub outbox_item: Account<'info, OutboxItem>,
 
     #[account(
+        seeds = [RegisteredTransceiver::SEED_PREFIX, config.key().as_ref(), transceiver.transceiver_address.as_ref()],
+        bump,
         constraint = transceiver.transceiver_address == crate::ID,
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver
     )]
@@ -38,7 +41,7 @@ pub struct ReleaseOutbound<'info> {
     pub wormhole_message: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [b"emitter"],
+        seeds = [b"emitter", config.key().as_ref()],
         bump
     )]
     // TODO: do we want to put anything in here?
@@ -68,8 +71,10 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
     assert!(accs.outbox_item.released.get(accs.transceiver.id)?);
     let message: TransceiverMessage<WormholeTransceiver, NativeTokenTransfer<Payload>> =
         TransceiverMessage::new(
-            // TODO: should we just put the ntt id here statically?
-            accs.outbox_item.to_account_info().owner.to_bytes(),
+            // v4: the on-the-wire manager identity is the instance's `config`
+            // pubkey, not the program ID. Each instance is independently
+            // peered with remote chains.
+            accs.config.key().to_bytes(),
             accs.outbox_item.recipient_ntt_manager,
             NttManagerMessage {
                 id: accs.outbox_item.key().to_bytes(),
@@ -91,6 +96,7 @@ pub fn release_outbound(ctx: Context<ReleaseOutbound>, args: ReleaseOutboundArgs
         accs.wormhole_message.to_account_info(),
         accs.emitter.to_account_info(),
         ctx.bumps.emitter,
+        accs.config.key(),
         &message,
         &[&[
             b"message",

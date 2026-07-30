@@ -21,7 +21,7 @@ pub struct BroadcastId<'info> {
     pub wormhole_message: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [b"emitter"],
+        seeds = [b"emitter", config.key().as_ref()],
         bump
     )]
     /// CHECK: The only valid sender is the [`wormhole::PostMessage::emitter`]
@@ -34,8 +34,10 @@ pub struct BroadcastId<'info> {
 
 pub fn broadcast_id(ctx: Context<BroadcastId>) -> Result<()> {
     let accs = ctx.accounts;
+    // v4: the on-the-wire manager identity is the instance's `config` pubkey,
+    // not the program ID. EVM/Sui peers register against `config.key()`.
     let message = WormholeTransceiverInfo {
-        manager_address: accs.config.to_account_info().owner.to_bytes(),
+        manager_address: accs.config.key().to_bytes(),
         manager_mode: accs.config.mode,
         token_address: accs.mint.to_account_info().key.to_bytes(),
         token_decimals: accs.mint.decimals,
@@ -48,6 +50,7 @@ pub fn broadcast_id(ctx: Context<BroadcastId>) -> Result<()> {
         accs.wormhole_message.to_account_info(),
         accs.emitter.to_account_info(),
         ctx.bumps.emitter,
+        accs.config.key(),
         &message,
     )?;
 

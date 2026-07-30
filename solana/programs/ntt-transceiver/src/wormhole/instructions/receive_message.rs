@@ -27,11 +27,19 @@ pub struct ReceiveMessageInstructionData<'info> {
     #[account(
         // check that the messages is targeted to this chain
         constraint = vaa_body.as_vaa_body_bytes().to_chain() == config.chain_id @ NTTError::InvalidChainId,
+        // check that the message is addressed to *this* instance. The
+        // `transceiver_message` PDA below is scoped by `config.key()`, but nothing
+        // otherwise binds the message's `recipient_ntt_manager` to it, so a VAA
+        // addressed to instance A could be used to create a (redundant, and
+        // ultimately unredeemable) transceiver message under instance B. `redeem`
+        // enforces this for fund safety; we also check it here so the binding is
+        // local and the mis-scoped account is never created in the first place.
+        constraint = *vaa_body.as_vaa_body_bytes().recipient_ntt_manager() == config.key().to_bytes() @ NTTError::InvalidRecipientNttManager,
     )]
     pub config: NotPausedConfig<'info>,
 
     #[account(
-        seeds = [TransceiverPeer::SEED_PREFIX, vaa_body.as_vaa_body_bytes().emitter_chain().to_be_bytes().as_ref()],
+        seeds = [TransceiverPeer::SEED_PREFIX, config.key().as_ref(), vaa_body.as_vaa_body_bytes().emitter_chain().to_be_bytes().as_ref()],
         constraint = peer.address == *vaa_body.as_vaa_body_bytes().emitter_address() @ NTTError::InvalidTransceiverPeer,
         bump = peer.bump,
     )]
@@ -43,6 +51,7 @@ pub struct ReceiveMessageInstructionData<'info> {
         space = 8 + ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::INIT_SPACE,
         seeds = [
             ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::SEED_PREFIX,
+            config.key().as_ref(),
             vaa_body.as_vaa_body_bytes().emitter_chain().to_be_bytes().as_ref(),
             vaa_body.as_vaa_body_bytes().id(),
         ],
@@ -113,11 +122,14 @@ pub struct ReceiveMessageAccount<'info> {
     #[account(
         // check that the messages is targeted to this chain
         constraint = message.as_vaa_body_bytes().to_chain() == config.chain_id @ NTTError::InvalidChainId,
+        // check that the message is addressed to *this* instance (see the note on
+        // the equivalent constraint in `ReceiveMessageInstructionData`).
+        constraint = *message.as_vaa_body_bytes().recipient_ntt_manager() == config.key().to_bytes() @ NTTError::InvalidRecipientNttManager,
     )]
     pub config: NotPausedConfig<'info>,
 
     #[account(
-        seeds = [TransceiverPeer::SEED_PREFIX, message.as_vaa_body_bytes().emitter_chain().to_be_bytes().as_ref()],
+        seeds = [TransceiverPeer::SEED_PREFIX, config.key().as_ref(), message.as_vaa_body_bytes().emitter_chain().to_be_bytes().as_ref()],
         constraint = peer.address == *message.as_vaa_body_bytes().emitter_address() @ NTTError::InvalidTransceiverPeer,
         bump = peer.bump,
     )]
@@ -143,6 +155,7 @@ pub struct ReceiveMessageAccount<'info> {
         space = 8 + ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::INIT_SPACE,
         seeds = [
             ValidatedTransceiverMessage::<TransceiverMessageData<NativeTokenTransfer<Payload>>>::SEED_PREFIX,
+            config.key().as_ref(),
             message.as_vaa_body_bytes().emitter_chain().to_be_bytes().as_ref(),
             message.as_vaa_body_bytes().id(),
         ],

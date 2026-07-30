@@ -7,6 +7,8 @@ use solana_program_test::ProgramTestContext;
 use crate::{common::query::GetAccountDataAnchor, sdk::accounts::NTT};
 
 pub async fn assert_threshold(ntt: &NTT, ctx: &mut ProgramTestContext, expected_threshold: u8) {
+    // v4: the Config account lives at the instance pubkey (keypair-created),
+    // not at a `[b"config"]` PDA.
     let config_account: Config = ctx.get_account_data_anchor(ntt.config()).await;
     assert_eq!(config_account.threshold, expected_threshold);
 }

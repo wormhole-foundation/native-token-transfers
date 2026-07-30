@@ -4,6 +4,7 @@ import {
   assertChain,
   chainToPlatform,
   chains,
+  toUniversal,
   type Chain,
   type ChainAddress,
   type ChainContext,
@@ -178,6 +179,27 @@ export function printMissingConfigReport(
   return true;
 }
 
+/**
+ * The address that peers on other chains must register as this deployment's
+ * NTT manager. For a Solana v4 (multi-tenant) deployment this is the
+ * per-instance Config pubkey — the on-wire `recipient_ntt_manager` — which the
+ * SDK exposes via `peerManagerAddress()`. Everywhere else it is the
+ * deployment's `manager`. Registering the raw program ID for a v4 Solana
+ * deployment would create a peer whose transfers the instance rejects as
+ * unredeemable.
+ */
+function onWireManager<C extends Chain>(d: Deployment<C>): ChainAddress<C> {
+  if (chainToPlatform(d.manager.chain) === "Solana") {
+    const solanaNtt = d.ntt as SolanaNtt<Network, SolanaChains>;
+    const identity = solanaNtt.peerManagerAddress();
+    return {
+      chain: d.manager.chain,
+      address: toUniversal(d.manager.chain, identity.toBase58()),
+    } as ChainAddress<C>;
+  }
+  return d.manager;
+}
+
 /** Collect missing implicit config across deployments (peers, Solana LUT/transceiver). */
 export async function collectMissingConfigs(
   deps: Partial<{ [C in Chain]: Deployment<Chain> }>,
@@ -270,20 +292,23 @@ export async function collectMissingConfigs(
       5,
       5000
     );
+    // The on-wire manager identity the peer must point at: for a v4 Solana
+    // `to` this is the instance pubkey, not the program ID (see onWireManager).
+    const toManager = onWireManager(to);
     if (peer === null) {
       const configLimit = from.config.local?.limits?.inbound?.[
         toChain
       ]?.replace(/\./g, "");
       missingCounts[fromChain] = (missingCounts[fromChain] ?? 0) + 1;
       missing.managerPeers.push({
-        address: to.manager,
+        address: toManager,
         tokenDecimals: to.decimals,
         inboundLimit: BigInt(configLimit ?? 0),
       });
     } else {
       if (
         !Buffer.from(peer.address.address.address.toString()).equals(
-          Buffer.from(to.manager.address.address.toString())
+          Buffer.from(toManager.address.address.toString())
         )
       ) {
         console.error(`Peer address mismatch for ${fromChain} -> ${toChain}`);

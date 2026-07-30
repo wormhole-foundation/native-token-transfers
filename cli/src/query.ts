@@ -89,8 +89,12 @@ export async function getPdas<N extends Network, C extends Chain>(
   }
   const solanaNtt = ntt as SolanaNtt<N, SolanaChains>;
   const config = solanaNtt.pdas.configAccount();
+  // Scope by the v4 instance pubkey so this derives the instance's emitter
+  // (`[b"emitter", config.key()]`); `instance` is undefined for v3, which
+  // falls back to the legacy unscoped derivation.
   const emitter = NTT.transceiverPdas(
-    solanaNtt.program.programId
+    solanaNtt.program.programId,
+    solanaNtt.instance
   ).emitterAccount();
   const outboxRateLimit = solanaNtt.pdas.outboxRateLimitAccount();
   const tokenAuthority = solanaNtt.pdas.tokenAuthority();
@@ -131,12 +135,18 @@ export function getVersion<N extends Network, C extends Chain>(
 export async function nttFromManager<N extends Network, C extends Chain>(
   ch: ChainContext<N, C>,
   nativeManagerAddress: string,
+  // Solana-only: per-instance Config pubkey for multi-tenant (v4+)
+  // deployments. Required when reading a multi-tenant manager — the SDK
+  // throws on construction without it. No-op for legacy single-tenant
+  // managers and non-Solana chains.
+  instance?: string,
   opts?: { waitForTransceiver?: boolean }
 ): Promise<{ ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> }> {
   const onlyManager = await ch.getProtocol("Ntt", {
     ntt: {
       manager: nativeManagerAddress,
       transceiver: {},
+      ...(instance && { instance }),
     },
   });
 
@@ -163,8 +173,9 @@ export async function nttFromManager<N extends Network, C extends Chain>(
     diff = await onlyManager.verifyAddresses();
   }
 
-  const addresses: Partial<Ntt.Contracts> = {
+  const addresses: Partial<Ntt.Contracts> & { instance?: string } = {
     manager: nativeManagerAddress,
+    ...(instance && { instance }),
     ...diff,
   };
 

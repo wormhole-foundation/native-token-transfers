@@ -10,7 +10,7 @@ pub const OUTBOX_ITEM_SIGNER_SEED: &[u8] = b"outbox_item_signer";
 #[derive(Accounts)]
 pub struct MarkOutboxItemAsReleased<'info> {
     #[account(
-        seeds = [OUTBOX_ITEM_SIGNER_SEED],
+        seeds = [OUTBOX_ITEM_SIGNER_SEED, config.key().as_ref()],
         seeds::program = transceiver.transceiver_address,
         bump
     )]
@@ -20,11 +20,14 @@ pub struct MarkOutboxItemAsReleased<'info> {
 
     #[account(
         mut,
+        constraint = outbox_item.manager == config.key() @ NTTError::InvalidOutboxItem,
         constraint = !outbox_item.released.get(transceiver.id)? @ NTTError::MessageAlreadySent,
     )]
     pub outbox_item: Account<'info, OutboxItem>,
 
     #[account(
+        seeds = [RegisteredTransceiver::SEED_PREFIX, config.key().as_ref(), transceiver.transceiver_address.as_ref()],
+        bump,
         constraint = config.enabled_transceivers.get(transceiver.id)? @ NTTError::DisabledTransceiver
     )]
     pub transceiver: Account<'info, RegisteredTransceiver>,

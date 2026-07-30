@@ -1,6 +1,6 @@
 [package]
 name = "ntt-transceiver"
-version = "3.0.0"
+version = "4.0.0"
 description = "Example implementation of native token transfer transceiver using Wormhole Post Message Shim and Verify VAA Shim"
 edition = "2021"
 

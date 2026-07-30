@@ -125,9 +125,17 @@ export async function link(chainInfos: Ctx[], accountantPrivateKey: string) {
   const hubChain = hub.context.chain;
 
   // handle Solana emitter account case separately
+  const hubContracts = hub.contracts! as Ntt.Contracts & {
+    instance?: string;
+  };
   const whTransceiver =
     chainToPlatform(hubChain) === "Solana"
-      ? NTT.transceiverPdas(hub.contracts!.transceiver["wormhole"]!)
+      ? NTT.transceiverPdas(
+          hub.contracts!.transceiver["wormhole"]!,
+          hubContracts.instance
+            ? new PublicKey(hubContracts.instance)
+            : undefined
+        )
           .emitterAccount()
           .toString()
       : hub.contracts!.transceiver["wormhole"]!;
@@ -514,14 +522,20 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
       ? "NTTTransceiver22222222222222222222222222222"
       : "NTTTransceiver11111111111111111111111111111";
 
+  // v4: each deployment is keyed by a per-instance Config keypair. The pubkey
+  // is the on-the-wire NTT manager identity for this deployment and the seed
+  // scope for every per-instance PDA.
+  const instanceKeypair = web3.Keypair.generate();
+
   ctx.contracts = {
     token: mint.toBase58(),
     manager: managerProgramId,
+    instance: instanceKeypair.publicKey.toBase58(),
     transceiver: {
       wormhole: transceiverProgramId,
     },
     svmShims: {},
-  };
+  } as Ntt.Contracts;
 
   const manager = (await getNtt(ctx)) as SolanaNtt<typeof NETWORK, "Solana">;
 
@@ -547,6 +561,7 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
       mint,
       outboundLimit: 1000000000n,
       mode: ctx.mode,
+      instance: instanceKeypair,
     });
     await signSendWait(ctx.context, initTxs, signer);
     console.log("Initialized ntt at", manager.program.programId.toString());
@@ -582,24 +597,40 @@ async function deploySolana(ctx: Ctx): Promise<Ctx> {
         wormhole: whTransceiver.programId.toString(),
       },
       manager: manager.program.programId.toString(),
+      instance: instanceKeypair.publicKey.toBase58(),
       token: mint.toString(),
       svmShims: {},
-    },
+    } as Ntt.Contracts,
   };
 }
 
 async function setupPeer(targetCtx: Ctx, peerCtx: Ctx) {
   const target = targetCtx.context;
   const peer = peerCtx.context;
+  const peerContracts = peerCtx.contracts! as Ntt.Contracts & {
+    instance?: string;
+  };
   const {
     manager,
     transceiver: { wormhole: transceiver },
-  } = peerCtx.contracts!;
+    instance,
+  } = peerContracts;
 
-  const peerManager = Wormhole.chainAddress(peer.chain, manager);
+  // v4 multi-host on Solana puts the per-instance Config pubkey on the wire
+  // as the NTT manager identity (not the program ID), and scopes the emitter
+  // PDA by that same Config pubkey. EVM/Sui peers must register against
+  // those instance-scoped values.
+  const isPeerSolanaV4 = chainToPlatform(peer.chain) === "Solana" && instance;
+  const peerManagerAddress = isPeerSolanaV4 ? instance! : manager;
+  const peerManager = Wormhole.chainAddress(peer.chain, peerManagerAddress);
   const whTransceiver =
     chainToPlatform(peer.chain) === "Solana"
-      ? NTT.transceiverPdas(transceiver!).emitterAccount().toString()
+      ? NTT.transceiverPdas(
+          transceiver!,
+          instance ? new PublicKey(instance) : undefined
+        )
+          .emitterAccount()
+          .toString()
       : transceiver!;
   const peerTransceiver = Wormhole.chainAddress(peer.chain, whTransceiver);
 

@@ -15,6 +15,7 @@ import sui from "@wormhole-foundation/sdk/platforms/sui";
 import { colors } from "../colors.js";
 import { loadConfig, type Config } from "../deployments";
 import type { SignerType } from "../signers/getSigner";
+import { canUpgrade } from "../upgradeBarriers";
 import { validatePayerOption } from "../validation";
 
 import { options } from "./shared";
@@ -119,6 +120,17 @@ export function createUpgradeCommand(
         process.exit(0);
       }
 
+      const upgradeCheck = canUpgrade(chain, currentVersion, toVersion);
+      if (!upgradeCheck.ok) {
+        console.error(
+          colors.red(
+            `error: cannot upgrade ${chain} from ${currentVersion} to ${toVersion} in place.`
+          )
+        );
+        console.error(upgradeCheck.reason);
+        process.exit(1);
+      }
+
       console.log(
         `Upgrading ${chain} from version ${currentVersion} to ${
           toVersion || "local version"
@@ -139,7 +151,8 @@ export function createUpgradeCommand(
       const [_, ctx, ntt] = await pullChainConfig(
         network,
         { chain, address: toUniversal(chain, chainConfig.manager) },
-        overrides
+        overrides,
+        chainConfig.instance
       );
 
       // Determine manager variant: use flag if provided, otherwise use config value, default to "standard"
@@ -163,7 +176,11 @@ export function createUpgradeCommand(
 
       // reinit the ntt object to get the new version
       // TODO: is there an easier way to do this?
-      const { ntt: upgraded } = await nttFromManager(ch, chainConfig.manager);
+      const { ntt: upgraded } = await nttFromManager(
+        ch,
+        chainConfig.manager,
+        chainConfig.instance
+      );
 
       chainConfig.version = getVersion(chain, upgraded);
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));

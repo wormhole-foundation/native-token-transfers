@@ -170,6 +170,11 @@ pub async fn setup_ntt_with_token_program_id(
     mode: Mode,
     token_program_id: &Pubkey,
 ) {
+    // v4: bind the SDK helpers to this test's instance pubkey. All PDA
+    // helpers on `ntt` and `xcvr` derive against this instance.
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
+
     if mode == Mode::Burning {
         // we set the mint authority to the ntt contract in burn/mint mode
         spl_token_2022::instruction::set_authority(
@@ -190,7 +195,7 @@ pub async fn setup_ntt_with_token_program_id(
         &good_ntt,
         Initialize {
             payer: ctx.payer.pubkey(),
-            deployer: test_data.program_owner.pubkey(),
+            owner: test_data.program_owner.pubkey(),
             mint: test_data.mint,
             multisig_token_authority: None,
         },
@@ -202,7 +207,9 @@ pub async fn setup_ntt_with_token_program_id(
         },
         token_program_id,
     )
-    .submit_with_signers(&[&test_data.program_owner], ctx)
+    // v4: the Instance account is keypair-allocated by Anchor's `init`, so the
+    // instance keypair must sign alongside the payer/owner.
+    .submit_with_signers(&[&test_data.program_owner, &test_data.instance], ctx)
     .await
     .unwrap();
 
@@ -347,11 +354,17 @@ pub async fn setup_accounts(ctx: &mut ProgramTestContext, program_owner: Keypair
     .await
     .unwrap();
 
+    // v4: generate the per-test-binary instance keypair. Each SDK helper takes
+    // the instance pubkey as an explicit argument; tests pass
+    // `test_data.instance.pubkey()` (or a wrong one for negative tests).
+    let instance = Keypair::new();
+
     TestData {
         governance: Governance {
             program: wormhole_governance::ID,
         },
         program_owner,
+        instance,
         mint_authority,
         mint: mint.pubkey(),
         bad_mint_authority,
@@ -447,11 +460,17 @@ pub async fn setup_accounts_with_transfer_fee(
     .await
     .unwrap();
 
+    // v4: generate the per-test-binary instance keypair. Each SDK helper takes
+    // the instance pubkey as an explicit argument; tests pass
+    // `test_data.instance.pubkey()` (or a wrong one for negative tests).
+    let instance = Keypair::new();
+
     TestData {
         governance: Governance {
             program: wormhole_governance::ID,
         },
         program_owner,
+        instance,
         mint_authority,
         mint: mint.pubkey(),
         bad_mint_authority,

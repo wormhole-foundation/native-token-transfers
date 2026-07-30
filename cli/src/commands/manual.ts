@@ -115,7 +115,11 @@ export function createManualCommand(
               const [config, ctx, ntt] = await pullChainConfig(
                 network,
                 sourceManager,
-                overrides
+                overrides,
+                // v4 (multi-tenant) Solana: the SDK needs the per-instance
+                // Config pubkey to derive instance-scoped state, and throws
+                // without it. Undefined/no-op for v3 and non-Solana.
+                sourceConfig.instance
               );
 
               console.log(
@@ -339,7 +343,10 @@ export function createManualCommand(
               const [, ctx, ntt] = await pullChainConfig(
                 network,
                 sourceManager,
-                overrides
+                overrides,
+                // v4 (multi-tenant) Solana: instance-scoped state derivation
+                // requires the Config pubkey. Undefined/no-op otherwise.
+                sourceConfig.instance
               );
 
               console.log(
@@ -528,7 +535,11 @@ export function createManualCommand(
               const [, ctx, ntt] = await pullChainConfig(
                 network,
                 managerAddress,
-                overrides
+                overrides,
+                // v4 (multi-tenant) Solana: emergency redeem must build
+                // instance-scoped state, which needs the Config pubkey.
+                // Undefined/no-op for v3 and non-Solana.
+                chainConfig.instance
               );
 
               console.log(
