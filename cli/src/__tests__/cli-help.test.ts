@@ -53,6 +53,7 @@ const SOLANA_SUBCOMMANDS = [
   "ata",
   "create-spl-multisig",
   "build",
+  "cancel-ownership-transfer",
 ];
 
 const XRPL_SUBCOMMANDS = [
