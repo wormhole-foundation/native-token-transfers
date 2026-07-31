@@ -26,4 +26,5 @@ jobs:
           bun-version: "1.3.4"
       - run: bun ci
       - run: bun --if-present run build
+      - run: bun run typecheck:cli
       - run: bun run test
