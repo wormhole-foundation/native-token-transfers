@@ -147,7 +147,7 @@ function select_branch {
 function install_cli {
   cd "$1"
 
-  bun install
+  bun install --frozen-lockfile
 
   # Build using root script which handles dependency ordering
   # (sdk-definitions-ntt must be built before other packages)

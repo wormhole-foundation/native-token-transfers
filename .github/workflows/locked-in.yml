@@ -1,0 +1,27 @@
+name: locked-in
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  locked-in:
+    runs-on: ubuntu-latest
+    env:
+      LOCKED_IN_COMMIT: 7978ff8e3717a30c18352ab1eb687e5f8210a5ac # v0.3.1
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install locked-in from pinned source
+        run: cargo install --locked --git https://github.com/asymmetric-research/locked-in --rev "$LOCKED_IN_COMMIT" locked-in
+      - name: Run locked-in
+        run: locked-in

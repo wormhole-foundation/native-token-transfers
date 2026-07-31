@@ -40,7 +40,7 @@ jobs:
           echo "Actual Prettier version: $ACTUAL_VERSION"
           if [ "$EXPECTED_VERSION" != "$ACTUAL_VERSION" ]; then
             echo "Error: Prettier version mismatch!"
-            echo "This usually means bun.lock is out of sync with package.json - try running 'bun install' locally and committing the updated bun.lock"
+            echo "bun.lock is out of sync with package.json — regenerate it and commit the result"
             exit 1
           fi
           echo "✓ Prettier version matches"
