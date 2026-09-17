@@ -551,6 +551,63 @@ describe("example-native-token-transfers", () => {
       assert.bn(await testDummyTransferHook.counter.value()).equal(2);
     });
 
+    it("Can receive tokens for a recipient other than the payer", async () => {
+      // The release instruction credits the recipient encoded in the VAA, which
+      // need not be the wallet paying for the redeem. Redeeming must create that
+      // recipient's ATA, not the payer's.
+      const recipient = $.keypair.generate().publicKey;
+      const recipientAta = spl.getAssociatedTokenAddressSync(
+        mint.publicKey,
+        recipient,
+        true,
+        TOKEN_PROGRAM
+      );
+      expect(await $.connection.getAccountInfo(recipientAta)).toBeNull();
+
+      const emitter = new testing.mocks.MockEmitter(
+        remoteXcvr.address as UniversalAddress,
+        "Ethereum",
+        0n
+      );
+
+      const guardians = new testing.mocks.MockGuardians(0, [GUARDIAN_KEY]);
+
+      const sendingTransceiverMessage = {
+        sourceNttManager: remoteMgr.address as UniversalAddress,
+        recipientNttManager: new UniversalAddress(
+          ntt.program.programId.toBytes()
+        ),
+        nttManagerPayload: {
+          id: encoding.bytes.encode("sequence2".padEnd(32, "0")),
+          sender: new UniversalAddress("FACE".padStart(64, "0")),
+          payload: {
+            trimmedAmount: {
+              amount: 10_000n,
+              decimals: 8,
+            },
+            sourceToken: new UniversalAddress("FAFA".padStart(64, "0")),
+            recipientAddress: new UniversalAddress(recipient.toBytes()),
+            recipientChain: "Solana",
+            additionalPayload: new Uint8Array(),
+          },
+        },
+        transceiverPayload: new Uint8Array(),
+      } as const;
+
+      const serialized = serializePayload(
+        "Ntt:WormholeTransfer",
+        sendingTransceiverMessage
+      );
+      const published = emitter.publishMessage(1, serialized, 200);
+      const rawVaa = guardians.addSignatures(published, [0]);
+      const vaa = deserialize("Ntt:WormholeTransfer", serialize(rawVaa));
+      const redeemTxs = ntt.redeem([vaa], sender);
+      await signSendWait(ctx, redeemTxs, signer);
+
+      // The tokens landed in the recipient's ATA, which the redeem created.
+      await assert.tokenBalance($.connection, recipientAta).equal(100_000);
+    });
+
     it("Can mint independently", async () => {
       const temp = await testMint.mint(
         payer,

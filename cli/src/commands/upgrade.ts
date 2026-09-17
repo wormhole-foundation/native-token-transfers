@@ -114,9 +114,27 @@ export function createUpgradeCommand(
         await warnLocalDeployment(argv["yes"]);
       }
 
-      if (toVersion === currentVersion && !argv["local"]) {
+      // Switching manager variant is a real upgrade even when the
+      // version doesn't move: it deploys a different implementation
+      // (e.g. NttManagerNoRateLimiting) and repoints the proxy, leaving
+      // storage intact. Without this carve-out `--manager-variant` is
+      // silently ignored whenever the target version equals the
+      // deployed one — which is always, if you're already on the
+      // newest tag.
+      const requestedVariant: string | undefined = argv["manager-variant"];
+      const deployedVariant: string = chainConfig.managerVariant ?? "standard";
+      const variantChange =
+        requestedVariant !== undefined && requestedVariant !== deployedVariant;
+
+      if (toVersion === currentVersion && !argv["local"] && !variantChange) {
         console.log(`Chain ${chain} is already at version ${currentVersion}`);
         process.exit(0);
+      }
+
+      if (variantChange) {
+        console.log(
+          `Manager variant: ${deployedVariant} -> ${requestedVariant}`
+        );
       }
 
       console.log(
@@ -166,6 +184,7 @@ export function createUpgradeCommand(
       const { ntt: upgraded } = await nttFromManager(ch, chainConfig.manager);
 
       chainConfig.version = getVersion(chain, upgraded);
+      chainConfig.managerVariant = managerVariant;
       fs.writeFileSync(path, JSON.stringify(deployments, null, 2));
 
       console.log(

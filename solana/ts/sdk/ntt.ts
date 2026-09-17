@@ -1198,25 +1198,32 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
     return tokenAccount;
   }
 
-  private async *createAta(sender: AccountAddress<C>) {
+  /**
+   * Create the associated token account owned by `owner`, funded by `payer`,
+   * if it doesn't already exist.
+   *
+   * On redeem these differ: the release instruction credits the recipient
+   * encoded in the VAA, which is not necessarily the wallet paying for the
+   * transaction.
+   */
+  private async *createAta(owner: PublicKey, payer: PublicKey) {
     const config = await this.getConfig();
-    const senderAddress = new SolanaAddress(sender).unwrap();
 
-    const ata = await this.getTokenAccount(senderAddress);
+    const ata = await this.getTokenAccount(owner);
 
     // If the ata doesn't exist yet, create it
     const acctInfo = await this.connection.getAccountInfo(ata);
     if (acctInfo === null) {
       const transaction = new Transaction().add(
         splToken.createAssociatedTokenAccountInstruction(
-          senderAddress,
+          payer,
           ata,
-          senderAddress,
+          owner,
           config.mint,
           config.tokenProgram
         )
       );
-      transaction.feePayer = senderAddress;
+      transaction.feePayer = payer;
       yield this.createUnsignedTx({ transaction }, "Redeem.CreateATA");
     }
   }
@@ -1243,10 +1250,15 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           throw new Error("Wormhole transceiver not found");
         }
 
-        // Create the vaa if necessary
-        yield* this.createAta(payer);
-
         const senderAddress = new SolanaAddress(payer).unwrap();
+
+        // The release instruction credits the recipient's associated token
+        // account and expects it to already exist, so create it (paid for by
+        // the payer) if it doesn't.
+        const recipientAddress = new PublicKey(
+          wormholeNTT.payload.nttManagerPayload.payload.recipientAddress.toUint8Array()
+        );
+        yield* this.createAta(recipientAddress, senderAddress);
 
         const receiveIxs: Promise<TransactionInstruction>[] = [];
         if (whTransceiver.verifyVaaShim) {
@@ -1331,9 +1343,7 @@ export class SolanaNtt<N extends Network, C extends SolanaChains>
           payer: senderAddress,
           config,
           nttMessage,
-          recipient: new PublicKey(
-            nttMessage.payload.recipientAddress.toUint8Array()
-          ),
+          recipient: recipientAddress,
           chain: emitterChain,
           // NOTE: this acts as `revertOnDelay` for versions < 3.x.x
           revertWhenNotReady: false,
