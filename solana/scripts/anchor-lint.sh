@@ -4,7 +4,7 @@ set -uo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 TARGET=${SCRIPT_DIR}/../programs
 
-# Anchor IDL does not handle nested imports well (https://github.com/coral-xyz/anchor/issues/1099)
+# Anchor IDL does not handle nested imports well (https://github.com/otter-sec/anchor/issues/1099)
 # This directory has a workaround for it but that is not recognized by idl parse - hence it is skipped
 SKIP_DIR="${TARGET}/ntt-transceiver/src"
  
