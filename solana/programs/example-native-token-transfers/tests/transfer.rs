@@ -84,6 +84,8 @@ pub async fn test_transfer_burning_with_transfer_fee() {
 /// This tests the happy path of a transfer, with all the relevant account checks.
 /// Written as a helper function so both modes can be tested.
 async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode: Mode) {
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
     let outbox_item = Keypair::new();
 
     let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
@@ -110,6 +112,8 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
     assert_eq!(
         outbox_item_account,
         OutboxItem {
+            // v4: outbox item is bound to its source instance.
+            manager: good_ntt.config(),
             amount: TrimmedAmount {
                 amount: 1,
                 decimals: 7
@@ -165,7 +169,8 @@ async fn test_transfer(ctx: &mut ProgramTestContext, test_data: &TestData, mode:
     assert_eq!(
         transceiver_message,
         &TransceiverMessage::new(
-            example_native_token_transfers::ID.to_bytes(),
+            // v4: source_ntt_manager is the instance pubkey, not the program ID.
+            good_ntt.config().to_bytes(),
             OTHER_MANAGER,
             NttManagerMessage {
                 id: outbox_item.pubkey().to_bytes(),
@@ -192,6 +197,7 @@ async fn test_transfer_with_transfer_fee(
     mode: Mode,
     error_code: u32,
 ) {
+    let good_ntt = good_ntt(test_data.instance.pubkey());
     let outbox_item = Keypair::new();
 
     let (accs, args) =
@@ -220,6 +226,7 @@ async fn test_transfer_with_transfer_fee(
 #[tokio::test]
 async fn test_burn_mode_burns_tokens() {
     let (mut ctx, test_data) = setup(Mode::Burning).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -271,6 +278,7 @@ async fn test_burn_mode_burns_tokens() {
 #[tokio::test]
 async fn locking_mode_locks_tokens() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -333,6 +341,7 @@ async fn locking_mode_locks_tokens() {
 #[tokio::test]
 async fn test_bad_mint() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -388,21 +397,29 @@ async fn test_bad_mint() {
 async fn test_invalid_peer() {
     // in this test we send to 'OTHER_CHAIN' but use the peer account for
     // 'ANOTHER_CHAIN'.
-    struct BadNTT {}
+    struct BadNTT {
+        instance: Pubkey,
+    }
 
     impl NTTAccounts for BadNTT {
+        fn config(&self) -> Pubkey {
+            self.instance
+        }
         fn peer(&self, _chain_id: u16) -> Pubkey {
             // return 'ANOTHER_CHAIN' peer account
-            good_ntt.peer(ANOTHER_CHAIN)
+            good_ntt(self.instance).peer(ANOTHER_CHAIN)
         }
     }
 
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
     let (accs, args) = init_transfer_accs_args(
-        &BadNTT {},
+        &BadNTT {
+            instance: test_data.instance.pubkey(),
+        },
         &mut ctx,
         &test_data,
         outbox_item.pubkey(),
@@ -420,10 +437,17 @@ async fn test_invalid_peer() {
     .await
     .unwrap();
 
-    let err = transfer(&BadNTT {}, accs, args, Mode::Locking)
-        .submit_with_signers(&[&outbox_item], &mut ctx)
-        .await
-        .unwrap_err();
+    let err = transfer(
+        &BadNTT {
+            instance: test_data.instance.pubkey(),
+        },
+        accs,
+        args,
+        Mode::Locking,
+    )
+    .submit_with_signers(&[&outbox_item], &mut ctx)
+    .await
+    .unwrap_err();
 
     assert_eq!(
         err.unwrap(),
@@ -437,21 +461,29 @@ async fn test_invalid_peer() {
 #[tokio::test]
 async fn test_unregistered_peer_cant_transfer() {
     // in this test we try to transfer with unregistered peer
-    struct BadNTT {}
+    struct BadNTT {
+        instance: Pubkey,
+    }
 
     impl NTTAccounts for BadNTT {
+        fn config(&self) -> Pubkey {
+            self.instance
+        }
         fn peer(&self, _chain_id: u16) -> Pubkey {
             // return 'UNREGISTERED_CHAIN' peer account
-            good_ntt.peer(UNREGISTERED_CHAIN)
+            good_ntt(self.instance).peer(UNREGISTERED_CHAIN)
         }
     }
 
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
     let (accs, args) = init_transfer_accs_args(
-        &BadNTT {},
+        &BadNTT {
+            instance: test_data.instance.pubkey(),
+        },
         &mut ctx,
         &test_data,
         outbox_item.pubkey(),
@@ -469,10 +501,17 @@ async fn test_unregistered_peer_cant_transfer() {
     .await
     .unwrap();
 
-    let err = transfer(&BadNTT {}, accs, args, Mode::Locking)
-        .submit_with_signers(&[&outbox_item], &mut ctx)
-        .await
-        .unwrap_err();
+    let err = transfer(
+        &BadNTT {
+            instance: test_data.instance.pubkey(),
+        },
+        accs,
+        args,
+        Mode::Locking,
+    )
+    .submit_with_signers(&[&outbox_item], &mut ctx)
+    .await
+    .unwrap_err();
 
     // should err as peer account is not initialized
     assert_eq!(
@@ -487,6 +526,7 @@ async fn test_unregistered_peer_cant_transfer() {
 #[tokio::test]
 async fn test_cant_transfer_to_unregistered_peer() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -535,6 +575,7 @@ async fn test_cant_transfer_to_unregistered_peer() {
 #[tokio::test]
 async fn test_rate_limit() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
     let clock: Clock = ctx.banks_client.get_sysvar().await.unwrap();
@@ -579,6 +620,7 @@ async fn test_rate_limit() {
 #[tokio::test]
 async fn test_transfer_wrong_mode() {
     let (mut ctx, test_data) = setup(Mode::Burning).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
     let outbox_item = Keypair::new();
 
     let (accs, args) = init_transfer_accs_args(
@@ -617,6 +659,7 @@ async fn test_transfer_wrong_mode() {
 #[tokio::test]
 async fn test_cant_transfer_more_than_balance() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -675,6 +718,7 @@ async fn test_cant_transfer_more_than_balance() {
 #[tokio::test]
 async fn test_large_tx_queue() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -720,6 +764,7 @@ async fn test_large_tx_queue() {
 #[tokio::test]
 async fn test_cant_transfer_when_paused() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -792,6 +837,7 @@ async fn test_cant_transfer_when_paused() {
 #[tokio::test]
 async fn test_large_tx_no_queue() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -832,6 +878,8 @@ async fn test_large_tx_no_queue() {
 #[tokio::test]
 async fn test_cant_release_queued() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 
@@ -916,6 +964,8 @@ async fn test_cant_release_queued() {
 #[tokio::test]
 async fn test_cant_release_twice() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let outbox_item = Keypair::new();
 

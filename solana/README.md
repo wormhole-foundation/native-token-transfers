@@ -81,6 +81,58 @@ Program log: Instruction: ReleaseInboundMint
 Program log: Instruction: ReleaseInboundUnlock
 ```
 
+## Trust Model
+
+Version 4 changes the Solana program from a single-instance model to a multi-instance model. This section describes the instances, the isolation between them, and the authorities that an operator must trust.
+
+### Instances
+
+In version 3, one program held one NTT deployment. The program ID was the manager identity in each message.
+
+In version 4, one program can hold many NTT deployments. Each deployment is an _instance_. An instance is a `Config` account. The operator supplies a new keypair for this account. The operator signs the [`initialize`] instruction with this keypair. The program does not derive the `Config` account as a PDA.
+
+The public key of the `Config` account is the manager identity of the instance. A peer on another chain registers this key as the Solana manager address. The program writes this key into each outbound message. The program checks this key on each inbound message.
+
+Version 4 conforms to the NTT specification. The wire format does not change. The manager identity is still a 32-byte address. Therefore an operator can register a version 4 instance into an existing NTT mesh. The peers on the foreign chains do not need a contract upgrade. Each foreign chain registers the `Config` key as a new peer.
+
+> The operator chooses the `Config` keypair. Therefore two instances in the same program are fully independent. One program can hold many tokens and many owners at the same time.
+
+### Isolation between instances
+
+The program keeps the state of each instance separate. Every per-instance account holds the `Config` key in its PDA seeds. This rule applies to the rate limits, the peers, the registered transceivers, the token authority, the session authority, the emitter, and the inbox items.
+
+The program computes each address from the seeds. Therefore an account of one instance cannot take the place of an account of another instance. The program rejects a wrong account.
+
+The program also binds each message and each inbox or outbox item to its instance:
+
+- [`receive_message`] accepts a VAA only when the `recipient_ntt_manager` field equals the `Config` key. The program rejects a VAA that names a different instance.
+- [`redeem`] checks the `transceiver_message` seeds against the `Config` key.
+- [`release_inbound_mint`] and [`release_inbound_unlock`] accept an inbox item only when the stored `config` field equals the `Config` key. An inbox item from one instance cannot release funds from another instance.
+- [`release_outbound`] accepts an outbox item only when the `manager` field equals the `Config` key. A transceiver of one instance cannot release an outbox item of another instance.
+
+> These checks are necessary because two instances can manage the same token mint. Without these checks, a message or an item from one instance could move funds through another instance.
+
+### Instance ownership and the program upgrade authority
+
+Version 4 separates two authorities. Version 3 held these two authorities together.
+
+The _instance owner_ is the `owner` field of the `Config` account. The owner controls one instance. The owner can set the peers, set the threshold, pause the instance, and transfer the ownership. A transfer of ownership changes the data in the `Config` account. The [`transfer_ownership`] and [`claim_ownership`] instructions do not touch the BPF loader.
+
+The _program upgrade authority_ is the BPF loader upgrade authority of the program. This authority can replace the program code. New code applies to every instance in the program at the same time.
+
+> In version 3, one party held both the instance ownership and the program upgrade authority. In version 4, the two are independent. An instance owner has no control over the program code. The program upgrade authority has no ownership of an instance.
+
+### What an operator must trust
+
+All instances in one program run the same code. Therefore the party that holds the program upgrade authority can change the behavior of every instance. This party can mint tokens, unlock custody, or stop transfers for all instances.
+
+An operator that deploys an instance into a shared program must trust the party that holds the program upgrade authority. To reduce this trust, do one of these steps after the deployment:
+
+- Set the program upgrade authority to `null`. The program becomes immutable.
+- Give the program upgrade authority to a multisig or a governance program. All tenants must accept this party.
+
+An instance owner does not need to trust the other instance owners. The isolation rules limit each owner to one instance.
+
 ## Message Customization
 
 See the [NttManager](../docs/NttManager.md) doc for wire format details.

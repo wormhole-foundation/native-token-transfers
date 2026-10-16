@@ -1,10 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use ntt_messages::{chain_id::ChainId, mode::Mode};
-use wormhole_solana_utils::cpi::bpf_loader_upgradeable::BpfLoaderUpgradeable;
-
-#[cfg(feature = "idl-build")]
-use crate::messages::Hack;
 
 use crate::{
     bitmap::Bitmap,
@@ -20,22 +16,17 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    #[account(address = program_data.upgrade_authority_address.unwrap_or_default())]
-    pub deployer: Signer<'info>,
+    /// The owner of the new instance. Distinct from the program's upgrade
+    /// authority — see the v4 trust-model note in the README.
+    pub owner: Signer<'info>,
 
-    #[account(
-        seeds = [crate::ID.as_ref()],
-        bump,
-        seeds::program = bpf_loader_upgradeable_program,
-    )]
-    program_data: Account<'info, ProgramData>,
-
+    /// The instance account itself. Caller-provided keypair, must sign.
+    // TODO(v4-rename): consider renaming this field `instance` if/when we
+    // rename `Config` → `Instance`.
     #[account(
         init,
-        space = 8 + Config::INIT_SPACE,
         payer = payer,
-        seeds = [Config::SEED_PREFIX],
-        bump
+        space = 8 + Config::INIT_SPACE,
     )]
     pub config: Box<Account<'info, Config>>,
 
@@ -52,18 +43,17 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + OutboxRateLimit::INIT_SPACE,
-        seeds = [OutboxRateLimit::SEED_PREFIX],
+        seeds = [OutboxRateLimit::SEED_PREFIX, config.key().as_ref()],
         bump,
     )]
     pub rate_limit: Account<'info, OutboxRateLimit>,
 
     #[account(
-        seeds = [crate::TOKEN_AUTHORITY_SEED],
+        seeds = [crate::TOKEN_AUTHORITY_SEED, config.key().as_ref()],
         bump,
     )]
-    /// CHECK: [`token_authority`] is checked against the custody account and the [`mint`]'s mint_authority
-    /// In any case, this function is used to set the Config and initialize the program so we
-    /// assume the caller of this function will have total control over the program.
+    /// CHECK: [`token_authority`] is checked against the custody account and the [`mint`]'s mint_authority.
+    /// Per-instance token authority lets each instance manage its own mint independently.
     ///
     /// TODO: Using `UncheckedAccount` here leads to "Access violation in stack frame ...".
     /// Could refactor code to use `Box<_>` to reduce stack size.
@@ -93,7 +83,6 @@ pub struct Initialize<'info> {
     /// associated token account for the given mint.
     pub token_program: Interface<'info, token_interface::TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
-    bpf_loader_upgradeable_program: Program<'info, BpfLoaderUpgradeable>,
 
     system_program: Program<'info, System>,
 }
@@ -106,29 +95,21 @@ pub struct InitializeArgs {
 }
 
 pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
-    initialize_config_and_rate_limit(
-        ctx.accounts,
-        ctx.bumps.config,
-        args.chain_id,
-        args.limit,
-        args.mode,
-    )
+    initialize_config_and_rate_limit(ctx.accounts, args.chain_id, args.limit, args.mode)
 }
 
 fn initialize_config_and_rate_limit(
     common: &mut Initialize<'_>,
-    config_bump: u8,
     chain_id: u16,
     limit: u64,
     mode: ntt_messages::mode::Mode,
 ) -> Result<()> {
     common.config.set_inner(crate::config::Config {
-        bump: config_bump,
         mint: common.mint.key(),
         token_program: common.token_program.key(),
         mode,
         chain_id: ChainId { id: chain_id },
-        owner: common.deployer.key(),
+        owner: common.owner.key(),
         pending_owner: None,
         paused: false,
         next_transceiver_id: 0,

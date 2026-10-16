@@ -16,7 +16,11 @@ import type { SuiChains } from "@wormhole-foundation/sdk-sui";
 import type { SuiNtt } from "@wormhole-foundation/sdk-sui-ntt";
 
 import type { SignerType } from "./signers/getSigner";
-import type { CclConfig, SuiDeploymentResult } from "./commands/shared";
+import type {
+  CclConfig,
+  SolanaDeploymentResult,
+  SuiDeploymentResult,
+} from "./commands/shared";
 import { createWorkTree, warnLocalDeployment } from "./tag";
 import { deployEvm, upgradeEvm } from "./evm/deploy";
 import { deploySvm, upgradeSolana } from "./solana/deploy";
@@ -100,8 +104,11 @@ export async function deploy<N extends Network, C extends Chain>(
   suiTreasuryCap?: string,
   gasEstimateMultiplier?: number,
   cclConfig?: CclConfig | null,
-  overrides?: WormholeConfigOverrides<Network>
-): Promise<ChainAddress<C> | SuiDeploymentResult<C>> {
+  overrides?: WormholeConfigOverrides<Network>,
+  solanaInstanceKeyPath?: string
+): Promise<
+  ChainAddress<C> | SolanaDeploymentResult<C> | SuiDeploymentResult<C>
+> {
   if (version === null) {
     await warnLocalDeployment(yes);
   }
@@ -126,7 +133,7 @@ export async function deploy<N extends Network, C extends Chain>(
         process.exit(1);
       }
       const solanaCtx = ch as ChainContext<N, SolanaChains>;
-      return (await deploySvm(
+      const result = await deploySvm(
         worktree,
         version,
         mode,
@@ -137,8 +144,16 @@ export async function deploy<N extends Network, C extends Chain>(
         solanaProgramKeyPath,
         solanaBinaryPath,
         solanaPriorityFee,
-        overrides
-      )) as ChainAddress<C>;
+        overrides,
+        solanaInstanceKeyPath
+      );
+      // Lift to the unified deploy() return shape: a `ChainAddress` plus,
+      // for v4 Solana, the new instance pubkey.
+      return {
+        chain: result.chain,
+        address: result.address,
+        ...(result.instance && { instance: result.instance.toBase58() }),
+      } as ChainAddress<C> | SolanaDeploymentResult<C>;
     }
     case "Sui": {
       const suiCtx = ch as ChainContext<N, Chain>; // TODO: Use proper SuiChains type

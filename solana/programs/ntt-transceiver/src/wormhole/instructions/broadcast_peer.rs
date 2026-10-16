@@ -12,7 +12,7 @@ pub struct BroadcastPeer<'info> {
     pub config: Account<'info, Config>,
 
     #[account(
-        seeds = [TransceiverPeer::SEED_PREFIX, args.chain_id.to_be_bytes().as_ref()],
+        seeds = [TransceiverPeer::SEED_PREFIX, config.key().as_ref(), args.chain_id.to_be_bytes().as_ref()],
         bump
     )]
     pub peer: Account<'info, TransceiverPeer>,
@@ -22,7 +22,7 @@ pub struct BroadcastPeer<'info> {
     pub wormhole_message: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [b"emitter"],
+        seeds = [b"emitter", config.key().as_ref()],
         bump
     )]
     /// CHECK: The seeds constraint ensures that this is the correct address
@@ -54,6 +54,7 @@ pub fn broadcast_peer(ctx: Context<BroadcastPeer>, args: BroadcastPeerArgs) -> R
         accs.wormhole_message.to_account_info(),
         accs.emitter.to_account_info(),
         ctx.bumps.emitter,
+        accs.config.key(),
         &message,
     )?;
 

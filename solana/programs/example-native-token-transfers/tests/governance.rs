@@ -27,7 +27,6 @@ use wormhole_governance::{
     instructions::{GovernanceMessage, ReplayProtection, OWNER},
 };
 use wormhole_sdk::{Address, Vaa, GOVERNANCE_EMITTER};
-use wormhole_solana_utils::cpi::bpf_loader_upgradeable;
 
 async fn post_governance_vaa<A: Clone + AnchorSerialize>(
     ctx: &mut ProgramTestContext,
@@ -67,6 +66,7 @@ async fn transfer_ownership_to_gov_program(
     core::result::Result<Vaa<GovernanceMessage>, BanksClientError>,
     Instruction,
 ) {
+    let good_ntt = good_ntt(test_data.instance.pubkey());
     let governance_pda = test_data.governance.governance();
 
     // step 1. transfer ownership to governance
@@ -76,9 +76,6 @@ async fn transfer_ownership_to_gov_program(
         config: good_ntt.config(),
         owner: test_data.program_owner.pubkey(),
         new_owner: governance_pda,
-        upgrade_lock: good_ntt.upgrade_lock(),
-        program_data: good_ntt.program_data(),
-        bpf_loader_upgradeable_program: bpf_loader_upgradeable::id(),
     };
 
     Instruction {
@@ -95,9 +92,6 @@ async fn transfer_ownership_to_gov_program(
     let inner_ix_accs = example_native_token_transfers::accounts::ClaimOwnership {
         new_owner: OWNER,
         config: good_ntt.config(),
-        upgrade_lock: good_ntt.upgrade_lock(),
-        program_data: good_ntt.program_data(),
-        bpf_loader_upgradeable_program: bpf_loader_upgradeable::id(),
     };
 
     let inner_ix: Instruction = Instruction {
@@ -126,6 +120,7 @@ async fn transfer_ownership_to_gov_program(
 #[tokio::test]
 async fn test_governance() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     transfer_ownership_to_gov_program(&mut ctx, &test_data, None)
         .await
@@ -152,6 +147,7 @@ async fn test_governance() {
 #[tokio::test]
 async fn test_governance_one_step_transfer() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let governance_pda = test_data.governance.governance();
 
@@ -162,9 +158,6 @@ async fn test_governance_one_step_transfer() {
         config: good_ntt.config(),
         owner: test_data.program_owner.pubkey(),
         new_owner: governance_pda,
-        upgrade_lock: good_ntt.upgrade_lock(),
-        program_data: good_ntt.program_data(),
-        bpf_loader_upgradeable_program: bpf_loader_upgradeable::id(),
     };
 
     Instruction {
@@ -199,6 +192,7 @@ async fn test_governance_one_step_transfer() {
 #[tokio::test]
 async fn test_governance_bad_emitter() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let err = wrap_governance(
         &mut ctx,
@@ -242,6 +236,7 @@ async fn test_governance_bad_governance_contract() {
 #[tokio::test]
 async fn test_governance_replay() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let (vaa, inner_ix) = transfer_ownership_to_gov_program(&mut ctx, &test_data, None).await;
 

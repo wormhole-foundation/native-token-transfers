@@ -42,12 +42,17 @@ pub struct WormholeAccounts<'info> {
 /// and [`WormholeAccounts::sequence`] must be checked by the Wormhole core bridge.
 /// SECURITY: Signer checks are disabled. The only valid sender is the
 /// [`wormhole::PostMessage::emitter`], enforced by the [`CpiContext`] below.
+/// `config` is the per-instance Config pubkey embedded in the emitter PDA
+/// seed list (v4). Callers pass `accs.config.key()` so the CPI signer-seed
+/// slice matches the on-chain `[b"emitter", config.key()]` PDA layout.
+#[allow(clippy::too_many_arguments)]
 pub fn post_message<'info, A: TypePrefixedPayload>(
     wormhole: &WormholeAccounts<'info>,
     payer: AccountInfo<'info>,
     message: AccountInfo<'info>,
     emitter: AccountInfo<'info>,
     emitter_bump: u8,
+    config: Pubkey,
     payload: &A,
     additional_seeds: &[&[&[u8]]],
 ) -> Result<()> {
@@ -68,7 +73,7 @@ pub fn post_message<'info, A: TypePrefixedPayload>(
     };
 
     let seeds: &[&[&[&[u8]]]] = &[
-        &[&[b"emitter".as_slice(), &[emitter_bump]]],
+        &[&[b"emitter".as_slice(), config.as_ref(), &[emitter_bump]]],
         additional_seeds,
     ];
 

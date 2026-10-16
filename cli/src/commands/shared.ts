@@ -134,6 +134,13 @@ export const CCL_CONTRACT_ADDRESSES: Partial<
 // These are local-only configurations that don't have on-chain representations
 export const EXCLUDED_DIFF_PATHS = ["managerVariant"];
 
+// Extended ChainAddress type for Solana v4 deployments that include the
+// per-instance Config pubkey alongside the manager program ID.
+export type SolanaDeploymentResult<C extends Chain> = ChainAddress<C> & {
+  /** v4-only: the keypair-created Instance pubkey under the shared program. */
+  instance?: string;
+};
+
 // Extended ChainAddress type for Sui deployments that includes additional metadata
 export type SuiDeploymentResult<C extends Chain> = ChainAddress<C> & {
   adminCaps?: {

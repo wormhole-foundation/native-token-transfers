@@ -5,10 +5,14 @@ use super::post_message_shim::PostMessageShim;
 
 pub type NTTTransceiver = dyn NTTTransceiverAccounts;
 
+/// v4: emitter, transceiver_peer, transceiver_message, outbox_item_signer
+/// PDAs are all instance-scoped. wormhole_message piggy-backs on emitter.
 pub trait NTTTransceiverAccounts {
     fn program(&self) -> Pubkey {
         ntt_transceiver::ID
     }
+
+    fn config(&self) -> Pubkey;
 
     fn post_message_shim(&self) -> PostMessageShim {
         PostMessageShim {
@@ -21,13 +25,18 @@ pub trait NTTTransceiverAccounts {
     }
 
     fn emitter(&self) -> Pubkey {
-        let (emitter, _) = Pubkey::find_program_address(&[b"emitter".as_ref()], &self.program());
+        let (emitter, _) = Pubkey::find_program_address(
+            &[b"emitter".as_ref(), self.config().as_ref()],
+            &self.program(),
+        );
         emitter
     }
 
     fn outbox_item_signer(&self) -> Pubkey {
-        let (outbox_item_signer, _) =
-            Pubkey::find_program_address(&[b"outbox_item_signer".as_ref()], &self.program());
+        let (outbox_item_signer, _) = Pubkey::find_program_address(
+            &[b"outbox_item_signer".as_ref(), self.config().as_ref()],
+            &self.program(),
+        );
         outbox_item_signer
     }
 
@@ -41,7 +50,11 @@ pub trait NTTTransceiverAccounts {
 
     fn transceiver_peer(&self, chain: u16) -> Pubkey {
         let (peer, _) = Pubkey::find_program_address(
-            &[b"transceiver_peer".as_ref(), &chain.to_be_bytes()],
+            &[
+                b"transceiver_peer".as_ref(),
+                self.config().as_ref(),
+                &chain.to_be_bytes(),
+            ],
             &self.program(),
         );
         peer
@@ -49,7 +62,12 @@ pub trait NTTTransceiverAccounts {
 
     fn transceiver_message(&self, chain: u16, id: [u8; 32]) -> Pubkey {
         let (transceiver_message, _) = Pubkey::find_program_address(
-            &[b"transceiver_message".as_ref(), &chain.to_be_bytes(), &id],
+            &[
+                b"transceiver_message".as_ref(),
+                self.config().as_ref(),
+                &chain.to_be_bytes(),
+                &id,
+            ],
             &self.program(),
         );
         transceiver_message
@@ -64,11 +82,16 @@ pub trait NTTTransceiverAccounts {
     }
 }
 
-/// This implements the account derivations correctly. For negative tests, other
-/// implementations will implement them incorrectly.
-pub struct GoodNTTTransceiver {}
+pub struct GoodNTTTransceiver {
+    pub instance: Pubkey,
+}
 
-#[allow(non_upper_case_globals)]
-pub const good_ntt_transceiver: GoodNTTTransceiver = GoodNTTTransceiver {};
+impl NTTTransceiverAccounts for GoodNTTTransceiver {
+    fn config(&self) -> Pubkey {
+        self.instance
+    }
+}
 
-impl NTTTransceiverAccounts for GoodNTTTransceiver {}
+pub fn good_ntt_transceiver(instance: Pubkey) -> GoodNTTTransceiver {
+    GoodNTTTransceiver { instance }
+}

@@ -21,6 +21,8 @@ pub fn release_inbound_unlock(
     let accounts = example_native_token_transfers::accounts::ReleaseInboundUnlock {
         common: example_native_token_transfers::accounts::ReleaseInbound {
             payer: accounts.payer,
+            // anchor's client-side NotPausedConfig holds a Pubkey, not a typed
+            // Account; instruction construction only needs the address.
             config: NotPausedConfig {
                 config: ntt.config(),
             },

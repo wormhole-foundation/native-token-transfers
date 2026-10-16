@@ -44,6 +44,7 @@ import {
   NttBindings,
   getNttProgram,
 } from "./bindings.js";
+import { _4_0_0 } from "./anchor-idl/index.js";
 import {
   BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
   chainToBytes,
@@ -80,32 +81,64 @@ export namespace NTT {
 
   /** Type of object containing methods to compute program addresses */
   export type Pdas = ReturnType<typeof pdas>;
-  /** pdas returns an object containing all functions to compute program addresses */
-  export const pdas = (programId: PublicKeyInitData) => {
-    const configAccount = (): PublicKey => derivePda("config", programId);
+  /**
+   * pdas returns an object containing all functions to compute program addresses.
+   *
+   * - v3 (singleton): call as `pdas(programId)`. PDAs are derived in the legacy
+   *   layout (e.g. `[b"config"]`).
+   * - v4 (multi-host): call as `pdas(programId, config)` where `config` is the
+   *   per-instance Config account pubkey (the keypair the operator chose at
+   *   `initialize`). All seed-bearing PDAs gain `config.toBytes()` as their
+   *   first-after-prefix seed; `configAccount()` simply returns `config`.
+   *
+   * v4 also drops the legacy `[b"upgrade_lock"]` PDA — it has no v4 equivalent
+   * (program upgrade authority is decoupled from instance ownership). Calling
+   * `upgradeLock()` on a v4 pdas object throws.
+   */
+  export const pdas = (programId: PublicKeyInitData, config?: PublicKey) => {
+    // When `config` is provided we prepend its bytes to the seeds of every
+    // PDA that's per-instance in v4. This keeps the v3 derivations bit-identical
+    // when called as `pdas(programId)`.
+    const scope: Uint8Array[] = config ? [config.toBytes()] : [];
+
+    const configAccount = (): PublicKey =>
+      config ?? derivePda("config", programId);
     const inboxRateLimitAccount = (chain: Chain): PublicKey =>
-      derivePda(["inbox_rate_limit", chainToBytes(chain)], programId);
+      derivePda(["inbox_rate_limit", ...scope, chainToBytes(chain)], programId);
     const inboxItemAccount = (
       chain: Chain,
       nttMessage: Ntt.Message
     ): PublicKey =>
       derivePda(
-        ["inbox_item", Ntt.messageDigest(chain, nttMessage)],
+        ["inbox_item", ...scope, Ntt.messageDigest(chain, nttMessage)],
         programId
       );
-    const upgradeLock = (): PublicKey => derivePda("upgrade_lock", programId);
+    const upgradeLock = (): PublicKey => {
+      if (config !== undefined) {
+        throw new Error(
+          "upgradeLock() is v3-only; v4 decouples program upgrade authority from instance ownership"
+        );
+      }
+      return derivePda("upgrade_lock", programId);
+    };
     const outboxRateLimitAccount = (): PublicKey =>
-      derivePda("outbox_rate_limit", programId);
+      derivePda(["outbox_rate_limit", ...scope], programId);
     const tokenAuthority = (): PublicKey =>
-      derivePda("token_authority", programId);
+      derivePda(["token_authority", ...scope], programId);
     const pendingTokenAuthority = (): PublicKey =>
-      derivePda("pending_token_authority", programId);
+      derivePda(["pending_token_authority", ...scope], programId);
     const peerAccount = (chain: Chain): PublicKey =>
-      derivePda(["peer", chainToBytes(chain)], programId);
+      derivePda(["peer", ...scope, chainToBytes(chain)], programId);
     const registeredTransceiver = (transceiver: PublicKey): PublicKey =>
-      derivePda(["registered_transceiver", transceiver.toBytes()], programId);
-    const lutAccount = (): PublicKey => derivePda("lut", programId);
-    const lutAuthority = (): PublicKey => derivePda("lut_authority", programId);
+      derivePda(
+        ["registered_transceiver", ...scope, transceiver.toBytes()],
+        programId
+      );
+    const lutAccount = (): PublicKey => derivePda(["lut", ...scope], programId);
+    const lutAuthority = (): PublicKey =>
+      derivePda(["lut_authority", ...scope], programId);
+    // Scope session_authority by instance in v4 so an approval issued for one
+    // instance cannot be replayed against another instance managing the same mint.
     const sessionAuthority = (
       sender: PublicKey,
       args: TransferArgs
@@ -113,6 +146,7 @@ export namespace NTT {
       derivePda(
         [
           "session_authority",
+          ...scope,
           sender.toBytes(),
           keccak256(
             encoding.bytes.concat(
@@ -145,22 +179,38 @@ export namespace NTT {
 
   /** Type of object containing methods to compute program addresses */
   export type TransceiverPdas = ReturnType<typeof transceiverPdas>;
-  /** pdas returns an object containing all functions to compute program addresses */
-  export const transceiverPdas = (programId: PublicKeyInitData) => {
-    const emitterAccount = (): PublicKey => derivePda("emitter", programId);
-    const outboxItemSigner = () => derivePda(["outbox_item_signer"], programId);
+  /** pdas returns an object containing all functions to compute program addresses.
+   * v3: call as `transceiverPdas(programId)`.
+   * v4: call as `transceiverPdas(programId, config)` to scope by instance.
+   */
+  export const transceiverPdas = (
+    programId: PublicKeyInitData,
+    config?: PublicKey
+  ) => {
+    const scope: Uint8Array[] = config ? [config.toBytes()] : [];
+
+    const emitterAccount = (): PublicKey =>
+      derivePda(["emitter", ...scope], programId);
+    const outboxItemSigner = () =>
+      derivePda(["outbox_item_signer", ...scope], programId);
     const transceiverPeerAccount = (chain: Chain): PublicKey =>
-      derivePda(["transceiver_peer", chainToBytes(chain)], programId);
+      derivePda(["transceiver_peer", ...scope, chainToBytes(chain)], programId);
     const transceiverMessageAccount = (
       chain: Chain,
       id: Uint8Array
     ): PublicKey =>
-      derivePda(["transceiver_message", chainToBytes(chain), id], programId);
+      derivePda(
+        ["transceiver_message", ...scope, chainToBytes(chain), id],
+        programId
+      );
     const unverifiedMessageAccount = (payer: PublicKey, seed: BN): PublicKey =>
       derivePda(
         ["vaa_body", payer.toBytes(), new Uint8Array(seed.toArray("be"))],
         programId
       );
+    // wormhole_message is content-addressed by `outbox_item.key()` which is
+    // already globally unique (OutboxItem is keypair-created), so no instance
+    // scoping is required here.
     const wormholeMessageAccount = (outboxItem: PublicKey): PublicKey =>
       derivePda(["message", outboxItem.toBytes()], programId);
     const wormholeMessageWithShimAccount = (
@@ -257,16 +307,43 @@ export namespace NTT {
       mode: "burning" | "locking";
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
     const [major, , ,] = parseVersion(program.idl.version);
     const mode: any =
       args.mode === "burning" ? { burning: {} } : { locking: {} };
     const chainId = toChainId(args.chain);
 
-    pdas = pdas ?? NTT.pdas(program.programId);
-
     const limit = new BN(args.outboundLimit.toString());
+
+    if (major >= 4) {
+      // v4: instance is keypair-created (not a PDA). `pdas.configAccount()`
+      // returns the instance pubkey when pdas was constructed with an
+      // instance arg. The caller must include both the payer and the
+      // instance keypair as signers on the transaction. Owner is a
+      // separate Signer, decoupled from the program upgrade authority.
+      return program.methods
+        .initialize({ chainId, limit: limit, mode })
+        .accounts({
+          payer: args.payer,
+          owner: args.owner,
+          config: pdas.configAccount(),
+          mint: args.mint,
+          rateLimit: pdas.outboxRateLimitAccount(),
+          tokenProgram: args.tokenProgram,
+          tokenAuthority: pdas.tokenAuthority(),
+          multisigTokenAuthority: args.multisigTokenAuthority ?? null,
+          custody: await NTT.custodyAccountAddress(
+            pdas,
+            args.mint,
+            args.tokenProgram
+          ),
+          associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .instruction();
+    }
+
     return program.methods
       .initialize({ chainId, limit: limit, mode })
       .accounts({
@@ -305,13 +382,11 @@ export namespace NTT {
       owner: PublicKey;
       wormholeId: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
     // if the program is < major version 2.x.x, we don't need to initialize the LUT
     const [major, , ,] = parseVersion(program.idl.version);
     if (major < 2) return;
-
-    pdas = pdas ?? NTT.pdas(program.programId);
 
     // TODO: find a more robust way of fetching a recent slot
     const slot = (await program.provider.connection.getSlot()) - 1;
@@ -404,10 +479,8 @@ export namespace NTT {
       transferArgs: TransferArgs;
       outboxItem: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ): Promise<TransactionInstruction> {
-    pdas = pdas ?? NTT.pdas(program.programId);
-
     const custody = await custodyAccountAddress(pdas, config);
     const recipientChain = toChain(args.transferArgs.recipientChain.id);
     const transferIx = await program.methods
@@ -484,11 +557,9 @@ export namespace NTT {
       transferArgs: NTT.TransferArgs;
       outboxItem: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ): Promise<TransactionInstruction> {
     if (config.paused) throw new Error("Contract is paused");
-
-    pdas = pdas ?? NTT.pdas(program.programId);
 
     const chain = toChain(args.transferArgs.recipientChain.id);
     const custody = await custodyAccountAddress(pdas, config);
@@ -563,11 +634,9 @@ export namespace NTT {
       revertWhenNotReady: boolean;
       recipient?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ): Promise<TransactionInstruction> {
     const [major, , ,] = parseVersion(program.idl.version);
-
-    pdas = pdas ?? NTT.pdas(program.programId);
 
     const mintInfo = await splToken.getMint(
       program.provider.connection,
@@ -582,7 +651,7 @@ export namespace NTT {
 
     const recipientAddress =
       args.recipient ??
-      (await getInboxItem(program, args.chain, args.nttMessage))
+      (await getInboxItem(program, args.chain, args.nttMessage, pdas))
         .recipientAddress;
 
     const transferIx = await program.methods
@@ -656,14 +725,12 @@ export namespace NTT {
       revertWhenNotReady: boolean;
       recipient?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
     const recipientAddress =
       args.recipient ??
-      (await NTT.getInboxItem(program, args.chain, args.nttMessage))
+      (await NTT.getInboxItem(program, args.chain, args.nttMessage, pdas))
         .recipientAddress;
-
-    pdas = pdas ?? NTT.pdas(program.programId);
     const custody = await custodyAccountAddress(pdas, config);
 
     const transferIx = await program.methods
@@ -737,9 +804,25 @@ export namespace NTT {
       owner: PublicKey;
       newOwner: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
+    const [major, , ,] = parseVersion(program.idl.version);
+    if (major >= 4) {
+      // v4: ownership transfer is a pure data mutation on Config, no BPF-loader CPI.
+      // The function signature accepts a `Program` over the union of all IDL versions,
+      // so `accountsStrict` would otherwise require the v3 BPF-loader fields too. Narrow
+      // to the v4 IDL type now that we've established the major version at runtime.
+      const v4Program =
+        program as unknown as Program<_4_0_0.RawExampleNativeTokenTransfers>;
+      return v4Program.methods
+        .transferOwnershipOneStepUnchecked()
+        .accountsStrict({
+          config: pdas.configAccount(),
+          owner: args.owner,
+          newOwner: args.newOwner,
+        })
+        .instruction();
+    }
     return program.methods
       .transferOwnershipOneStepUnchecked()
       .accountsStrict({
@@ -759,9 +842,21 @@ export namespace NTT {
       owner: PublicKey;
       newOwner: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
+    const [major, , ,] = parseVersion(program.idl.version);
+    if (major >= 4) {
+      const v4Program =
+        program as unknown as Program<_4_0_0.RawExampleNativeTokenTransfers>;
+      return v4Program.methods
+        .transferOwnership()
+        .accountsStrict({
+          config: pdas.configAccount(),
+          owner: args.owner,
+          newOwner: args.newOwner,
+        })
+        .instruction();
+    }
     return program.methods
       .transferOwnership()
       .accountsStrict({
@@ -780,9 +875,20 @@ export namespace NTT {
     args: {
       newOwner: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
+    const [major, , ,] = parseVersion(program.idl.version);
+    if (major >= 4) {
+      const v4Program =
+        program as unknown as Program<_4_0_0.RawExampleNativeTokenTransfers>;
+      return v4Program.methods
+        .claimOwnership()
+        .accountsStrict({
+          config: pdas.configAccount(),
+          newOwner: args.newOwner,
+        })
+        .instruction();
+    }
     return program.methods
       .claimOwnership()
       .accountsStrict({
@@ -802,9 +908,8 @@ export namespace NTT {
       currentAuthority: PublicKey;
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .acceptTokenAuthority()
       .accountsStrict({
@@ -828,9 +933,8 @@ export namespace NTT {
       additionalSigners: readonly PublicKey[];
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .acceptTokenAuthorityFromMultisig()
       .accountsStrict({
@@ -861,9 +965,8 @@ export namespace NTT {
       newAuthority: PublicKey;
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .setTokenAuthorityOneStepUnchecked()
       .accountsStrict({
@@ -889,9 +992,8 @@ export namespace NTT {
       newAuthority: PublicKey;
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .setTokenAuthority()
       .accountsStrict({
@@ -918,9 +1020,8 @@ export namespace NTT {
       owner: PublicKey;
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .revertTokenAuthority()
       .accountsStrict({
@@ -947,9 +1048,8 @@ export namespace NTT {
       newAuthority: PublicKey;
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .claimTokenAuthority()
       .accountsStrict({
@@ -977,9 +1077,8 @@ export namespace NTT {
       additionalSigners: readonly PublicKey[];
       multisigTokenAuthority?: PublicKey;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .claimTokenAuthorityToMultisig()
       .accountsStrict({
@@ -1015,9 +1114,8 @@ export namespace NTT {
       limit: BN;
       tokenDecimals: number;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .setPeer({
         chainId: { id: toChainId(args.chain) },
@@ -1042,9 +1140,8 @@ export namespace NTT {
       owner: PublicKey;
       paused: boolean;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .setPaused(args.paused)
       .accountsStrict({
@@ -1060,9 +1157,8 @@ export namespace NTT {
       owner: PublicKey;
       threshold: number;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .setThreshold(args.threshold)
       .accountsStrict({
@@ -1078,9 +1174,8 @@ export namespace NTT {
       owner: PublicKey;
       limit: BN;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .setOutboundLimit({
         limit: args.limit,
@@ -1100,9 +1195,8 @@ export namespace NTT {
       chain: Chain;
       limit: BN;
     },
-    pdas?: Pdas
+    pdas: Pdas
   ) {
-    pdas = pdas ?? NTT.pdas(program.programId);
     return program.methods
       .setInboundLimit({
         chainId: { id: toChainId(args.chain) },
@@ -1124,13 +1218,9 @@ export namespace NTT {
       payer: PublicKey;
       vaa: VAA<"Ntt:WormholeTransfer">;
     },
-    pdas?: Pdas,
-    transceiverPdas?: TransceiverPdas
+    pdas: Pdas,
+    transceiverPdas: TransceiverPdas
   ): Promise<TransactionInstruction> {
-    pdas = pdas ?? NTT.pdas(program.programId);
-    transceiverPdas =
-      transceiverPdas ?? NTT.transceiverPdas(transceiverProgramId);
-
     const wormholeNTT = args.vaa;
     const nttMessage = wormholeNTT.payload.nttManagerPayload;
     const chain = wormholeNTT.emitterChain;
@@ -1174,21 +1264,29 @@ export namespace NTT {
   export async function getInboxItem(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
     fromChain: Chain,
-    nttMessage: Ntt.Message
+    nttMessage: Ntt.Message,
+    pdas?: Pdas
   ): Promise<NttBindings.InboxItem<IdlVersion>> {
+    const [major, , ,] = parseVersion(program.idl.version);
+    if (major >= 4 && !pdas) {
+      throw new Error(
+        "getInboxItem: v4 requires instance-scoped pdas to derive the inbox item account"
+      );
+    }
     return program.account.inboxItem.fetch(
-      NTT.pdas(program.programId).inboxItemAccount(fromChain, nttMessage)
+      (pdas ?? NTT.pdas(program.programId)).inboxItemAccount(
+        fromChain,
+        nttMessage
+      )
     );
   }
 
   export async function getAddressLookupTable(
     program: Program<NttBindings.NativeTokenTransfer<IdlVersion>>,
-    pdas?: Pdas
+    pdas: Pdas
   ): Promise<AddressLookupTableAccount | null> {
     const [major, , ,] = parseVersion(program.idl.version);
     if (major < 2) return null;
-
-    pdas = pdas ?? NTT.pdas(program.programId);
     // @ts-ignore
     // NOTE: lut is 'LUT' in the IDL, but 'lut' in the generated code
     // It needs to be upper-cased in the IDL to compute the anchor

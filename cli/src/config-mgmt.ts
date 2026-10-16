@@ -40,6 +40,7 @@ import {
 } from "./query";
 import { askForConfirmation } from "./prompts.js";
 import { upgrade } from "./deploy";
+import { canUpgrade } from "./upgradeBarriers";
 import { runTaskPoolWithSequential } from "./utils/concurrency";
 
 export async function pushDeployment<C extends Chain>(
@@ -81,8 +82,20 @@ export async function pushDeployment<C extends Chain>(
   let managerUpgrade: { from: string; to: string } | undefined;
   for (const k of Object.keys(diff)) {
     if (k === "version") {
-      // TODO: check against existing version, and make sure no major version changes
-      managerUpgrade = { from: diff[k]!.pull!, to: diff[k]!.push! };
+      const from = diff[k]!.pull!;
+      const to = diff[k]!.push!;
+      // Enforce the same breaking-change barrier as the dedicated `upgrade`
+      // command: a config push must not drive a version change across an
+      // incompatible on-chain layout (e.g. Solana v3<->v4 in place, which
+      // would strand custody). See canUpgrade / UPGRADE_BARRIERS.
+      const check = canUpgrade(deployment.manager.chain, from, to);
+      if (!check.ok) {
+        console.error(
+          `Refusing to change ${deployment.manager.chain} version from ${from} to ${to} via push:\n${check.reason}`
+        );
+        process.exit(1);
+      }
+      managerUpgrade = { from, to };
     } else if (k === "owner") {
       const address: AccountAddress<C> = toUniversal(
         deployment.manager.chain,
@@ -101,12 +114,17 @@ export async function pushDeployment<C extends Chain>(
         const ix = dangerouslyTransferOwnershipInOneStep
           ? await NTT.createTransferOwnershipOneStepUncheckedInstruction(
               solanaNtt.program,
-              { owner, newOwner }
+              { owner, newOwner },
+              solanaNtt.pdas
             )
-          : await NTT.createTransferOwnershipInstruction(solanaNtt.program, {
-              owner,
-              newOwner,
-            });
+          : await NTT.createTransferOwnershipInstruction(
+              solanaNtt.program,
+              {
+                owner,
+                newOwner,
+              },
+              solanaNtt.pdas
+            );
 
         const tx = new solanaWeb3.Transaction();
         tx.add(ix);
@@ -272,7 +290,8 @@ export async function pullDeployments(
       const [remote, ctx, ntt, decimals] = await pullChainConfig(
         network,
         { chain, address: toUniversal(chain, managerAddress) },
-        overrides
+        overrides,
+        deployment.instance
       );
       const local = deployments.chains[chain];
 
@@ -356,6 +375,10 @@ export async function pullChainConfig<N extends Network, C extends Chain>(
   network: N,
   manager: ChainAddress<C>,
   overrides?: WormholeConfigOverrides<N>,
+  // Solana-only: per-instance Config pubkey for multi-tenant deployments
+  // (>= v4). Required to construct the SDK against a multi-tenant manager.
+  // Pass `undefined` for legacy single-tenant managers and non-Solana chains.
+  solanaInstance?: string,
   opts?: { waitForTransceiver?: boolean }
 ): Promise<
   [ChainConfig, ChainContext<typeof network, C>, Ntt<typeof network, C>, number]
@@ -373,7 +396,7 @@ export async function pullChainConfig<N extends Network, C extends Chain>(
     ntt,
     addresses,
   }: { ntt: Ntt<N, C>; addresses: Partial<Ntt.Contracts> } =
-    await nttFromManager<N, C>(ch, nativeManagerAddress, opts);
+    await nttFromManager<N, C>(ch, nativeManagerAddress, solanaInstance, opts);
 
   const mode = await ntt.getMode();
   const outboundLimit = await ntt.getOutboundLimit();
@@ -399,6 +422,7 @@ export async function pullChainConfig<N extends Network, C extends Chain>(
     paused,
     owner: owner.toString(),
     manager: nativeManagerAddress,
+    ...(solanaInstance && { instance: solanaInstance }),
     token: addresses.token!,
     transceivers: {
       threshold,

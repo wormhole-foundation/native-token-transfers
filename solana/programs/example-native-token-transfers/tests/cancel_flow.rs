@@ -31,6 +31,8 @@ use wormhole_sdk::Address;
 async fn test_cancel() {
     let recipient = Keypair::new();
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     let msg0 = make_transfer_message(&good_ntt, [0u8; 32], 1000, &recipient.pubkey());
     let msg1 = make_transfer_message(&good_ntt, [1u8; 32], 2000, &recipient.pubkey());

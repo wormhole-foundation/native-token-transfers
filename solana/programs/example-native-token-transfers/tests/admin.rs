@@ -22,6 +22,7 @@ use test_utils::{
 #[tokio::test]
 async fn test_invalid_transceiver() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     // try registering system program
     let err = register_transceiver(
@@ -47,6 +48,8 @@ async fn test_invalid_transceiver() {
 #[tokio::test]
 async fn test_reregister_all_transceivers() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     // Transceivers are expected to be executable which requires them to be added on setup
     // Thus, we pass all available executable program IDs as dummy_transceivers
@@ -138,6 +141,8 @@ async fn test_reregister_all_transceivers() {
 #[tokio::test]
 async fn test_deregister_last_enabled_transceiver() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
+    let good_ntt_transceiver = good_ntt_transceiver(test_data.instance.pubkey());
 
     // attempt to deregister only enabled transceiver (baked-in transceiver)
     let err = deregister_transceiver(
@@ -207,6 +212,7 @@ async fn test_deregister_last_enabled_transceiver() {
 #[tokio::test]
 async fn test_zero_threshold() {
     let (mut ctx, test_data) = setup(Mode::Locking).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let err = set_threshold(
         &good_ntt,
@@ -230,6 +236,7 @@ async fn test_zero_threshold() {
 #[tokio::test]
 async fn test_threshold_too_high() {
     let (mut ctx, test_data) = setup(Mode::Burning).await;
+    let good_ntt = good_ntt(test_data.instance.pubkey());
 
     let err = set_threshold(
         &good_ntt,
