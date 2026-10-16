@@ -124,7 +124,8 @@ export async function deployEvm<N extends Network, C extends Chain>(
   verify: boolean,
   managerVariant: string,
   gasEstimateMultiplier?: number,
-  cclConfig?: CclConfig | null
+  cclConfig?: CclConfig | null,
+  yes?: boolean
 ): Promise<ChainAddress<C>> {
   ensureNttRoot(pwd);
 
@@ -257,9 +258,11 @@ ${v1SigArgs} \
       console.error(
         "Simulation failed, likely because the token contract is compiled against a different EVM version. It's probably safe to continue without simulation."
       );
-      await askForConfirmation(
-        "Do you want to proceed with the deployment without simulation?"
-      );
+      if (!yes) {
+        await askForConfirmation(
+          "Do you want to proceed with the deployment without simulation?"
+        );
+      }
       out = await deploy(false);
     } else if (
       out.includes("OpcodeNotFound") ||
@@ -281,9 +284,11 @@ ${v1SigArgs} \
       console.error(
         "Simulation failed. Please read the error message carefully, and proceed with caution."
       );
-      await askForConfirmation(
-        "Do you want to proceed with the deployment without simulation?"
-      );
+      if (!yes) {
+        await askForConfirmation(
+          "Do you want to proceed with the deployment without simulation?"
+        );
+      }
       out = await deploy(false);
     }
   }

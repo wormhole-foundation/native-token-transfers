@@ -118,7 +118,8 @@ export async function deploy<N extends Network, C extends Chain>(
         evmVerify,
         managerVariant || "standard",
         gasEstimateMultiplier,
-        cclConfig
+        cclConfig,
+        yes
       );
     case "Solana": {
       if (solanaPayer === undefined || !fs.existsSync(solanaPayer)) {

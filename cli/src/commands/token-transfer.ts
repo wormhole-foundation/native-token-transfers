@@ -9,9 +9,11 @@ import {
   assertChain,
   chainToPlatform,
   chains,
+  encoding,
   isNetwork,
   networks,
   routes,
+  serialize,
 } from "@wormhole-foundation/sdk";
 import type {
   Chain,
@@ -664,6 +666,16 @@ async function executeTokenTransfer(
         console.log(
           `Attestation sequence: ${colors.cyan(vaa.sequence.toString())}`
         );
+        // Manual transfers are completed with `ntt manual redeem <vaa>`, which
+        // takes the hex-encoded VAA, so print it rather than making the user
+        // fetch it from Wormholescan.
+        if (argv.manual) {
+          const vaaHex = encoding.hex.encode(serialize(vaa));
+          console.log(`VAA: ${colors.cyan(vaaHex)}`);
+          console.log(
+            `Redeem with: ntt manual redeem ${vaaHex} --chain ${destinationChainInput} --network ${network} -p ${deploymentPath}`
+          );
+        }
       }
     } catch (error) {
       if (isRpcConnectionError(error)) {
