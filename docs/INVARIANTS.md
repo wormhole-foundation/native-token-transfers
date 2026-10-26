@@ -277,3 +277,13 @@
 - **Enforcement**: Assertions in encoding logic
 - **Error Codes**: `PayloadTooLong` (EVM)
 - **Code Reference**: `encodeTransceiverInstruction()` (EVM)
+
+## Outbound Message Controls
+
+### INV-032: Per-Transceiver Outbound Emission Uniqueness
+
+- **Invariant**: Each transceiver can only emit a given outbound message once
+- **Description**: Prevents duplicate message emission from the same transceiver for the same transfer. While inbound replay protection (INV-002) prevents double-spending on the receiving side, this invariant provides defense-in-depth by ensuring transceivers cannot re-emit messages on the sending side.
+- **Enforcement**: Released bitmap tracking per transceiver (Solana/Sui), transaction atomicity with queue deletion (EVM)
+- **Error Codes**: `MessageAlreadySent` (Solana), `EMessageAlreadySent` (Sui)
+- **Code Reference**: `OutboxItem.released` bitmap and `try_release()` (Solana/Sui), `completeOutboundQueuedTransfer()` queue deletion (EVM)
