@@ -20,6 +20,7 @@ Do not change the dependencies of the package.json by hand!
 Instead:
 
 - When initially installing OR pulling what has been changed: `bun ci`.
+  <!-- locked-in: ignore[bun-frozen-lockfile] -->
   If you do not do this, you may not get exactly what is specified in the file, inadvertently update dependencies, or even pull exploits down to your machine! **Never use `bun install` for this use case**.
 - When needing to add or update a package: `bun add <package>@<version>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.
 - When needing to remove a package: `bun remove <package>`. If you do not do this, you may inadvertently update other packages or fail to update the lock file.

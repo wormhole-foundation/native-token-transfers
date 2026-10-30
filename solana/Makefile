@@ -60,7 +60,7 @@ clean:
 	rm -rf .anchor node_modules
 
 node_modules:
-	bun install
+	bun install --frozen-lockfile
 
 
 #######################
