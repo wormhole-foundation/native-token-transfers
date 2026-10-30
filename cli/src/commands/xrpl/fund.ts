@@ -44,7 +44,7 @@ export function createXrplFundCommand(
         .option("tickets", {
           describe: "Ticket count to size the reserve for",
           type: "number",
-          default: 200,
+          default: 150,
         })
         .option("faucet", {
           describe: "Use the testnet/devnet faucet to fund --account",
