@@ -7,7 +7,7 @@
 
 > [!IMPORTANT]  
 > Identifying a missing invariant in an NTT implementation is not sufficient for claiming a bug bounty.
-> A real issue must be identified in line with the documented policy on ImmuneFi.
+> A real issue must be identified in line with the documented policy of the [Wormhole bug bounty program](https://bounty.wormhole.foundation/).
 
 ## Token Supply Conservation
 
